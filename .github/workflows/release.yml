@@ -30,7 +30,10 @@ jobs:
 
       # 6. Obtiene la versión del tag (ej: '1.0.5' desde 'v1.0.5')
       - name: 4. Extraer número de versión del tag
-        run: echo "TAG_VERSION=${GITHUB_REF_NAME#v}" >> $env:GITHUB_ENV
+        run: |
+          $TagName = $env:GITHUB_REF_NAME
+          $Version = $TagName.Substring(1)
+          echo "TAG_VERSION=$Version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       # 7. Compila tu aplicación (como lo hacías localmente)
       - name: 5. Publicar la aplicación (dotnet publish)
