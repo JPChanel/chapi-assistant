@@ -74,7 +74,7 @@ namespace Chapi.Views
         {
             InitializeComponent();
             DataContext = this;
-            _mgr = new UpdateManager(new SimpleWebSource(updateUrl));
+            _mgr = new UpdateManager(new GithubSource(updateUrl, null, false));
             _selectedProjectPath = selectedProjectPath;
             LoadCurrentInfo();
             LoadApiKey();
