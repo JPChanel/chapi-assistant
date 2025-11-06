@@ -1,0 +1,86 @@
+<UserControl x:Class="Chapi.Views.Dialogs.InfoDialog"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Chapi.Views.Dialogs"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="200" d:DesignWidth="400"
+             x:Name="Self"
+             MaxWidth="500">
+    <Border BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Width="5">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Variant, ElementName=Self}" Value="Success">
+                                <Setter Property="Background" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Variant, ElementName=Self}" Value="Error">
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesignErrorBrush}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Variant, ElementName=Self}" Value="Warning">
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesignWarningBrush}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Variant, ElementName=Self}" Value="Info">
+                                <Setter Property="Background" Value="{DynamicResource SecondaryHueMidBrush}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+            </Border>
+
+            <StackPanel Grid.Column="1" Margin="15">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Width="24" Height="24" VerticalAlignment="Center">
+                        <materialDesign:PackIcon.Style>
+                            <Style TargetType="materialDesign:PackIcon">
+                                <Setter Property="Kind" Value="InformationOutline" />
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryHueMidBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Variant, ElementName=Self}" Value="Success">
+                                        <Setter Property="Kind" Value="CheckCircleOutline"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Variant, ElementName=Self}" Value="Error">
+                                        <Setter Property="Kind" Value="AlertCircleOutline"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesignErrorBrush}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Variant, ElementName=Self}" Value="Warning">
+                                        <Setter Property="Kind" Value="AlertOutline"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesignWarningBrush}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Variant, ElementName=Self}" Value="Info">
+                                        <Setter Property="Kind" Value="InformationOutline"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource SecondaryHueMidBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </materialDesign:PackIcon.Style>
+                    </materialDesign:PackIcon>
+                    <TextBlock Text="{Binding Title, ElementName=Self}"
+                               FontSize="18" 
+                               FontWeight="Bold"
+                               Margin="10,0,0,0"/>
+                </StackPanel>
+
+                <TextBlock Text="{Binding Message, ElementName=Self}"
+                           TextWrapping="Wrap"
+                           Margin="0,15,0,20"/>
+
+                <Button Content="ACEPTAR" 
+                        Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        HorizontalAlignment="Right"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

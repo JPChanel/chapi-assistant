@@ -1,0 +1,217 @@
+﻿<Window x:Class="Chapi.Views.UpdateView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Servicios y Administración"
+        Width="850" Height="600"
+        Background="#f9fafb"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Servicios y Administración"
+                   FontSize="22" FontWeight="Bold" Foreground="#111827"
+                   Margin="24,24,0,20"/>
+
+        <Grid Grid.Row="1" Margin="24,0,24,24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" 
+                    Background="White" 
+                    CornerRadius="8" 
+                    BorderBrush="#e5e7eb" 
+                    BorderThickness="1"
+                    Margin="0,0,16,0">
+
+                <StackPanel x:Name="NavigationPanel" Margin="8">
+
+                    <StackPanel.Resources>
+                        <Style TargetType="RadioButton" x:Key="NavButtonStyle">
+                            <Setter Property="Padding" Value="12,10"/>
+                            <Setter Property="Margin" Value="4"/>
+                            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                            <Setter Property="FontSize" Value="14"/>
+                            <Setter Property="FontWeight" Value="Medium"/>
+                            <Setter Property="Foreground" Value="#374151"/>
+                            <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="6"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="RadioButton">
+                                        <Border Background="{TemplateBinding Background}"
+                                                CornerRadius="{Binding Path=(materialDesign:ButtonAssist.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}">
+                                            <ContentPresenter Margin="{TemplateBinding Padding}" 
+                                                              HorizontalAlignment="Left"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter Property="Background" Value="#4f46e5"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </Trigger>
+                                <MultiTrigger>
+                                    <MultiTrigger.Conditions>
+                                        <Condition Property="IsMouseOver" Value="True" />
+                                        <Condition Property="IsChecked" Value="False" />
+                                    </MultiTrigger.Conditions>
+                                    <Setter Property="Background" Value="#eef2ff"/>
+                                    <Setter Property="Foreground" Value="#374151"/>
+                                </MultiTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Resources>
+
+                    <RadioButton x:Name="NavButtonEstado"
+                                 GroupName="Navigation"
+                                 Style="{StaticResource NavButtonStyle}"
+                                 IsChecked="True"
+                                 Click="NavButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="DesktopTower" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Estado y Componente"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="NavButtonIA"
+                                 GroupName="Navigation"
+                                 Style="{StaticResource NavButtonStyle}"
+                                 Click="NavButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Sparkles" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Configuración IA"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="NavButtonRed"
+                                 GroupName="Navigation"
+                                 Style="{StaticResource NavButtonStyle}"
+                                 Click="NavButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="RouterNetwork" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Configuración Red"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Column="1">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid>
+                        <StackPanel x:Name="ViewEstadoComponente" Visibility="Visible">
+                        <Border Background="White" CornerRadius="8" Padding="24" BorderBrush="#e5e7eb" BorderThickness="1" Margin="0,0,0,20">
+                            <StackPanel>
+                                <TextBlock Text="Estado del Servicio" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,15"/>
+                                <DockPanel>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="12" Height="12" Margin="0,0,10,0" Fill="{Binding ServiceStatusBrush}"/>
+                                        <TextBlock Text="{Binding ServiceStatusText}" FontWeight="Bold"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button x:Name="btnReiniciar" Content="Reiniciar" Click="btnReiniciar_Click" Background="#f59e0b" BorderBrush="#f59e0b" Foreground="White" Padding="12,8" Margin="5,0" materialDesign:ButtonAssist.CornerRadius="6"/>
+                                        <Button x:Name="btnCerrarServicio" Content="Cerrar Servicio" Click="btnCerrarServicio_Click" Background="#ef4444" BorderBrush="#ef4444" Foreground="White" Padding="12,8" Margin="5,0" materialDesign:ButtonAssist.CornerRadius="6"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="White" CornerRadius="8" Padding="24" BorderBrush="#e5e7eb" BorderThickness="1" Margin="0,0,0,20">
+                            <StackPanel>
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="SyncCircle" Width="32" Height="32" Foreground="#a855f7" VerticalAlignment="Center"/>
+                                        <StackPanel Margin="15,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Actualizar Componente" FontWeight="SemiBold" FontSize="16" Foreground="Black"/>
+                                            <TextBlock x:Name="txtStatus" Text="Buscar nuevas versiones." Foreground="Gray" FontSize="12"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Button x:Name="btnCheckUpdate" Content="Buscar actualización" Click="btnCheckUpdate_Click" Background="#a855f7" BorderBrush="#a855f7" Foreground="White" Padding="12,8" Margin="10,0,0,0" HorizontalAlignment="Right" materialDesign:ButtonAssist.CornerRadius="6"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="White" CornerRadius="8" Padding="24" BorderBrush="#e5e7eb" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Información" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                                        <TextBlock Text="Versión del Componente:" Foreground="Gray" Margin="0,5"/>
+                                        <TextBlock Text="ID del Equipo:" Foreground="Gray" Margin="0,5"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock x:Name="txtCurrentVersion" FontWeight="Medium" Margin="0,5"/>
+                                        <TextBlock x:Name="txtMachineId" FontWeight="Medium" Margin="0,5"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Button x:Name="btnDeveloperPublish" Content="Generar Paquete de Instalación (Chapi)" Foreground="White" Style="{StaticResource MaterialDesignRaisedDarkButton}" materialDesign:ButtonAssist.CornerRadius="6" Margin="0,20,0,0" Visibility="Collapsed" Click="btnDeveloperPublish_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel x:Name="ViewConfiguracionIA" Visibility="Collapsed">
+                        <Border Background="White" CornerRadius="8" Padding="24" BorderBrush="#e5e7eb" BorderThickness="1" Margin="0,0,0,20">
+                            <StackPanel>
+                                <TextBlock Text="Configuración de IA" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10"/>
+                                <TextBlock Text="API Key (Gemini):" Foreground="Gray" Margin="0,5"/>
+                                <Grid>
+                                    <PasswordBox x:Name="txtApiKey" materialDesign:HintAssist.Hint="Ingresa tu API Key aquí..." Style="{StaticResource MaterialDesignOutlinedPasswordBox}" Margin="0,5,0,10" VerticalAlignment="Top"/>
+                                    <TextBox x:Name="txtApiKey_Visible" materialDesign:HintAssist.Hint="Ingresa tu API Key aquí..." Style="{StaticResource MaterialDesignOutlinedTextBox}" Margin="0,5,0,10" VerticalAlignment="Top" Visibility="Collapsed"/>
+                                    <CheckBox x:Name="chkShowApiKey" Style="{StaticResource MaterialDesignIconForegroundButton}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" Checked="chkShowApiKey_Checked" Unchecked="chkShowApiKey_Unchecked">
+                                        <materialDesign:PackIcon Kind="Eye" />
+                                    </CheckBox>
+                                </Grid>
+                                <TextBlock Margin="0,0,0,16">
+                                    <Run Text="Estado: "/>
+                                    <Run Text="{Binding ApiKeyStatusText, Mode=OneWay}" FontWeight="Bold" Foreground="{Binding ApiKeyStatusBrush, Mode=OneWay}"/>
+                                </TextBlock>
+                                <Button x:Name="btnSaveApiKey" Content="{Binding ApiKeyButtonText}" Click="btnSaveApiKey_Click" Background="#0ea5e9" BorderBrush="#0ea5e9" Foreground="White" Padding="12,8" Margin="5,0" materialDesign:ButtonAssist.CornerRadius="6" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel x:Name="ViewConfiguracionRed" Visibility="Collapsed">
+                        <Border Background="White" CornerRadius="8" Padding="24" BorderBrush="#e5e7eb" BorderThickness="1" Margin="0,20,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Configuración de Red (Git)" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10"/>
+                                <CheckBox x:Name="chkUseProxy" Content="Usar un proxy para operaciones de Git" FontWeight="Medium" Checked="chkUseProxy_Toggled" Unchecked="chkUseProxy_Toggled"/>
+                                <TextBlock Text="Dirección del Proxy (ej: proxy.miempresa.com:8080)" Foreground="Gray" Margin="0,10,0,5"/>
+                                <TextBox x:Name="txtProxyUrl" materialDesign:HintAssist.Hint="proxy.miempresa.com:8080" Style="{StaticResource MaterialDesignOutlinedTextBox}" Margin="0,0,0,10"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,5,0">
+                                        <TextBlock Text="Usuario (Opcional)" Foreground="Gray" Margin="0,0,0,5"/>
+                                        <TextBox x:Name="txtProxyUser" Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                        <TextBlock Text="Contraseña (Opcional)" Foreground="Gray" Margin="0,0,0,5"/>
+                                        <PasswordBox x:Name="txtProxyPass" Style="{StaticResource MaterialDesignOutlinedPasswordBox}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Button x:Name="btnSaveProxy" Content="Guardar Configuración de Red" Click="btnSaveProxy_Click" Style="{StaticResource MaterialDesignRaisedButton}" Background="#0ea5e9" BorderBrush="#0ea5e9" Foreground="White" Padding="12,8" Margin="5,16,0,0" materialDesign:ButtonAssist.CornerRadius="6" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

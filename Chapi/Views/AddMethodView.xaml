@@ -1,0 +1,303 @@
+<Window x:Class="Chapi.Views.AddMethodView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="Agregar Método"
+        Width="850"
+SizeToContent="Height" MaxHeight="800"
+        MinWidth="750"
+        WindowStartupLocation="CenterScreen"
+        
+        Background="#F9FBFD">
+
+    <Grid  Margin="20"
+      VerticalAlignment="Top"
+      HorizontalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Header -->
+            <RowDefinition Height="*"/>
+            <!-- Contenido con Scroll -->
+            <RowDefinition Height="Auto"/>
+            <!-- Footer -->
+        </Grid.RowDefinitions>
+
+        <!-- 🧱 HEADER -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Títulos -->
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <TextBlock Text="🚀 Agregar Método"
+                   FontSize="28"
+                   FontWeight="SemiBold"
+              
+                   Margin="0,0,0,2"/>
+                <TextBlock Text="Genera métodos automáticamente con o sin asistencia de IA"
+                   Foreground="#8899AA"
+                   FontSize="13"
+                   FontStyle="Italic"/>
+            </StackPanel>
+
+            <!-- Checkbox moderno -->
+            <Border Grid.Column="1"
+            CornerRadius="6"
+            Background="#F5F8FF"
+            Padding="10,6"
+            VerticalAlignment="Center"
+            Margin="8,0,0,0"
+            BorderBrush="#D0E3FF"
+            BorderThickness="1">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <CheckBox x:Name="chkUseIA"
+                      VerticalAlignment="Center"
+                      Checked="chkUseIA_Checked"
+                      Unchecked="chkUseIA_Unchecked">
+                        <CheckBox.Content>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🤖"
+                                   FontSize="16"
+                                   Margin="0,0,6,0"/>
+                                <TextBlock Text="Modo Avanzado (IA)"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="#2E8BFF"/>
+                            </StackPanel>
+                        </CheckBox.Content>
+                    </CheckBox>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- 🧭 CONTENIDO SCROLLEABLE -->
+        <ScrollViewer Grid.Row="1"
+              VerticalScrollBarVisibility="Auto"
+              HorizontalScrollBarVisibility="Disabled"
+              PanningMode="Both"
+              CanContentScroll="True"
+              ScrollViewer.IsDeferredScrollingEnabled="True">
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- PANEL MANUAL -->
+                <StackPanel x:Name="methotPanel" Margin="10" Grid.Row="0">
+                    <Grid Margin="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Configuración Básica -->
+                        <GroupBox Header="📋 Configuración Básica"
+                                  Grid.Column="0"
+                                  Margin="0,0,0,15"
+                                  Style="{StaticResource MaterialDesignCardGroupBox}">
+                            <StackPanel Margin="15">
+                                <TextBox x:Name="txtModulo"
+                                         materialDesign:HintAssist.Hint="Nombre del Módulo (ej: Producto)"
+                                         Margin="0,0,0,10"
+                                         FontSize="14"/>
+                                <TextBox x:Name="txtMetodo"
+                                         materialDesign:HintAssist.Hint="Nombre del Método (opcional)"
+                                         Margin="0,0,0,10"
+                                         FontSize="14"/>
+                                <ComboBox x:Name="cbobd"
+                                          materialDesign:HintAssist.Hint="Base de Datos"
+                                          FontSize="14">
+                                    <ComboBoxItem Content="Postgres"/>
+                                    <ComboBoxItem Content="Sybase"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Operaciones HTTP -->
+                        <GroupBox Header="🌐 Operaciones HTTP"
+                                  Grid.Column="2"
+                                  Style="{StaticResource MaterialDesignCardGroupBox}" Margin="0,0,0,15">
+                            <StackPanel Margin="10">
+                                <CheckBox x:Name="checkPost"
+                                          Content="POST - Crear/Ejecutar"
+                                          Margin="0,5"/>
+                                <CheckBox x:Name="checkGet"
+                                          Content="GET - Búsqueda/Listar (Search)"
+                                          Margin="0,5"/>
+                                <CheckBox x:Name="checkGetById"
+                                          Content="GET by ID - Buscar por código (Find)"
+                                          Margin="0,5"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </Grid>
+                </StackPanel>
+
+                <!-- PANEL IA -->
+                <StackPanel x:Name="iaPanel" Margin="10" Grid.Row="1" Visibility="Collapsed">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 🧠 Ayuda -->
+                        <Border Grid.Row="0"
+                                Background="#E3F2FD"
+                                Padding="15"
+                                CornerRadius="5"
+                                Margin="10">
+                            <StackPanel>
+                                <TextBlock Text="💡 ¿Cómo funciona?"
+                                           FontWeight="Bold"
+                                           FontSize="14"
+                                           Margin="0,0,0,5"/>
+                                <TextBlock Text="Pega el correo con el detalle del procedimiento almacenado y deja que la IA analice los parámetros y genere automáticamente las capas necesarias."
+                                           TextWrapping="Wrap"
+                                           FontSize="12"
+                                           Foreground="#555"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Panel de Contenido -->
+                        <Grid Grid.Row="1">
+
+                            <!-- 📥 Panel Input -->
+                            <Grid x:Name="panelInput" Visibility="Visible">
+                              
+                                    <StackPanel Margin="20" >
+                                        <GroupBox Header="📧 Correo Técnico"
+                                                  Style="{StaticResource MaterialDesignCardGroupBox}">
+                                            <StackPanel Margin="15">
+                                                <TextBlock Text="Pegue aquí el correo con la definición del SP:"
+                                                           Margin="0,0,0,10"
+                                                           Foreground="#666"/>
+                                                <TextBox x:Name="txtEmailContent"
+                                                         TextWrapping="Wrap"
+                                                         AcceptsReturn="True"
+                                                         VerticalScrollBarVisibility="Auto"
+                                                         MinHeight="300"
+                                                         FontFamily="Consolas"
+                                                         FontSize="12"
+                                                         materialDesign:HintAssist.Hint="Ejemplo: El SP se llama sp_buscar_productos, recibe @codigo int, @nombre varchar(50)..."/>
+                                                <Button x:Name="btnAnalyze"
+                                                        Content="🔍 Analizar con IA"
+                                                        Margin="0,15,0,0"
+                                                        Click="btnAnalyze_Click"
+                                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                                        Height="40"/>
+                                            </StackPanel>
+                                        </GroupBox>
+                                    </StackPanel>
+                               
+                            </Grid>
+
+                            <!-- ⏳ Panel Analizando -->
+                            <Grid x:Name="panelAnalyzing" Visibility="Collapsed">
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
+                                                 IsIndeterminate="True"
+                                                 Width="60"
+                                                 Height="60"/>
+                                    <TextBlock Text="🤖 Analizando con IA..."
+                                               FontSize="16"
+                                               Margin="0,20,0,0"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock x:Name="txtAnalyzingStatus"
+                                               Text="Extrayendo información..."
+                                               FontSize="12"
+                                               Foreground="#666"
+                                               Margin="0,10,0,0"
+                                               HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- 📄 Panel Resultados -->
+                            <ScrollViewer x:Name="panelResult"
+                                          Visibility="Collapsed"
+                                          VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="20">
+                                    <GroupBox Header="📦 Resultado del Análisis"
+                                              Style="{StaticResource MaterialDesignCardGroupBox}">
+
+                                        <StackPanel Margin="10">
+                                            <TextBlock Text="✅ Análisis Completado" Foreground="White" FontSize="16" FontWeight="Bold"/>
+                                            <TextBlock Text="Revise y edite los campos generados antes de confirmar" Foreground="White" FontSize="12" Margin="0,5,0,0"/>
+                                            <!-- Sección 1: Stored Procedure -->
+                                            <Expander Header="🗄️ Stored Procedure" IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                                <StackPanel Margin="15">
+                                                    <TextBox x:Name="txtSPName" materialDesign:HintAssist.Hint="Nombre del SP" Margin="0,0,0,10" FontFamily="Consolas"/>
+                                                    <TextBlock Text="Ejemplo: sp_buscar_productos, pr_listar_clientes" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
+                                                </StackPanel>
+                                            </Expander>
+                                            <!-- Sección 2: Request (Parámetros de entrada) -->
+                                            <Expander Header="📥 Request - Parámetros de Entrada" IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                                <StackPanel Margin="15">
+                                                    <TextBlock Text="Formato: tipo nombre (uno por línea)" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
+                                                    <TextBox x:Name="txtRequestParams" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="120" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo:&#x0a;int Codigo&#x0a;string Nombre&#x0a;DateTime? FechaInicio"/>
+                                                </StackPanel>
+                                            </Expander>
+                                            <!-- Sección 3: Parameters (Parámetros de entrada) -->
+                                            <Expander Header="📥 Parseo Parámetros de Entrada" IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                                <StackPanel Margin="15">
+                                                    <TextBlock Text="Formato: tipo nombre (uno por línea)" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
+                                                    <TextBox x:Name="txtParameters" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="120" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo:&#x0a;int Codigo&#x0a;string Nombre&#x0a;DateTime? FechaInicio"/>
+                                                </StackPanel>
+                                            </Expander>
+                                            <!-- Sección 4: DTO (Estructura de base de datos) -->
+                                            <Expander Header="💾 DTO - Campos del SP" IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                                <StackPanel Margin="15">
+                                                    <TextBlock Text="Campos que retorna la base de datos" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
+                                                    <TextBox x:Name="txtDTOFields" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo:&#x0a;int pro_codigo&#x0a;string pro_nombre&#x0a;decimal pro_precio"/>
+                                                </StackPanel>
+                                            </Expander>
+                                            <!-- Sección 4: Response Mapper -->
+                                            <Expander Header="📤 Response - Mapeo de Salida" IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                                <StackPanel Margin="15">
+                                                    <TextBlock Text="Mapeo: campoDTO → propiedadAPI (formato JSON)" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
+                                                    <TextBox x:Name="txtResponseMapper" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo (objeto anónimo):&#x0a;codigo = dto.pro_codigo,&#x0a;nombre = dto.pro_nombre,&#x0a;precio = dto.pro_precio"/>
+                                                </StackPanel>
+                                            </Expander>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- 🦶 FOOTER -->
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,15,0,0">
+            <Button x:Name="btnCancelar"
+                    Content="Cancelar"
+                    Width="110"
+                    Margin="0,0,10,0"
+                    Click="btnCancelar_Click"
+                    Style="{StaticResource MaterialDesignFlatButton}"/>
+            <Button x:Name="btnVolverAnalizar" Content="↩️ Volver a Analizar" 
+                    Click="btnBackToInput_Click" 
+                    Style="{StaticResource MaterialDesignFlatButton}" 
+                    Margin="0,0,10,0" Visibility="Collapsed"/>
+
+            <Button x:Name="btnCrear"
+                    Content="Crear Método"
+                    Width="140"
+                    Click="btnCrear_Click"
+                    Style="{StaticResource MaterialDesignRaisedButton}"/>
+        </StackPanel>
+    </Grid>
+</Window>
