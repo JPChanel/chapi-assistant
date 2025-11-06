@@ -1,0 +1,48 @@
+name: Publicar Nueva Versión de Chapi
+
+# 1. DISPARADOR:
+# Esto solo se ejecuta cuando subes un tag que empieza con "v"
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Ej: v1.0.5
+
+jobs:
+  build-and-release:
+    # 2. MÁQUINA VIRTUAL:
+    # Usamos un servidor de Windows (¡esto es lo que GitLab no te daba gratis!)
+    runs-on: windows-latest
+
+    steps:
+      # 3. Trae tu código fuente
+      - name: 1. Obtener el código
+        uses: actions/checkout@v3
+
+      # 4. Instala el SDK de .NET 8
+      - name: 2. Instalar .NET 8
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      # 5. Instala la herramienta VeloPack
+      - name: 3. Instalar VPK (VeloPack CLI)
+        run: dotnet tool install -g vpk
+
+      # 6. Obtiene la versión del tag (ej: '1.0.5' desde 'v1.0.5')
+      - name: 4. Extraer número de versión del tag
+        run: echo "TAG_VERSION=${GITHUB_REF_NAME#v}" >> $env:GITHUB_ENV
+
+      # 7. Compila tu aplicación (como lo hacías localmente)
+      - name: 5. Publicar la aplicación (dotnet publish)
+        run: dotnet publish Chapi/Chapi.csproj -c Release --self-contained -r win-x64 -o ".\publish-output" /p:Version=${{ env.TAG_VERSION }}
+
+      # 8. Empaqueta con VeloPack (como lo hacías localmente)
+      - name: 6. Empaquetar con VeloPack (vpk pack)
+        run: vpk pack --packId ChapiAssistant --packVersion ${{ env.TAG_VERSION }} --packDir ".\publish-output" --mainExe Chapi.exe -o ".\public"
+
+      # 9. Sube los binarios al Release de GitHub
+      - name: 7. Subir binarios al Release (vpk upload)
+        env:
+          # ¡Importante! Pasa tu token de GitHub como un secreto
+          GITHUB_TOKEN: ${{ secrets.CHAPI_RELEASE_TOKEN }} 
+        run: vpk upload github --repoUrl ${{ github.repositoryUrl }} --releaseDir ".\public" --token $env:GITHUB_TOKEN
