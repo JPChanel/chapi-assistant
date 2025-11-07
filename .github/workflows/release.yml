@@ -41,11 +41,13 @@ jobs:
 
       # 8. Empaqueta con VeloPack (como lo hacías localmente)
       - name: 6. Empaquetar con VeloPack (vpk pack)
-        run: vpk pack --packId ChapiAssistant --packVersion ${{ env.TAG_VERSION }} --packDir ".\publish-output" --mainExe Chapi.exe -o ".\public"
+        run: vpk pack --packId ChapiAssistant --packVersion ${{ env.TAG_VERSION }} --packDir ".\publish-output" --mainExe Chapi.exe -o "Releases"
 
       # 9. Sube los binarios al Release de GitHub
       - name: 7. Subir binarios al Release (vpk upload)
+        shell: pwsh
         env:
-          # ¡Importante! Pasa tu token de GitHub como un secreto
           GITHUB_TOKEN: ${{ secrets.CHAPI_RELEASE_TOKEN }} 
-        run: vpk upload github --repoUrl ${{ github.repositoryUrl }} --releaseDir ".\public" --token $env:GITHUB_TOKEN
+          REPO_URL: https://github.com/JPChanel/chapi-assistant
+        run: vpk upload github --repoUrl="$env:REPO_URL" --token="$env:GITHUB_TOKEN" --releaseName="Chapi v${env:TAG_VERSION}" --tag="v${env:TAG_VERSION}" --publish
+
