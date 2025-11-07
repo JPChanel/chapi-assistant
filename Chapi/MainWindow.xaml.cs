@@ -84,7 +84,7 @@ namespace Chapi
             try
             {
 
-                var mgr = new UpdateManager(new SimpleWebSource(updateUrl));
+                var mgr = new UpdateManager(new GithubSource(updateUrl, null, false));
                 var info = await mgr.CheckForUpdatesAsync();
                 if (info == null)
                 {
