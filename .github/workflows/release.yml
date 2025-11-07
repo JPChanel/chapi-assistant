@@ -47,7 +47,7 @@ jobs:
       - name: 7. Subir binarios al Release (vpk upload)
         shell: pwsh
         env:
-          GITHUB_TOKEN: ${{ secrets.CHAPI_RELEASE_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }} 
           REPO_URL: https://github.com/JPChanel/chapi-assistant
         run: vpk upload github --repoUrl="$env:REPO_URL" --token="$env:GITHUB_TOKEN" --releaseName="Chapi v${env:TAG_VERSION}" --tag="v${env:TAG_VERSION}" --publish
 
