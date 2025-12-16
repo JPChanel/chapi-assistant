@@ -10,19 +10,29 @@ namespace Chapi.Helper.Roslyn;
 
 public class AddDomainMethod
 {
-    public static async Task<RollbackEntry> Add(string modulePath, string moduleName, string operation, string methodName, RollbackManager.RollbackEntry rollbackEntry = null, SPAnalysisResult? aiResult = null)
+    public static async Task<RollbackEntry> Add(string modulePath, string moduleName, string operation, string methodName, RollbackManager.RollbackEntry rollbackEntry = null, SPAnalysisResult? aiResult = null, bool useGenericInterface = false)
     {
 
         string entitiesPath = Path.Combine(modulePath, "Entities");
         string interfacesPath = Path.Combine(modulePath, "Interfaces");
 
         Directory.CreateDirectory(entitiesPath);
-        Directory.CreateDirectory(interfacesPath);
+        if (!useGenericInterface) Directory.CreateDirectory(interfacesPath);
+        
         operation = operation == "Get" ? "Search" : operation == "GetById" ? "Find" : operation;
 
         Msg.Assistant($"🔧 Agregando '{operation}' en Domain.{methodName}...");
 
-        string ns = $"Domain.{moduleName}";
+        string ns = $"Domain.{moduleName.Replace(Path.DirectorySeparatorChar, '.').Replace(Path.AltDirectorySeparatorChar, '.')}";
+
+        // Asegurar que methodName no tenga rutas si viene sucio
+        var cleanMethodName = methodName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
+        if (cleanMethodName != methodName) 
+        {
+             // Si el metodo venia con ruta, usamos solo el nombre final
+             methodName = cleanMethodName; 
+             Msg.Assistant($"⚠️ Nombre de método saneado a: {methodName}");
+        }
 
         // Preparar nombres
         string interfaceName = "";
@@ -81,6 +91,11 @@ public class AddDomainMethod
             }
         }
 
+        if (useGenericInterface) 
+        {
+            return rollbackEntry; // Si usamos genéricos, no creamos interfaces específicas
+        }
+        
         string interfacePath = Path.Combine(interfacesPath, $"{interfaceName}.cs");
         // 📝 REGISTRAR CAMBIOS EN INTERFAZ
         bool interfaceExisted = File.Exists(interfacePath);
@@ -109,6 +124,8 @@ public class AddDomainMethod
             // Crear interfaz si no existe
             File.WriteAllText(filePath, $@"using {@namespace}.Entities; 
             using Domain.Shared.Entities;
+            using Domain.Shared.Entities.Responses;
+            
             namespace {@namespace}.Interfaces;
             public interface {interfaceName}
             {{

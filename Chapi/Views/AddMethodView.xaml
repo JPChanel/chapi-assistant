@@ -99,32 +99,57 @@ SizeToContent="Height" MaxHeight="800"
                         </Grid.ColumnDefinitions>
 
                         <!-- Configuración Básica -->
-                        <GroupBox Header="📋 Configuración Básica"
-                                  Grid.Column="0"
-                                  Margin="0,0,0,15"
-                                  Style="{StaticResource MaterialDesignCardGroupBox}">
-                            <StackPanel Margin="15">
-                                <TextBox x:Name="txtModulo"
-                                         materialDesign:HintAssist.Hint="Nombre del Módulo (ej: Producto)"
-                                         Margin="0,0,0,10"
-                                         FontSize="14"/>
-                                <TextBox x:Name="txtMetodo"
-                                         materialDesign:HintAssist.Hint="Nombre del Método (opcional)"
-                                         Margin="0,0,0,10"
-                                         FontSize="14"/>
-                                <ComboBox x:Name="cbobd"
-                                          materialDesign:HintAssist.Hint="Base de Datos"
-                                          FontSize="14">
-                                    <ComboBoxItem Content="Postgres"/>
-                                    <ComboBoxItem Content="Sybase"/>
-                                </ComboBox>
-                            </StackPanel>
-                        </GroupBox>
+                        <StackPanel Grid.Column="0">
+                             <!-- Estilo de API -->
+                             <GroupBox Header="🏗️ Estilo de API"
+                                       Margin="0,0,0,15"
+                                       Style="{StaticResource MaterialDesignCardGroupBox}">
+                                 <StackPanel Margin="10">
+                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                         <RadioButton x:Name="rbController"
+                                                      Content="Controller (Clásico)"
+                                                      Margin="0,0,15,0"
+                                                      IsChecked="True"
+                                                      GroupName="ApiStyle"/>
+                                         <RadioButton x:Name="rbEndpoint"
+                                                      Content="Endpoint (Ardalis)"
+                                                      GroupName="ApiStyle"/>
+                                     </StackPanel>
+                                     
+                                     <CheckBox x:Name="chkIncludeAppLayer"
+                                               Content="Incluir Capa Aplicación (Service)"
+                                               IsChecked="False"
+                                               ToolTip="Si se marca, el Endpoint llamará a un servicio de Aplicación."/>
+                                 </StackPanel>
+                             </GroupBox>
+
+                            <GroupBox Header="📋 Configuración Básica"
+                                      Style="{StaticResource MaterialDesignCardGroupBox}">
+                                <StackPanel Margin="15">
+                                    <ComboBox x:Name="cboModulo"
+                                          materialDesign:HintAssist.Hint="Seleccione o Escriba Módulo"
+                                          IsEditable="True"
+                                          Margin="0,0,0,10"
+                                          FontSize="14"/>
+                                    
+                                    <TextBox x:Name="txtMetodo"
+                                             materialDesign:HintAssist.Hint="Nombre del Método (opcional)"
+                                             Margin="0,0,0,10"
+                                             FontSize="14"/>
+                                    <ComboBox x:Name="cbobd"
+                                              materialDesign:HintAssist.Hint="Base de Datos"
+                                              FontSize="14">
+                                        <ComboBoxItem Content="Postgres"/>
+                                        <ComboBoxItem Content="Sybase"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </GroupBox>
+                        </StackPanel>
 
                         <!-- Operaciones HTTP -->
                         <GroupBox Header="🌐 Operaciones HTTP"
                                   Grid.Column="2"
-                                  Style="{StaticResource MaterialDesignCardGroupBox}" Margin="0,0,0,15">
+                                  Style="{StaticResource MaterialDesignCardGroupBox}" VerticalAlignment="Top">
                             <StackPanel Margin="10">
                                 <CheckBox x:Name="checkPost"
                                           Content="POST - Crear/Ejecutar"

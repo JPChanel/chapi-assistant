@@ -33,7 +33,12 @@ public class RollbackManager
     {
         Directory.CreateDirectory(RollbackDirectory);
         var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        var fileName = $"rollback_{module}_{methodName}_{operation}_{timestamp}.json";
+        
+        // Sanitizar nombres para evitar rutas inválidas
+        var safeModule = module.Replace(Path.DirectorySeparatorChar, '_').Replace(Path.AltDirectorySeparatorChar, '_');
+        var safeMethod = methodName.Replace(Path.DirectorySeparatorChar, '_').Replace(Path.AltDirectorySeparatorChar, '_');
+        
+        var fileName = $"rollback_{safeModule}_{safeMethod}_{operation}_{timestamp}.json";
         return Path.Combine(RollbackDirectory, fileName);
     }
 
@@ -127,6 +132,10 @@ public class RollbackManager
                         {
                             File.Delete(change.FilePath);
                             Msg.Assistant($"  ✓ Eliminado: {Path.GetFileName(change.FilePath)}");
+                            
+                            // Limpiar directorios vacíos
+                            var dir = Path.GetDirectoryName(change.FilePath);
+                            RecursivelyDeleteEmptyDirectories(dir);
                         }
                         break;
 
@@ -232,6 +241,30 @@ public class RollbackManager
                 File.Delete(file);
                 Msg.Assistant($"🗑️ Rollback antiguo eliminado: {Path.GetFileName(file)}");
             }
+        }
+    }
+
+    // ✅ RECURSIVAMENTE ELIMINAR DIRECTORIOS VACÍOS
+    private static void RecursivelyDeleteEmptyDirectories(string directoryPath)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(directoryPath) || !Directory.Exists(directoryPath))
+                return;
+
+            if (!Directory.EnumerateFileSystemEntries(directoryPath).Any())
+            {
+                Directory.Delete(directoryPath);
+                Msg.Assistant($"  🗑️ Carpeta vacía eliminada: {Path.GetFileName(directoryPath)}");
+                
+                // Intentar eliminar el padre también
+                var parent = Directory.GetParent(directoryPath)?.FullName;
+                RecursivelyDeleteEmptyDirectories(parent);
+            }
+        }
+        catch
+        {
+            // Ignorar errores al borrar carpetas (permisos, etc.)
         }
     }
 }
