@@ -94,11 +94,8 @@ namespace Chapi
                     return;
                 }
 
-                Msg.Assistant($"Descargando actualización v{info.TargetFullRelease.Version}...");
-                await mgr.DownloadUpdatesAsync(info);
-
-                Msg.Assistant("✅ Actualización descargada. Chapi se reiniciará ahora.");
-                mgr.ApplyUpdatesAndRestart(info);
+                // Solo notificar, NO descargar automáticamente
+                Msg.Assistant($"📢 Nueva versión v{info.TargetFullRelease.Version} disponible. Ve a Configuración (click en el logo) para actualizar.");
             }
             catch (Exception ex)
             {
