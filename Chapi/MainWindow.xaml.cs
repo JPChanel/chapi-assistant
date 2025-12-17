@@ -11,10 +11,12 @@ using Chapi.Views.Dialogs;
 using DiffPlex.DiffBuilder;
 using DiffPlex.DiffBuilder.Model;
 using MaterialDesignThemes.Wpf;
+using Microsoft.VisualBasic;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -277,6 +279,19 @@ namespace Chapi
                             var defaultBranch = branches.FirstOrDefault(b => b.Contains("master") || b.Contains("main")) ?? branches.First();
                             _currentlySelectedBranch = defaultBranch;
                             BranchesComboBox.SelectedItem = defaultBranch;
+                        }
+                    }
+                    else
+                    {
+                        string activeBranch = await Git.GetCurrentBranch(projectDirectory);
+                        if (!string.IsNullOrEmpty(activeBranch))
+                        {
+                            branches.Add(activeBranch); 
+                            BranchesComboBox.ItemsSource = null; // Refrescar binding
+                            BranchesComboBox.ItemsSource = branches;
+                            
+                            _currentlySelectedBranch = activeBranch;
+                            BranchesComboBox.SelectedItem = activeBranch;
                         }
                     }
 
@@ -1832,6 +1847,35 @@ namespace Chapi
             }
         }
 
+        private  void ProjectMenuItem_OpenAntigravity_Click(object sender, RoutedEventArgs e)
+        {
+            string path = GetPathFromMenuItem(sender);
+            if (string.IsNullOrEmpty(path)) return;
+            bool isWslPath = path.StartsWith(@"\\wsl$") || path.StartsWith(@"\\wsl.localhost");
+            try
+            {
+                if (isWslPath)
+                {
+                     DialogService.ShowConfirmDialog("Advertencia", "Antygravity aun no soporta abrir proyectos en WSL, se recomienda abrir con Visual Studio Code", DialogVariant.Warning, DialogType.Info);
+                }
+                else
+                {
+                    // --- Caso Windows (Normal) ---
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "antigravity", // Ejecuta 'antigravity' en Windows
+                        Arguments = $"\"{path}\"",
+                        UseShellExecute = true,
+                        CreateNoWindow = true
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                DialogService.ShowTrayNotification("Error", $"No se pudo iniciar Antigravity: {ex.Message}");
+            }
+        }
+
         private void ProjectMenuItem_OpenExplorer_Click(object sender, RoutedEventArgs e)
         {
             string path = GetPathFromMenuItem(sender);
@@ -2726,6 +2770,52 @@ namespace Chapi
 
                 // 4. Refrescar la lista de tags
                 await LoadTagsAsync();
+            });
+        }
+        private async void Branch_Create_Click(object sender, RoutedEventArgs e)
+        {
+            // 1. Obtener la rama base desde donde se crea
+            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string sourceBranch)
+                return;
+
+            if (!ValidateProject()) return;
+
+
+            // 2. Pedir nombre de la nueva Rama
+            var (okBranch, newBranchName) = await DialogService.ShowInputDialog("Crear Rama", $"Ingrese el nombre de la nueva rama (basada en '{sourceBranch}'):");
+            if (!okBranch || string.IsNullOrWhiteSpace(newBranchName)) return;
+
+            await RunWithLoading(async () =>
+            {
+                Msg.Assistant($"Creando rama '{newBranchName}' desde '{sourceBranch}'...");
+
+                // 3. Ejecutar comando Git
+                // "git branch <new_branch> <start_point>"
+                var result = await Git.EjecutarGit($"branch {newBranchName} {sourceBranch}", projectDirectory);
+
+                if (result.Contains("fatal:") || result.Contains("error:"))
+                {
+                    Msg.Assistant($"Error al crear rama: {result}");
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo crear la rama:\n{result}", DialogVariant.Error, DialogType.Info);
+                    return;
+                }
+
+                Msg.Assistant($"✅ Rama '{newBranchName}' creada correctamente.");
+
+                // 4. Refrescar la lista de ramas
+                var branches = Git.GetBranches(projectDirectory);
+                BranchesComboBox.ItemsSource = branches;
+
+                // 5. Preguntar si quiere cambiarse a la nueva rama
+                var checkout = await DialogService.ShowConfirmDialog("Rama Creada",
+                    $"La rama '{newBranchName}' se creó correctamente.\n\n¿Quieres cambiarte (checkout) a esta rama ahora?",
+                    DialogVariant.Info, DialogType.Confirm);
+
+                if (checkout)
+                {
+                    // Esto disparará el evento SelectionChanged y hará el checkout real
+                    BranchesComboBox.SelectedItem = newBranchName;
+                }
             });
         }
         private async void Branch_Delete_Click(object sender, RoutedEventArgs e)
