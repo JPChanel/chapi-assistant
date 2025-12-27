@@ -3,6 +3,7 @@ using Chapi.Helper.UserSettings;
 using Chapi.Services;
 using Chapi.Views.Dialogs;
 using MaterialDesignThemes.Wpf;
+using Microsoft.Win32;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -27,6 +28,11 @@ namespace Chapi.Views
         private UpdateInfo _updateInfo;
         private string _selectedProjectPath;
         private string updateUrl = App.Configuration["AppConfig:UpdateUrl"] ?? throw new Exception("No se encontro Url Updater");
+
+        // Campos para el conversor de imágenes
+        private readonly ImageConverterService _imageConverterService;
+        private List<string> _selectedImageFiles = new();
+        private string _imageOutputFolder = string.Empty;
 
         private bool _isServiceActive = false;
         public bool IsServiceActive
@@ -85,6 +91,9 @@ namespace Chapi.Views
             NetworkWatcherService.OnProxyConfigChanged += NetworkWatcher_OnProxyConfigChanged;
             this.Closing += UpdateView_Closing;
             LoadProxySettings();
+
+            // Inicializar conversor de imágenes
+            _imageConverterService = new ImageConverterService();
         }
         /// <summary>
         /// Se dispara cuando el Watcher (en segundo plano) cambia la config de Git.
@@ -110,6 +119,7 @@ namespace Chapi.Views
             ViewEstadoComponente.Visibility = Visibility.Collapsed;
             ViewConfiguracionIA.Visibility = Visibility.Collapsed;
             ViewConfiguracionRed.Visibility = Visibility.Collapsed;
+            ViewOptimizadorWebP.Visibility = Visibility.Collapsed;
 
             // Mostrar la vista seleccionada
             if (sender == NavButtonEstado)
@@ -118,6 +128,8 @@ namespace Chapi.Views
                 ViewConfiguracionIA.Visibility = Visibility.Visible;
             else if (sender == NavButtonRed)
                 ViewConfiguracionRed.Visibility = Visibility.Visible;
+            else if (sender == NavButtonImageConverter)
+                ViewOptimizadorWebP.Visibility = Visibility.Visible;
         }
         /// <summary>
         /// Carga la información de la tarjeta "Información"
@@ -547,5 +559,196 @@ namespace Chapi.Views
             }
            
         }
+
+        #region Conversor de Imágenes WebP
+
+        public class ImageResultItem
+        {
+            public string FileName { get; set; } = string.Empty;
+            public string SizeInfo { get; set; } = string.Empty;
+            public string Reduction { get; set; } = string.Empty;
+        }
+
+        private void btnSelectImages_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Seleccionar Imágenes",
+                Filter = "Imágenes|*.png;*.jpg;*.jpeg|Todos los archivos|*.*",
+                Multiselect = true
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                // Filtrar solo archivos con extensiones válidas
+                _selectedImageFiles = dialog.FileNames
+                    .Where(f => ImageConverterService.IsSupportedImage(f))
+                    .ToList();
+
+                if (_selectedImageFiles.Count == 0)
+                {
+                    MessageBox.Show("No se seleccionaron imágenes válidas (PNG, JPG, JPEG).",
+                        "Sin imágenes válidas", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // Establecer la carpeta de destino en la misma ubicación del primer archivo seleccionado
+                var firstFile = _selectedImageFiles.First();
+                var sourceDirectory = Path.GetDirectoryName(firstFile);
+                if (!string.IsNullOrEmpty(sourceDirectory))
+                {
+                    _imageOutputFolder = sourceDirectory;
+                    txtImageOutputFolder.Text = _imageOutputFolder;
+                }
+
+                UpdateImageFileList();
+            }
+        }
+
+        private void UpdateImageFileList()
+        {
+            if (_selectedImageFiles.Count > 0)
+            {
+                borderImageFileList.Visibility = Visibility.Visible;
+                txtImageFileCount.Text = $"📁 {_selectedImageFiles.Count} imagen{(_selectedImageFiles.Count > 1 ? "es" : "")} seleccionada{(_selectedImageFiles.Count > 1 ? "s" : "")}";
+
+                var fileNames = _selectedImageFiles.Select(f => Path.GetFileName(f)).ToList();
+                listImageSelectedFiles.ItemsSource = fileNames;
+
+                btnConvertImages.IsEnabled = true;
+            }
+            else
+            {
+                borderImageFileList.Visibility = Visibility.Collapsed;
+                btnConvertImages.IsEnabled = false;
+            }
+        }
+
+        private void sliderImageQuality_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (txtImageQualityValue != null)
+            {
+                txtImageQualityValue.Text = $"{(int)sliderImageQuality.Value}%";
+            }
+        }
+
+        private void btnSelectImageOutput_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Seleccionar carpeta de destino",
+                ShowNewFolderButton = true,
+                SelectedPath = _imageOutputFolder
+            };
+
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                _imageOutputFolder = dialog.SelectedPath;
+                txtImageOutputFolder.Text = _imageOutputFolder;
+            }
+        }
+
+        private async void btnConvertImages_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedImageFiles.Count == 0)
+            {
+                MessageBox.Show("Por favor selecciona al menos una imagen.",
+                    "Sin imágenes", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_imageOutputFolder))
+            {
+                MessageBox.Show("Por favor selecciona una carpeta de destino.",
+                    "Sin carpeta de destino", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // Deshabilitar controles durante la conversión
+            btnConvertImages.IsEnabled = false;
+            btnSelectImages.IsEnabled = false;
+            btnSelectImageOutput.IsEnabled = false;
+            sliderImageQuality.IsEnabled = false;
+
+            // Mostrar progreso
+            panelImageProgress.Visibility = Visibility.Visible;
+            borderImageResults.Visibility = Visibility.Collapsed;
+            progressImageBar.Value = 0;
+            txtImageProgress.Text = "Iniciando conversión...";
+
+            try
+            {
+                var quality = (int)sliderImageQuality.Value;
+
+                var progressReporter = new Progress<string>(message =>
+                {
+                    txtImageProgress.Text = message;
+                });
+
+                var percentReporter = new Progress<int>(percent =>
+                {
+                    progressImageBar.Value = percent;
+                });
+
+                var results = await _imageConverterService.ConvertMultipleImagesAsync(
+                    _selectedImageFiles,
+                    _imageOutputFolder,
+                    quality,
+                    progressReporter,
+                    percentReporter);
+
+                // Mostrar resultados
+                ShowImageResults(results);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error durante la conversión: {ex.Message}",
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                // Rehabilitar controles
+                btnConvertImages.IsEnabled = true;
+                btnSelectImages.IsEnabled = true;
+                btnSelectImageOutput.IsEnabled = true;
+                sliderImageQuality.IsEnabled = true;
+                panelImageProgress.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void ShowImageResults(List<ImageConverterService.ConversionResult> results)
+        {
+            borderImageResults.Visibility = Visibility.Visible;
+
+            var successful = results.Count(r => r.Success);
+            var failed = results.Count - successful;
+            var totalOriginal = results.Where(r => r.Success).Sum(r => r.OriginalSize);
+            var totalConverted = results.Where(r => r.Success).Sum(r => r.ConvertedSize);
+            var totalSaved = totalOriginal - totalConverted;
+            var avgReduction = totalOriginal > 0 ? (double)totalSaved / totalOriginal * 100 : 0;
+
+            txtImageResultSummary.Text = $"✅ {successful} imagen{(successful != 1 ? "es" : "")} convertida{(successful != 1 ? "s" : "")} exitosamente" +
+                (failed > 0 ? $" | ❌ {failed} fallida{(failed != 1 ? "s" : "")}" : "") +
+                $"\n💾 Espacio ahorrado: {ImageConverterService.FormatFileSize(totalSaved)} ({avgReduction:F1}% de reducción promedio)";
+
+            var resultItems = results.Where(r => r.Success).Select(r => new ImageResultItem
+            {
+                FileName = Path.GetFileName(r.SourcePath),
+                SizeInfo = $"{ImageConverterService.FormatFileSize(r.OriginalSize)} → {ImageConverterService.FormatFileSize(r.ConvertedSize)}",
+                Reduction = $"-{r.CompressionRatio}%"
+            }).ToList();
+
+            listImageResults.ItemsSource = resultItems;
+        }
+
+        private void btnOpenImageOutput_Click(object sender, RoutedEventArgs e)
+        {
+            if (Directory.Exists(_imageOutputFolder))
+            {
+                Process.Start("explorer.exe", _imageOutputFolder);
+            }
+        }
+
+        #endregion
     }
 }

@@ -103,6 +103,22 @@
                         </StackPanel>
                     </RadioButton>
 
+                    <!-- Separador -->
+                    <Separator Margin="8,12" Background="#e5e7eb"/>
+                    
+                    <TextBlock Text="OTROS" FontSize="11" FontWeight="SemiBold" 
+                               Foreground="#9ca3af" Margin="12,8,0,8"/>
+
+                    <RadioButton x:Name="NavButtonImageConverter"
+                                 GroupName="Navigation"
+                                 Style="{StaticResource NavButtonStyle}"
+                                 Click="NavButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ImageSync" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Optimizador WebP"/>
+                        </StackPanel>
+                    </RadioButton>
+
                 </StackPanel>
             </Border>
 
@@ -207,6 +223,248 @@
                                 </Grid>
                                 <Button x:Name="btnSaveProxy" Content="Guardar Configuración de Red" Click="btnSaveProxy_Click" Style="{StaticResource MaterialDesignRaisedButton}" Background="#0ea5e9" BorderBrush="#0ea5e9" Foreground="White" Padding="12,8" Margin="5,16,0,0" materialDesign:ButtonAssist.CornerRadius="6" HorizontalAlignment="Left"/>
                             </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel x:Name="ViewOptimizadorWebP" Visibility="Collapsed">
+                        <!-- Sección de Selección -->
+                        <Border Background="White" CornerRadius="8" Padding="24" BorderBrush="#e5e7eb" BorderThickness="1" Margin="0,0,0,20">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,20">
+                                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="FileImage" Width="32" Height="32" 
+                                                                 Foreground="#6366f1" VerticalAlignment="Center"/>
+                                        <StackPanel Margin="15,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Seleccionar Imágenes o Carpeta" FontWeight="SemiBold" FontSize="16" Foreground="Black"/>
+                                            <TextBlock Text="Formatos soportados: PNG, JPG, JPEG" Foreground="Gray" FontSize="12"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Button x:Name="btnSelectImages" Click="btnSelectImages_Click"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"
+                                            Background="#6366f1" BorderBrush="#6366f1"
+                                            Foreground="White" Padding="16,10"
+                                            HorizontalAlignment="Right"
+                                            materialDesign:ButtonAssist.CornerRadius="6">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="FolderImage" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Seleccionar Archivos" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </DockPanel>
+
+                                <!-- Lista de archivos seleccionados -->
+                                <Border x:Name="borderImageFileList" Visibility="Collapsed" 
+                                        Background="#f3f4f6" CornerRadius="6" 
+                                        Padding="16" Margin="0,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="txtImageFileCount" FontWeight="SemiBold" 
+                                                   Foreground="#374151" Margin="0,0,0,10" FontSize="14"/>
+                                        <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl x:Name="listImageSelectedFiles">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,3">
+                                                            <materialDesign:PackIcon Kind="FileImage" Width="14" Height="14" 
+                                                                                     Foreground="#6366f1" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding}" FontSize="13" 
+                                                                       Foreground="#4b5563" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Sección de Configuración -->
+                        <Border Background="White" CornerRadius="8" Padding="24" 
+                                BorderBrush="#e5e7eb" BorderThickness="1" Margin="0,0,0,20">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,20">
+                                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Cog" Width="32" Height="32" 
+                                                                 Foreground="#10b981" VerticalAlignment="Center"/>
+                                        <StackPanel Margin="15,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Configuración de Conversión" FontWeight="SemiBold" FontSize="16" Foreground="Black"/>
+                                            <TextBlock Text="Ajusta la calidad y carpeta de destino" Foreground="Gray" FontSize="12"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <!-- Control de Calidad -->
+                                <Border Background="#f9fafb" CornerRadius="6" Padding="16" Margin="0,0,0,16">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,20,0">
+                                            <TextBlock Text="Calidad" FontWeight="SemiBold" FontSize="14" Foreground="#374151"/>
+                                            <TextBlock Text="WebP" FontSize="11" Foreground="#9ca3af"/>
+                                        </StackPanel>
+                                    
+                                        <Slider x:Name="sliderImageQuality" Grid.Column="1"
+                                                Minimum="60" Maximum="100" Value="85"
+                                                TickFrequency="5" IsSnapToTickEnabled="True"
+                                                VerticalAlignment="Center"
+                                                ValueChanged="sliderImageQuality_ValueChanged"/>
+                                    
+                                        <Border Grid.Column="2" Background="#6366f1" CornerRadius="6" 
+                                                Padding="12,6" Margin="16,0,0,0">
+                                            <TextBlock x:Name="txtImageQualityValue" 
+                                                       Text="85%" FontWeight="Bold"
+                                                       Foreground="White" FontSize="16"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Carpeta de Destino -->
+                                <StackPanel>
+                                    <TextBlock Text="Carpeta de Destino" FontWeight="SemiBold" 
+                                               FontSize="14" Foreground="#374151" Margin="0,0,0,8"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBox x:Name="txtImageOutputFolder" Grid.Column="0"
+                                                 materialDesign:HintAssist.Hint="Selecciona una carpeta de destino"
+                                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                                 IsReadOnly="True" Margin="0,0,12,0"/>
+
+                                        <Button x:Name="btnSelectImageOutput" Grid.Column="1"
+                                                Click="btnSelectImageOutput_Click"
+                                                Style="{StaticResource MaterialDesignRaisedButton}"
+                                                Padding="14,10"
+                                                Background="#10b981" BorderBrush="#10b981"
+                                                Foreground="White"
+                                                materialDesign:ButtonAssist.CornerRadius="6">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="FolderOpen" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Seleccionar" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Sección de Conversión -->
+                        <Border Background="White" CornerRadius="8" Padding="24" 
+                                BorderBrush="#e5e7eb" BorderThickness="1" Margin="0,0,0,20">
+                            <StackPanel>
+                                <Button x:Name="btnConvertImages" Click="btnConvertImages_Click"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                        FontSize="16" FontWeight="SemiBold"
+                                        Background="#f59e0b" BorderBrush="#f59e0b"
+                                        Foreground="White" HorizontalAlignment="Stretch"
+                                        materialDesign:ButtonAssist.CornerRadius="8"
+                                        materialDesign:ElevationAssist.Elevation="Dp2"
+                                        IsEnabled="False">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <materialDesign:PackIcon Kind="ImageSync" Width="24" Height="24" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Convertir a WebP" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Barra de Progreso -->
+                                <StackPanel x:Name="panelImageProgress" Visibility="Collapsed" Margin="0,20,0,0">
+                                    <ProgressBar x:Name="progressImageBar" Height="10" 
+                                                 materialDesign:TransitionAssist.DisableTransitions="True"
+                                                 Foreground="#f59e0b"/>
+                                    <TextBlock x:Name="txtImageProgress" Margin="0,10,0,0" 
+                                               FontSize="13" Foreground="#6b7280" TextWrapping="Wrap"
+                                               FontWeight="Medium"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Sección de Resultados -->
+                        <Border x:Name="borderImageResults" Visibility="Collapsed"
+                                Background="White" CornerRadius="8" Padding="24" 
+                                BorderBrush="#e5e7eb" BorderThickness="1">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,16">
+                                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="CheckCircle" Width="32" Height="32" 
+                                                                 Foreground="#10b981" VerticalAlignment="Center"/>
+                                        <StackPanel Margin="15,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Conversión Completada" FontWeight="SemiBold" FontSize="16" Foreground="Black"/>
+                                            <TextBlock x:Name="txtImageResultSummary" FontWeight="Medium" 
+                                                       Foreground="#6b7280" FontSize="13" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <Border Background="#f0fdf4" BorderBrush="#86efac" BorderThickness="1" 
+                                        CornerRadius="6" Padding="16" Margin="0,0,0,16">
+                                    <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl x:Name="listImageResults">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="White" CornerRadius="4" 
+                                                            Padding="12,10" Margin="0,4"
+                                                            BorderBrush="#d1fae5" BorderThickness="1">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            
+                                                            <materialDesign:PackIcon Grid.Column="0" Kind="CheckCircleOutline" 
+                                                                                     Width="16" Height="16" Foreground="#10b981" 
+                                                                                     Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                            
+                                                            <TextBlock Grid.Column="1" FontSize="13" 
+                                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                                                <Run Text="{Binding FileName}" FontWeight="SemiBold" Foreground="#374151"/>
+                                                                <LineBreak/>
+                                                                <Run Text="{Binding SizeInfo}" Foreground="#6b7280" FontSize="12"/>
+                                                            </TextBlock>
+                                                            
+                                                            <Border Grid.Column="2" Background="#10b981" CornerRadius="4" 
+                                                                    Padding="8,4" Margin="12,0,0,0">
+                                                                <TextBlock FontSize="12" FontWeight="Bold" 
+                                                                           Foreground="White"
+                                                                           Text="{Binding Reduction}"/>
+                                                            </Border>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
+
+                                <!--<Button x:Name="btnOpenImageOutput" Click="btnOpenImageOutput_Click"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                        Padding="14,10"
+                                        Background="#0ea5e9" BorderBrush="#0ea5e9"
+                                        Foreground="White" HorizontalAlignment="Left"
+                                        materialDesign:ButtonAssist.CornerRadius="6">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="FolderOpen" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Abrir Carpeta de Destino" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>-->
+                                    <Button x:Name="btnOpenImageOutput" Click="btnOpenImageOutput_Click"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                        Background="#0ea5e9" BorderBrush="#0ea5e9"
+                                        Foreground="White" Padding="16,10"
+                                        HorizontalAlignment="Right"
+                                        materialDesign:ButtonAssist.CornerRadius="6">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="FolderImage" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Abrir Carpeta de Destino" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
                         </Border>
                     </StackPanel>
                     </Grid>
