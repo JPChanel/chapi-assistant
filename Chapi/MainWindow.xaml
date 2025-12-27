@@ -121,6 +121,13 @@
                                 <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
                             </MenuItem.Icon>
                         </MenuItem>
+                        <MenuItem Header="Abrir en Antigravity" 
+                                  Click="ProjectMenuItem_OpenAntigravity_Click" 
+                                  CommandParameter="{Binding FullPath}">
+                            <MenuItem.Icon>
+                                <materialDesign:PackIcon Kind="RocketLaunch" />
+                            </MenuItem.Icon>
+                        </MenuItem>
                         <MenuItem Header="Mostrar en Explorador" 
                                   Click="ProjectMenuItem_OpenExplorer_Click" 
                                   CommandParameter="{Binding FullPath}">
@@ -177,10 +184,19 @@
 
                                             <Grid.ContextMenu>
                                                 <ContextMenu>
+                                                    <MenuItem Header="Crear Rama desde aquí..."
+                                                              Click="Branch_Create_Click"
+                                                              CommandParameter="{Binding}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="SourceBranchPlus" Foreground="Green"/>
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    
                                                     <MenuItem Header="Eliminar Rama..."
                                                           Click="Branch_Delete_Click"                                  
                                                           CommandParameter="{Binding}"                                  
-                                                          Foreground="Red">
+                                                          Foreground="Red"
+                                                          Visibility="{Binding Converter={StaticResource IsNotDefaultBranchConverter}}">
                                                         <MenuItem.Icon>
                                                             <materialDesign:PackIcon Kind="SourceBranchRemove" Foreground="Red"/>
                                                         </MenuItem.Icon>

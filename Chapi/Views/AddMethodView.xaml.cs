@@ -19,7 +19,36 @@ namespace Chapi.Views
         {
             InitializeComponent();
             _projectDirectory = projectDirectory;
+            LoadModulesAndDetectStyle();
             cbobd.SelectedIndex = 0;
+        }
+
+        private void LoadModulesAndDetectStyle()
+        {
+            // 1. Cargar Módulos
+            try 
+            {
+                var modules = Helper.FindApiDirectory.GetModuleDirectories(_projectDirectory);
+                cboModulo.ItemsSource = modules;
+            }
+            catch (Exception ex)
+            {
+                // Log silencioso o ignorar
+                Console.WriteLine(ex.Message);
+            }
+
+            // 2. Detectar Estilo de API (Si existe carpeta Endpoints -> Es Ardalis)
+            string apiProjectName = Path.GetFileName(_projectDirectory);
+            string endpointsPath = Path.Combine(_projectDirectory, apiProjectName, "Endpoints");
+            
+            if (Directory.Exists(endpointsPath))
+            {
+                rbEndpoint.IsChecked = true;
+            }
+            else
+            {
+                rbController.IsChecked = true;
+            }
         }
         /// <summary>
         /// Vuelve a centrar esta ventana en relación con su Dueño (MainWindow).
@@ -34,22 +63,25 @@ namespace Chapi.Views
         }
         private async void btnCrear_Click(object sender, RoutedEventArgs e)
         {
-            var modulo = txtModulo.Text.Trim();
+            var modulo = cboModulo.Text.Trim(); // Usar ComboBox
             var metodo = txtMetodo.Text.Trim();
             metodo = string.IsNullOrEmpty(metodo) ? modulo : metodo;
             var bd = (cbobd.SelectedItem as ComboBoxItem)?.Content.ToString();
+            
+            // Reemplazar / por \ para consistencia en Paths
+            modulo = modulo.Replace("/", "\\");
+
             if (string.IsNullOrEmpty(modulo))
             {
-                await DialogService.ShowConfirmDialog("Alerta", "Ingrese Nombre de Módulo",
+                await DialogService.ShowConfirmDialog("Alerta", "Seleccione o Escriba Nombre de Módulo",
                     Dialogs.DialogVariant.Warning, Dialogs.DialogType.Info);
                 return;
             }
 
-            // 2. Forzar que el Módulo empiece con mayúscula
-            modulo = char.ToUpper(modulo[0]) + modulo.Substring(1);
-            txtModulo.Text = modulo; 
-
-            metodo = string.IsNullOrEmpty(metodo) ? modulo : metodo;
+            // 2. Forzar que el Módulo empiece con mayúscula (Solo la primera letra del path completo o de cada segmento?)
+            // Dejamos tal cual por ahora, asumiendo que el usuario elige del combo o escribe bien.
+            
+            metodo = string.IsNullOrEmpty(metodo) ? Path.GetFileName(modulo) : metodo; // Si es null, usa el nombre de la carpeta final
             // 4. Forzar que el Método empiece con mayúscula
             metodo = char.ToUpper(metodo[0]) + metodo.Substring(1);
             txtMetodo.Text = metodo;
@@ -110,7 +142,7 @@ namespace Chapi.Views
 
         private async void btnAnalyze_Click(object sender, RoutedEventArgs e)
         {
-            var modulo = txtModulo.Text.Trim();
+            var modulo = cboModulo.Text.Trim();
             var nombreMetodo = txtMetodo.Text.Trim();
             nombreMetodo = string.IsNullOrEmpty(nombreMetodo) ? modulo : nombreMetodo;
             var emailContent = txtEmailContent.Text.Trim();
@@ -221,10 +253,14 @@ namespace Chapi.Views
             SPAnalysisResult aiResult)
         {
             string apiProjectName = Path.GetFileName(_projectDirectory);
-            string apiPath = Path.Combine(_projectDirectory, apiProjectName, "Controllers", modulo);
             string appPath = Path.Combine(_projectDirectory, "Application", modulo);
             string domainPath = Path.Combine(_projectDirectory, "Domain", modulo);
             string infraPath = Path.Combine(_projectDirectory, "Infrastructure", bd, "Repositories", modulo);
+            
+            bool useEndpoints = rbEndpoint.IsChecked == true;
+            string apiPath = useEndpoints 
+                ? Path.Combine(_projectDirectory, apiProjectName, "Endpoints", modulo)
+                : Path.Combine(_projectDirectory, apiProjectName, "Controllers", modulo);
 
             try
             {
@@ -234,23 +270,42 @@ namespace Chapi.Views
 
                     try
                     {
-                        rollbackEntry = AddApiControllerMethod.Add(apiPath, modulo, metodo, nombreMetodo, rollbackEntry);
-                        rollbackEntry = AddApplicationMethod.Add(appPath, modulo, metodo, nombreMetodo, rollbackEntry);
-
-                        // 🤖 SI HAY RESULTADO DE IA, USAR GENERACIÓN AVANZADA
-                        if (aiResult != null)
+                        bool includeAppLayer = chkIncludeAppLayer.IsChecked == true;
+                        
+                        if (useEndpoints)
                         {
-                            rollbackEntry = await AddDomainMethod.Add(domainPath, modulo, metodo, nombreMetodo, rollbackEntry, aiResult);
-
-                            rollbackEntry = await AddInfrastructureMethod.Add(
-                                infraPath, modulo, bd, metodo, nombreMetodo, rollbackEntry, aiResult);
+                            rollbackEntry = AddApiEndpointMethod.Add(apiPath, modulo, metodo, nombreMetodo, rollbackEntry, includeAppLayer);
                         }
                         else
                         {
-                            rollbackEntry = await AddDomainMethod.Add(domainPath, modulo, metodo, nombreMetodo, rollbackEntry);
+                            rollbackEntry = AddApiControllerMethod.Add(apiPath, modulo, metodo, nombreMetodo, rollbackEntry);
+                        }
+                        
+                        // Generar Application Layer si NO son Endpoints (Legacy) O si el usuario lo marcó explícitamente
+                        if (!useEndpoints || includeAppLayer)
+                        {
+                            // Si es Endpoint (moderno), usamos repositorio genérico en el servicio.
+                            // Si es Controller (legacy), usamos repositorio específico.
+                            bool useGenericRepo = useEndpoints; 
+                            rollbackEntry = AddApplicationMethod.Add(appPath, modulo, metodo, nombreMetodo, rollbackEntry, useGenericRepo);
+                        }
+
+                        // 🤖 SI HAY RESULTADO DE IA, USAR GENERACIÓN AVANZADA
+                         bool useGenericInterface = useEndpoints; // Endpoint = Generic Interface. Controller = Specific Interface.
+
+                        if (aiResult != null)
+                        {
+                            rollbackEntry = await AddDomainMethod.Add(domainPath, modulo, metodo, nombreMetodo, rollbackEntry, aiResult, useGenericInterface);
 
                             rollbackEntry = await AddInfrastructureMethod.Add(
-                                infraPath, modulo, bd, metodo, nombreMetodo, rollbackEntry);
+                                infraPath, modulo, bd, metodo, nombreMetodo, rollbackEntry, aiResult, useGenericInterface);
+                        }
+                        else
+                        {
+                            rollbackEntry = await AddDomainMethod.Add(domainPath, modulo, metodo, nombreMetodo, rollbackEntry, aiResult: null, useGenericInterface);
+
+                            rollbackEntry = await AddInfrastructureMethod.Add(
+                                infraPath, modulo, bd, metodo, nombreMetodo, rollbackEntry, aiResult: null, useGenericInterface);
                         }
 
                         // Dependency Injection
@@ -261,7 +316,13 @@ namespace Chapi.Views
                         {
                             var diContent = File.ReadAllText(dependencyInjectionPath);
                             RollbackManager.RecordFileModification(rollbackEntry, dependencyInjectionPath, diContent);
-                            AddDependencyInjection.Add(dependencyInjectionPath, nombreMetodo, new[] { metodo });
+                            
+                            // Solo agregamos DI manual si NO son endpoints (Scrutor maneja lo demás, o si el usuario quiere force)
+                            // En realidad Scrutor debería manejar todo, pero mantenemos compatibilidad legacy para controllers
+                            if (!useEndpoints) 
+                            { 
+                                AddDependencyInjection.Add(dependencyInjectionPath, nombreMetodo, new[] { metodo });
+                            }
                         }
 
                         RollbackManager.CommitTransaction(rollbackEntry);

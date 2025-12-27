@@ -216,10 +216,22 @@ namespace Chapi.Views
 
                 await _mgr.DownloadUpdatesAsync(_updateInfo);
 
-                txtStatus.Text = "Descarga completa. La app se reiniciará ahora.";
-                btnCheckUpdate.Content = "Reiniciando...";
+                txtStatus.Text = "Descarga completa. Preparando instalación...";
+                btnCheckUpdate.Content = "Instalando...";
+                
+                // Dar tiempo a que se complete la descarga
+                await Task.Delay(1000);
 
-                _mgr.ApplyUpdatesAndRestart(_updateInfo);
+                txtStatus.Text = "La app se cerrará para completar la actualización.";
+                
+                // Esperar un momento antes de aplicar
+                await Task.Delay(500);
+                
+                // Aplicar y salir (más confiable que restart)
+                _mgr.ApplyUpdatesAndExit(_updateInfo);
+                
+                // Si llegamos aquí, algo falló - forzar cierre
+                Application.Current.Shutdown();
             }
             catch (Exception ex)
             {

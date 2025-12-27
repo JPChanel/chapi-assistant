@@ -17,8 +17,17 @@ public class AddInfrastructureMethod
         string operation,
         string methodName,
         RollbackEntry? rollbackEntry = null,
-        SPAnalysisResult? aiResult = null)
+        SPAnalysisResult? aiResult = null,
+        bool useGenericInterface = false)
     {
+        // Sanitizar nombres
+        string cleanModule = moduleName.Replace(Path.DirectorySeparatorChar, '.').Replace(Path.AltDirectorySeparatorChar, '.');
+        string lastModuleSegment = cleanModule.Split('.').Last();
+        
+        // Limpiar methodName si viene con ruta
+        var cleanMethodName = methodName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
+        if (cleanMethodName != methodName) methodName = cleanMethodName;
+
         var className = operation switch
         {
             "Get" => $"Search{methodName}Repository",
@@ -31,16 +40,15 @@ public class AddInfrastructureMethod
 
         if (!Directory.Exists(projectPath))
             Directory.CreateDirectory(projectPath);
-        // Generar DTO si hay datos IA
-        if (aiResult != null)
-        {
-            var dtoPath = Path.Combine(projectPath, "Dto");
-            if (!Directory.Exists(dtoPath))
-                Directory.CreateDirectory(dtoPath);
+            
+        // Generar DTO (Siempre, ya que la clase repositorio lo referencia)
+        var dtoPath = Path.Combine(projectPath, "Dto");
+        if (!Directory.Exists(dtoPath))
+            Directory.CreateDirectory(dtoPath);
 
-            var dtoFile = Path.Combine(dtoPath, $"{moduleName}Dto.cs");
-            GenerateOrUpdateDto(dtoFile, moduleName, aiResult);
-        }
+        var dtoFile = Path.Combine(dtoPath, $"{lastModuleSegment}Dto.cs");
+        GenerateOrUpdateDto(dtoFile, dbName, cleanModule, lastModuleSegment, aiResult ?? new SPAnalysisResult());
+
         var filePath = Path.Combine(projectPath, $"{className}.cs");
         bool fileExisted = File.Exists(filePath);
         string? originalContent = fileExisted ? await File.ReadAllTextAsync(filePath) : null;
@@ -56,12 +64,12 @@ public class AddInfrastructureMethod
 
         if (!fileExisted)
         {
-            await GenerateInfrastructureFile(filePath, moduleName, methodName, dbName, operation, aiResult);
-            Msg.Assistant($"🧩 Creado Infrastructure.{moduleName}.{className}");
+            await GenerateInfrastructureFile(filePath, cleanModule, lastModuleSegment, methodName, dbName, operation, aiResult, useGenericInterface);
+            Msg.Assistant($"🧩 Creado Infrastructure.{cleanModule}.{className}");
         }
         else
         {
-            await AddMethodToExistingClass(filePath, operation, moduleName, methodName, aiResult);
+            await AddMethodToExistingClass(filePath, operation, cleanModule, methodName, aiResult, useGenericInterface);
         }
 
         return rollbackEntry!;
@@ -73,7 +81,8 @@ public class AddInfrastructureMethod
         string operation,
         string moduleName,
         string methodName,
-        SPAnalysisResult? aiResult)
+        SPAnalysisResult? aiResult,
+        bool useGenericInterface)
     {
         var code = await File.ReadAllTextAsync(filePath);
         var syntaxTree = CSharpSyntaxTree.ParseText(code);
@@ -86,7 +95,9 @@ public class AddInfrastructureMethod
         if (classNode == null)
             return;
 
-        var methodCode = GenerateMethodCode(operation, moduleName, methodName, aiResult);
+        string entityName = moduleName.Split('.').Last(); // Logic for entity naming
+
+        var methodCode = GenerateMethodCode(operation, moduleName, entityName, methodName, aiResult, useGenericInterface);
         var newMethod = SyntaxFactory.ParseMemberDeclaration(methodCode)!;
         var newClass = classNode.AddMembers(newMethod);
         var newRoot = root.ReplaceNode(classNode, newClass);
@@ -98,11 +109,13 @@ public class AddInfrastructureMethod
     // 🏗️ Generar archivo completo de infraestructura
     private static async Task GenerateInfrastructureFile(
         string filePath,
-        string moduleName,
-        string methodName,
+        string moduleName, 
+        string entityName, 
+        string methodName, 
         string dbName,
         string operation,
-        SPAnalysisResult? aiResult = null)
+        SPAnalysisResult? aiResult = null,
+        bool useGenericInterface = false)
     {
         var className = operation switch
         {
@@ -114,26 +127,57 @@ public class AddInfrastructureMethod
             _ => throw new ArgumentException("Método no soportado")
         };
 
+        // Determine Interface and Method implementation strategy
+        string interfaceToImplement;
+        if (useGenericInterface)
+        {
+             interfaceToImplement = operation switch
+            {
+                "Get" => $"ISearchRepository<Search{methodName}Request>", 
+                "GetById" => "IFindRepository<int>", 
+                "Post" => $"IRepository<{methodName}Request>", 
+                "Put" => $"IRepository<Update{methodName}Request>", 
+                "Delete" => "IRepository<int>", 
+                _ => throw new ArgumentException("Método no soportado")
+            };
+        }
+        else
+        {
+            // Legacy Interface Names
+             interfaceToImplement = operation switch
+            {
+                "Get" => $"ISearch{methodName}Repository",
+                "GetById" => $"IFind{methodName}Repository",
+                "Post" => $"I{methodName}Repository",
+                "Put" => $"IUpdate{methodName}Repository",
+                "Delete" => $"IDelete{methodName}Repository",
+                _ => throw new ArgumentException("Método no soportado")
+            };
+        }
+
         var sb = new StringBuilder($@"
             using Dapper;
-            using Domain.{moduleName}.Interfaces;
+            using Domain.Shared.Interface.Base; 
             using Domain.{moduleName}.Entities;
+            using Domain.Shared.Entities.Responses;
+            {(!useGenericInterface ? $"using Domain.{moduleName}.Interfaces;" : "")}
             using {dbName}.Connections;
             using {dbName}.Repositories.Shared.Parser;
+            using {dbName}.Repositories.{moduleName}.Dto;
 
             namespace {dbName}.Repositories.{moduleName};
 
-            public class {className}({dbName}Connection connection) : {dbName}Repository(connection), I{className}
+            public class {className}({dbName}Connection connection) : {dbName}Repository(connection), {interfaceToImplement}
             {{
             ");
 
-        sb.AppendLine(GenerateMethodCode(operation, moduleName, methodName, aiResult));
+        sb.AppendLine(GenerateMethodCode(operation, moduleName, entityName, methodName, aiResult, useGenericInterface));
         sb.AppendLine("}");
 
         await File.WriteAllTextAsync(filePath, sb.ToString());
     }
 
-    private static string GenerateMethodCode(string operation, string moduleName, string methodName, SPAnalysisResult? aiResult)
+    private static string GenerateMethodCode(string operation, string moduleName, string entityName, string methodName, SPAnalysisResult? aiResult, bool useGenericInterface)
     {
         var spName = aiResult?.StoredProcedureName ?? "";
         var hasParams = aiResult?.Parameters?.Any() == true;
@@ -147,41 +191,44 @@ public class AddInfrastructureMethod
             ? string.Join("\n                        ", aiResult!.ResponseMapper)
             : "";
         spName = "\"" + spName + "\"";
-        // 🧩 Genera según tipo de operación
+        
+        
+        string implMethodName = "";
+        
         return operation switch
         {
-            // 🔍 GET (Listar o Buscar)
+            // 🔍 GET
             "Get" => $@"
-    public async Task<object> Search{methodName}(Search{methodName}Request request)
+    public async Task<{(useGenericInterface ? "IEnumerable<object>" : "object")}> {(useGenericInterface ? "Search" : $"Search{methodName}")}(Search{methodName}Request request)
     {{
         using var cn = Connection();
         var parameters = new {{
                 {paramBlock}
         }};
-        var response = await cn.QueryAsync<{moduleName}Dto>({spName}, parameters, commandType: System.Data.CommandType.StoredProcedure);
+        var response = await cn.QueryAsync<{entityName}Dto>({spName}, parameters, commandType: System.Data.CommandType.StoredProcedure);
         return GenericListMapper.ParseCollection(response, dto => new {{
                     {mapperBlock}
         }});
     }}",
 
-            // 🔎 GET BY ID (Buscar un registro específico)
+            // 🔎 GET BY ID 
             "GetById" => $@"
-    public async Task<object> Find{methodName}(int code)
+    public async Task<{(useGenericInterface ? "object?" : "object")}> {(useGenericInterface ? "Find" : $"Find{methodName}")}(int code)
     {{
         using var cn = Connection();
         var parameters = new {{
                 {paramBlock ?? "Code = code"}  
         }};
-        var response = await cn.QueryFirstOrDefaultAsync<{moduleName}Dto>({spName}, parameters, commandType: System.Data.CommandType.StoredProcedure);
-        if (response == null) return null;
+        var response = await cn.QueryFirstOrDefaultAsync<{entityName}Dto>({spName}, parameters, commandType: System.Data.CommandType.StoredProcedure);
+        {(useGenericInterface ? "if (response == null) return null;" : "if (response == null) return null;")} 
         return GenericListMapper.Parse(response, dto => new {{
                {mapperBlock}
         }});
     }}",
 
-            // 💾 POST (Crear registro)
+            // 💾 POST 
             "Post" => $@"
-    public async Task<Response> {methodName}({methodName}Request request)
+    public async Task<Response> {(useGenericInterface ? "Execute" : $"{methodName}")}({methodName}Request request)
     {{
         using var cn = Connection();
         var parameters = new {{
@@ -191,9 +238,9 @@ public class AddInfrastructureMethod
         return ResponseParser.Make(response);
     }}",
 
-            // 🛠️ PUT (Actualizar registro)
+            // 🛠️ PUT
             "Put" => $@"
-    public async Task<Response> Update{methodName}(Update{methodName}Request request)
+    public async Task<{(useGenericInterface ? "object" : "Response")}> {(useGenericInterface ? "Execute" : $"Update{methodName}")}(Update{methodName}Request request)
     {{
         using var cn = Connection();
         var parameters = new {{
@@ -203,9 +250,9 @@ public class AddInfrastructureMethod
         return ResponseParser.Make(response);
     }}",
 
-            // ❌ DELETE (Eliminar registro)
+            // ❌ DELETE 
             "Delete" => $@"
-    public async Task<Response> Delete{methodName}(int code)
+    public async Task<Response> {(useGenericInterface ? "Execute" : $"Delete{methodName}")}(int code)
     {{
         using var cn = Connection();
         var parameters = new {{
@@ -220,9 +267,9 @@ public class AddInfrastructureMethod
     }
 
     // 🧱 Generar clase DTO
-    private static void GenerateOrUpdateDto(string dtoPath, string moduleName, SPAnalysisResult? aiResult)
+    private static void GenerateOrUpdateDto(string dtoPath, string dbName, string moduleNamespace, string entityName, SPAnalysisResult? aiResult)
     {
-        var className = $"{moduleName}Dto";
+        var className = $"{entityName}Dto";
         var dtoFields = aiResult.DTOFields ?? new();
         // Si no existe, se crea completo
         if (!File.Exists(dtoPath))
@@ -230,7 +277,7 @@ public class AddInfrastructureMethod
             var content = $@"
 using System;
 
-namespace Infrastructure.Repositories.{moduleName}.Dto;
+namespace {dbName}.Repositories.{moduleNamespace}.Dto;
 
 public class {className}
 {{
