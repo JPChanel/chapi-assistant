@@ -2518,7 +2518,8 @@ namespace Chapi
         {
             if (ChangesListView.ItemsSource == null)
             {
-                ChangesTabHeader.Text = "Cambios";
+                ChangesTabHeader.Text = "CAMBIOS";
+                ChangesCountBadge.Visibility = Visibility.Collapsed;
                 btnCommit.Content = "Commit";
                 btnCommit.IsEnabled = false;
                 return;
@@ -2529,8 +2530,10 @@ namespace Chapi
             int selectedCount = allChanges.Count(i => i.IsSelected);
             string branchName = _currentlySelectedBranch ?? "main";
 
-            // 1. Actualizar la Pestaña (muestra el total)
-            ChangesTabHeader.Text = totalCount > 0 ? $"Cambios ({totalCount})" : "Cambios";
+            // 1. Actualizar la Pestaña (muestra el total en el badge)
+            ChangesTabHeader.Text = "CAMBIOS";
+            txtChangesCount.Text = totalCount.ToString();
+            ChangesCountBadge.Visibility = totalCount > 0 ? Visibility.Visible : Visibility.Collapsed;
 
             // 2. Actualizar el Botón de Commit (muestra los seleccionados)
             if (selectedCount > 0)

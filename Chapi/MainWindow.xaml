@@ -9,8 +9,8 @@
         mc:Ignorable="d"
         Title="Chapi Assistance"
         Height="600"
-        Width="750"
-        MinWidth="650"
+        Width="950"
+        MinWidth="950"
         MinHeight="300"
         WindowStartupLocation="CenterScreen"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
@@ -18,293 +18,221 @@
         FontFamily="Times New Roman"
         Closing="Window_Closing" Loaded="Window_Loaded">
 
-        <materialDesign:DialogHost x:Name="GlobalDialogHost" Identifier="RootDialog">
+    <materialDesign:DialogHost x:Name="GlobalDialogHost" Identifier="RootDialog">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <materialDesign:ColorZone x:Name="HeaderZone" Grid.Row="0"  BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1"   Padding="15"  Mode="Dark" Foreground="{StaticResource HeaderForeground}">
-                <Grid>
+            <materialDesign:ColorZone x:Name="HeaderZone" Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="20,10" Mode="Dark" Foreground="{StaticResource HeaderForeground}" MinHeight="95">
+                <Grid VerticalAlignment="Center" HorizontalAlignment="Stretch">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
+                        <!-- Logo -->
                         <ColumnDefinition Width="*"/>
+                        <!-- Espaciador -->
                         <ColumnDefinition Width="Auto"/>
+                        <!-- Proyecto Combo -->
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- Botón Add -->
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- Rama Combo -->
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- Git Actions -->
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- Modo Agente -->
                     </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
 
-                    <!-- 1. LOGO / MENÚ (Columna 0, Ocupa 2 Filas) -->
-                    <StackPanel Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" VerticalAlignment="Center" HorizontalAlignment="Left"  Margin="0,0,0,0">
-                        <Button x:Name="LogoButton" Click="LogoButton_Click" Style="{StaticResource MaterialDesignToolButton}" ToolTip="Menú Principal Chapi (Utilidades API)" Height="76" Width="95"  Background="Transparent"  BorderThickness="0">
-                            <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
-                                <Image Source="/Chapi;component/Image/logo.png"
-                                       Width="45"
-                                       Height="45"
-                                       Stretch="Uniform"
-                                       HorizontalAlignment="Center"/>
-                                <TextBlock Text="Ninja"
-                                           Margin="0,4,0,0"
-                                           FontWeight="Bold"
-                                           FontSize="14"
-                                           VerticalAlignment="Center"
-                                           HorizontalAlignment="Center"
-                                           Foreground="White"/>
-                            </StackPanel>
-                     
+                    <!-- 1. LOGO / MENÚ (Columna 0) -->
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,15,0">
+                        <Button x:Name="LogoButton" Click="LogoButton_Click" Style="{StaticResource MaterialDesignToolButton}" ToolTip="Menú Principal Chapi" Height="60" Width="70" Background="Transparent" BorderThickness="0">
+                            <Image Source="/Chapi;component/Image/logo.png" Width="74" Height="60" Stretch="Uniform"/>
                         </Button>
-                        
                     </StackPanel>
 
-                    <!-- 2. SELECTORES DE GIT (Columna 1, Ocupa 2 Filas, Centrado) -->
-                    <StackPanel Grid.Row="0"  Grid.Column="1"  Grid.RowSpan="2"  VerticalAlignment="Top"  HorizontalAlignment="Stretch"  Margin="10,0,10,0">
-                        <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch">
-                            <Grid Margin="0,5,0,5">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <Border Grid.Column="0"
-                                        BorderBrush="{DynamicResource MaterialDesignDivider}"  
-                                        BorderThickness="1" 
-                                        CornerRadius="2">
-                                    <ComboBox x:Name="ProjectsComboBox"
-                                      Width="Auto"
-                                      HorizontalAlignment="Stretch"
-                                      materialDesign:HintAssist.Hint="Seleccionar o Buscar Proyecto"
-                                      materialDesign:HintAssist.Foreground="Orange" materialDesign:HintAssist.Background="{Binding Background, ElementName=HeaderZone}" Style="{StaticResource MaterialDesignOutlinedComboBox}"
-                                      SelectionChanged="ProjectsComboBox_SelectionChanged"
-                                      IsEditable="True"
-                                      IsTextSearchEnabled="True"
-                                      TextSearch.TextPath="Name">
-
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid Background="Transparent">
-            
-                <Grid.ContextMenu>
-                    <ContextMenu>
-                        <MenuItem Header="Abrir en Visual Studio" 
-                                  Click="ProjectMenuItem_OpenVisualStudio_Click" 
-                                  CommandParameter="{Binding FullPath}">
-                            <MenuItem.Icon>
-                                <materialDesign:PackIcon Kind="VisualStudio" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="Abrir en VS Code" 
-                                  Click="ProjectMenuItem_OpenVSCode_Click" 
-                                  CommandParameter="{Binding FullPath}">
-                            <MenuItem.Icon>
-                                <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="Abrir en Antigravity" 
-                                  Click="ProjectMenuItem_OpenAntigravity_Click" 
-                                  CommandParameter="{Binding FullPath}">
-                            <MenuItem.Icon>
-                                <materialDesign:PackIcon Kind="RocketLaunch" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="Mostrar en Explorador" 
-                                  Click="ProjectMenuItem_OpenExplorer_Click" 
-                                  CommandParameter="{Binding FullPath}">
-                            <MenuItem.Icon>
-                                <materialDesign:PackIcon Kind="FolderOpenOutline" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="Abrir en Símbolo del sistema" 
-                                  Click="ProjectMenuItem_OpenCmd_Click" 
-                                  CommandParameter="{Binding FullPath}">
-                            <MenuItem.Icon>
-                                <materialDesign:PackIcon Kind="Console" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <Separator />
-                        <MenuItem Header="Remover de la lista" 
-                                   Click="ProjectMenuItem_Remove_Click" 
-                                   CommandParameter="{Binding FullPath}" 
-                                   Foreground="Red">
-                            <MenuItem.Icon>
-                                <materialDesign:PackIcon Kind="DeleteOutline" Foreground="Red" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                    </ContextMenu>
-                </Grid.ContextMenu>
-                                                <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Kind="{Binding Icon}" Margin="0,0,8,0"/>
-                                                        <TextBlock Text="{Binding Name}"/>
-                                                    </StackPanel>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                </Border>
-
-                                <Button x:Name="btnAddProject"
-                                        Grid.Column="1"
-                                        Style="{StaticResource MaterialDesignIconButton}"
-                                        ToolTip="Agregar o Clonar Repositorio"
-                                        VerticalAlignment="Center"
-                                        Width="32"
-                                        Height="32"
-                                        Margin="8,0,0,0"
-                                        Click="btnAddProject_Click">
-                                    <materialDesign:PackIcon Kind="Plus" Width="20" Height="20"/>
-                                </Button>
-                            </Grid>
-
-                            <!-- Selector de Rama -->
-                            <ComboBox x:Name="BranchesComboBox"
-                                          VerticalAlignment="Center"
-                                          HorizontalAlignment="Stretch"
-                                          materialDesign:HintAssist.Hint="Seleccionar Rama"
-                                          materialDesign:HintAssist.Foreground="Orange" materialDesign:HintAssist.Background="{Binding Background, ElementName=HeaderZone}" 
-                                      Style="{StaticResource MaterialDesignOutlinedComboBox}"
-                                     SelectionChanged="BranchesComboBox_SelectionChanged" HorizontalContentAlignment="Stretch">
-
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate >
-                                        <Grid Background="Transparent">
-                                            <StackPanel Orientation="Horizontal"  >
-                                                <materialDesign:PackIcon Kind="SourceBranch" Margin="0,0,8,0"/>
-                                                <TextBlock Text="{Binding}"/>
-                                            </StackPanel>
-
-                                            <Grid.ContextMenu>
-                                                <ContextMenu>
-                                                    <MenuItem Header="Crear Rama desde aquí..."
-                                                              Click="Branch_Create_Click"
-                                                              CommandParameter="{Binding}">
-                                                        <MenuItem.Icon>
-                                                            <materialDesign:PackIcon Kind="SourceBranchPlus" Foreground="Green"/>
-                                                        </MenuItem.Icon>
-                                                    </MenuItem>
-                                                    
-                                                    <MenuItem Header="Eliminar Rama..."
-                                                          Click="Branch_Delete_Click"                                  
-                                                          CommandParameter="{Binding}"                                  
-                                                          Foreground="Red"
-                                                          Visibility="{Binding Converter={StaticResource IsNotDefaultBranchConverter}}">
-                                                        <MenuItem.Icon>
-                                                            <materialDesign:PackIcon Kind="SourceBranchRemove" Foreground="Red"/>
-                                                        </MenuItem.Icon>
-                                                    </MenuItem>
-                                                </ContextMenu>
-                                            </Grid.ContextMenu>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-
-                        </StackPanel>
-                    </StackPanel>
-                 
-                    <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-
-                        <ComboBox x:Name="GitActionsComboBox"
-                              Height="47"
-                              Width="160" SelectedIndex="0"
+                    <!-- 2. PROYECTO (Columnas 2-3) -->
+                    <ComboBox x:Name="ProjectsComboBox"
+                              Grid.Column="2"
+                              Width="260"
+                              Height="40"
                               VerticalAlignment="Center"
+                              VerticalContentAlignment="Center"
+                              Padding="12,0"
+                              materialDesign:TextFieldAssist.DecorationVisibility="Collapsed"
+                              materialDesign:HintAssist.Hint="Seleccionar Proyecto"
+                              materialDesign:TextFieldAssist.HasClearButton="False"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              SelectionChanged="ProjectsComboBox_SelectionChanged"
+                              IsEditable="True"
+                              IsTextSearchEnabled="True"
+                              TextSearch.TextPath="Name">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Background="Transparent">
+                                    <Grid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding FullPath}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="VisualStudio" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Abrir en VS Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding FullPath}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Abrir en Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding FullPath}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="RocketLaunch" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator />
+                                            <MenuItem Header="Remover de la lista" Click="ProjectMenuItem_Remove_Click" CommandParameter="{Binding FullPath}" Foreground="Red">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="DeleteOutline" Foreground="Red" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <materialDesign:PackIcon Kind="{Binding Icon}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Button x:Name="btnAddProject"
+                            Grid.Column="3"
+                            Style="{StaticResource MaterialDesignIconButton}"
+                            ToolTip="Agregar o Clonar Repositorio"
+                            VerticalAlignment="Center"
+                            Width="42"
+                            Height="42"
+                            Margin="5,0,5,0"
+                            Click="btnAddProject_Click">
+                        <materialDesign:PackIcon Kind="Plus" Width="26" Height="26"/>
+                    </Button>
+
+                    <!-- 3. RAMA (Columna 4) -->
+                    <ComboBox x:Name="BranchesComboBox"
+                                Grid.Column="4"
+                                Width="180"
+                                Height="40"
+                                VerticalAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Padding="12,0"
+                                materialDesign:TextFieldAssist.DecorationVisibility="Collapsed"
+                                materialDesign:HintAssist.Hint="Rama"
+                                Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                SelectionChanged="BranchesComboBox_SelectionChanged" 
+                                HorizontalContentAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Background="Transparent">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <materialDesign:PackIcon Kind="SourceBranch" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <Grid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Crear Rama..." Click="Branch_Create_Click" CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="SourceBranchPlus" Foreground="Green"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Eliminar Rama..." Click="Branch_Delete_Click" CommandParameter="{Binding}" Foreground="Red" Visibility="{Binding Converter={StaticResource IsNotDefaultBranchConverter}}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="SourceBranchRemove" Foreground="Red"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
+                                </Grid>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <!-- 4. ACCIONES (Columnas 5-6) -->
+                    <ComboBox x:Name="GitActionsComboBox"
+                              Grid.Column="5"
+                              Height="40"
+                              Width="140"
+                              SelectedIndex="0"
+                              VerticalAlignment="Center"
+                              VerticalContentAlignment="Center"
+                              Padding="12,0"
+                              Margin="20,0,10,0"
+                              materialDesign:TextFieldAssist.HasClearButton="False"
                               Style="{StaticResource MaterialDesignOutlinedComboBox}"
                               SelectionChanged="GitActionsComboBox_SelectionChanged"
-                              ToolTip="Ejecutar una acción de Git"
-                              Margin="0,6,0,0" 
-                                  PreviewMouseLeftButtonDown="GitActionsComboBox_PreviewMouseLeftButtonDown"
-          PreviewMouseRightButtonUp="GitActionsComboBox_PreviewMouseRightButtonUp">
+                              PreviewMouseLeftButtonDown="GitActionsComboBox_PreviewMouseLeftButtonDown">
+                        <ComboBox.Items>
+                            <ComboBoxItem x:Name="DefaultGitActionItem" Padding="10,5">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <materialDesign:PackIcon x:Name="DefaultGitActionIcon" Kind="Refresh" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="DefaultGitActionText" Text="Fetch Origin" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ComboBoxItem>
+                            <ComboBoxItem x:Name="PullGitActionItem" Padding="10,5">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="CloudDownloadOutline" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="PullGitActionText" Text="Pull Origin" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ComboBoxItem>
+                            <ComboBoxItem x:Name="PushGitActionItem" Padding="10,5">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="CloudUploadOutline" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="PushGitActionText" Text="Push Origin" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ComboBoxItem>
+                            <ComboBoxItem x:Name="FetchGitActionItem" Padding="10,5">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="Refresh" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Fetch Origin (forzar)" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ComboBoxItem>
+                        </ComboBox.Items>
+                    </ComboBox>
 
-                            <ComboBox.Items>
-
-                                <ComboBoxItem x:Name="DefaultGitActionItem" Padding="10,5" >
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon x:Name="DefaultGitActionIcon" Kind="Refresh" Margin="0,0,8,0" Width="16" Height="16"/>
-                                        <TextBlock x:Name="DefaultGitActionText" Text="Fetch Origin"/>
-                                    </StackPanel>
-                                </ComboBoxItem>
-
-                                <ComboBoxItem x:Name="PullGitActionItem" Padding="10,5">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="CloudDownloadOutline" Margin="0,0,8,0" Width="16" Height="16"/>
-                                        <TextBlock x:Name="PullGitActionText" Text="Pull Origin"/>
-                                    </StackPanel>
-                                </ComboBoxItem>
-
-                                <ComboBoxItem x:Name="PushGitActionItem" Padding="10,5">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="CloudUploadOutline" Margin="0,0,8,0" Width="16" Height="16"/>
-                                        <TextBlock x:Name="PushGitActionText" Text="Push Origin"/>
-                                    </StackPanel>
-                                </ComboBoxItem>
-
-                                <ComboBoxItem x:Name="FetchGitActionItem" Padding="10,5">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Refresh" Margin="0,0,8,0" Width="16" Height="16"/>
-                                        <TextBlock Text="Fetch Origin (Forzar)"/>
-                                    </StackPanel>
-                                </ComboBoxItem>
-
-                            </ComboBox.Items>
-                        </ComboBox>
-                    </StackPanel>
-
-                    <!-- 4. ACCIONES GIT (Columna 2, Fila 1) -->
-                    <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
-                        <ComboBox x:Name="ModoAgenteComboBox"
-                          Height="47"
-                          Width="160"
-                          SelectedIndex="0"
-                          VerticalAlignment="Center"
-                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
-                          SelectionChanged="ModoAgenteComboBox_SelectionChanged"
-                          ToolTip="Selecciona el modo de operación del agente">
-
-                            <ComboBox.Items>
-                                <!-- Item neutro -->
-                                <ComboBoxItem Padding="10,5">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="AccountCog"
-                                             Margin="0,0,8,0"
-                                             Width="16"
-                                             Height="16"/>
-                                        <TextBlock Text="Modo Agente"/>
-                                    </StackPanel>
-                                </ComboBoxItem>
-
-                                <!-- Opción Agregar Método -->
-                                <ComboBoxItem x:Name="AddMethodItem" Padding="10,5">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="RocketLaunchOutline"
-                                             Margin="0,0,8,0"
-                                             Width="16"
-                                             Height="16"/>
-                                        <TextBlock Text="Agregar Método"/>
-                                    </StackPanel>
-                                </ComboBoxItem>
-
-                                <!-- Opción Rollback -->
-                                <ComboBoxItem x:Name="RollbackItem" Padding="10,5">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="History"
-                                             Margin="0,0,8,0"
-                                             Width="16"
-                                             Height="16"/>
-                                        <TextBlock Text="Rollback"/>
-                                    </StackPanel>
-                                </ComboBoxItem>
-                                <ComboBoxItem x:Name="SqlGeneratorItem" Padding="10,5">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="DatabaseSearch"
-                                         Margin="0,0,8,0"
-                                         Width="16"
-                                         Height="16"/>
-                                        <TextBlock Text="Generar SQL"/>
-                                    </StackPanel>
-                                </ComboBoxItem>
-                            </ComboBox.Items>
-                        </ComboBox>
-                    </StackPanel>
+                    <ComboBox x:Name="ModoAgenteComboBox"
+                              Grid.Column="6"
+                              Height="40"
+                              Width="155"
+                              SelectedIndex="0"
+                              VerticalContentAlignment="Center"
+                              Padding="12,0"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              materialDesign:TextFieldAssist.UnderlineBrush="Transparent"
+                              SelectionChanged="ModoAgenteComboBox_SelectionChanged">
+                        <ComboBox.Items>
+                            <ComboBoxItem Padding="10,5">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="AccountCog" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Modo Agente" FontWeight="Bold" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ComboBoxItem>
+                            <ComboBoxItem x:Name="AddMethodItem" Padding="10,5">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="RocketLaunchOutline" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Agregar método" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ComboBoxItem>
+                            <ComboBoxItem x:Name="RollbackItem" Padding="10,5">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="History" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Rollback" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ComboBoxItem>
+                            <ComboBoxItem x:Name="SqlGeneratorItem" Padding="10,5">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="DatabaseSearch" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Generar SQL" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ComboBoxItem>
+                        </ComboBox.Items>
+                    </ComboBox>
                 </Grid>
             </materialDesign:ColorZone>
 
@@ -317,12 +245,12 @@
                             materialDesign:ColorZoneAssist.Mode="Light"  HorizontalContentAlignment="Left" BorderBrush="{DynamicResource PrimaryHueMidBrush}"
                             SelectionChanged="GitTabs_SelectionChanged">
 
-                    <TabItem Header="Asistente" x:Name="AssistantTab">
+                    <TabItem Header="ASISTENTE" x:Name="AssistantTab">
                         <TabItem.HeaderTemplate>
                             <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="10,5">
-                                    <materialDesign:PackIcon Kind="RobotHappy" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding}"/>
+                                <StackPanel Orientation="Horizontal" Margin="10,0">
+                                    <materialDesign:PackIcon Kind="Robot" Margin="0,0,8,0" Width="18" Height="18"/>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </DataTemplate>
                         </TabItem.HeaderTemplate>
@@ -331,51 +259,91 @@
                             <ScrollViewer x:Name="ChatScrollViewer"
                                           VerticalScrollBarVisibility="Auto"
                                           Padding="8">
-                                <ItemsControl x:Name="MessagesItemsControl" ItemsSource="{Binding Messages}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="16,5">
-                                                <Grid.Style>
-                                                    <Style TargetType="Grid">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Author}" Value="User">
-                                                                <Setter Property="HorizontalAlignment" Value="Right"/>
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding Author}" Value="Assistant">
-                                                                <Setter Property="HorizontalAlignment" Value="Left"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Grid.Style>
-                                                <materialDesign:Card Padding="10">
-                                                    <StackPanel>
-                                                        <TextBlock Text="{Binding Author}" FontWeight="Bold"/>
-                                                        <TextBox Text="{Binding Text}"
-                                                                 TextWrapping="Wrap"
-                                                                 IsReadOnly="True"
-                                                                 BorderThickness="0"
-                                                                 Background="Transparent"
-                                                                 FontSize="14"
-                                                                 VerticalScrollBarVisibility="Disabled"/>
-                                                        <TextBlock Text="{Binding Timestamp}"
-                                                                   FontSize="10"
-                                                                   HorizontalAlignment="Right"
-                                                                   Opacity="0.7"/>
-                                                    </StackPanel>
-                                                </materialDesign:Card>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                    <ItemsControl x:Name="MessagesItemsControl" ItemsSource="{Binding Messages}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="10,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" x:Name="ColAvatarLeft"/>
+                                                        <ColumnDefinition Width="*" MaxWidth="600"/>
+                                                        <ColumnDefinition Width="Auto" x:Name="ColAvatarRight"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Avatar del Asistente (izquierda) -->
+                                                    <Border x:Name="AssistantAvatar" Grid.Column="0" Width="32" Height="32" Background="#3F51B5" CornerRadius="16" VerticalAlignment="Top" Margin="0,0,10,0">
+                                                        <materialDesign:PackIcon Kind="Robot" Foreground="White" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+
+                                                    <!-- Burbuja de Mensaje -->
+                                                    <Border x:Name="MessageBubble" 
+                                                            Grid.Column="1" 
+                                                            Padding="12,8" 
+                                                            CornerRadius="12"
+                                                            Background="#2A2A2A"
+                                                            BorderBrush="#3A3A3A"
+                                                            BorderThickness="1">
+                                                        <StackPanel>
+                                                            <TextBlock x:Name="MessageText"
+                                                                       Text="{Binding Text}"
+                                                                       TextWrapping="Wrap"
+                                                                       FontSize="13.5"
+                                                                       Foreground="#E0E0E0"/>
+                                                            <TextBlock Text="{Binding Timestamp}"
+                                                                       FontSize="9"
+                                                                       HorizontalAlignment="Right"
+                                                                       Opacity="0.5"
+                                                                       Margin="0,4,0,0"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- Avatar del Usuario (derecha) -->
+                                                    <Border x:Name="UserAvatar" Grid.Column="2" Width="32" Height="32" Background="#212121" CornerRadius="16" VerticalAlignment="Top" Margin="10,0,0,0" Visibility="Collapsed">
+                                                        <materialDesign:PackIcon Kind="Account" Foreground="#888" Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </Grid>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding Author}" Value="User">
+                                                        <Setter TargetName="AssistantAvatar" Property="Visibility" Value="Collapsed"/>
+                                                        <Setter TargetName="UserAvatar" Property="Visibility" Value="Visible"/>
+                                                        <Setter TargetName="MessageBubble" Property="HorizontalAlignment" Value="Right"/>
+                                                        <Setter TargetName="MessageBubble" Property="Background" Value="#311B92"/>
+                                                        <Setter TargetName="MessageBubble" Property="BorderThickness" Value="0"/>
+                                                        <Setter TargetName="MessageText" Property="Foreground" Value="White"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Author}" Value="Assistant">
+                                                        <Setter TargetName="AssistantAvatar" Property="Visibility" Value="Visible"/>
+                                                        <Setter TargetName="UserAvatar" Property="Visibility" Value="Collapsed"/>
+                                                        <Setter TargetName="MessageBubble" Property="HorizontalAlignment" Value="Left"/>
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                             </ScrollViewer>
                         </Grid>
                     </TabItem>
 
                     <TabItem x:Name="ChangesTab">
                         <TabItem.Header>
-                            <StackPanel Orientation="Horizontal" Margin="10,5">
-                                <materialDesign:PackIcon Kind="SourceCommit" Margin="0,0,8,0"/>
-                                <TextBlock x:Name="ChangesTabHeader" Text="Cambios" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Margin="10,0">
+                                <materialDesign:PackIcon Kind="Stethoscope" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="ChangesTabHeader" Text="CAMBIOS" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                <Border x:Name="ChangesCountBadge" 
+                                        Background="#5C6BC0" 
+                                        CornerRadius="10" 
+                                        MinWidth="20" 
+                                        Height="20" 
+                                        Margin="8,0,0,0"
+                                        VerticalAlignment="Center"
+                                        Visibility="Visible">
+                                    <TextBlock x:Name="txtChangesCount" 
+                                               Text="0" 
+                                               FontSize="11" 
+                                               Foreground="White" 
+                                               HorizontalAlignment="Center" 
+                                               VerticalAlignment="Center" 
+                                               Padding="5,0"/>
+                                </Border>
                                 <Button x:Name="btnReloadChanges"
                                         Click="btnReloadChanges_Click"
                                         Style="{StaticResource MaterialDesignIconButton}"
@@ -384,7 +352,7 @@
                                         HorizontalAlignment="Right"
                                         Width="24"
                                         Height="24"
-                                        Padding="0,2,0,0" Margin="8,0,0,0">
+                                        Padding="0" Margin="8,0,0,0">
                                     <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16"/>
                                 </Button>
                             </StackPanel>
@@ -831,12 +799,12 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem x:Name="HistoryTab" Header="Historial">
+                    <TabItem x:Name="HistoryTab" Header="HISTORIAL">
                         <TabItem.HeaderTemplate>
                             <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="10,5">
-                                    <materialDesign:PackIcon Kind="History" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding}"/>
+                                <StackPanel Orientation="Horizontal" Margin="10,0">
+                                    <materialDesign:PackIcon Kind="History" Margin="0,0,8,0" Width="18" Height="18"/>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </DataTemplate>
                         </TabItem.HeaderTemplate>
@@ -1123,12 +1091,12 @@
                             </Border>
                         </Grid>
                     </TabItem>
-                    <TabItem x:Name="TagsTab" Header="Tags">
+                    <TabItem x:Name="TagsTab" Header="TAGS">
                         <TabItem.HeaderTemplate>
                             <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="10,5">
-                                    <materialDesign:PackIcon Kind="Tag" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding}"/>
+                                <StackPanel Orientation="Horizontal" Margin="10,0">
+                                    <materialDesign:PackIcon Kind="TagOutline" Margin="0,0,8,0" Width="18" Height="18"/>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </DataTemplate>
                         </TabItem.HeaderTemplate>
