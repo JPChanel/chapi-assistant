@@ -61,15 +61,17 @@
                     <!-- 2. SELECTORES DE GIT (Columna 1, Ocupa 2 Filas, Centrado) -->
                     <StackPanel Grid.Row="0"  Grid.Column="1"  Grid.RowSpan="2"  VerticalAlignment="Top"  HorizontalAlignment="Stretch"  Margin="10,0,10,0">
                         <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch">
-                            <Border BorderBrush="{DynamicResource MaterialDesignDivider}"  BorderThickness="1" CornerRadius="2" Margin="0,5,0,5">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
+                            <Grid Margin="0,5,0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
 
+                                <Border Grid.Column="0"
+                                        BorderBrush="{DynamicResource MaterialDesignDivider}"  
+                                        BorderThickness="1" 
+                                        CornerRadius="2">
                                     <ComboBox x:Name="ProjectsComboBox"
-                                      Grid.Column="0"
                                       Width="Auto"
                                       HorizontalAlignment="Stretch"
                                       materialDesign:HintAssist.Hint="Seleccionar o Buscar Proyecto"
@@ -78,28 +80,6 @@
                                       IsEditable="True"
                                       IsTextSearchEnabled="True"
                                       TextSearch.TextPath="Name">
-
-                                        <ComboBox.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Header="Clonar Nuevo Repositorio..." 
-                                                    Click="CloneProject_Click" 
-                                                    CommandParameter="{Binding PlacementTarget.SelectedItem.FullPath,
-                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                                    <MenuItem.Icon>
-                                                        <materialDesign:PackIcon Kind="Add" />
-                                                    </MenuItem.Icon>
-                                                </MenuItem>
-                                                <MenuItem Header="Agregar Repositorio Existente..." 
-                                                    Click="SelectProjectMenu_Click" 
-                                                    CommandParameter="{Binding PlacementTarget.SelectedItem.FullPath, 
-                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                                    <MenuItem.Icon>
-                                                        <materialDesign:PackIcon Kind="FolderAdd" />
-                                                    </MenuItem.Icon>
-                                                </MenuItem>
-                                                
-                                            </ContextMenu>
-                                        </ComboBox.ContextMenu>
 
                                         <ComboBox.ItemTemplate>
                                             <DataTemplate>
@@ -161,9 +141,20 @@
                                             </DataTemplate>
                                         </ComboBox.ItemTemplate>
                                     </ComboBox>
-                                   
-                                </Grid>
-                            </Border>
+                                </Border>
+
+                                <Button x:Name="btnAddProject"
+                                        Grid.Column="1"
+                                        Style="{StaticResource MaterialDesignIconButton}"
+                                        ToolTip="Agregar o Clonar Repositorio"
+                                        VerticalAlignment="Center"
+                                        Width="32"
+                                        Height="32"
+                                        Margin="8,0,0,0"
+                                        Click="btnAddProject_Click">
+                                    <materialDesign:PackIcon Kind="Plus" Width="20" Height="20"/>
+                                </Button>
+                            </Grid>
 
                             <!-- Selector de Rama -->
                             <ComboBox x:Name="BranchesComboBox"

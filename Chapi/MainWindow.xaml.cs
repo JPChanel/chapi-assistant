@@ -677,6 +677,35 @@ namespace Chapi
                 await Task.Delay(100);
             });
         }
+
+        private void btnAddProject_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button == null) return;
+
+            var contextMenu = new System.Windows.Controls.ContextMenu();
+            
+            var cloneMenuItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Clonar Nuevo Repositorio...",
+                Icon = new PackIcon { Kind = PackIconKind.Add }
+            };
+            cloneMenuItem.Click += CloneProject_Click;
+            
+            var addMenuItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Agregar Repositorio Existente...",
+                Icon = new PackIcon { Kind = PackIconKind.FolderAdd }
+            };
+            addMenuItem.Click += SelectProjectMenu_Click;
+            
+            contextMenu.Items.Add(cloneMenuItem);
+            contextMenu.Items.Add(addMenuItem);
+            
+            contextMenu.PlacementTarget = button;
+            contextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            contextMenu.IsOpen = true;
+        }
         #endregion
         #region ✅ Git - Asociar y Commit Asistido
         public async void AsociateGitMenu_Click()
