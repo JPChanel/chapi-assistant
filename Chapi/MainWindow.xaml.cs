@@ -480,6 +480,18 @@ namespace Chapi
             SelectAllCheckBox.IsChecked = sortedChanges.Any() && sortedChanges.All(c => c.IsSelected);
             UpdateChangesCount();
         }
+
+        private async void btnReloadChanges_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateProject()) return;
+            
+            await RunWithLoading(async () =>
+            {
+                Msg.Assistant("🔄 Recargando cambios...");
+                await LoadChangesAsync();
+                Msg.Assistant("✅ Cambios recargados.");
+            });
+        }
         private async Task LoadHistoryAsync()
         {
             if (!ValidateProject())

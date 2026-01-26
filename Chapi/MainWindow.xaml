@@ -18,7 +18,7 @@
         FontFamily="Times New Roman"
         Closing="Window_Closing" Loaded="Window_Loaded">
 
-    <materialDesign:DialogHost x:Name="GlobalDialogHost" Identifier="RootDialog">
+        <materialDesign:DialogHost x:Name="GlobalDialogHost" Identifier="RootDialog">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -384,7 +384,18 @@
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal" Margin="10,5">
                                 <materialDesign:PackIcon Kind="SourceCommit" Margin="0,0,8,0"/>
-                                <TextBlock x:Name="ChangesTabHeader" Text="Cambios"/>
+                                <TextBlock x:Name="ChangesTabHeader" Text="Cambios" VerticalAlignment="Center"/>
+                                <Button x:Name="btnReloadChanges"
+                                        Click="btnReloadChanges_Click"
+                                        Style="{StaticResource MaterialDesignIconButton}"
+                                        ToolTip="Recargar cambios (útil para WSL)"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"
+                                        Width="24"
+                                        Height="24"
+                                        Padding="0,2,0,0" Margin="8,0,0,0">
+                                    <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16"/>
+                                </Button>
                             </StackPanel>
                         </TabItem.Header>
 
