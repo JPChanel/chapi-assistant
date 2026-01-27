@@ -447,7 +447,7 @@ public static class Git
         try
         {
             string remoteBranch = $"origin/{branchName}";
-            string args = $"log {remoteBranch}..{branchName} --pretty=format:\"%h\"";
+            string args = $"log {remoteBranch}..{branchName} --pretty=format:\"%H\"";
 
             var output = await EjecutarGit(args, workingDirectory);
 

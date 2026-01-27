@@ -59,6 +59,9 @@ namespace Chapi
         private bool _isGitInstalled = false;
         private System.Threading.CancellationTokenSource _diffCts;
 
+        private int _currentHistoryLimit = 50;
+        private const int HistoryPageSize = 50;
+
         public string AppVersion { get; private set; }
         public string ServiceStatusText => "Activo"; // Lógica simplificada basada en UpdateView
         public Brush ServiceStatusBrush => Brushes.Lime;
@@ -273,6 +276,7 @@ namespace Chapi
             var selectedProject = ProjectsComboBox.SelectedItem as ProjectViewModel;
             if (selectedProject == null) return;
             projectDirectory = selectedProject.FullPath;
+            _currentHistoryLimit = HistoryPageSize; // Reset limit on project change
             InitializeFileSystemWatcher(projectDirectory);
             if (!_isGitInstalled)
             { var msg = "Seleccionaste un proyecto, pero Git sigue sin detectarse\nChapi necesita Git para rastrear cambios, ver el historial y gestionar commits. Parece que no está instalado o no se agregó al PATH del sistema.";
@@ -578,7 +582,7 @@ namespace Chapi
 
             // %H: hash completo para links, %h: hash corto, %an: autor, %ar: fecha relativa, %s: mensaje, %b: cuerpo
             string logFormat = $"%H{fieldSeparator}%an{fieldSeparator}%ar{fieldSeparator}%s{fieldSeparator}%b{recordSeparator}";
-            var logOutput = await Git.EjecutarGit($"log --pretty=format:\"{logFormat}\" -n 50", projectDirectory);
+            var logOutput = await Git.EjecutarGit($"log --pretty=format:\"{logFormat}\" -n {_currentHistoryLimit}", projectDirectory);
             var commits = new List<GitLogItem>();
 
             if (string.IsNullOrWhiteSpace(logOutput))
@@ -613,6 +617,17 @@ namespace Chapi
             }
 
             HistoryListView.ItemsSource = commits;
+        }
+
+        private async void btnLoadMoreHistory_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateProject()) return;
+
+            _currentHistoryLimit += HistoryPageSize;
+            await RunWithLoading(async () =>
+            {
+                await LoadHistoryAsync();
+            });
         }
 
         #region ✅ UI Helpers (Loading + DialogHost)
@@ -1897,8 +1912,21 @@ namespace Chapi
         {
             if (sender is MenuItem menuItem)
             {
+                // Si el parámetro ya es una ruta completa (string)
                 if (menuItem.CommandParameter is string path)
                 {
+                    // Si la ruta es absoluta, devolverla tal cual
+                    if (Path.IsPathRooted(path) || path.StartsWith(@"\\wsl$") || path.StartsWith(@"\\wsl.localhost"))
+                    {
+                        return path;
+                    }
+
+                    // Si es una ruta relativa (típico del historial), combinarla con el proyecto
+                    if (!string.IsNullOrEmpty(projectDirectory))
+                    {
+                        return Path.Combine(projectDirectory, path);
+                    }
+
                     return path;
                 }
                 
@@ -1913,6 +1941,25 @@ namespace Chapi
                 }
             }
             return null; // No se pudo obtener la ruta
+        }
+
+        private void HistoryFiles_CopyPath_Click(object sender, RoutedEventArgs e)
+        {
+            string path = GetPathFromMenuItem(sender);
+            if (!string.IsNullOrEmpty(path))
+            {
+                System.Windows.Clipboard.SetText(path);
+                DialogService.ShowTrayNotification("Copiado", "Ruta completa copiada al portapapeles");
+            }
+        }
+
+        private void HistoryFiles_CopyRelativePath_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.CommandParameter is string relativePath)
+            {
+                System.Windows.Clipboard.SetText(relativePath);
+                DialogService.ShowTrayNotification("Copiado", "Ruta relativa copiada al portapapeles");
+            }
         }
 
         private async void ProjectMenuItem_OpenVisualStudio_Click(object sender, RoutedEventArgs e)
@@ -2026,7 +2073,7 @@ namespace Chapi
             {
                 if (isWslPath)
                 {
-                     DialogService.ShowConfirmDialog("Advertencia", "Antygravity aun no soporta abrir proyectos en WSL, se recomienda abrir con Visual Studio Code", DialogVariant.Warning, DialogType.Info);
+                    DialogService.ShowConfirmDialog("Advertencia", "Antygravity aun no soporta abrir proyectos en WSL, se recomienda abrir con Visual Studio Code", DialogVariant.Warning, DialogType.Info);
                 }
                 else
                 {
@@ -2053,16 +2100,108 @@ namespace Chapi
 
             try
             {
+                string arguments = "";
+                if (File.Exists(path))
+                {
+                    // Si es un archivo, abrir la carpeta y SELECCIONAR el archivo
+                    arguments = $"/select,\"{path}\"";
+                }
+                else if (Directory.Exists(path))
+                {
+                    // Si es una carpeta, abrirla directamente
+                    arguments = $"\"{path}\"";
+                }
+                else
+                {
+                    // Si no existe (ej. fue borrado), intentar abrir la carpeta contenedora si existe
+                    string parent = Path.GetDirectoryName(path);
+                    if (Directory.Exists(parent))
+                        arguments = $"\"{parent}\"";
+                    else
+                        return;
+                }
+
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = "explorer.exe",
-                    Arguments = $"\"{path}\"", // Abrir la carpeta en el explorador
+                    Arguments = arguments,
                     UseShellExecute = true
                 });
             }
             catch (Exception ex)
             {
                 DialogService.ShowTrayNotification("Error", $"No se pudo abrir el explorador: {ex.Message}");
+            }
+        }
+
+        private async void ProjectMenuItem_OpenGitHub_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(projectDirectory)) return;
+
+            string relativePath = null;
+            if (sender is MenuItem menuItem)
+            {
+                if (menuItem.CommandParameter is string rel)
+                {
+                    relativePath = rel;
+                }
+                else if (menuItem.CommandParameter is GitStatusItem statusItem)
+                {
+                    relativePath = statusItem.FilePath;
+                }
+            }
+
+            if (string.IsNullOrEmpty(relativePath)) return;
+
+            // Para el historial usamos el commit seleccionado, para cambios usamos HEAD
+            var selectedCommit = HistoryListView.SelectedItem as GitLogItem;
+            string commitHash = selectedCommit?.Hash ?? "HEAD";
+
+            try
+            {
+                string remoteUrl = await Git.GetRemoteUrl(projectDirectory);
+                if (string.IsNullOrEmpty(remoteUrl))
+                {
+                    DialogService.ShowTrayNotification("Información", "Este proyecto no tiene un repositorio remoto configurado.");
+                    return;
+                }
+
+                bool isGitLab = remoteUrl.Contains("gitlab.com") || remoteUrl.Contains("gitlab.");
+                string webUrl;
+
+                if (commitHash != "HEAD" && !isGitLab)
+                {
+                    // En el historial de GitHub, es mejor ir al commit con el anchor del archivo
+                    string pathHash = GetGitHubPathHash(relativePath);
+                    webUrl = $"{remoteUrl}/commit/{commitHash}#{pathHash}";
+                }
+                else
+                {
+                    // En Cambios actuales o GitLab, usamos la vista de blob tradicional
+                    string branchPart = isGitLab ? "-/blob" : "blob";
+                    webUrl = $"{remoteUrl}/{branchPart}/{commitHash}/{relativePath.Replace("\\", "/")}";
+                }
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = webUrl,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                DialogService.ShowTrayNotification("Error", $"No se pudo abrir la URL: {ex.Message}");
+            }
+        }
+
+        private string GetGitHubPathHash(string path)
+        {
+            // GitHub usa SHA-256 del path (con barras hacia adelante) para el anchor del diff
+            string normalizedPath = path.Replace("\\", "/");
+            using (var sha256 = System.Security.Cryptography.SHA256.Create())
+            {
+                byte[] hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(normalizedPath));
+                return "diff-" + BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
             }
         }
 
@@ -2650,7 +2789,7 @@ namespace Chapi
         {
             if (ChangesListView.ItemsSource == null)
             {
-                ChangesTabHeader.Text = "CAMBIOS";
+                ChangesTabHeader.Text = "Cambios";
                 ChangesCountBadge.Visibility = Visibility.Collapsed;
                 btnCommit.Content = "CONFIRMAR COMMIT";
                 btnCommit.IsEnabled = false;
@@ -2663,7 +2802,7 @@ namespace Chapi
             string branchName = _currentlySelectedBranch ?? "main";
 
             // 1. Actualizar la Pestaña (muestra el total en el badge)
-            ChangesTabHeader.Text = "CAMBIOS";
+            ChangesTabHeader.Text = "Cambios";
             txtChangesCount.Text = totalCount.ToString();
             txtChangesCountSide.Text = totalCount.ToString(); // Actualizar también el contador lateral
             ChangesCountBadge.Visibility = totalCount > 0 ? Visibility.Visible : Visibility.Collapsed;

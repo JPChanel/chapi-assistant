@@ -10,8 +10,8 @@
         mc:Ignorable="d"
         Title="Chapi Assistance"
         Height="700"
-        Width="960"
-        MinWidth="960"
+        Width="990"
+        MinWidth="990"
         MinHeight="700"
         WindowStartupLocation="CenterScreen"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
@@ -227,7 +227,7 @@
                     <ComboBox x:Name="GitActionsComboBox"
                               Grid.Column="5"
                               Height="40"
-                              Width="140"
+                              Width="170"
                               SelectedIndex="0"
                               VerticalAlignment="Center"
                               VerticalContentAlignment="Center"
@@ -753,6 +753,12 @@
                                                                             <materialDesign:PackIcon Kind="VisualStudio" />
                                                                         </MenuItem.Icon>
                                                                     </MenuItem>
+                                                                    <Separator />
+                                                                    <MenuItem Header="View on Web" Click="ProjectMenuItem_OpenGitHub_Click" CommandParameter="{Binding}">
+                                                                        <MenuItem.Icon>
+                                                                            <materialDesign:PackIcon Kind="Web" />
+                                                                        </MenuItem.Icon>
+                                                                    </MenuItem>
                                                                 </ContextMenu>
                                                             </Grid.ContextMenu>
                                                         </Grid>
@@ -1006,148 +1012,161 @@
                             </DataTemplate>
                         </TabItem.HeaderTemplate>
 
-                        <Grid Background="#1A132D">
+                        <Grid Background="#1A132D" >
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="0.3*" MinWidth="200"/>
                                 <ColumnDefinition Width="0.3*" MinWidth="200"/>
                                 <ColumnDefinition Width="0.4*"/>
                             </Grid.ColumnDefinitions>
 
-                            <Border Grid.Column="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0" >
+                            <Border Grid.Column="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0"  Padding="0,8">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    
                                     <ListView x:Name="HistoryListView" 
-                                          SelectionChanged="HistoryListView_SelectionChanged"
-                                          Background="Transparent" 
-                                          BorderThickness="0" 
-                                          Padding="5,4"
-                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                              Grid.Row="0"
+                                              SelectionChanged="HistoryListView_SelectionChanged"
+                                              Background="Transparent" 
+                                              BorderThickness="0" 
+                                              Padding="5,4"
+                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                              ScrollViewer.VerticalScrollBarVisibility="Auto">
                                         <ListView.Resources>
                                             <Style TargetType="ScrollViewer" BasedOn="{StaticResource ThinScrollViewer}"/>
                                         </ListView.Resources>
-                                    <ListView.ItemContainerStyle>
-                                        <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
-                                            <Setter Property="Padding" Value="0"/>
-                                            <Setter Property="Margin" Value="0,0,0,6"/>
-                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                            <Setter Property="materialDesign:RippleAssist.IsDisabled" Value="True"/>
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="ListViewItem">
-                                                        <ContentPresenter/>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
-                                    </ListView.ItemContainerStyle>
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border x:Name="CardBorder" 
-                                                    Margin="8,0" 
-                                                    Padding="12"                                                     
-                                                    CornerRadius="8"                                                   
-                                                    Background="#241A3D"  
-                                                    BorderBrush="#3D2B66" 
-                                                    BorderThickness="1">
-                                                <Grid ContextMenuOpening="History_ContextMenu_Opening">
-                                                     <Grid.RowDefinitions>
-                                                        <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="Auto"/>
-                                                    </Grid.RowDefinitions>
-                                                    
-                                                    <!-- Row 0: Hash & Tags -->
-                                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
-                                                        <Border Background="#2D2D30" CornerRadius="3" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center">
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <materialDesign:PackIcon Kind="SourceCommit" Width="10" Height="10" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                                <TextBlock Text="{Binding ShortHash}" FontFamily="Consolas" FontSize="11"  Foreground="#FFA500" VerticalAlignment="Center"/>
-                                                            </StackPanel>
-                                                        </Border>
-                                                        
-                                                        <ItemsControl ItemsSource="{Binding Tags}" VerticalAlignment="Center">
-                                                            <ItemsControl.ItemsPanel>
-                                                                <ItemsPanelTemplate>
-                                                                    <StackPanel Orientation="Horizontal"/>
-                                                                </ItemsPanelTemplate>
-                                                            </ItemsControl.ItemsPanel>
-                                                            <ItemsControl.ItemTemplate>
-                                                                <DataTemplate>
-                                                                    <Border Background="#3D2B66" CornerRadius="3" Margin="0,0,4,0" Padding="6,1" BorderBrush="#5E4299" BorderThickness="1">
-                                                                        <StackPanel Orientation="Horizontal">
-                                                                            <materialDesign:PackIcon Kind="TagOutline" Width="10" Height="10" Foreground="#B0A4D5" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                                            <TextBlock Text="{Binding}" FontSize="10" FontWeight="SemiBold" Foreground="#E0E0E0" VerticalAlignment="Center"/>
-                                                                        </StackPanel>
-                                                                    </Border>
-                                                                </DataTemplate>
-                                                            </ItemsControl.ItemTemplate>
-                                                        </ItemsControl>
-                                                    </StackPanel>
+                                        <ListView.ItemContainerStyle>
+                                            <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
+                                                <Setter Property="Padding" Value="0"/>
+                                                <Setter Property="Margin" Value="0,0,0,6"/>
+                                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                <Setter Property="materialDesign:RippleAssist.IsDisabled" Value="True"/>
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListViewItem">
+                                                            <ContentPresenter/>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListView.ItemContainerStyle>
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border x:Name="CardBorder" 
+                                                        Margin="8,0" 
+                                                        Padding="12"                                                     
+                                                        CornerRadius="8"                                                   
+                                                        Background="#241A3D"  
+                                                        BorderBrush="#3D2B66" 
+                                                        BorderThickness="1">
+                                                    <Grid ContextMenuOpening="History_ContextMenu_Opening">
+                                                         <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+    
+                                                        <!-- Row 0: Hash & Message -->
+                                                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            
+                                                            <Border Grid.Column="0" Background="#2D2D30" CornerRadius="3" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <materialDesign:PackIcon Kind="SourceCommit" Width="10" Height="10" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                                    <TextBlock Text="{Binding ShortHash}" FontFamily="Consolas" FontSize="11"  Foreground="#FFA500" VerticalAlignment="Center"/>
+                                                                </StackPanel>
+                                                            </Border>
+                                                            
+                                                            <TextBlock Grid.Column="1" 
+                                                                       Text="{Binding Message}" 
+                                                                       FontSize="13" 
+                                                                       FontWeight="Bold" 
+                                                                       Foreground="White" 
+                                                                       TextWrapping="NoWrap" 
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       VerticalAlignment="Center"/>
 
-                                                    <!-- Row 1: Message -->
-                                                    <StackPanel Grid.Row="1" Margin="0,0,0,6">
-                                                        <Grid>
+                                                            <materialDesign:PackIcon Grid.Column="2" 
+                                                                                     Kind="ArrowUp" 
+                                                                                     Width="14" 
+                                                                                     Height="14" 
+                                                                                     Foreground="#FF5252" 
+                                                                                     VerticalAlignment="Center" 
+                                                                                     Margin="8,0,0,0"
+                                                                                     Visibility="{Binding IsUnpushed, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                                     ToolTip="Pendiente de subir"/>
+                                                        </Grid>
+    
+                                                        <!-- Row 1: Tags & Unpushed -->
+                                                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                                                            <ItemsControl ItemsSource="{Binding Tags}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <StackPanel Orientation="Horizontal"/>
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border Background="#3D2B66" CornerRadius="8" Padding="6,1" Margin="0,0,4,0">
+                                                                            <StackPanel Orientation="Horizontal">
+                                                                                <materialDesign:PackIcon Kind="TagOutline" Width="10" Height="10" Foreground="#8A7BB1" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                                                <TextBlock Text="{Binding}" FontSize="9" Foreground="#DCDCDC" VerticalAlignment="Center"/>
+                                                                            </StackPanel>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+    
+                                                        <!-- Row 2: Author & Date -->
+                                                        <Grid Grid.Row="2">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*"/>
                                                                 <ColumnDefinition Width="Auto"/>
                                                             </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" 
-                                                                       Text="{Binding Message}" 
-                                                                       FontWeight="Bold" 
-                                                                       FontSize="13" 
-                                                                       Foreground="#E0E0E0" 
-                                                                       TextTrimming="CharacterEllipsis"/>
                                                             
-                                                             <materialDesign:PackIcon Grid.Column="1" 
-                                                                                      Kind="ArrowUpCircleOutline" 
-                                                                                      Foreground="#FFA500" 
-                                                                                      Width="14" Height="14" 
-                                                                                      ToolTip="Unpushed">
-                                                                 <materialDesign:PackIcon.Style>
-                                                                     <Style TargetType="materialDesign:PackIcon">
-                                                                         <Setter Property="Visibility" Value="Collapsed"/>
-                                                                         <Style.Triggers>
-                                                                             <DataTrigger Binding="{Binding IsUnpushed}" Value="True">
-                                                                                 <Setter Property="Visibility" Value="Visible"/>
-                                                                             </DataTrigger>
-                                                                         </Style.Triggers>
-                                                                     </Style>
-                                                                 </materialDesign:PackIcon.Style>
-                                                             </materialDesign:PackIcon>
+                                                            <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                                                                 <materialDesign:PackIcon Kind="AccountCircleOutline" Width="14" Height="14" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                                 <TextBlock Text="{Binding Author}" FontSize="11" Foreground="#999" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                            
+                                                            <TextBlock Grid.Column="1" 
+                                                                       Text="{Binding RelativeDate}" 
+                                                                       FontSize="10" 
+                                                                       Foreground="#666" 
+                                                                       FontStyle="Italic" 
+                                                                       VerticalAlignment="Center"/>
                                                         </Grid>
-                                                    </StackPanel>
-
-                                                    <!-- Row 2: Author & Date -->
-                                                    <Grid Grid.Row="2">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        
-                                                        <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
-                                                             <materialDesign:PackIcon Kind="AccountCircleOutline" Width="14" Height="14" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                                             <TextBlock Text="{Binding Author}" FontSize="11" Foreground="#999" VerticalAlignment="Center"/>
-                                                        </StackPanel>
-                                                        
-                                                        <TextBlock Grid.Column="1" 
-                                                                   Text="{Binding RelativeDate}" 
-                                                                   FontSize="10" 
-                                                                   Foreground="#666" 
-                                                                   FontStyle="Italic" 
-                                                                   VerticalAlignment="Center"/>
                                                     </Grid>
-                                                </Grid>
-                                            </Border>
-                                            <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
-                                                    <Setter TargetName="CardBorder" Property="BorderBrush" Value="#FFA500"/>
-                                                    <Setter TargetName="CardBorder" Property="BorderThickness" Value="1"/>
-                                                    <Setter TargetName="CardBorder" Property="Background" Value="#252525"/>
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
+                                                </Border>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
+                                                        <Setter TargetName="CardBorder" Property="BorderBrush" Value="#FFA500"/>
+                                                        <Setter TargetName="CardBorder" Property="BorderThickness" Value="1"/>
+                                                        <Setter TargetName="CardBorder" Property="Background" Value="#252525"/>
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                    
+                                    <Button x:Name="btnLoadMoreHistory" 
+                                            Grid.Row="1"
+                                            Content="Cargar más >>" 
+                                            Click="btnLoadMoreHistory_Click"
+                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                            FontSize="10"
+                                            FontWeight="Bold"
+                                            Height="35"
+                                            Margin="8,4"/>
+                                </Grid>
                             </Border>
 
                             <Border Grid.Column="1" Background="Transparent" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0">
@@ -1201,6 +1220,42 @@
                                                                     BorderThickness="{TemplateBinding BorderThickness}" 
                                                                     CornerRadius="6"
                                                                     SnapsToDevicePixels="True">
+                                                                <Border.ContextMenu>
+                                                                    <ContextMenu>
+                                                                        <MenuItem Header="Show in Explorer" Click="ProjectMenuItem_OpenExplorer_Click" CommandParameter="{Binding}">
+                                                                            <MenuItem.Icon>
+                                                                                <materialDesign:PackIcon Kind="FolderOpenOutline" />
+                                                                            </MenuItem.Icon>
+                                                                        </MenuItem>
+                                                                        <MenuItem Header="Open in Visual Studio Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding}">
+                                                                            <MenuItem.Icon>
+                                                                                <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
+                                                                            </MenuItem.Icon>
+                                                                        </MenuItem>
+                                                                        <MenuItem Header="Open with default program" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding}">
+                                                                            <MenuItem.Icon>
+                                                                                <materialDesign:PackIcon Kind="OpenInNew" />
+                                                                            </MenuItem.Icon>
+                                                                        </MenuItem>
+                                                                        <Separator />
+                                                                        <MenuItem Header="Copy file path" Click="HistoryFiles_CopyPath_Click" CommandParameter="{Binding}">
+                                                                            <MenuItem.Icon>
+                                                                                <materialDesign:PackIcon Kind="ContentCopy" />
+                                                                            </MenuItem.Icon>
+                                                                        </MenuItem>
+                                                                        <MenuItem Header="Copy relative file path" Click="HistoryFiles_CopyRelativePath_Click" CommandParameter="{Binding}">
+                                                                            <MenuItem.Icon>
+                                                                                <materialDesign:PackIcon Kind="LinkVariant" />
+                                                                            </MenuItem.Icon>
+                                                                        </MenuItem>
+                                                                        <Separator />
+                                                                        <MenuItem Header="View on Web" Click="ProjectMenuItem_OpenGitHub_Click" CommandParameter="{Binding}">
+                                                                            <MenuItem.Icon>
+                                                                                <materialDesign:PackIcon Kind="Web" />
+                                                                            </MenuItem.Icon>
+                                                                        </MenuItem>
+                                                                    </ContextMenu>
+                                                                </Border.ContextMenu>
                                                                 <ContentPresenter/>
                                                             </Border>
                                                             <ControlTemplate.Triggers>
