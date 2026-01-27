@@ -774,4 +774,28 @@ public static class Git
         
         return stats;
     }
+
+    /// <summary>
+    /// Obtiene la URL del repositorio remoto (origin) y la limpia para su uso en web.
+    /// </summary>
+    public static async Task<string> GetRemoteUrl(string workingDirectory)
+    {
+        string url = await EjecutarGit("remote get-url origin", workingDirectory);
+        if (string.IsNullOrWhiteSpace(url) || url.Contains("fatal:")) return string.Empty;
+
+        // Limpieza básica para GitHub
+        // SSH: git@github.com:user/repo.git -> https://github.com/user/repo
+        if (url.StartsWith("git@"))
+        {
+            url = url.Replace(":", "/").Replace("git@", "https://");
+        }
+
+        // Eliminar .git al final
+        if (url.EndsWith(".git"))
+        {
+            url = url.Substring(0, url.Length - 4);
+        }
+
+        return url.Trim();
+    }
 }

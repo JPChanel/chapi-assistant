@@ -962,187 +962,266 @@
                             </Grid.ColumnDefinitions>
 
                             <Border Grid.Column="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0" >
-                                <ListView x:Name="HistoryListView" 
-                                SelectionChanged="HistoryListView_SelectionChanged"
-                                HorizontalContentAlignment="Stretch">
-
+                                    <ListView x:Name="HistoryListView" 
+                                          SelectionChanged="HistoryListView_SelectionChanged"
+                                          Background="Transparent" 
+                                          BorderThickness="0" 
+                                          Padding="0,4"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="Margin" Value="0,0,0,6"/>
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            <Setter Property="materialDesign:RippleAssist.IsDisabled" Value="True"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListViewItem">
+                                                        <ContentPresenter/>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid Margin="5" 
-                                                Background="Transparent" ContextMenuOpening="History_ContextMenu_Opening">
-
-                                                <Grid.ContextMenu>
-                                                    <ContextMenu>
-                                                        <MenuItem x:Name="ResetSoftMenuItem"
-                        Header="Deshacer Último Commit (Soft)"
-                        Click="History_ResetSoft_Click">
-                                                            <MenuItem.Icon>
-                                                                <materialDesign:PackIcon Kind="Undo" Foreground="Orange"/>
-                                                            </MenuItem.Icon>
-                                                        </MenuItem>
-
-                                                        <Separator />
-
-                                                        <MenuItem Header="Create Branch from this Commit..."
-                        Click="History_CreateBranch_Click"
-                        CommandParameter="{Binding Hash}">
-                                                            <MenuItem.Icon>
-                                                                <materialDesign:PackIcon Kind="SourceBranch" Foreground="DeepSkyBlue"/>
-                                                            </MenuItem.Icon>
-                                                        </MenuItem>
-
-                                                        <MenuItem Header="Create Tag from this Commit..."
-                        Click="History_CreateTag_Click"
-                        CommandParameter="{Binding Hash}">
-                                                            <MenuItem.Icon>
-                                                                <materialDesign:PackIcon Kind="TagPlus" Foreground="Gray"/>
-                                                            </MenuItem.Icon>
-                                                        </MenuItem>
-                                                    </ContextMenu>
-                                                </Grid.ContextMenu>
-
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-
-                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <TextBlock FontWeight="Bold">
-                  <Run Text="Commit: "/>
-                  <Run Text="{Binding Hash}" Foreground="Goldenrod"/>
-                                                        </TextBlock>
-
-                                                        <materialDesign:PackIcon Kind="ArrowUpCircleOutline" 
-                                       Foreground="DeepSkyBlue" 
-                                       Margin="8,0,0,0"
-                                       VerticalAlignment="Center"
-                                       ToolTip="Este commit no se ha subido (push)">
-                                                            <materialDesign:PackIcon.Style>
-                                                                <Style TargetType="materialDesign:PackIcon">
-                                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding IsUnpushed}" Value="True">
-                                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </materialDesign:PackIcon.Style>
-                                                        </materialDesign:PackIcon>
+                                            <Border x:Name="CardBorder" 
+                                                    Margin="8,0" 
+                                                    Padding="12" 
+                                                    Background="#1E1E1E" 
+                                                    CornerRadius="8" 
+                                                    BorderBrush="#333" 
+                                                    BorderThickness="1">
+                                                <Grid ContextMenuOpening="History_ContextMenu_Opening">
+                                                     <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    
+                                                    <!-- Row 0: Hash & Tags -->
+                                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                                                        <Border Background="#2D2D30" CornerRadius="3" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Kind="SourceCommit" Width="10" Height="10" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                                <TextBlock Text="{Binding ShortHash}" FontFamily="Consolas" FontSize="11" Foreground="#FFA500" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        
+                                                        <ItemsControl ItemsSource="{Binding Tags}" VerticalAlignment="Center">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <StackPanel Orientation="Horizontal"/>
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border Background="#3D2B66" CornerRadius="3" Margin="0,0,4,0" Padding="6,1" BorderBrush="#5E4299" BorderThickness="1">
+                                                                        <StackPanel Orientation="Horizontal">
+                                                                            <materialDesign:PackIcon Kind="TagOutline" Width="10" Height="10" Foreground="#B0A4D5" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                                            <TextBlock Text="{Binding}" FontSize="10" FontWeight="SemiBold" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                                                                        </StackPanel>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
                                                     </StackPanel>
 
-                                                    <TextBlock>
-              <Run Text="Autor: " FontWeight="SemiBold"/>
-              <Run Text="{Binding Author}"/>
-              <Run Text=" ("/>
-              <Run Text="{Binding Date}" FontStyle="Italic"/>
-              <Run Text=")"/>
-                                                    </TextBlock>
+                                                    <!-- Row 1: Message -->
+                                                    <StackPanel Grid.Row="1" Margin="0,0,0,6">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" 
+                                                                       Text="{Binding Message}" 
+                                                                       FontWeight="Bold" 
+                                                                       FontSize="13" 
+                                                                       Foreground="#E0E0E0" 
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                            
+                                                             <materialDesign:PackIcon Grid.Column="1" 
+                                                                                      Kind="ArrowUpCircleOutline" 
+                                                                                      Foreground="#FFA500" 
+                                                                                      Width="14" Height="14" 
+                                                                                      ToolTip="Unpushed">
+                                                                 <materialDesign:PackIcon.Style>
+                                                                     <Style TargetType="materialDesign:PackIcon">
+                                                                         <Setter Property="Visibility" Value="Collapsed"/>
+                                                                         <Style.Triggers>
+                                                                             <DataTrigger Binding="{Binding IsUnpushed}" Value="True">
+                                                                                 <Setter Property="Visibility" Value="Visible"/>
+                                                                             </DataTrigger>
+                                                                         </Style.Triggers>
+                                                                     </Style>
+                                                                 </materialDesign:PackIcon.Style>
+                                                             </materialDesign:PackIcon>
+                                                        </Grid>
+                                                    </StackPanel>
 
-                                                    <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="0,5,0,0"/>
-
-                                                </StackPanel>
-
-                                                <ItemsControl Grid.Column="1" 
-                    ItemsSource="{Binding Tags}" 
-                    VerticalAlignment="Center" 
-                    HorizontalAlignment="Right"
-                    Margin="10,0,0,0">
-
-                                                    <ItemsControl.Style>
-                                                        <Style TargetType="ItemsControl">
-                                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding HasTags}" Value="True">
-                                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ItemsControl.Style>
-                                                    <ItemsControl.ItemsPanel>
-                                                        <ItemsPanelTemplate>
-                                                            <StackPanel Orientation="Vertical" HorizontalAlignment="Right"/>
-                                                        </ItemsPanelTemplate>
-                                                    </ItemsControl.ItemsPanel>
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <Border Background="Gray" CornerRadius="3" Margin="0,0,0,5" Padding="6,2">
-                                                                <StackPanel Orientation="Horizontal">
-                                                                    <materialDesign:PackIcon Kind="TagOutline" VerticalAlignment="Center" Margin="0,0,4,0" Height="12" Width="12"/>
-                                                                    <TextBlock Text="{Binding}" FontSize="11" FontWeight="SemiBold" Foreground="#E0E0E0"/>
-                                                                </StackPanel>
-                                                            </Border>
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-
-                                            </Grid>
+                                                    <!-- Row 2: Author & Date -->
+                                                    <Grid Grid.Row="2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        
+                                                        <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                                                             <materialDesign:PackIcon Kind="AccountCircleOutline" Width="14" Height="14" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                             <TextBlock Text="{Binding Author}" FontSize="11" Foreground="#999" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                        
+                                                        <TextBlock Grid.Column="1" 
+                                                                   Text="{Binding RelativeDate}" 
+                                                                   FontSize="10" 
+                                                                   Foreground="#666" 
+                                                                   FontStyle="Italic" 
+                                                                   VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                </Grid>
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
+                                                    <Setter TargetName="CardBorder" Property="BorderBrush" Value="#FFA500"/>
+                                                    <Setter TargetName="CardBorder" Property="BorderThickness" Value="1"/>
+                                                    <Setter TargetName="CardBorder" Property="Background" Value="#252525"/>
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
                                 </ListView>
                             </Border>
 
-                            <Border Grid.Column="1" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0">
+                            <Border Grid.Column="1" Background="Transparent" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
 
-                                    <Border Grid.Row="0"
-                                        x:Name="CommitSummaryHeader"
-                                        Background="{DynamicResource MaterialDesignPaper}"
-                                        BorderBrush="{DynamicResource MaterialDesignDivider}"
-                                        BorderThickness="0,0,0,1"
-                                        Padding="10"
-                                        Visibility="Collapsed">
+                                    <!-- Commit Detail Header -->
+                                    <Border Grid.Row="0" x:Name="CommitDetailContainer" Padding="25,30,25,20" Visibility="Collapsed">
                                         <StackPanel>
-                                            <TextBlock x:Name="CommitSummaryMessage" 
-                                               FontWeight="Bold" 
-                                               TextWrapping="Wrap"
-                                               Text="feat: implementa búsqueda de firmantes"/>
+                                            <TextBlock x:Name="CommitSummaryMessage" FontSize="22" FontWeight="Black" Foreground="White" TextWrapping="Wrap" LineHeight="28"/>
+                                            
+                                            <Border Margin="0,20,0,0" Padding="0" Background="Transparent">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="AccountCircle" Width="24" Height="24" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                    <TextBlock x:Name="CommitSummaryInfo" FontSize="14" Foreground="#888" VerticalAlignment="Center" FontWeight="Normal"/>
+                                                </StackPanel>
+                                            </Border>
 
-                                            <TextBlock x:Name="CommitSummaryInfo" 
-                                               Foreground="Gray" 
-                                               FontSize="12"
-                                               Text="Johan Chanel cometió 12ce0d4"/>
+                                            <TextBlock x:Name="CommitSummaryDescription" Margin="0,25,0,0" FontSize="14" Foreground="#CCC" TextWrapping="Wrap" Opacity="0.8" LineHeight="22"/>
 
-                                            <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto" Margin="0,10,0,0">
-                                                <TextBlock x:Name="CommitSummaryDescription"
-                                                TextWrapping="Wrap"
-                                                FontSize="11"
-                                                Opacity="0.8"
-                                                Text="Descripción larga del commit..."/>
-                                            </ScrollViewer>
+                                            <StackPanel Orientation="Horizontal" Margin="0,30,0,10">
+                                                <materialDesign:PackIcon Kind="FileDocumentMultipleOutline" Width="18" Height="18" Foreground="#8A7BB1" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="ARCHIVOS CAMBIADOS" FontSize="11" FontWeight="Black" Foreground="#8A7BB1" VerticalAlignment="Center"/>
+                                            </StackPanel>
                                         </StackPanel>
                                     </Border>
 
-
-
-
-
-                                    <ListView x:Name="HistoryFilesListView" Grid.Row="1"
-                                  Margin="0"
-                                  BorderThickness="0"
-                                  SelectionChanged="HistoryFilesListView_SelectionChanged">
+                                    <ListView x:Name="HistoryFilesListView" Grid.Row="1" Margin="10,0" BorderThickness="0" Background="Transparent" SelectionChanged="HistoryFilesListView_SelectionChanged">
+                                        <ListView.ItemContainerStyle>
+                                            <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
+                                                <Setter Property="Padding" Value="10,8"/>
+                                                <Setter Property="Margin" Value="0,2"/>
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="BorderThickness" Value="1"/>
+                                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListViewItem">
+                                                            <Border Background="{TemplateBinding Background}" 
+                                                                    BorderBrush="{TemplateBinding BorderBrush}" 
+                                                                    BorderThickness="{TemplateBinding BorderThickness}" 
+                                                                    CornerRadius="6"
+                                                                    SnapsToDevicePixels="True">
+                                                                <ContentPresenter/>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsSelected" Value="True">
+                                                                    <Setter Property="Background" Value="#26FFA500"/>
+                                                                    <Setter Property="BorderBrush" Value="#FFA500"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListView.ItemContainerStyle>
                                         <ListView.ItemTemplate>
                                             <DataTemplate>
-                                                <StackPanel Orientation="Horizontal" Margin="5">
-                                                    <materialDesign:PackIcon Kind="File" Margin="0,0,8,0" Foreground="Gray"/>
-                                                    <TextBlock Text="{Binding}"/>
-                                                </StackPanel>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <materialDesign:PackIcon Kind="FileOutline" Width="18" Height="18" Margin="0,0,12,0" VerticalAlignment="Center">
+                                                        <materialDesign:PackIcon.Style>
+                                                            <Style TargetType="materialDesign:PackIcon">
+                                                                <Setter Property="Foreground" Value="#8A7BB1"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
+                                                                        <Setter Property="Foreground" Value="#FFA500"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
+                                                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </materialDesign:PackIcon.Style>
+                                                    </materialDesign:PackIcon>
+                                                    
+                                                    <TextBlock Grid.Column="1" Text="{Binding}" Foreground="#DCDCDC" VerticalAlignment="Center" FontSize="13"/>
+                                                    <materialDesign:PackIcon Grid.Column="2" Kind="ChevronRight" Width="14" Height="14" Foreground="#3D2B66" VerticalAlignment="Center"/>
+                                                </Grid>
                                             </DataTemplate>
                                         </ListView.ItemTemplate>
                                     </ListView>
-                                </Grid>
+                                    </Grid>
                             </Border>
 
-                            <Border Grid.Column="2" Background="#2E2E2E">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                            <Border Grid.Column="2" Background="#0A0A0A" BorderBrush="#2D2447" BorderThickness="1,0,0,0">
+                                <Grid>
+                                    <!-- Empty State -->
+                                    <Grid x:Name="DiffViewerPlaceholder" Visibility="Visible" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <StackPanel HorizontalAlignment="Center">
+                                            <Border Background="#1A1A1A" CornerRadius="8" Padding="20" HorizontalAlignment="Center" Margin="0,0,0,20">
+                                                <materialDesign:PackIcon Kind="CodeTags" Width="48" Height="48" Foreground="#333"/>
+                                            </Border>
+                                            <TextBlock Text="SIN ARCHIVO SELECCIONADO" 
+                                                       FontSize="16" 
+                                                       FontWeight="Bold" 
+                                                       Foreground="#444" 
+                                                       HorizontalAlignment="Center" 
+                                                       Margin="0,0,0,8"/>
+                                            <TextBlock Text="Selecciona un archivo modificado en el panel&#x0a;izquierdo para ver las diferencias (diff)." 
+                                                       FontSize="13" 
+                                                       Foreground="#333" 
+                                                       TextAlignment="Center" 
+                                                       LineHeight="20"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Content State -->
+                                    <Grid x:Name="DiffViewerContent" Visibility="Collapsed">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                    <Border Padding="15,12" BorderBrush="#2D2447" BorderThickness="0,0,0,1">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="CodeBraces" Width="16" Height="16" Foreground="#8A7BB1" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="HistoryDiffFileName" Text="VISOR DE CÓDIGO" FontSize="10" FontWeight="Bold" Foreground="#8A7BB1" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                                     <ItemsControl x:Name="HistoryDiffLinesItemsControl" 
                               FontFamily="Consolas" 
-                              FontSize="12"
+                              FontSize="13"
+                              Background="#0A0A0A"
                               VirtualizingStackPanel.IsVirtualizing="True"
                               VirtualizingStackPanel.VirtualizationMode="Recycling">
 
@@ -1154,13 +1233,13 @@
                                                             <Setter Property="Background" Value="Transparent"/>
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding Type}" Value="Inserted">
-                                                                    <Setter Property="Background" Value="#104010"/>
+                                                                    <Setter Property="Background" Value="#102510"/>
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding Type}" Value="Deleted">
-                                                                    <Setter Property="Background" Value="#401010"/>
+                                                                    <Setter Property="Background" Value="#251010"/>
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding Type}" Value="Imaginary">
-                                                                    <Setter Property="Background" Value="#222"/>
+                                                                    <Setter Property="Background" Value="#111"/>
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -1172,7 +1251,7 @@
                                                         <ColumnDefinition Width="*"/>
                                                     </Grid.ColumnDefinitions>
 
-                                                    <TextBlock Grid.Column="0" Text="{Binding Position}" Foreground="#888" Padding="5,0" HorizontalAlignment="Right">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Position}" Foreground="#555" Padding="5,0" HorizontalAlignment="Right">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Visibility" Value="Visible"/>
@@ -1188,7 +1267,7 @@
                                                         </TextBlock.Style>
                                                     </TextBlock>
 
-                                                    <TextBlock Grid.Column="1" Text="{Binding Position}" Foreground="#888" Padding="5,0" HorizontalAlignment="Right">
+                                                    <TextBlock Grid.Column="1" Text="{Binding Position}" Foreground="#555" Padding="5,0" HorizontalAlignment="Right">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Visibility" Value="Visible"/>
@@ -1204,25 +1283,25 @@
                                                         </TextBlock.Style>
                                                     </TextBlock>
 
-                                                    <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="NoWrap" Foreground="#DCDCDC" Padding="10,0,0,0">
+                                                    <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="NoWrap" FontFamily="Consolas" Padding="12,2,0,2">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Text" Value="{Binding Text, StringFormat='  {0}'}"/>
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding Type}" Value="Inserted">
-                                                                        <Setter Property="Foreground" Value="#ADFFAD"/>
+                                                                        <Setter Property="Foreground" Value="#80C880"/>
                                                                         <Setter Property="Text" Value="{Binding Text, StringFormat='+ {0}'}"/>
                                                                     </DataTrigger>
                                                                     <DataTrigger Binding="{Binding Type}" Value="Deleted">
-                                                                        <Setter Property="Foreground" Value="#FFADAD"/>
+                                                                        <Setter Property="Foreground" Value="#C88080"/>
                                                                         <Setter Property="Text" Value="{Binding Text, StringFormat='- {0}'}"/>
                                                                     </DataTrigger>
                                                                     <DataTrigger Binding="{Binding Type}" Value="Unchanged">
-                                                                        <Setter Property="Foreground" Value="#999"/>
+                                                                        <Setter Property="Foreground" Value="#888"/>
                                                                     </DataTrigger>
                                                                     <DataTrigger Binding="{Binding Type}" Value="Imaginary">
                                                                         <Setter Property="Text" Value="..."/>
-                                                                        <Setter Property="Foreground" Value="#888"/>
+                                                                        <Setter Property="Foreground" Value="#444"/>
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -1233,6 +1312,8 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </ScrollViewer>
+                                    </Grid>
+                                </Grid>
                             </Border>
                         </Grid>
                     </TabItem>

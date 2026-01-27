@@ -576,7 +576,8 @@ namespace Chapi
             const string fieldSeparator = "\x1f";
             const string recordSeparator = "\x1e";
 
-            string logFormat = $"%h{fieldSeparator}%an{fieldSeparator}%ar{fieldSeparator}%s{fieldSeparator}%b{recordSeparator}";
+            // %H: hash completo para links, %h: hash corto, %an: autor, %ar: fecha relativa, %s: mensaje, %b: cuerpo
+            string logFormat = $"%H{fieldSeparator}%an{fieldSeparator}%ar{fieldSeparator}%s{fieldSeparator}%b{recordSeparator}";
             var logOutput = await Git.EjecutarGit($"log --pretty=format:\"{logFormat}\" -n 50", projectDirectory);
             var commits = new List<GitLogItem>();
 
@@ -590,19 +591,19 @@ namespace Chapi
             foreach (var line in commitRecords)
             {
                 var parts = line.Trim().Trim('"').Split(new[] { fieldSeparator }, StringSplitOptions.None);
-                if (parts.Length == 5)
+                if (parts.Length >= 4)
                 {
                     var hash = parts[0];
                     var commit = new GitLogItem
                     {
                         Hash = hash,
                         Author = parts[1],
-                        Date = parts[2],
+                        RelativeDate = parts[2],
                         Message = parts[3],
-                        Description = parts[4].Trim(),
+                        Description = parts.Length > 4 ? parts[4].Trim() : string.Empty,
                         IsUnpushed = unpushedHashes.Contains(hash)
                     };
-                    var tagEntry = tagMap.Keys.FirstOrDefault(k => k.StartsWith(hash));
+                    var tagEntry = tagMap.Keys.FirstOrDefault(k => k.StartsWith(hash.Substring(0, 7)));
                     if (tagEntry != null)
                     {
                         commit.Tags = tagMap[tagEntry];
@@ -1601,23 +1602,18 @@ namespace Chapi
             var selectedCommit = e.AddedItems.OfType<GitLogItem>().FirstOrDefault();
             if (selectedCommit == null)
             {
-                CommitSummaryHeader.Visibility = Visibility.Collapsed;
+                CommitDetailContainer.Visibility = Visibility.Collapsed;
                 return;
             }
 
-            // Poblar los campos
+            // Poblar los campos según el nuevo diseño estructurado
             CommitSummaryMessage.Text = selectedCommit.Message;
-            CommitSummaryInfo.Text = $"{selectedCommit.Author} cometió {selectedCommit.Hash} ({selectedCommit.Date})";
+            CommitSummaryInfo.Text = $"{selectedCommit.Author} cometió {selectedCommit.ShortHash} ({selectedCommit.RelativeDate})";
             CommitSummaryDescription.Text = selectedCommit.Description;
 
+            CommitDetailContainer.Visibility = Visibility.Visible;
 
-            CommitSummaryHeader.Visibility = Visibility.Visible;
-
-
-            if (!ValidateProject())
-            {
-                return;
-            }
+            if (!ValidateProject()) return;
 
             try
             {
@@ -1637,12 +1633,28 @@ namespace Chapi
             HistoryDiffLinesItemsControl.ItemsSource = null;
 
             var selectedFile = e.AddedItems.OfType<string>().FirstOrDefault();
-            var selectedCommit = HistoryListView.SelectedItem as GitLogItem; // Obtener el commit seleccionado
+            var selectedCommit = HistoryListView.SelectedItem as GitLogItem; 
 
-            if (selectedFile == null || selectedCommit == null || !ValidateProject())
+            if (selectedFile == null)
+            {
+                // Mostrar "Sin Archivo Seleccionado"
+                if (DiffViewerPlaceholder != null) DiffViewerPlaceholder.Visibility = Visibility.Visible;
+                if (DiffViewerContent != null) DiffViewerContent.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            // Ocultar placeholder, mostrar contenido
+            if (DiffViewerPlaceholder != null) DiffViewerPlaceholder.Visibility = Visibility.Collapsed;
+            if (DiffViewerContent != null) DiffViewerContent.Visibility = Visibility.Visible;
+
+
+            if (selectedCommit == null || !ValidateProject())
             {
                 return;
             }
+
+            HistoryDiffFileName.Text = selectedFile.ToUpper();
+            _activeDiffFile = selectedFile; // Guardar para "Abrir en Web"
 
             try
             {

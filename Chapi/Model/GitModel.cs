@@ -25,8 +25,10 @@ public class GitStatusItem
 public class GitLogItem
 {
     public string Hash { get; set; }
+    public string ShortHash => Hash?.Length > 7 ? Hash.Substring(0, 7) : Hash;
     public string Author { get; set; }
     public string Date { get; set; }
+    public string RelativeDate { get; set; }
     public string Message { get; set; }
 
     public string Description { get; set; } 
