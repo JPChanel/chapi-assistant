@@ -19,7 +19,7 @@ namespace Chapi
             taskbarIcon = new TaskbarIcon
             {
                 Icon = new System.Drawing.Icon("Image/icon.ico"),
-                ToolTipText = "Chapi Asistente 🚀",
+                ToolTip = "Chapi Asistente 🚀",
                 ContextMenu = CreateContextMenu()
             };
 

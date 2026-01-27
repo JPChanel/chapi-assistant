@@ -489,7 +489,7 @@
                                             <Grid>
                                                 <StackPanel Orientation="Horizontal">
                                                     <materialDesign:PackIcon Kind="SourceCommit" Foreground="Aqua" VerticalAlignment="Center" Margin="0,0,8,0" Width="16" Height="16"/>
-                                                    <TextBlock Text="CAMBIOS" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" Foreground="White" Opacity="1"/>
+                                                    <TextBlock Text="Cambios" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" Foreground="White" Opacity="1"/>
                                                     <Border Background="{DynamicResource MaterialDesignSelection}" CornerRadius="4" Padding="4,1" Margin="8,0,0,0" VerticalAlignment="Center">
                                                         <TextBlock x:Name="txtChangesCountSide" Text="0" FontSize="10" FontWeight="Bold" Foreground="White" Opacity="0.9"/>
                                                     </Border>
@@ -502,7 +502,7 @@
                                                                    Visibility="{Binding TotalDeletions, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource IntegerToVisibilityConverter}}"/>
                                                     </StackPanel>
                                                 </StackPanel>
-                                                <CheckBox x:Name="SelectAllCheckBox" HorizontalAlignment="Right" Content="SELECCIONAR" FontSize="10" Foreground="White" Opacity="0.8" Checked="SelectAllCheckBox_Checked" Unchecked="SelectAllCheckBox_Unchecked" VerticalAlignment="Center">
+                                                <CheckBox x:Name="SelectAllCheckBox" HorizontalAlignment="Right" Content="Seleccionar" FontSize="10" Foreground="White" Opacity="0.8" Checked="SelectAllCheckBox_Checked" Unchecked="SelectAllCheckBox_Unchecked" VerticalAlignment="Center">
                                                     <CheckBox.ContextMenu>
                                                         <ContextMenu>
                                                             <MenuItem Header="Stash Cambios Seleccionados" Click="StashSelectedMenuItem_Click">
