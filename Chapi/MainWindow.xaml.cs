@@ -430,6 +430,8 @@ namespace Chapi
             if (string.IsNullOrWhiteSpace(statusOutput))
             {
                 ChangesListView.ItemsSource = changes; // Lista vacía
+                TotalAdditions = 0;
+                TotalDeletions = 0;
                 UpdateChangesCount();
                 return;
             }
