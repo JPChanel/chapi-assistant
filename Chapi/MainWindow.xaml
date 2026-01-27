@@ -314,12 +314,12 @@
                             VerticalAlignment="Stretch"
                             SelectionChanged="GitTabs_SelectionChanged">
 
-                    <TabItem Header="ASISTENTE" x:Name="AssistantTab">
+                    <TabItem Header="Asistente" x:Name="AssistantTab">
                         <TabItem.HeaderTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="10,0">
                                     <materialDesign:PackIcon Kind="Robot" Margin="0,0,8,0" Width="18" Height="18"/>
-                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </DataTemplate>
                         </TabItem.HeaderTemplate>
@@ -396,7 +396,7 @@
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal" Margin="10,0">
                                 <materialDesign:PackIcon Kind="Stethoscope" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="ChangesTabHeader" Text="CAMBIOS" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="ChangesTabHeader" Text="Cambios" VerticalAlignment="Center" />
                                 <Border x:Name="ChangesCountBadge" 
                                         Background="#5C6BC0" 
                                         CornerRadius="10" 
@@ -996,12 +996,12 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem x:Name="HistoryTab" Header="HISTORIAL">
+                    <TabItem x:Name="HistoryTab" Header="Historial">
                         <TabItem.HeaderTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="10,0">
                                     <materialDesign:PackIcon Kind="History" Margin="0,0,8,0" Width="18" Height="18"/>
-                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </DataTemplate>
                         </TabItem.HeaderTemplate>
@@ -1381,12 +1381,12 @@
                             </Border>
                         </Grid>
                     </TabItem>
-                    <TabItem x:Name="TagsTab" Header="TAGS">
+                    <TabItem x:Name="TagsTab" Header="Tags">
                         <TabItem.HeaderTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="10,0">
                                     <materialDesign:PackIcon Kind="TagOutline" Margin="0,0,8,0" Width="18" Height="18"/>
-                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </DataTemplate>
                         </TabItem.HeaderTemplate>
