@@ -731,4 +731,47 @@ public static class Git
         bool success = !output.Contains("fatal:") && !output.Contains("error:");
         return new GitResult(success, output);
     }
+
+    /// <summary>
+    /// Obtiene las estadísticas de líneas (adiciones y eliminaciones) de los cambios actuales.
+    /// </summary>
+    public static async Task<Dictionary<string, (int Additions, int Deletions)>> GetNumStat(string workingDirectory)
+    {
+        var stats = new Dictionary<string, (int Additions, int Deletions)>();
+        
+        // Obtenemos numstat de cambios indexados y no indexados
+        string stagedOutput = await EjecutarGit("diff --cached --numstat", workingDirectory);
+        string unstagedOutput = await EjecutarGit("diff --numstat", workingDirectory);
+        
+        void ParseOutput(string output)
+        {
+            if (string.IsNullOrWhiteSpace(output)) return;
+            var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 3)
+                {
+                    if (int.TryParse(parts[0], out int added) && int.TryParse(parts[1], out int deleted))
+                    {
+                        string path = parts[2].Trim().Replace('/', Path.DirectorySeparatorChar);
+                        if (stats.ContainsKey(path))
+                        {
+                            var current = stats[path];
+                            stats[path] = (current.Additions + added, current.Deletions + deleted);
+                        }
+                        else
+                        {
+                            stats[path] = (added, deleted);
+                        }
+                    }
+                }
+            }
+        }
+
+        ParseOutput(stagedOutput);
+        ParseOutput(unstagedOutput);
+        
+        return stats;
+    }
 }

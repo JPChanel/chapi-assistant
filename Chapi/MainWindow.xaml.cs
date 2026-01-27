@@ -28,8 +28,11 @@ namespace Chapi
 {
 
 
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, System.ComponentModel.INotifyPropertyChanged
     {
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+
         private bool _isWindowInitialized = false;
         private string projectDirectory;
         private List<string> createdPaths = new List<string>();
@@ -54,6 +57,18 @@ namespace Chapi
         private bool _isReloadingChanges = false;
 
         private bool _isGitInstalled = false;
+        private System.Threading.CancellationTokenSource _diffCts;
+
+        public string AppVersion { get; private set; }
+        public string ServiceStatusText => "Activo"; // Lógica simplificada basada en UpdateView
+        public Brush ServiceStatusBrush => Brushes.Lime;
+
+        private int _totalAdditions;
+        public int TotalAdditions { get => _totalAdditions; set { _totalAdditions = value; OnPropertyChanged(nameof(TotalAdditions)); } }
+        
+        private int _totalDeletions;
+        public int TotalDeletions { get => _totalDeletions; set { _totalDeletions = value; OnPropertyChanged(nameof(TotalDeletions)); } }
+
         public MainWindow()
         {
             InitializeComponent();
@@ -74,6 +89,18 @@ namespace Chapi
                 Timeout.Infinite,
                 Timeout.Infinite);
             Task.Run(CheckForUpdates);
+            LoadVersion();
+        }
+
+        private void LoadVersion()
+        {
+            var assembly = System.Reflection.Assembly.GetEntryAssembly();
+            if (assembly != null)
+            {
+                var fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
+                AppVersion = $"v{fvi.ProductVersion?.Split('+')[0]}";
+                OnPropertyChanged(nameof(AppVersion));
+            }
         }
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
@@ -428,46 +455,55 @@ namespace Chapi
                     {
                         case "M":
                             item.Status = "Modificado";
+                            item.ShortStatus = "M";
                             item.Icon = PackIconKind.FileEdit;
                             item.Color = Brushes.Orange;
                             break;
                         case "A":
                             item.Status = "Añadido";
+                            item.ShortStatus = "A";
                             item.Icon = PackIconKind.FilePlus;
                             item.Color = Brushes.Green;
                             break;
                         case "D":
                             item.Status = "Eliminado";
+                            item.ShortStatus = "D";
                             item.Icon = PackIconKind.FileRemove;
                             item.Color = Brushes.Red;
                             break;
                         case "R":
                             item.Status = "Renombrado";
+                            item.ShortStatus = "R";
                             item.Icon = PackIconKind.FileMove;
                             item.Color = Brushes.Blue;
                             break;
                         case "??":
                             item.Status = "Sin seguimiento";
+                            item.ShortStatus = "?";
                             item.Icon = PackIconKind.FileQuestion;
                             item.Color = Brushes.Green;
                             break;
                         case "UU":
                             item.Status = "Conflicto";
+                            item.ShortStatus = "U";
                             item.Icon = PackIconKind.AlertOctagon;
                             item.Color = Brushes.Red;
                             break;
                         case "AU":
                             item.Status = "Conflicto (Añadido por ti)";
+                            item.ShortStatus = "U";
                             item.Icon = PackIconKind.Alert;
                             item.Color = Brushes.Red;
                             break;
                         case "UA":
                             item.Status = "Conflicto (Añadido por ellos)";
+                            item.ShortStatus = "U";
                             item.Icon = PackIconKind.Alert;
                             item.Color = Brushes.Red;
                             break;
                         default:
                             item.Status = "Desconocido";
+                            item.ShortStatus = status.Trim().Substring(0, 1);
                             item.Icon = PackIconKind.FileQuestion;
                             item.Color = Brushes.Gray;
                             break;
@@ -475,10 +511,34 @@ namespace Chapi
                     changes.Add(item);
                 }
             }
+
+            // --- NUEVA LÓGICA: Agregar estadísticas de líneas ---
+            var lineStats = await Git.GetNumStat(projectDirectory);
+            int totalAdd = 0;
+            int totalDel = 0;
+            foreach (var change in changes)
+            {
+                if (lineStats.TryGetValue(change.FilePath, out var stats))
+                {
+                    change.Additions = stats.Additions;
+                    change.Deletions = stats.Deletions;
+                    totalAdd += stats.Additions;
+                    totalDel += stats.Deletions;
+                }
+            }
+            TotalAdditions = totalAdd;
+            TotalDeletions = totalDel;
+            // ----------------------------------------------------
+
             var sortedChanges = changes.OrderBy(c => c.FilePath).ToList();
             ChangesListView.ItemsSource = sortedChanges;
             SelectAllCheckBox.IsChecked = sortedChanges.Any() && sortedChanges.All(c => c.IsSelected);
             UpdateChangesCount();
+            
+            // Reset Diff View
+            DiffLinesItemsControl.ItemsSource = null;
+            if (DiffEmptyStateView != null) DiffEmptyStateView.Visibility = Visibility.Visible;
+            if (DiffContentBorder != null) DiffContentBorder.Visibility = Visibility.Collapsed;
         }
 
         private async void btnReloadChanges_Click(object sender, RoutedEventArgs e)
@@ -1249,15 +1309,27 @@ namespace Chapi
 
         private async void ChangesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Limpiar el visor antes de empezar
+            // Cancelar cualquier proceso de diff anterior
+            _diffCts?.Cancel();
+            _diffCts = new System.Threading.CancellationTokenSource();
+            var token = _diffCts.Token;
+
+            // Limpiar el visor inmediatamente para dar feedback visual
             DiffLinesItemsControl.ItemsSource = null;
 
             var selectedItem = e.AddedItems.OfType<GitStatusItem>().FirstOrDefault();
 
             if (selectedItem == null)
             {
+                // Mostrar "Sin Archivo Seleccionado"
+                if (DiffEmptyStateView != null) DiffEmptyStateView.Visibility = Visibility.Visible;
+                if (DiffContentBorder != null) DiffContentBorder.Visibility = Visibility.Collapsed;
                 return;
             }
+
+            // Ocultar "Sin Archivo" y mostrar Diff
+            if (DiffEmptyStateView != null) DiffEmptyStateView.Visibility = Visibility.Collapsed;
+            if (DiffContentBorder != null) DiffContentBorder.Visibility = Visibility.Visible;
 
             if (!ValidateProject())
             {
@@ -1266,57 +1338,79 @@ namespace Chapi
 
             try
             {
-                string oldText = await Git.GetFileContentAtCommitish(selectedItem.FilePath, "HEAD", projectDirectory);
-                string fullPath = Path.Combine(projectDirectory, selectedItem.FilePath);
-                string newText = string.Empty;
-
-                if (File.Exists(fullPath) && selectedItem.Status != "Eliminado")
+                // Envolvemos toda la lógica pesada en Task.Run para no bloquear el hilo de la UI
+                var result = await Task.Run(async () =>
                 {
-                    newText = await File.ReadAllTextAsync(fullPath);
-                }
+                    string oldText = await Git.GetFileContentAtCommitish(selectedItem.FilePath, "HEAD", projectDirectory);
+                    string fullPath = Path.Combine(projectDirectory, selectedItem.FilePath);
+                    string newText = string.Empty;
 
-                var diffBuilder = new InlineDiffBuilder(new DiffPlex.Differ());
-                var diff = diffBuilder.BuildDiffModel(oldText, newText);
-
-                // (Lógica de Hunks)
-                var filteredLines = new List<DiffPiece>();
-                const int contextLines = 3;
-
-                for (int i = 0; i < diff.Lines.Count; i++)
-                {
-                    var line = diff.Lines[i];
-                    if (line.Type == ChangeType.Unchanged)
+                    if (File.Exists(fullPath) && selectedItem.Status != "Eliminado")
                     {
-                        bool isContext = false;
-                        for (int j = 1; j <= contextLines; j++)
+                        newText = await File.ReadAllTextAsync(fullPath);
+                    }
+
+                    token.ThrowIfCancellationRequested();
+
+                    var diffBuilder = new InlineDiffBuilder(new DiffPlex.Differ());
+                    var diff = diffBuilder.BuildDiffModel(oldText, newText);
+
+                    token.ThrowIfCancellationRequested();
+
+                    var filteredLines = new List<DiffPiece>();
+                    const int contextLines = 3;
+
+                    for (int i = 0; i < diff.Lines.Count; i++)
+                    {
+                        if (token.IsCancellationRequested) break;
+
+                        var line = diff.Lines[i];
+                        if (line.Type == ChangeType.Unchanged)
                         {
-                            if (i - j >= 0 && diff.Lines[i - j].Type != ChangeType.Unchanged) { isContext = true; break; }
-                        }
-                        if (!isContext)
-                        {
+                            bool isContext = false;
                             for (int j = 1; j <= contextLines; j++)
                             {
-                                if (i + j < diff.Lines.Count && diff.Lines[i + j].Type != ChangeType.Unchanged) { isContext = true; break; }
+                                if (i - j >= 0 && diff.Lines[i - j].Type != ChangeType.Unchanged) { isContext = true; break; }
+                            }
+                            if (!isContext)
+                            {
+                                for (int j = 1; j <= contextLines; j++)
+                                {
+                                    if (i + j < diff.Lines.Count && diff.Lines[i + j].Type != ChangeType.Unchanged) { isContext = true; break; }
+                                }
+                            }
+                            if (isContext) { filteredLines.Add(line); }
+                            else if (filteredLines.Count > 0 && filteredLines.Last().Type != ChangeType.Imaginary)
+                            {
+                                filteredLines.Add(new DiffPiece("...", ChangeType.Imaginary, null));
                             }
                         }
-                        if (isContext) { filteredLines.Add(line); }
-                        else if (filteredLines.Count > 0 && filteredLines.Last().Type != ChangeType.Imaginary)
-                        {
-                            filteredLines.Add(new DiffPiece("...", ChangeType.Imaginary, null));
-                        }
+                        else { filteredLines.Add(line); }
                     }
-                    else { filteredLines.Add(line); }
-                }
 
-                DiffLinesItemsControl.ItemsSource = filteredLines;
+                    return filteredLines;
+                }, token);
+
+                // Si no se canceló durante el proceso, asignamos los resultados a la UI
+                if (!token.IsCancellationRequested)
+                {
+                    DiffLinesItemsControl.ItemsSource = result;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // El proceso fue cancelado porque el usuario seleccionó otro archivo rápido
             }
             catch (Exception ex)
             {
-                Msg.Assistant($"--- !!! CATCH BLOCK ERROR: {ex.Message} ---");
-                DiffLinesItemsControl.ItemsSource = new List<DiffPiece>
+                if (!token.IsCancellationRequested)
                 {
-                    new DiffPiece($"ERROR AL CARGAR DIFF: {ex.Message}", ChangeType.Deleted)
-                };
+                    Msg.Assistant($"--- !!! ERROR AL CARGAR DIFF: {ex.Message} ---");
+                    DiffLinesItemsControl.ItemsSource = new List<DiffPiece>
+                    {
+                        new DiffPiece($"ERROR AL CARGAR DIFF: {ex.Message}", ChangeType.Deleted)
+                    };
+                }
             }
         }
         // --- NUEVO: Lógica para el botón de Commit Manual ---
@@ -1783,9 +1877,22 @@ namespace Chapi
         /// </summary>
         private string GetPathFromMenuItem(object sender)
         {
-            if (sender is MenuItem menuItem && menuItem.CommandParameter is string path)
+            if (sender is MenuItem menuItem)
             {
-                return path;
+                if (menuItem.CommandParameter is string path)
+                {
+                    return path;
+                }
+                
+                // Si el parámetro es un GitStatusItem (de la lista de cambios)
+                if (menuItem.CommandParameter is GitStatusItem statusItem)
+                {
+                    // Combinar con el directorio del proyecto actual
+                    if (!string.IsNullOrEmpty(projectDirectory))
+                    {
+                        return Path.Combine(projectDirectory, statusItem.FilePath);
+                    }
+                }
             }
             return null; // No se pudo obtener la ruta
         }
@@ -1798,7 +1905,14 @@ namespace Chapi
             // Reutilizamos la lógica de 'btnAbrirSln' pero con el path específico
             try
             {
-                var slnFile = Directory.GetFiles(path, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                string searchDir = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
+                var slnFile = Directory.GetFiles(searchDir, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+
+                // Si no hay SLN en la carpeta actual, buscamos en la carpeta raíz del proyecto
+                if (slnFile == null && !string.IsNullOrEmpty(projectDirectory))
+                {
+                    slnFile = Directory.GetFiles(projectDirectory, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                }
 
                 if (slnFile != null)
                 {
@@ -2520,7 +2634,7 @@ namespace Chapi
             {
                 ChangesTabHeader.Text = "CAMBIOS";
                 ChangesCountBadge.Visibility = Visibility.Collapsed;
-                btnCommit.Content = "Commit";
+                btnCommit.Content = "CONFIRMAR COMMIT";
                 btnCommit.IsEnabled = false;
                 return;
             }
@@ -2533,17 +2647,18 @@ namespace Chapi
             // 1. Actualizar la Pestaña (muestra el total en el badge)
             ChangesTabHeader.Text = "CAMBIOS";
             txtChangesCount.Text = totalCount.ToString();
+            txtChangesCountSide.Text = totalCount.ToString(); // Actualizar también el contador lateral
             ChangesCountBadge.Visibility = totalCount > 0 ? Visibility.Visible : Visibility.Collapsed;
 
             // 2. Actualizar el Botón de Commit (muestra los seleccionados)
             if (selectedCount > 0)
             {
-                btnCommit.Content = $"Commit {selectedCount} files to {branchName}";
+                btnCommit.Content = $"CONFIRMAR COMMIT ({selectedCount})";
                 btnCommit.IsEnabled = true;
             }
             else
             {
-                btnCommit.Content = "Commit";
+                btnCommit.Content = "CONFIRMAR COMMIT";
                 btnCommit.IsEnabled = false;
             }
         }

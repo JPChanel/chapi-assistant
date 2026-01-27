@@ -11,10 +11,15 @@ public class GitModel
 public class GitStatusItem
 {
     public string Status { get; set; }
+    public string ShortStatus { get; set; }
     public string FilePath { get; set; }
+    public string FileName => System.IO.Path.GetFileName(FilePath);
+    public string DirectoryPath => System.IO.Path.GetDirectoryName(FilePath);
     public PackIconKind Icon { get; set; }
     public Brush Color { get; set; }
     public bool IsSelected { get; set; } = true;
+    public int Additions { get; set; } = 0;
+    public int Deletions { get; set; } = 0;
 }
 
 public class GitLogItem

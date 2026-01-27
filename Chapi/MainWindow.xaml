@@ -6,23 +6,29 @@
         xmlns:local="clr-namespace:Chapi"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:diffPlex="clr-namespace:DiffPlex.Wpf.Controls;assembly=DiffPlex.Wpf"
+        xmlns:converters="clr-namespace:Chapi.Helper.Converters"
         mc:Ignorable="d"
         Title="Chapi Assistance"
-        Height="600"
-        Width="950"
-        MinWidth="950"
-        MinHeight="300"
+        Height="700"
+        Width="960"
+        MinWidth="960"
+        MinHeight="700"
         WindowStartupLocation="CenterScreen"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         Background="{DynamicResource MaterialDesignPaper}"
         FontFamily="Times New Roman"
         Closing="Window_Closing" Loaded="Window_Loaded">
 
+    <Window.Resources>
+        <converters:IntegerToVisibilityConverter x:Key="IntegerToVisibilityConverter"/>
+    </Window.Resources>
+
     <materialDesign:DialogHost x:Name="GlobalDialogHost" Identifier="RootDialog">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <materialDesign:ColorZone x:Name="HeaderZone" Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="20,10" Mode="Dark" Foreground="{StaticResource HeaderForeground}" MinHeight="95">
                 <Grid VerticalAlignment="Center" HorizontalAlignment="Stretch">
@@ -84,6 +90,17 @@
                                             <MenuItem Header="Abrir en Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding FullPath}">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="RocketLaunch" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator />
+                                            <MenuItem Header="Abrir Carpeta" Click="ProjectMenuItem_OpenExplorer_Click" CommandParameter="{Binding FullPath}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="FolderOpen" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Abrir Consola (CMD)" Click="ProjectMenuItem_OpenCmd_Click" CommandParameter="{Binding FullPath}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="Console" />
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <Separator />
@@ -236,13 +253,13 @@
                 </Grid>
             </materialDesign:ColorZone>
 
-            <!-- ********************************************** -->
             <!-- 🗂️ NAVEGACIÓN (TABS) (Fila 1) -->
             <!-- ********************************************** -->
-            <materialDesign:ColorZone Grid.Row="1" Mode="Standard" Padding="0">
+            <materialDesign:ColorZone Grid.Row="1" Mode="Standard" Padding="0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                 <TabControl x:Name="GitTabs"
                             Style="{StaticResource MaterialDesignTabControl}"
                             materialDesign:ColorZoneAssist.Mode="Light"  HorizontalContentAlignment="Left" BorderBrush="{DynamicResource PrimaryHueMidBrush}"
+                            VerticalAlignment="Stretch"
                             SelectionChanged="GitTabs_SelectionChanged">
 
                     <TabItem Header="ASISTENTE" x:Name="AssistantTab">
@@ -358,7 +375,7 @@
                             </StackPanel>
                         </TabItem.Header>
 
-                        <Grid>
+                        <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Background="#1A132D">
 
                             <StackPanel x:Name="GitMissingView" 
                     Visibility="Collapsed"
@@ -399,91 +416,115 @@
                             </StackPanel>
 
                             <Grid x:Name="GitControlsView" 
-              Visibility="Collapsed">
+                                  Visibility="Collapsed"
+                                  VerticalAlignment="Stretch">
 
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="0.4*" MinWidth="250"/>
                                     <ColumnDefinition Width="0.6*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Grid Grid.Column="0">
+                                <Grid Grid.Column="0" VerticalAlignment="Stretch" Background="#1A132D">
 
-                                    <DockPanel x:Name="NormalChangesView" 
-                           Margin="5" 
-                           LastChildFill="True" 
-                           VerticalAlignment="Stretch"  
-                           HorizontalAlignment="Stretch">
+                                    <DockPanel x:Name="NormalChangesView"
+                                               Margin="0"
+                                               LastChildFill="True"
+                                               VerticalAlignment="Stretch"
+                                               HorizontalAlignment="Stretch">
 
-                                        <Border DockPanel.Dock="Top"
-                            BorderBrush="{DynamicResource MaterialDesignDivider}"
-                            BorderThickness="0,0,0,1"
-                            Padding="8,5">
-                                            <Border.ContextMenu>
-                                                <ContextMenu>
-                                                    <MenuItem Header="Stash Todos los Cambios..." Click="StashAllChangesMenuItem_Click">
-                                                        <MenuItem.Icon>
-                                                            <materialDesign:PackIcon Kind="ArchiveArrowDownOutline"/>
-                                                        </MenuItem.Icon>
-                                                    </MenuItem>
-                                                    <MenuItem Header="Descartar Todos los Cambios..." Click="DiscardAllChangesMenuItem_Click" Foreground="Red">
-                                                        <MenuItem.Icon>
-                                                            <materialDesign:PackIcon Kind="UndoVariant" Foreground="Red"/>
-                                                        </MenuItem.Icon>
-                                                    </MenuItem>
-                                                </ContextMenu>
-                                            </Border.ContextMenu>
-                                            <CheckBox x:Name="SelectAllCheckBox"
-                                  Content="Seleccionar Todos"
-                                  Checked="SelectAllCheckBox_Checked"
-                                  Unchecked="SelectAllCheckBox_Unchecked"/>
+                                        <!-- Header Lista -->
+                                        <Border DockPanel.Dock="Top" Padding="12,8" Background="{DynamicResource PrimaryHueMidBrush}" BorderBrush="{x:Null}" BorderThickness="0">
+                                            <Grid>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="SourceCommit" Foreground="Aqua" VerticalAlignment="Center" Margin="0,0,8,0" Width="16" Height="16"/>
+                                                    <TextBlock Text="CAMBIOS" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" Foreground="White" Opacity="1"/>
+                                                    <Border Background="{DynamicResource MaterialDesignSelection}" CornerRadius="4" Padding="4,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock x:Name="txtChangesCountSide" Text="0" FontSize="10" FontWeight="Bold" Foreground="White" Opacity="0.9"/>
+                                                    </Border>
+                                                    <StackPanel Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center" x:Name="pnlTotalLineStats">
+                                                        <TextBlock Text="{Binding TotalAdditions, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='+{0}'}" 
+                                                                   Foreground="#4CAF50" FontSize="10" FontWeight="Bold" Margin="0,0,5,0"
+                                                                   Visibility="{Binding TotalAdditions, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource IntegerToVisibilityConverter}}"/>
+                                                        <TextBlock Text="{Binding TotalDeletions, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='-{0}'}" 
+                                                                   Foreground="#F44336" FontSize="10" FontWeight="Bold"
+                                                                   Visibility="{Binding TotalDeletions, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource IntegerToVisibilityConverter}}"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <CheckBox x:Name="SelectAllCheckBox" HorizontalAlignment="Right" Content="SELECCIONAR" FontSize="10" Foreground="White" Opacity="0.8" Checked="SelectAllCheckBox_Checked" Unchecked="SelectAllCheckBox_Unchecked" VerticalAlignment="Center">
+                                                    <CheckBox.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="Stash Cambios Seleccionados" Click="StashSelectedMenuItem_Click">
+                                                                <MenuItem.Icon>
+                                                                    <materialDesign:PackIcon Kind="ArchiveArrowDownOutline"/>
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
+                                                            <MenuItem Header="Descartar Todos" Click="DiscardAllChangesMenuItem_Click" Foreground="Red">
+                                                                <MenuItem.Icon>
+                                                                    <materialDesign:PackIcon Kind="DeleteForever" Foreground="Red"/>
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
+                                                        </ContextMenu>
+                                                    </CheckBox.ContextMenu>
+                                                </CheckBox>
+                                            </Grid>
                                         </Border>
 
-                                        <materialDesign:Card DockPanel.Dock="Bottom" Padding="10" Margin="0,5,0,0" >
+                                        <!-- SECCIÓN DE COMMIT (Siempre Abajo del todo del listado) -->
+                                        <Border DockPanel.Dock="Bottom" Padding="12,10" Margin="0" Background="{DynamicResource PrimaryHueMidBrush}" BorderBrush="{x:Null}" BorderThickness="0">
                                             <StackPanel>
-                                                <TextBox x:Name="txtCommitSummary"
-                                     materialDesign:HintAssist.Hint="Resumen del commit"
-                                     Margin="0,0,0,10"
-                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
-
-                                                <TextBox x:Name="txtCommitDescription"
-                                     materialDesign:HintAssist.Hint="Descripción (opcional)"
-                                     MinHeight="80"
-                                     TextWrapping="Wrap"
-                                     AcceptsReturn="True"
-                                     VerticalScrollBarVisibility="Auto"
-                                     Margin="0,0,0,10"
-                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
-
-                                                <Grid>
+                                                <Grid Margin="0,0,0,8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
-
-                                                    <Button x:Name="btnCommit"
-                                        Grid.Column="0"
-                                        Content="Commit"
-                                        Click="btnCommit_Click"
-                                        Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                                    <TextBlock Grid.Column="0" Text="MENSAJE DE COMMIT" FontSize="10" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
 
                                                     <Button x:Name="btnGitCommitIA"
-                                        Grid.Column="1"
-                                        ToolTip="Generar commit con IA"
-                                        Click="btnGitCommit_Click"
-                                        Style="{StaticResource MaterialDesignIconButton}"
-                                        Margin="5,0,0,0">
-                                                        <materialDesign:PackIcon Kind="RobotAngryOutline" />
+                                                            Grid.Column="1"
+                                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                                            Padding="8,2"
+                                                            Height="Auto"
+                                                            ToolTip="Autocompletar con IA"
+                                                            Click="btnGitCommit_Click">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <materialDesign:PackIcon Kind="AutoFix" Foreground="Aquamarine" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="Autocompletar" FontSize="11" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                        </StackPanel>
                                                     </Button>
                                                 </Grid>
-                                            </StackPanel>
-                                        </materialDesign:Card>
 
+                                                <TextBox x:Name="txtCommitSummary"
+                                                materialDesign:HintAssist.Hint="Resumen del commit"
+                                                Margin="0,0,0,10"
+                                                Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+
+                                                <TextBox x:Name="txtCommitDescription"
+                                                materialDesign:HintAssist.Hint="Descripción (opcional)"
+                                                MinHeight="80"
+                                                TextWrapping="Wrap"
+                                                AcceptsReturn="True"
+                                                VerticalScrollBarVisibility="Auto"
+                                                Margin="0,0,0,10"
+                                                Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+
+                                                <Button x:Name="btnCommit"
+                                                        Content="CONFIRMAR COMMIT"
+                                                        Click="btnCommit_Click"
+                                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                                        Foreground="White"
+                                                        BorderBrush="{x:Null}"
+                                                        Height="38"
+                                                        FontSize="12"
+                                                        FontWeight="Bold"
+                                                        materialDesign:ButtonAssist.CornerRadius="6"/>
+                                            </StackPanel>
+                                        </Border>
                                         <Expander x:Name="StashExpander"
                               DockPanel.Dock="Bottom"
                               Margin="0,5,0,0"
-                              materialDesign:ExpanderAssist.HeaderBackground="{DynamicResource MaterialDesignPaper}"
+                              materialDesign:ExpanderAssist.HeaderBackground="#1A132D"
                               Visibility="Collapsed"
-                              BorderBrush="{DynamicResource MaterialDesignDivider}"
+                              BorderBrush="#3D2B66"
                               BorderThickness="0,1,0,0">
                                             <Expander.Header>
                                                 <Grid>
@@ -545,58 +586,125 @@
                                         </Expander>
 
                                         <ListView x:Name="ChangesListView" 
-                              VerticalAlignment="Stretch"
-                              VerticalContentAlignment="Stretch"
-                              HorizontalContentAlignment="Stretch"
-                              Margin="0,0,0,5" 
-                              SelectionChanged="ChangesListView_SelectionChanged">
+                                                  VerticalAlignment="Stretch"
+                                                  VerticalContentAlignment="Stretch"
+                                                  HorizontalContentAlignment="Stretch"
+                                                  Padding="0,2"
+                                                  Background="Transparent"
+                                                  materialDesign:TransitionAssist.DisableTransitions="True"
+                                                  SelectionChanged="ChangesListView_SelectionChanged">
+                                            <ListView.ItemContainerStyle>
+                                                <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
+                                                    <Setter Property="materialDesign:RippleAssist.IsDisabled" Value="True"/>
+                                                    <Setter Property="Padding" Value="4,2"/>
+                                                    <Setter Property="Margin" Value="0"/>
+                                                </Style>
+                                            </ListView.ItemContainerStyle>
                                             <ListView.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Grid Margin="0,2" >
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
+                                                    <Border Padding="8,6" 
+                                                            Background="#241A3D" 
+                                                            CornerRadius="6" 
+                                                            BorderBrush="#3D2B66" 
+                                                            BorderThickness="1"
+                                                            Margin="4,1">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
 
-                                                        <CheckBox Grid.Column="0"
-                                              IsChecked="{Binding IsSelected}"
-                                              VerticalAlignment="Center"
-                                              Margin="0,0,10,0"
-                                              Click="CommitCheckbox_Click"/>
+                                                            <!-- Checkbox -->
+                                                            <CheckBox Grid.Column="0"
+                                                                      IsChecked="{Binding IsSelected}"
+                                                                      VerticalAlignment="Center"
+                                                                      Margin="0,0,10,0"
+                                                                      Click="CommitCheckbox_Click">
+                                                                <CheckBox.LayoutTransform>
+                                                                    <ScaleTransform ScaleX="0.9" ScaleY="0.9"/>
+                                                                </CheckBox.LayoutTransform>
+                                                            </CheckBox>
 
-                                                        <TextBlock Grid.Column="1"
-                                               Text="{Binding FilePath}"                                           
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Margin="0,0,10,0"/>
+                                                            <!-- File Info -->
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding FileName}" 
+                                                                           FontWeight="Bold" 
+                                                                           FontSize="12" 
+                                                                           Foreground="{DynamicResource MaterialDesignBody}" 
+                                                                           TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding DirectoryPath}" 
+                                                                           FontSize="9" 
+                                                                           Foreground="{DynamicResource MaterialDesignBodyLight}" 
+                                                                           Margin="0,1,0,0" 
+                                                                           TextTrimming="CharacterEllipsis"/>
+                                                            </StackPanel>
 
-                                                        <materialDesign:PackIcon Grid.Column="2"
-                                                             Kind="{Binding Icon}"
-                                                             Foreground="{Binding Color}"
-                                                             ToolTip="{Binding Status}"
-                                                             VerticalAlignment="Center"
-                                                             HorizontalAlignment="Right"
-                                                             Margin="0,0,5,0"/>
+                                                            <!-- Line Stats -->
+                                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
+                                                                <TextBlock Text="{Binding Additions, StringFormat='+{0}'}" 
+                                                                           Foreground="#4CAF50" 
+                                                                           FontSize="10" 
+                                                                           FontWeight="Bold"
+                                                                           Margin="0,0,6,0"
+                                                                           Visibility="{Binding Additions, Converter={StaticResource IntegerToVisibilityConverter}}"/>
+                                                                <TextBlock Text="{Binding Deletions, StringFormat='-{0}'}" 
+                                                                           Foreground="#F44336" 
+                                                                           FontSize="10" 
+                                                                           FontWeight="Bold"
+                                                                           Visibility="{Binding Deletions, Converter={StaticResource IntegerToVisibilityConverter}}"/>
+                                                            </StackPanel>
 
-                                                        <Grid.ContextMenu>
-                                                            <ContextMenu>
-                                                                <MenuItem Header="Stash Cambios Seleccionados"
-                                                      Click="StashSelectedMenuItem_Click">
-                                                                    <MenuItem.Icon>
-                                                                        <materialDesign:PackIcon Kind="ArchiveArrowDownOutline"/>
-                                                                    </MenuItem.Icon>
-                                                                </MenuItem>
-                                                                <MenuItem Header="Descartar Cambios"
-                                                      Click="DiscardChangesMenuItem_Click"
-                                                      CommandParameter="{Binding}">
-                                                                    <MenuItem.Icon>
-                                                                        <materialDesign:PackIcon Kind="UndoVariant" Foreground="Red"/>
-                                                                    </MenuItem.Icon>
-                                                                </MenuItem>
-                                                            </ContextMenu>
-                                                        </Grid.ContextMenu>
-                                                    </Grid>
+                                                            <!-- Status Badge -->
+                                                            <Border Grid.Column="3" 
+                                                                    Background="Transparent" 
+                                                                    CornerRadius="3" 
+                                                                    BorderBrush="{Binding Color}" 
+                                                                    BorderThickness="1" 
+                                                                    Width="18" 
+                                                                    Height="18" 
+                                                                    HorizontalAlignment="Right" 
+                                                                    VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding ShortStatus}" 
+                                                                           Foreground="{Binding Color}" 
+                                                                           FontWeight="Bold" 
+                                                                           FontSize="9" 
+                                                                           HorizontalAlignment="Center" 
+                                                                           VerticalAlignment="Center"/>
+                                                            </Border>
+
+                                                            <Grid.ContextMenu>
+                                                                <ContextMenu>                                                                  
+                                                                    <MenuItem Header="Stash Cambios Seleccionados"
+                                                                              Click="StashSelectedMenuItem_Click">
+                                                                        <MenuItem.Icon>
+                                                                            <materialDesign:PackIcon Kind="ArchiveArrowDownOutline"/>
+                                                                        </MenuItem.Icon>
+                                                                    </MenuItem>
+                                                                    <MenuItem Header="Descartar Cambios"
+                                                                              Click="DiscardChangesMenuItem_Click"
+                                                                              CommandParameter="{Binding}"
+                                                                              Foreground="Red">
+                                                                        <MenuItem.Icon>
+                                                                            <materialDesign:PackIcon Kind="UndoVariant" Foreground="Red"/>
+                                                                        </MenuItem.Icon>
+                                                                    </MenuItem>
+                                                                    <Separator />
+                                                                    <MenuItem Header="Abrir en VS Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding}">
+                                                                        <MenuItem.Icon>
+                                                                            <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
+                                                                        </MenuItem.Icon>
+                                                                    </MenuItem>
+                                                                    <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding}">
+                                                                        <MenuItem.Icon>
+                                                                            <materialDesign:PackIcon Kind="VisualStudio" />
+                                                                        </MenuItem.Icon>
+                                                                    </MenuItem>
+                                                                </ContextMenu>
+                                                            </Grid.ContextMenu>
+                                                        </Grid>
+                                                    </Border>
                                                 </DataTemplate>
                                             </ListView.ItemTemplate>
                                         </ListView>
@@ -681,121 +789,158 @@
                                             </ListView.ItemTemplate>
                                         </ListView>
                                     </DockPanel>
+
                                 </Grid>
 
-                                <Border Grid.Column="1" 
-                    BorderBrush="{DynamicResource MaterialDesignDivider}" 
-                    BorderThickness="1,0,0,0" 
-                    Margin="5,0,0,0"
-                    Background="#2E2E2E">
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-                                        <ItemsControl x:Name="DiffLinesItemsControl" 
-                                  FontFamily="Consolas" 
-                                  FontSize="12"
-                                  VirtualizingStackPanel.IsVirtualizing="True"
-                                  VirtualizingStackPanel.VirtualizationMode="Recycling">
+                                <Grid Grid.Column="1" Margin="1,0,0,0" Background="#130D21" VerticalAlignment="Stretch">
+                                    <!-- Empty State View -->
+                                    <Grid x:Name="DiffEmptyStateView" 
+                                          Visibility="Visible" 
+                                          HorizontalAlignment="Center" 
+                                          VerticalAlignment="Center">
+                                        <StackPanel HorizontalAlignment="Center">
+                                            <materialDesign:PackIcon Kind="CodeGreaterThan" 
+                                                                     Width="64" 
+                                                                     Height="64" 
+                                                                     Foreground="#333" 
+                                                                     HorizontalAlignment="Center" 
+                                                                     Margin="0,0,0,20"/>
+                                            
+                                            <TextBlock Text="SIN ARCHIVO SELECCIONADO" 
+                                                       FontSize="14" 
+                                                       FontWeight="Bold" 
+                                                       Foreground="#555" 
+                                                       HorizontalAlignment="Center"/>
+                                            
+                                            <TextBlock Text="Selecciona un archivo modificado en el panel&#x0a;izquierdo para ver las diferencias (diff)." 
+                                                       FontSize="12" 
+                                                       Foreground="#444" 
+                                                       TextAlignment="Center" 
+                                                       Margin="0,10,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
 
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid ContextMenuOpening="DiffLine_ContextMenuOpening">
-                                                        <Grid.ContextMenu>
-                                                            <ContextMenu>
-                                                                <MenuItem x:Name="DiffLineMenu_OpenFile"
-                                                      Header="Abrir en VS Code"
-                                                      Click="DiffLineMenu_OpenFile_Click"
-                                                      FontWeight="Bold">
-                                                                    <MenuItem.Icon>
-                                                                        <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
-                                                                    </MenuItem.Icon>
-                                                                </MenuItem>
-                                                            </ContextMenu>
-                                                        </Grid.ContextMenu>
+                                    <!-- Diff View -->
+                                    <Border x:Name="DiffContentBorder" 
+                                            Visibility="Collapsed" 
+                                            Background="#1E1E1E">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                                            <ItemsControl x:Name="DiffLinesItemsControl" 
+                                                      FontFamily="Consolas" 
+                                                      FontSize="13" 
+                                                      Background="#1E1E1E"
+                                                      VirtualizingStackPanel.IsVirtualizing="True"
+                                                      VirtualizingStackPanel.VirtualizationMode="Recycling">
+                                                <!-- ItemTemplate se mantiene igual, solo ajustando colores base si es necesario -->
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid ContextMenuOpening="DiffLine_ContextMenuOpening">
+                                                            <Grid.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem x:Name="DiffLineMenu_OpenFile"
+                                                          Header="Abrir en VS Code"
+                                                          Click="DiffLineMenu_OpenFile_Click"
+                                                          FontWeight="Bold">
+                                                                        <MenuItem.Icon>
+                                                                            <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
+                                                                        </MenuItem.Icon>
+                                                                    </MenuItem>
+                                                                </ContextMenu>
+                                                            </Grid.ContextMenu>
 
-                                                        <Grid.Style>
-                                                            <Style TargetType="Grid">
-                                                                <Setter Property="Background" Value="Transparent"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding Type}" Value="Inserted">
-                                                                        <Setter Property="Background" Value="#104010"/>
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding Type}" Value="Deleted">
-                                                                        <Setter Property="Background" Value="#401010"/>
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding Type}" Value="Imaginary">
-                                                                        <Setter Property="Background" Value="#222"/>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Grid.Style>
-
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="35"/>
-                                                            <ColumnDefinition Width="35"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <TextBlock Grid.Column="0" Text="{Binding Position}" Foreground="#888" Padding="5,0" HorizontalAlignment="Right">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                            <Grid.Style>
+                                                                <Style TargetType="Grid">
+                                                                    <Setter Property="Background" Value="Transparent"/>
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding Type}" Value="Inserted">
-                                                                            <Setter Property="Visibility" Value="Hidden"/>
-                                                                        </DataTrigger>
-                                                                        <DataTrigger Binding="{Binding Type}" Value="Imaginary">
-                                                                            <Setter Property="Visibility" Value="Hidden"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-
-                                                        <TextBlock Grid.Column="1" Text="{Binding Position}" Foreground="#888" Padding="5,0" HorizontalAlignment="Right">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding Type}" Value="Deleted">
-                                                                            <Setter Property="Visibility" Value="Hidden"/>
-                                                                        </DataTrigger>
-                                                                        <DataTrigger Binding="{Binding Type}" Value="Imaginary">
-                                                                            <Setter Property="Visibility" Value="Hidden"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-
-                                                        <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="NoWrap" Foreground="#DCDCDC" Padding="10,0,0,0">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Text" Value="{Binding Text, StringFormat='  {0}'}"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding Type}" Value="Inserted">
-                                                                            <Setter Property="Foreground" Value="#ADFFAD"/>
-                                                                            <Setter Property="Text" Value="{Binding Text, StringFormat='+ {0}'}"/>
+                                                                            <Setter Property="Background" Value="#1A331A"/> <!-- Verde muy oscuro -->
                                                                         </DataTrigger>
                                                                         <DataTrigger Binding="{Binding Type}" Value="Deleted">
-                                                                            <Setter Property="Foreground" Value="#FFADAD"/>
-                                                                            <Setter Property="Text" Value="{Binding Text, StringFormat='- {0}'}"/>
-                                                                        </DataTrigger>
-                                                                        <DataTrigger Binding="{Binding Type}" Value="Unchanged">
-                                                                            <Setter Property="Foreground" Value="#999"/>
+                                                                            <Setter Property="Background" Value="#331A1A"/> <!-- Rojo muy oscuro -->
                                                                         </DataTrigger>
                                                                         <DataTrigger Binding="{Binding Type}" Value="Imaginary">
-                                                                            <Setter Property="Text" Value="..."/>
-                                                                            <Setter Property="Foreground" Value="#888"/>
+                                                                            <Setter Property="Background" Value="#111"/>
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </ScrollViewer>
-                                </Border>
+                                                            </Grid.Style>
+
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="40" MaxWidth="50"/>
+                                                                <ColumnDefinition Width="40" MaxWidth="50"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <!-- Line Numbers (Left/Modified) -->
+                                                            <Border Grid.Column="0" Background="#252525" BorderBrush="#333" BorderThickness="0,0,1,0">
+                                                                <TextBlock Text="{Binding Position}" Foreground="#555" Padding="5,2" HorizontalAlignment="Right" FontSize="11">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding Type}" Value="Inserted">
+                                                                                    <Setter Property="Visibility" Value="Hidden"/>
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding Type}" Value="Imaginary">
+                                                                                    <Setter Property="Visibility" Value="Hidden"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </Border>
+
+                                                            <!-- Line Numbers (Right/Original) -->
+                                                            <Border Grid.Column="1" Background="#252525" BorderBrush="#333" BorderThickness="0,0,1,0">
+                                                                <TextBlock Text="{Binding Position}" Foreground="#555" Padding="5,2" HorizontalAlignment="Right" FontSize="11">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding Type}" Value="Deleted">
+                                                                                    <Setter Property="Visibility" Value="Hidden"/>
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding Type}" Value="Imaginary">
+                                                                                    <Setter Property="Visibility" Value="Hidden"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </Border>
+
+                                                            <!-- Code Content -->
+                                                            <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="NoWrap" FontFamily="Consolas" Padding="12,2,0,2">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Text" Value="{Binding Text, StringFormat='{} {0}'}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Type}" Value="Inserted">
+                                                                                <Setter Property="Foreground" Value="#A5D6A7"/>
+                                                                                <Setter Property="Text" Value="{Binding Text, StringFormat='+ {0}'}"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Type}" Value="Deleted">
+                                                                                <Setter Property="Foreground" Value="#EF9A9A"/>
+                                                                                <Setter Property="Text" Value="{Binding Text, StringFormat='- {0}'}"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Type}" Value="Unchanged">
+                                                                                <Setter Property="Foreground" Value="#B0BEC5"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Type}" Value="Imaginary">
+                                                                                <Setter Property="Text" Value="..."/>
+                                                                                <Setter Property="Foreground" Value="#666"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Grid>
                             </Grid>
                         </Grid>
                     </TabItem>
@@ -1185,6 +1330,22 @@
                                HorizontalAlignment="Center"/>
                 </StackPanel>
             </Grid>
+
+            <!-- FOOTER INFORMATIVO -->
+            <Border Grid.Row="2" Background="{DynamicResource MaterialDesignPaper}" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,1,0,0" Padding="15,5">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="Circle" Foreground="{Binding ServiceStatusBrush, RelativeSource={RelativeSource AncestorType=Window}}" Width="10" Height="10" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Servicio Chapi:" FontSize="10" Foreground="#666" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ServiceStatusText, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="10" FontWeight="Bold" Foreground="{Binding ServiceStatusBrush, RelativeSource={RelativeSource AncestorType=Window}}" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock Text="Versión:" FontSize="10" Foreground="{DynamicResource MaterialDesignBodyLight}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding AppVersion, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesignBody}" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
     </materialDesign:DialogHost>
 </Window>
