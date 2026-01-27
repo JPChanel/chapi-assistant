@@ -24,12 +24,16 @@ namespace Chapi
             };
 
             // Evento doble clic
-            taskbarIcon.TrayMouseDoubleClick += (s, e) =>
-            {
-                mainWindow.Show();
-                mainWindow.WindowState = WindowState.Normal;
-                mainWindow.Activate();
-            };
+            taskbarIcon.TrayMouseDoubleClick += (s, e) => RestoreWindow();
+            // Evento un solo clic
+            taskbarIcon.TrayLeftMouseUp += (s, e) => RestoreWindow();
+        }
+
+        private void RestoreWindow()
+        {
+            mainWindow.Show();
+            mainWindow.WindowState = WindowState.Normal;
+            mainWindow.Activate();
         }
 
         private ContextMenu CreateContextMenu()

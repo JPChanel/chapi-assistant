@@ -24,7 +24,18 @@ namespace Chapi
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern uint RegisterWindowMessage(string lpString);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
         private const int SW_RESTORE = 9; // Constante para restaurar una ventana
+        private static uint _restoreMessage;
         public static string GlobalDialogIdentifier => "RootDialog";
         public static TrayIconManager TrayIconManager { get; private set; }
         public static IConfiguration Configuration { get; private set; }
@@ -41,6 +52,7 @@ namespace Chapi
         }
         protected override void OnStartup(StartupEventArgs e)
         {
+            _restoreMessage = RegisterWindowMessage("CHAPI_RESTORE_WINDOW_MSG");
             _mutex = new Mutex(true, AppMutexName, out bool isNewInstance);
             if (!isNewInstance)
             {
@@ -48,26 +60,23 @@ namespace Chapi
                 var otherProcess = Process.GetProcessesByName(currentProcess.ProcessName)
                     .FirstOrDefault(p => p.Id != currentProcess.Id);
 
+                IntPtr hWnd = IntPtr.Zero;
                 if (otherProcess != null)
                 {
-                    // Encontramos la otra instancia. ¡Hay que mostrarla!
-                    IntPtr hWnd = otherProcess.MainWindowHandle;
-                    if (hWnd != IntPtr.Zero)
-                    {
-                        // 4. Usamos Windows API para restaurarla y traerla al frente
-                        ShowWindow(hWnd, SW_RESTORE);
-                        SetForegroundWindow(hWnd);
-                    }
+                    hWnd = otherProcess.MainWindowHandle;
                 }
 
-                using (var icon = new System.Windows.Forms.NotifyIcon())
+                if (hWnd == IntPtr.Zero)
                 {
-                    icon.Icon = System.Drawing.SystemIcons.Information;
-                    icon.Visible = true;
-                    icon.BalloonTipTitle = "Ninja";
-                    icon.BalloonTipText = "👋 ¡Hey! Crack Soy Chapi 🤖, La aplicación ya se encuentra abierta en el área de notificación.";
-                    icon.ShowBalloonTip(3000);
+                    hWnd = FindWindow(null, "Chapi Assistance");
                 }
+
+                if (hWnd != IntPtr.Zero)
+                {
+                    // Enviamos el mensaje para que la otra instancia se "levante" sola
+                    PostMessage(hWnd, _restoreMessage, IntPtr.Zero, IntPtr.Zero);
+                }
+
                 Shutdown();
                 return;
             }
@@ -79,9 +88,29 @@ namespace Chapi
             Configuration = builder.Build();
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             MainWindow = new MainWindow();
+            
+            // Hook para escuchar el mensaje de restauración
+            MainWindow.Loaded += (s, ev) =>
+            {
+                var source = System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(MainWindow).Handle);
+                source.AddHook(HandleMessages);
+            };
+
             TrayIconManager = new TrayIconManager((MainWindow)MainWindow);
             MainWindow.Show();
             ConfigureExceptionHandling();
+        }
+
+        private IntPtr HandleMessages(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == _restoreMessage)
+            {
+                MainWindow.Show();
+                MainWindow.WindowState = WindowState.Normal;
+                MainWindow.Activate();
+                handled = true;
+            }
+            return IntPtr.Zero;
         }
 
         private void ConfigureExceptionHandling()

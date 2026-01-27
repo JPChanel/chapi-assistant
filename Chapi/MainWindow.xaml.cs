@@ -2040,15 +2040,14 @@ namespace Chapi
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = "wsl",
-                        Arguments = "code .", // Ejecuta el 'code' de Linux
-                        WorkingDirectory = path, // wsl.exe entiende esta ruta UNC
-                        UseShellExecute = false, // ¡Importante para que WorkingDirectory funcione!
+                        Arguments = "code .", 
+                        WorkingDirectory = path, 
+                        UseShellExecute = false, 
                         CreateNoWindow = true
                     });
                 }
                 else
                 {
-                    // --- Caso Windows (Normal) ---
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = "code",
@@ -2077,10 +2076,10 @@ namespace Chapi
                 }
                 else
                 {
-                    // --- Caso Windows (Normal) ---
+           
                     Process.Start(new ProcessStartInfo
                     {
-                        FileName = "antigravity", // Ejecuta 'antigravity' en Windows
+                        FileName = "antigravity", 
                         Arguments = $"\"{path}\"",
                         UseShellExecute = true,
                         CreateNoWindow = true
