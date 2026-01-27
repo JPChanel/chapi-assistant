@@ -61,6 +61,7 @@ namespace Chapi
 
         private int _currentHistoryLimit = 50;
         private const int HistoryPageSize = 50;
+        private System.Windows.Threading.DispatcherTimer _fetchTimer;
 
         public string AppVersion { get; private set; }
         public string ServiceStatusText => "Activo"; // Lógica simplificada basada en UpdateView
@@ -93,6 +94,15 @@ namespace Chapi
                 Timeout.Infinite);
             Task.Run(CheckForUpdates);
             LoadVersion();
+
+            // Configurar Timer para Fetch en segundo plano (cada 10 minutos)
+            _fetchTimer = new System.Windows.Threading.DispatcherTimer();
+            _fetchTimer.Interval = TimeSpan.FromMinutes(10);
+            _fetchTimer.Tick += async (s, ev) => await DoFetchAsync(isSilent: true);
+            _fetchTimer.Start();
+
+            // Fetch inicial de todos los proyectos para llenar los indicadores
+            _ = Task.Run(async () => await PreFetchAllProjectsAsync());
         }
 
         private void LoadVersion()
@@ -145,6 +155,37 @@ namespace Chapi
             var updateView = new Chapi.Views.UpdateView(projectDirectory);
             updateView.Owner = this;
             updateView.ShowDialog();
+        }
+
+        private async Task PreFetchAllProjectsAsync()
+        {
+            // Acceder a la lista de proyectos en el hilo de la UI
+            List<ProjectViewModel> projects = null;
+            Dispatcher.Invoke(() => {
+                projects = (ProjectsComboBox.ItemsSource as IEnumerable<ProjectViewModel>)?.ToList();
+            });
+
+            if (projects == null) return;
+
+            foreach (var project in projects)
+            {
+                try
+                {
+                    // Fetch silencioso solo para actualizar el contador
+                    await Git.EjecutarGit("fetch", project.FullPath);
+                    var counts = await Git.GetAheadBehindCount(project.FullPath);
+                    
+                    Dispatcher.Invoke(() => {
+                        project.Ahead = counts.Ahead;
+                        project.Behind = counts.Behind;
+                    });
+                }
+                catch (Exception ex) 
+                { 
+                    // Log silencioso para no molestar al usuario en pre-fetch
+                    System.Diagnostics.Debug.WriteLine($"Error en pre-fetch para {project.Name}: {ex.Message}");
+                }
+            }
         }
         private void LoadProjects()
         {
@@ -286,7 +327,9 @@ namespace Chapi
             }
             string projectName = new DirectoryInfo(projectDirectory).Name;
             App.TrayIconManager.UpdateProjectMenuItem(projectName, false);
-            await RunWithLoading(async () =>
+
+            // Cargamos todo lo local SIN el overlay de carga (RunWithLoading)
+            try
             {
                 if (projectDirectory != null)
                 {
@@ -326,8 +369,24 @@ namespace Chapi
                     await LoadChangesAsync();
                     await LoadHistoryAsync();
                     await LoadTagsAsync();
+
+                    // Lanzar fetch en segundo plano SIN bloquear el overlay
+                    _ = Task.Run(async () => {
+                        try 
+                        {
+                            await DoFetchAsync(isSilent: true);
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error en fetch de fondo: {ex.Message}");
+                        }
+                    });
                 }
-            });
+            }
+            catch (Exception ex)
+            {
+                Msg.Assistant($"❌ Error al cargar el proyecto: {ex.Message}");
+            }
         }
 
         private async void BranchesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1124,30 +1183,33 @@ namespace Chapi
 
 
 
-        private async Task DoFetchAsync()
+        private async Task DoFetchAsync(bool isSilent = false)
         {
             if (!ValidateProject()) return;
 
-            await RunWithLoading(async () =>
+            Func<Task> fetchLogic = async () =>
             {
-                Msg.Assistant("Realizando fetch de los cambios remotos...");
+                if (!isSilent) Msg.Assistant("Realizando fetch de los cambios remotos...");
                 var result = await Git.EjecutarGit("fetch", projectDirectory);
 
                 if (result.Contains("error") || result.Contains("fatal"))
                 {
-                    Msg.Assistant($"❌ Error al realizar fetch: {result}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de fetch.\n\n{result}", DialogVariant.Error, DialogType.Info);
+                    if (!isSilent)
+                    {
+                        Msg.Assistant($"❌ Error al realizar fetch: {result}");
+                        await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de fetch.\n\n{result}", DialogVariant.Error, DialogType.Info);
+                    }
                 }
                 else
                 {
-                    Msg.Assistant("✅ Fetch completado exitosamente.");
+                    if (!isSilent) Msg.Assistant("✅ Fetch completado exitosamente.");
 
                     // 1. Obtener tus cambios locales (con rutas Git '/')
                     var statusOutput = await Git.EjecutarGit("status --porcelain -uall", projectDirectory);
                     var localChanges = new HashSet<string>();
                     if (!string.IsNullOrWhiteSpace(statusOutput))
                     {
-                        var regex = new Regex(@"^(?<status>[A-Z\?]{1,2})\s+(?<file>.+)$");
+                        var regex = new Regex(@"^(?<status>[\w\? ]{1,2})\s+(?<file>.+)$");
                         var lines = statusOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
                         foreach (var line in lines)
                         {
@@ -1172,8 +1234,8 @@ namespace Chapi
                     // 3. Encontrar la intersección (archivos modificados en AMBOS lados)
                     var conflictingFiles = localChanges.Intersect(remoteChanges).ToList();
 
-                    // 4. ¡Mostrar la advertencia!
-                    if (conflictingFiles.Any())
+                    // 4. ¡Mostrar la advertencia! (Solo si no es silencioso o si hay conflicto real)
+                    if (conflictingFiles.Any() && !isSilent)
                     {
                         string fileList = string.Join("\n- ", conflictingFiles);
                         await DialogService.ShowConfirmDialog(
@@ -1183,7 +1245,7 @@ namespace Chapi
                             DialogVariant.Warning, DialogType.Info);
                     }
 
-                    // (El resto de tu código para actualizar ramas no cambia)
+                    // Actualizar indicadores del Model
                     var branches = Git.GetBranches(projectDirectory);
                     var currentBranch = BranchesComboBox.SelectedItem as string;
                     BranchesComboBox.ItemsSource = branches;
@@ -1191,10 +1253,35 @@ namespace Chapi
                     {
                         BranchesComboBox.SelectedItem = currentBranch;
                     }
+
+                    // --- NUEVO: Actualizar el ProjectViewModel actual ---
+                    ProjectViewModel currentProject = null;
+                    Dispatcher.Invoke(() => {
+                        currentProject = ProjectsComboBox.SelectedItem as ProjectViewModel;
+                    });
+
+                    if (currentProject != null)
+                    {
+                        var counts = await Git.GetAheadBehindCount(projectDirectory);
+                        Dispatcher.Invoke(() => {
+                            currentProject.Ahead = counts.Ahead;
+                            currentProject.Behind = counts.Behind;
+                        });
+                    }
                 }
+                // Recargar UI
                 await LoadChangesAsync();
-                await LoadHistoryAsync(); // Esto actualizará los indicadores
-            });
+                await LoadHistoryAsync(); 
+            };
+
+            if (isSilent)
+            {
+                await fetchLogic();
+            }
+            else
+            {
+                await RunWithLoading(fetchLogic);
+            }
         }
         private async Task DoPushAsync()
         {
@@ -1272,27 +1359,72 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
-                Msg.Assistant("Realizando pull de los cambios remotos...");
-                var result = await Git.EjecutarGit("pull", projectDirectory);
-                if (result.Contains("Automatic merge failed") || result.Contains("CONFLICT"))
+                Msg.Assistant("Preparando Pull...");
+
+                // 1. Verificar si hay cambios locales
+                var statusOutput = await Git.EjecutarGit("status --porcelain", projectDirectory);
+                bool hasLocalChanges = !string.IsNullOrWhiteSpace(statusOutput);
+
+                bool usedStash = false;
+                if (hasLocalChanges)
                 {
-                    Msg.Assistant("❌ ¡Conflicto! Se detectaron conflictos de merge.");
+                    bool confirmStash = await DialogService.ShowConfirmDialog(
+                        "Cambios Locales Detectados",
+                        "Tienes cambios locales que podrían causar conflictos con el Pull.\n\n" +
+                        "¿Deseas que Chapi guarde tus cambios (Stash) temporalmente, realice el Pull y luego los restaure automáticamente?",
+                        DialogVariant.Warning, DialogType.Confirm);
+
+                    if (confirmStash)
+                    {
+                        Msg.Assistant("Guardando cambios locales (Stash)...");
+                        var stashRes = await Git.EjecutarGit("stash save \"Auto-stash antes de Pull (Chapi)\"", projectDirectory);
+                        if (stashRes.Contains("Saved working directory"))
+                        {
+                            usedStash = true;
+                        }
+                        else
+                        {
+                            Msg.Assistant("⚠️ No se pudo realizar Stash. Intentando pull directamente...");
+                        }
+                    }
+                }
+
+                Msg.Assistant("Realizando pull de los cambios remotos...");
+                var pullResult = await Git.EjecutarGit("pull", projectDirectory);
+
+                if (pullResult.Contains("Automatic merge failed") || pullResult.Contains("CONFLICT"))
+                {
+                    Msg.Assistant("❌ ¡Conflicto! Se detectaron conflictos durante el pull.");
                     await DialogService.ShowConfirmDialog("Conflicto de Merge",
-                        "No se pudo completar el pull automáticamente. Tienes conflictos:\n\n" + result,
+                        "No se pudo completar el pull automáticamente. Tienes conflictos:\n\n" + pullResult,
                         DialogVariant.Error, DialogType.Info);
                 }
-                else if (result.Contains("error") || result.Contains("fatal"))
+                else if (pullResult.Contains("error") || pullResult.Contains("fatal"))
                 {
-                    Msg.Assistant($"❌ Error al realizar pull: {result}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de pull.\n\n{result}", DialogVariant.Error, DialogType.Info);
-                }
-                else if (result.Contains("Already up to date"))
-                {
-                    Msg.Assistant("✅ El repositorio ya está actualizado.");
+                    Msg.Assistant($"❌ Error al realizar pull: {pullResult}");
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de pull.\n\n{pullResult}", DialogVariant.Error, DialogType.Info);
                 }
                 else
                 {
                     Msg.Assistant("✅ Pull completado exitosamente.");
+                }
+
+                // 3. Si usamos stash, intentar restaurarlo
+                if (usedStash)
+                {
+                    Msg.Assistant("Restaurando tus cambios locales (Stash Pop)...");
+                    var popRes = await Git.EjecutarGit("stash pop", projectDirectory);
+                    if (popRes.Contains("CONFLICT"))
+                    {
+                        Msg.Assistant("⚠️ Tus cambios locales tienen conflictos con lo que bajó el servidor.");
+                        await DialogService.ShowConfirmDialog("Conflicto en Stash Pop",
+                            "Tus cambios locales fueron restaurados pero tienen conflictos. Deberás resolverlos manualmente.",
+                            DialogVariant.Warning, DialogType.Info);
+                    }
+                    else
+                    {
+                        Msg.Assistant("✅ Cambios locales restaurados correctamente.");
+                    }
                 }
 
                 await LoadChangesAsync();
@@ -2698,7 +2830,7 @@ namespace Chapi
             }
             else if (selectedItem == FetchGitActionItem)
             {
-                await DoFetchAsync();
+                await DoFetchAsync(isSilent: false);
             }
 
             // 4. Reseteo (sin cambios)
@@ -2733,7 +2865,7 @@ namespace Chapi
                     await DoPushAsync();
                     break;
                 case GitActionState.Fetch:
-                    await DoFetchAsync();
+                    await DoFetchAsync(isSilent: false);
                     break;
             }
         }
@@ -2759,7 +2891,7 @@ namespace Chapi
                     await DoPushAsync();
                     break;
                 case GitActionState.Fetch:
-                    await DoFetchAsync();
+                    await DoFetchAsync(isSilent: false);
                     break;
             }
         }
@@ -2778,7 +2910,7 @@ namespace Chapi
         // 3. El handler para el item "Fetch" DENTRO del menú
         private async void FetchMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            await DoFetchAsync();
+            await DoFetchAsync(isSilent: false);
         }
         /// <summary>
         /// Actualiza el texto de la pestaña "Cambios" y el botón "Commit"
@@ -2832,7 +2964,6 @@ namespace Chapi
             if (firstItem == null) return;
 
             // 3. Busca el MenuItem por su nombre
-            // --- ✅ CORRECCIÓN: Usamos grid.ContextMenu ---
             var contextMenu = grid.ContextMenu;
             var resetMenuItem = contextMenu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Name == "ResetSoftMenuItem");
             if (resetMenuItem == null) return;

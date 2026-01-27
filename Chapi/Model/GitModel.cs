@@ -46,11 +46,31 @@ public class GitTagItem
     public string TagMessage { get; set; }
 }
 /// <summary>
-/// Representa un proyecto en la UI, incluyendo su ícono de host.
+/// Representa un proyecto en la UI, incluyendo su ícono de host y estado de Git.
 /// </summary>
-public class ProjectViewModel
+public class ProjectViewModel : System.ComponentModel.INotifyPropertyChanged
 {
+    public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+    protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+
     public string FullPath { get; set; }
     public string Name { get; set; }
     public PackIconKind Icon { get; set; }
+
+    private int _ahead;
+    public int Ahead 
+    { 
+        get => _ahead; 
+        set { _ahead = value; OnPropertyChanged(nameof(Ahead)); OnPropertyChanged(nameof(HasAhead)); } 
+    }
+
+    private int _behind;
+    public int Behind 
+    { 
+        get => _behind; 
+        set { _behind = value; OnPropertyChanged(nameof(Behind)); OnPropertyChanged(nameof(HasBehind)); } 
+    }
+
+    public bool HasAhead => Ahead > 0;
+    public bool HasBehind => Behind > 0;
 }
