@@ -21,6 +21,58 @@
 
     <Window.Resources>
         <converters:IntegerToVisibilityConverter x:Key="IntegerToVisibilityConverter"/>
+        <!-- Estilo minimalista para ScrollBar -->
+        <Style x:Key="ThinScrollBar" TargetType="{x:Type ScrollBar}">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Grid x:Name="Bg" SnapsToDevicePixels="true">
+                            <Track x:Name="PART_Track" IsDirectionReversed="true" IsEnabled="{TemplateBinding IsMouseOver}">
+                                <Track.Thumb>
+                                    <Thumb Background="#44FFFFFF" Opacity="0">
+                                        <Thumb.Style>
+                                            <Style TargetType="Thumb">
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="Thumb">
+                                                            <Rectangle Fill="{TemplateBinding Background}" RadiusX="4" RadiusY="4"/>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#88FFFFFF"/>
+                                                        <Setter Property="Opacity" Value="0.8"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Thumb.Style>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ThinScrollViewer" TargetType="{x:Type ScrollViewer}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                        <Grid>
+                            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" CanContentScroll="{TemplateBinding CanContentScroll}" ContentTemplate="{TemplateBinding ContentTemplate}" Content="{TemplateBinding Content}" Margin="{TemplateBinding Padding}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                            <ScrollBar x:Name="PART_VerticalScrollBar" Style="{StaticResource ThinScrollBar}" AutomationProperties.AutomationId="VerticalScrollBar" Cursor="Arrow" Maximum="{TemplateBinding ScrollableHeight}" Minimum="0" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" ViewportSize="{TemplateBinding ViewportHeight}" HorizontalAlignment="Right"/>
+                            <ScrollBar x:Name="PART_HorizontalScrollBar" Style="{StaticResource ThinScrollBar}" AutomationProperties.AutomationId="HorizontalScrollBar" Cursor="Arrow" Maximum="{TemplateBinding ScrollableWidth}" Minimum="0" Orientation="Horizontal" Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" ViewportSize="{TemplateBinding ViewportWidth}" VerticalAlignment="Bottom"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </Window.Resources>
 
     <materialDesign:DialogHost x:Name="GlobalDialogHost" Identifier="RootDialog">
@@ -954,7 +1006,7 @@
                             </DataTemplate>
                         </TabItem.HeaderTemplate>
 
-                        <Grid>
+                        <Grid Background="#1A132D">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="0.3*" MinWidth="200"/>
                                 <ColumnDefinition Width="0.3*" MinWidth="200"/>
@@ -966,8 +1018,12 @@
                                           SelectionChanged="HistoryListView_SelectionChanged"
                                           Background="Transparent" 
                                           BorderThickness="0" 
-                                          Padding="0,4"
-                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                          Padding="5,4"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                        <ListView.Resources>
+                                            <Style TargetType="ScrollViewer" BasedOn="{StaticResource ThinScrollViewer}"/>
+                                        </ListView.Resources>
                                     <ListView.ItemContainerStyle>
                                         <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
                                             <Setter Property="Padding" Value="0"/>
@@ -988,10 +1044,10 @@
                                         <DataTemplate>
                                             <Border x:Name="CardBorder" 
                                                     Margin="8,0" 
-                                                    Padding="12" 
-                                                    Background="#1E1E1E" 
-                                                    CornerRadius="8" 
-                                                    BorderBrush="#333" 
+                                                    Padding="12"                                                     
+                                                    CornerRadius="8"                                                   
+                                                    Background="#241A3D"  
+                                                    BorderBrush="#3D2B66" 
                                                     BorderThickness="1">
                                                 <Grid ContextMenuOpening="History_ContextMenu_Opening">
                                                      <Grid.RowDefinitions>
@@ -1005,7 +1061,7 @@
                                                         <Border Background="#2D2D30" CornerRadius="3" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center">
                                                             <StackPanel Orientation="Horizontal">
                                                                 <materialDesign:PackIcon Kind="SourceCommit" Width="10" Height="10" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                                <TextBlock Text="{Binding ShortHash}" FontFamily="Consolas" FontSize="11" Foreground="#FFA500" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="{Binding ShortHash}" FontFamily="Consolas" FontSize="11"  Foreground="#FFA500" VerticalAlignment="Center"/>
                                                             </StackPanel>
                                                         </Border>
                                                         
@@ -1095,34 +1151,41 @@
                             </Border>
 
                             <Border Grid.Column="1" Background="Transparent" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="*"/>
-                                    </Grid.RowDefinitions>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" Style="{StaticResource ThinScrollViewer}">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
 
-                                    <!-- Commit Detail Header -->
-                                    <Border Grid.Row="0" x:Name="CommitDetailContainer" Padding="25,30,25,20" Visibility="Collapsed">
-                                        <StackPanel>
-                                            <TextBlock x:Name="CommitSummaryMessage" FontSize="22" FontWeight="Black" Foreground="White" TextWrapping="Wrap" LineHeight="28"/>
-                                            
-                                            <Border Margin="0,20,0,0" Padding="0" Background="Transparent">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="AccountCircle" Width="24" Height="24" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                                    <TextBlock x:Name="CommitSummaryInfo" FontSize="14" Foreground="#888" VerticalAlignment="Center" FontWeight="Normal"/>
+                                        <!-- Commit Detail Header -->
+                                        <Border Grid.Row="0" x:Name="CommitDetailContainer" Padding="25,30,25,20" Visibility="Visible">
+                                            <StackPanel>
+                                                <TextBlock x:Name="CommitSummaryMessage" Text="SIN INFORMACIÓN" FontSize="22" FontWeight="Black" Foreground="White" TextWrapping="Wrap" LineHeight="28"/>
+                                                
+                                                <Border Margin="0,20,0,0" Padding="0" Background="Transparent">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="AccountCircle" Width="24" Height="24" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                        <TextBlock x:Name="CommitSummaryInfo" FontSize="14" Foreground="#888" VerticalAlignment="Center" FontWeight="Normal"/>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <TextBlock x:Name="CommitSummaryDescription" Text="Selecciona un commit para ver los detalles." Margin="0,25,0,0" FontSize="14" Foreground="#CCC" TextWrapping="Wrap" Opacity="0.8" LineHeight="22"/>
+
+                                                <StackPanel Orientation="Horizontal" Margin="0,20,0,0" >
+                                                    <materialDesign:PackIcon Kind="FileDocumentMultipleOutline" Width="18" Height="18" Foreground="#FFA500" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="ARCHIVOS CAMBIADOS" FontSize="11" FontWeight="Black" Foreground="#FFA500" VerticalAlignment="Center"/>
                                                 </StackPanel>
-                                            </Border>
-
-                                            <TextBlock x:Name="CommitSummaryDescription" Margin="0,25,0,0" FontSize="14" Foreground="#CCC" TextWrapping="Wrap" Opacity="0.8" LineHeight="22"/>
-
-                                            <StackPanel Orientation="Horizontal" Margin="0,30,0,10">
-                                                <materialDesign:PackIcon Kind="FileDocumentMultipleOutline" Width="18" Height="18" Foreground="#8A7BB1" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                                                <TextBlock Text="ARCHIVOS CAMBIADOS" FontSize="11" FontWeight="Black" Foreground="#8A7BB1" VerticalAlignment="Center"/>
                                             </StackPanel>
-                                        </StackPanel>
-                                    </Border>
+                                        </Border>
 
-                                    <ListView x:Name="HistoryFilesListView" Grid.Row="1" Margin="10,0" BorderThickness="0" Background="Transparent" SelectionChanged="HistoryFilesListView_SelectionChanged">
+                                        <ListView x:Name="HistoryFilesListView" 
+                                                  Grid.Row="1" 
+                                                  Margin="10,0" 
+                                                  BorderThickness="0" 
+                                                  Background="Transparent" 
+                                                  SelectionChanged="HistoryFilesListView_SelectionChanged"
+                                                  ScrollViewer.VerticalScrollBarVisibility="Disabled">
                                         <ListView.ItemContainerStyle>
                                             <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
                                                 <Setter Property="Padding" Value="10,8"/>
@@ -1158,10 +1221,10 @@
                                                         <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
                                                     
-                                                    <materialDesign:PackIcon Kind="FileOutline" Width="18" Height="18" Margin="0,0,12,0" VerticalAlignment="Center">
+                                                    <materialDesign:PackIcon Kind="FileOutline" Width="18" Height="18" Margin="2,0,12,0" VerticalAlignment="Center">
                                                         <materialDesign:PackIcon.Style>
                                                             <Style TargetType="materialDesign:PackIcon">
-                                                                <Setter Property="Foreground" Value="#8A7BB1"/>
+                                                                    <Setter Property="Foreground" Value="#FFA500"/>
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
                                                                         <Setter Property="Foreground" Value="#FFA500"/>
@@ -1174,13 +1237,14 @@
                                                         </materialDesign:PackIcon.Style>
                                                     </materialDesign:PackIcon>
                                                     
-                                                    <TextBlock Grid.Column="1" Text="{Binding}" Foreground="#DCDCDC" VerticalAlignment="Center" FontSize="13"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding}" Foreground="#DCDCDC" VerticalAlignment="Center" FontSize="13" Padding="3,5"/>
                                                     <materialDesign:PackIcon Grid.Column="2" Kind="ChevronRight" Width="14" Height="14" Foreground="#3D2B66" VerticalAlignment="Center"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ListView.ItemTemplate>
                                     </ListView>
                                     </Grid>
+                                </ScrollViewer>
                             </Border>
 
                             <Border Grid.Column="2" Background="#0A0A0A" BorderBrush="#2D2447" BorderThickness="1,0,0,0">
@@ -1217,7 +1281,7 @@
                                             <TextBlock x:Name="HistoryDiffFileName" Text="VISOR DE CÓDIGO" FontSize="10" FontWeight="Bold" Foreground="#8A7BB1" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
-                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Style="{StaticResource ThinScrollViewer}">
                                     <ItemsControl x:Name="HistoryDiffLinesItemsControl" 
                               FontFamily="Consolas" 
                               FontSize="13"

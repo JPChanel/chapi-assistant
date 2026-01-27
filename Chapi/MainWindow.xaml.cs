@@ -1602,7 +1602,11 @@ namespace Chapi
             var selectedCommit = e.AddedItems.OfType<GitLogItem>().FirstOrDefault();
             if (selectedCommit == null)
             {
-                CommitDetailContainer.Visibility = Visibility.Collapsed;
+                CommitSummaryMessage.Text = "SIN INFORMACIÓN";
+                CommitSummaryDescription.Text = "Selecciona un commit del historial para ver sus detalles.";
+                CommitSummaryInfo.Text = "";
+                HistoryFilesListView.ItemsSource = null;
+                CommitDetailContainer.Visibility = Visibility.Visible;
                 return;
             }
 
