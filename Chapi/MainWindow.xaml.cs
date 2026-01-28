@@ -334,7 +334,8 @@ namespace Chapi
             {
                 if (projectDirectory != null)
                 {
-                    var branches = Git.GetBranches(projectDirectory);
+                    var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
+                    var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
                     BranchesComboBox.ItemsSource = branches;
 
                     if (branches.Any())
@@ -1244,7 +1245,8 @@ namespace Chapi
                 }
 
                 // Actualizar indicadores del Model
-                var branches = Git.GetBranches(projectDirectory);
+                var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
+                var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
                 var currentBranch = BranchesComboBox.SelectedItem as string;
                 BranchesComboBox.ItemsSource = branches;
                 if (!string.IsNullOrEmpty(currentBranch) && branches.Contains(currentBranch))
