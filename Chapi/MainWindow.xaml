@@ -82,7 +82,7 @@
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-            <materialDesign:ColorZone x:Name="HeaderZone" Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="20,10" Mode="Dark" Foreground="{StaticResource HeaderForeground}" MinHeight="95">
+            <materialDesign:ColorZone x:Name="HeaderZone" Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="20,10" Background="{StaticResource HeaderBackground}" Foreground="{StaticResource HeaderForeground}" MinHeight="95">
                 <Grid VerticalAlignment="Center" HorizontalAlignment="Stretch">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -319,7 +319,7 @@
 
             <!-- 🗂️ NAVEGACIÓN (TABS) (Fila 1) -->
             <!-- ********************************************** -->
-            <materialDesign:ColorZone Grid.Row="1" Mode="Standard" Padding="0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+            <materialDesign:ColorZone Grid.Row="1" Mode="Standard" Padding="0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Background="{StaticResource HeaderBackground}">
                 <TabControl x:Name="GitTabs"
                             Style="{StaticResource MaterialDesignTabControl}"
                             materialDesign:ColorZoneAssist.Mode="Light"  HorizontalContentAlignment="Left" BorderBrush="{DynamicResource PrimaryHueMidBrush}"

@@ -12,6 +12,7 @@
                                              SecondaryColor="Lime" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign3.Defaults.xaml" />
             </ResourceDictionary.MergedDictionaries>
+            <SolidColorBrush x:Key="HeaderBackground" Color="#000000"/>
             <SolidColorBrush x:Key="HeaderForeground" Color="White"/>
             <converters:IsNotDefaultBranchConverter x:Key="IsNotDefaultBranchConverter"/>
         </ResourceDictionary>
