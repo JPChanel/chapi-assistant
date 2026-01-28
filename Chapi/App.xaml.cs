@@ -68,6 +68,11 @@ namespace Chapi
             services.AddTransient<UseCases.CommitChangesUseCase>();
             services.AddTransient<UseCases.LoadChangesUseCase>();
             services.AddTransient<UseCases.LoadHistoryUseCase>();
+            services.AddTransient<UseCases.PushChangesUseCase>();
+            services.AddTransient<UseCases.PullChangesUseCase>();
+            services.AddTransient<UseCases.FetchChangesUseCase>();
+            services.AddTransient<UseCases.SwitchBranchUseCase>();
+            services.AddTransient<UseCases.GetBranchesUseCase>();
 
             ServiceProvider = services.BuildServiceProvider();
         }
