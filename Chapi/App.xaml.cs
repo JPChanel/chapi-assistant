@@ -74,6 +74,9 @@ namespace Chapi
             services.AddTransient<UseCases.SwitchBranchUseCase>();
             services.AddTransient<UseCases.GetBranchesUseCase>();
 
+            // Presentation - ViewModels
+            services.AddTransient<Presentation.ViewModels.ChangesViewModel>();
+
             ServiceProvider = services.BuildServiceProvider();
         }
 
