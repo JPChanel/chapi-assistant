@@ -912,44 +912,26 @@ namespace Chapi
 
                 if (response)
                 {
-                    var result = await Git.EjecutarGit("push", projectDirectory);
+                    // Usar el Use Case de la nueva arquitectura
+                    var pushUseCase = App.ServiceProvider.GetService(typeof(UseCases.PushChangesUseCase)) as UseCases.PushChangesUseCase;
+                    var currentBranch = BranchesComboBox.SelectedItem?.ToString() ?? "main";
+                    var pushResult = await pushUseCase.ExecuteAsync(projectDirectory, currentBranch);
 
-                    if (string.IsNullOrWhiteSpace(result))
-                    {
-                        await DialogService.ShowConfirmDialog(
-                            "Advertencia",
-                            "No se recibió respuesta del comando Git Push.",
-                            DialogVariant.Warning,
-                            DialogType.Info
-                        );
-                    }
-                    else if (result.Contains("error", StringComparison.OrdinalIgnoreCase) ||
-                             result.Contains("fatal", StringComparison.OrdinalIgnoreCase) ||
-                             result.Contains("rejected", StringComparison.OrdinalIgnoreCase))
+                    if (!pushResult.IsSuccess)
                     {
                         await DialogService.ShowConfirmDialog(
                             "Error al subir",
-                            $"El push no se realizó correctamente:\n\n{result}",
+                            $"El push no se realizó correctamente:\n\n{pushResult.Error}",
                             DialogVariant.Error,
                             DialogType.Info
                         );
                     }
-                    else if (result.Contains("To ") && result.Contains("->"))
-                    {
-                        await DialogService.ShowConfirmDialog(
-                            "Éxito",
-                            $"Los cambios se subieron correctamente al repositorio.\n\n{result}",
-                            DialogVariant.Success,
-                            DialogType.Info
-                        );
-                        Msg.Assistant($"Los cambios se subieron correctamente al repositorio.\n\n{result}");
-                    }
                     else
                     {
                         await DialogService.ShowConfirmDialog(
-                            "Resultado del Push",
-                            $"Git devolvió la siguiente respuesta:\n\n{result}",
-                            DialogVariant.Info,
+                            "Éxito",
+                            "Los cambios se subieron correctamente al repositorio.",
+                            DialogVariant.Success,
                             DialogType.Info
                         );
                     }
@@ -1390,23 +1372,21 @@ namespace Chapi
                 }
 
                 Msg.Assistant("Realizando pull de los cambios remotos...");
-                var pullResult = await Git.EjecutarGit("pull", projectDirectory);
+                
+                // Usar el Use Case de la nueva arquitectura
+                var pullUseCase = App.ServiceProvider.GetService(typeof(UseCases.PullChangesUseCase)) as UseCases.PullChangesUseCase;
+                var currentBranch = BranchesComboBox.SelectedItem?.ToString() ?? "main";
+                var pullResult = await pullUseCase.ExecuteAsync(projectDirectory, currentBranch);
 
-                if (pullResult.Contains("Automatic merge failed") || pullResult.Contains("CONFLICT"))
+                if (!pullResult.IsSuccess)
                 {
-                    Msg.Assistant("❌ ¡Conflicto! Se detectaron conflictos durante el pull.");
-                    await DialogService.ShowConfirmDialog("Conflicto de Merge",
-                        "No se pudo completar el pull automáticamente. Tienes conflictos:\n\n" + pullResult,
-                        DialogVariant.Error, DialogType.Info);
-                }
-                else if (pullResult.Contains("error") || pullResult.Contains("fatal"))
-                {
-                    Msg.Assistant($"❌ Error al realizar pull: {pullResult}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de pull.\n\n{pullResult}", DialogVariant.Error, DialogType.Info);
-                }
-                else
-                {
-                    Msg.Assistant("✅ Pull completado exitosamente.");
+                    // El Use Case ya mostró el error, solo verificamos si hay conflictos específicos
+                    if (pullResult.Error.Contains("CONFLICT") || pullResult.Error.Contains("Automatic merge failed"))
+                    {
+                        await DialogService.ShowConfirmDialog("Conflicto de Merge",
+                            "No se pudo completar el pull automáticamente. Tienes conflictos:\n\n" + pullResult.Error,
+                            DialogVariant.Error, DialogType.Info);
+                    }
                 }
 
                 // 3. Si usamos stash, intentar restaurarlo
