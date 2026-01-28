@@ -1468,73 +1468,257 @@
                             </Border>
                         </Grid>
                     </TabItem>
-                    <TabItem x:Name="TagsTab" Header="Tags">
-                        <TabItem.HeaderTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="10,0">
-                                    <materialDesign:PackIcon Kind="TagOutline" Margin="0,0,8,0" Width="18" Height="18"/>
-                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </TabItem.HeaderTemplate>
+                    <TabItem x:Name="TagsTab">
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Tag" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Releases" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </TabItem.Header>
 
-                        <Grid Margin="5">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
+                        <Grid Background="#1A132D">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="380"/>
+                                <ColumnDefinition Width="1*"/>
+                                <ColumnDefinition Width="1*"/>
+                            </Grid.ColumnDefinitions>
 
-                            <Button x:Name="btnCrearTag"
-                    Grid.Row="0"
-                    Content="Crear Nuevo Tag Commit Actual"
-                    Click="btnCrearTag_Click"
-                    HorizontalAlignment="Left"
-                    Margin="5,5,0,10"
-                    Style="{StaticResource MaterialDesignRaisedButton}"/>
+                            <!-- Panel 1: Lista de Versiones -->
+                            <Border Grid.Column="0" Background="#130D21" BorderBrush="#3D2B66" BorderThickness="0,0,1,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
 
-                            <ListView x:Name="TagsListView" Grid.Row="1" Margin="5" HorizontalContentAlignment="Stretch" >
-                                <ListView.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Background="Transparent">
+                                    <!-- Header de Panel 1 -->
+                                    <Border Grid.Row="0" Padding="20,25" Background="#130D21">
+                                        <Grid>
+                                            <StackPanel>
+                                                <TextBlock Text="HISTORIAL DE VERSIONES" FontSize="10" FontWeight="Black" Foreground="#8A7BB1"/>
+                                                <TextBlock Text="Producción" FontSize="20" FontWeight="Bold" Foreground="White" Margin="0,5,0,0"/>
+                                            </StackPanel>
+                                            <Button x:Name="btnCrearTag" 
+                                                    HorizontalAlignment="Right" 
+                                                    VerticalAlignment="Center"
+                                                    Width="36" Height="36"
+                                                    Padding="0"
+                                                    Style="{StaticResource MaterialDesignFloatingActionMiniButton}"
+                                                    Background="#FFA500" BorderThickness="0"
+                                                    Click="btnCrearTag_Click"
+                                                    ToolTip="Crear nuevo Release">
+                                                <materialDesign:PackIcon Kind="Plus" Width="20" Height="20" Foreground="#1A132D"/>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
 
-                                            <Grid.ContextMenu>
-                                                <ContextMenu>
-                                                    <MenuItem Header="Eliminar Tag..."
-                                                      Click="DeleteTag_Click"
-                                                      CommandParameter="{Binding}"
-                                                      Foreground="Red">
-                                                        <MenuItem.Icon>
-                                                            <materialDesign:PackIcon Kind="TagRemoveOutline" Foreground="Red"/>
-                                                        </MenuItem.Icon>
-                                                    </MenuItem>
-                                                </ContextMenu>
-                                            </Grid.ContextMenu>
+                                    <ListView x:Name="ReleasesListView" 
+                                              Grid.Row="1"
+                                              Background="Transparent" 
+                                              BorderThickness="0" 
+                                              Padding="5,4"
+                                              SelectionChanged="ReleasesListView_SelectionChanged"
+                                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                              VirtualizingPanel.IsVirtualizing="True">
+                                        <ListView.ItemContainerStyle>
+                                            <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
+                                                <Setter Property="Padding" Value="0"/>
+                                                <Setter Property="Margin" Value="0,0,0,8"/>
+                                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                <Setter Property="materialDesign:RippleAssist.IsDisabled" Value="True"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListViewItem">
+                                                            <Border x:Name="CardBorder" Margin="8,0" Padding="15,12" CornerRadius="8" Background="#241A3D" BorderBrush="#3D2B66" BorderThickness="1">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <materialDesign:PackIcon Grid.Column="0" Kind="TagOutline" Width="18" Height="18" Foreground="#8A7BB1" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                        <TextBlock Text="{Binding TagName}" FontWeight="Bold" FontSize="14" Foreground="White"/>
+                                                                        <TextBlock Text="{Binding RelativeDate}" FontSize="11" Foreground="#666" Margin="0,2,0,0"/>
+                                                                    </StackPanel>
+                                                                    <Border Grid.Column="2" x:Name="LatestBadge" Background="#1D3A2D" CornerRadius="4" Padding="6,2" Visibility="Collapsed" VerticalAlignment="Center">
+                                                                        <TextBlock Text="LATEST" FontSize="9" FontWeight="Black" Foreground="#2ECC71"/>
+                                                                    </Border>
+                                                                </Grid>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsSelected" Value="True">
+                                                                    <Setter TargetName="CardBorder" Property="BorderBrush" Value="#FFA500"/>
+                                                                    <Setter TargetName="CardBorder" Property="Background" Value="#2A2A2A"/>
+                                                                </Trigger>
+                                                                <DataTrigger Binding="{Binding IsLatest}" Value="True">
+                                                                    <Setter TargetName="LatestBadge" Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListView.ItemContainerStyle>
+                                        <ListView.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Eliminar Tag..." Click="DeleteTag_Click" Foreground="Red">
+                                                    <MenuItem.Icon>
+                                                        <materialDesign:PackIcon Kind="TagRemove" Foreground="Red"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                            </ContextMenu>
+                                        </ListView.ContextMenu>
+                                    </ListView>
+                                </Grid>
+                            </Border>
 
-                                            <StackPanel Margin="5">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="TagOutline" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding TagName}" FontWeight="Bold" FontSize="16"/>
-                                                    <TextBlock Text="{Binding TagMessage}" 
-                                                       FontStyle="Italic" 
-                                                       Margin="26,4,0,0" 
-                                                       FontSize="12" 
-                                                       Foreground="Gray"/>
-                                                </StackPanel>
-
-                                                <StackPanel Orientation="Horizontal" Margin="26,0,0,0">
-                                                    <TextBlock Text="{Binding CommitHash}" 
-                                                       FontFamily="Consolas" 
-                                                       Foreground="Goldenrod" 
-                                                       FontSize="12"/>
-                                                    <TextBlock Text="{Binding CommitMessage}" Margin="10,0,0,0" FontSize="12"/>
-                                                    <TextBlock Text="{Binding RelativeDate}" FontStyle="Italic" Margin="10,0,0,0" FontSize="12" Foreground="Gray"/>
+                            <!-- Panel 2: Detalle Central -->
+                            <Border Grid.Column="1" Padding="35,40" Background="Transparent">
+                                <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                                    <StackPanel x:Name="ReleaseDetailContainer" Visibility="Collapsed">
+                                        <Grid Margin="0,0,0,30">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Width="48" Height="48" CornerRadius="8" Background="#3D2B66" Margin="0,0,20,0">
+                                                <materialDesign:PackIcon Kind="ArchiveOutline" Width="24" Height="24" Foreground="#FFA500" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock x:Name="txtReleaseTitle" Text="v1.0.5" FontSize="28" FontWeight="Black" Foreground="White" LineHeight="32"/>
+                                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                                    <TextBlock x:Name="txtReleaseHash" Text="# b684925" FontSize="13" FontFamily="Consolas" Foreground="#666" Margin="0,0,15,0"/>
+                                                    <materialDesign:PackIcon Kind="AccountOutline" Width="14" Height="14" Foreground="#666" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                    <TextBlock x:Name="txtReleaseAuthor" Text="Johan Chanel" FontSize="13" Foreground="#666" VerticalAlignment="Center"/>
                                                 </StackPanel>
                                             </StackPanel>
-
                                         </Grid>
-                                    </DataTemplate>
-                                </ListView.ItemTemplate>
-                            </ListView>
+
+                                        <TextBlock Text="NOTAS DE VERSIÓN" FontSize="11" FontWeight="Black" Foreground="#8A7BB1" Margin="0,0,0,15"/>
+                                        <Border Background="#241A3D" CornerRadius="8" Padding="25" BorderBrush="#3D2B66" BorderThickness="1">
+                                            <ItemsControl x:Name="ReleaseNotesItemsControl">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,0,0,12">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Ellipse Grid.Column="0" Width="6" Height="6" Fill="#FFA500" VerticalAlignment="Top" Margin="0,8,15,0"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding}" FontSize="14" Foreground="#DCDCDC" TextWrapping="Wrap" LineHeight="20"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </Border>
+
+                                        <TextBlock Text="DETALLE DEL COMMIT" FontSize="11" FontWeight="Black" Foreground="#8A7BB1" Margin="0,30,0,15"/>
+                                        <Border Background="#130D21" CornerRadius="8" Padding="25" BorderBrush="#3D2B66" BorderThickness="1">
+                                            <StackPanel>
+                                                <TextBlock x:Name="txtCommitFullMessage" Text="Sin detalles adicionales." FontSize="14" Foreground="#DCDCDC" TextWrapping="Wrap" LineHeight="20"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <Border Margin="0,30,0,0" Padding="20" CornerRadius="8" BorderBrush="#1D3A2D" BorderThickness="1" Background="#0A2218">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <materialDesign:PackIcon Grid.Column="0" Kind="CheckCircleOutline" Width="20" Height="20" Foreground="#2ECC71" Margin="0,0,15,0" VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="Versión Verificada" FontWeight="Bold" Foreground="#2ECC71" FontSize="14"/>
+                                                    <TextBlock Text="Integridad confirmada por el agente Chapi." Foreground="#2ECC71" Opacity="0.7" FontSize="12" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+
+                            <Border Grid.Column="2" Background="#130D21" BorderBrush="#3D2B66" Padding="35,40" BorderThickness="1,0,0,0">
+                                <ScrollViewer VerticalScrollBarVisibility="Hidden" Padding="20,40">
+                                    <StackPanel x:Name="ReleaseStatsContainer" Visibility="Collapsed">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                                        <materialDesign:PackIcon Kind="ChartBoxOutline" Width="16" Height="16" Foreground="#8A7BB1" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="RESUMEN DE CAMBIOS" FontSize="10" FontWeight="Black" Foreground="#8A7BB1" VerticalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <Grid Margin="0,0,0,30">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                                            <TextBlock Text="ARCHIVOS" FontSize="9"  HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="txtFilesCount" Text="0" FontSize="18" FontWeight="Black" Foreground="White" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                            <TextBlock Text="INSERCIONES" FontSize="9" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="txtAdditionsCount" Text="+0" FontSize="18" FontWeight="Black" Foreground="#2ECC71" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                                            <TextBlock Text="ELIMINADAS" FontSize="9"  HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="txtDeletionsCount" Text="-0" FontSize="18" FontWeight="Black" Foreground="#E74C3C" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <TextBlock Text="ARCHIVOS EN ESTA VERSIÓN" FontSize="10" FontWeight="Black" Foreground="#322452" Margin="0,0,0,15"/>
+                                    <ListView x:Name="ReleaseFilesListView" Background="Transparent" BorderThickness="0">
+                                        <ListView.ItemContainerStyle>
+                                            <Style TargetType="ListViewItem">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Padding" Value="0"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListViewItem">
+                                                            <Border x:Name="FileItemBorder" Padding="12,10" Margin="0,0,0,5" CornerRadius="6" Background="#1A132D" BorderBrush="#251A3D" BorderThickness="1">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <materialDesign:PackIcon Kind="FileOutline" Width="14" Height="14" Foreground="#3D2B66" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                                    <TextBlock Grid.Column="1" Text="{Binding}" Foreground="#888" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                                                    <materialDesign:PackIcon Grid.Column="2" Kind="ChevronRight" Width="12" Height="12" Foreground="#251A3D" VerticalAlignment="Center"/>
+                                                                </Grid>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="FileItemBorder" Property="Background" Value="#251A3D"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListView.ItemContainerStyle>
+                                    </ListView>
+
+                                    <Border Margin="0,30,0,0" Padding="15" CornerRadius="8" Background="#a558220d" BorderBrush="#FFA500" BorderThickness="1">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                <materialDesign:PackIcon Kind="CheckCircle" Width="16" Height="16" Foreground="#FFA500" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="VERIFICACIÓN LISTA" FontSize="11" FontWeight="Black" Foreground="White" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <TextBlock Text="Esta versión está lista para producción. Todos los archivos han sido compilados correctamente." FontSize="11" Foreground="White" TextWrapping="Wrap" LineHeight="16"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+
+                            <Grid Grid.Column="1" Grid.ColumnSpan="2" x:Name="ReleasesEmptyState" Visibility="Visible" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon Kind="TagSearchOutline" Width="64" Height="64" Foreground="#251A3D" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                                    <TextBlock Text="SIN VERSIÓN SELECCIONADA" FontSize="14" FontWeight="Bold" Foreground="#322452" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Selecciona una versión de la lista para ver los detalles y estadísticas." FontSize="12" Foreground="#322452" TextAlignment="Center" Margin="0,10,0,0"/>
+                                </StackPanel>
+                            </Grid>
                         </Grid>
                     </TabItem>
 

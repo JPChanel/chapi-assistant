@@ -1680,12 +1680,23 @@ namespace Chapi
         {
             if (!ValidateProject())
             {
-                TagsListView.ItemsSource = null;
+                ReleasesListView.ItemsSource = null;
                 return;
             }
 
             var tags = await Git.GetTags(projectDirectory);
-            TagsListView.ItemsSource = tags;
+            if (tags.Count > 0)
+            {
+                // El primer tag en la lista (ordenada por fecha desc) es el Latest
+                tags[0].IsLatest = true;
+            }
+            
+            ReleasesListView.ItemsSource = tags;
+            
+            // Si no hay tags, asegurar que el estado vacío se vea
+            ReleasesEmptyState.Visibility = tags.Count == 0 ? Visibility.Visible : Visibility.Visible; // Se mantiene visible hasta elegir uno
+            ReleaseDetailContainer.Visibility = Visibility.Collapsed;
+            ReleaseStatsContainer.Visibility = Visibility.Collapsed;
         }
 
         private async void btnCrearTag_Click(object sender, RoutedEventArgs e)
@@ -1739,6 +1750,105 @@ namespace Chapi
             });
         }
 
+
+        private async void ReleasesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var selectedTag = ReleasesListView.SelectedItem as GitTagItem;
+            if (selectedTag == null)
+            {
+                ReleasesEmptyState.Visibility = Visibility.Visible;
+                ReleaseDetailContainer.Visibility = Visibility.Collapsed;
+                ReleaseStatsContainer.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            ReleasesEmptyState.Visibility = Visibility.Collapsed;
+            ReleaseDetailContainer.Visibility = Visibility.Visible;
+            ReleaseStatsContainer.Visibility = Visibility.Visible;
+
+            // Poblar Panel 2 (Detalle)
+            txtReleaseTitle.Text = selectedTag.TagName;
+            txtReleaseHash.Text = $"# {selectedTag.ShortHash}";
+            txtReleaseAuthor.Text = selectedTag.AuthorName ?? "Autor Desconocido";
+
+            // Notas de versión
+            var notes = new List<string>();
+            if (!string.IsNullOrWhiteSpace(selectedTag.TagMessage))
+                notes.Add(selectedTag.TagMessage);
+            else if (!string.IsNullOrWhiteSpace(selectedTag.CommitMessage))
+                notes.Add(selectedTag.CommitMessage);
+            else
+                notes.Add("Sin descripción disponible para esta versión.");
+
+            ReleaseNotesItemsControl.ItemsSource = notes;
+
+            // Detalle del Commit
+            if (!string.IsNullOrWhiteSpace(selectedTag.CommitDescription))
+                txtCommitFullMessage.Text = selectedTag.CommitDescription;
+            else if (!string.IsNullOrWhiteSpace(selectedTag.CommitMessage))
+                txtCommitFullMessage.Text = selectedTag.CommitMessage;
+            else
+                txtCommitFullMessage.Text = "Sin detalles adicionales.";
+
+            // Poblar Panel 3 (Estadísticas)
+            await RunWithLoading(async () =>
+            {
+                var stats = await Git.GetCommitNumStat(selectedTag.CommitHash, projectDirectory);
+                
+                int totalAdded = stats.Values.Sum(s => s.Additions);
+                int totalDeleted = stats.Values.Sum(s => s.Deletions);
+                int totalFiles = stats.Count;
+
+                txtFilesCount.Text = totalFiles.ToString();
+                txtAdditionsCount.Text = $"+{totalAdded}";
+                txtDeletionsCount.Text = $"-{totalDeleted}";
+
+                ReleaseFilesListView.ItemsSource = stats.Keys.ToList();
+            });
+        }
+
+        private async void DeleteTag_Click(object sender, RoutedEventArgs e)
+        {
+            var tag = ReleasesListView.SelectedItem as GitTagItem;
+            if (tag == null) return;
+
+            var confirm = await DialogService.ShowConfirmDialog("Eliminar Tag", 
+                $"¿Está seguro de que desea eliminar el tag '{tag.TagName}'?\nEsta acción no se puede deshacer.",
+                DialogVariant.Error, DialogType.Confirm);
+
+            if (!confirm) return;
+
+            await RunWithLoading(async () =>
+            {
+                Msg.Assistant($"Eliminando tag {tag.TagName}...");
+                var res = await Git.DeleteTagLocal(tag.TagName, projectDirectory);
+
+                if (res.Success)
+                {
+                    Msg.Assistant($"Tag {tag.TagName} eliminado localmente.");
+                    
+                    var remote = await DialogService.ShowConfirmDialog("Eliminar Remoto",
+                        $"El tag local fue eliminado.\n\n¿Desea intentar eliminarlo también del servidor remoto (origin)?",
+                        DialogVariant.Warning, DialogType.Confirm);
+
+                    if (remote)
+                    {
+                        var resRem = await Git.DeleteTagRemote(tag.TagName, projectDirectory);
+                        if (resRem.Success)
+                            Msg.Assistant($"Tag {tag.TagName} eliminado del remoto.");
+                        else
+                             Msg.Assistant($"No se pudo eliminar el remoto: {resRem.Output}");
+                    }
+
+                    await LoadTagsAsync();
+                }
+                else
+                {
+                    Msg.Assistant($"Error al eliminar tag: {res.Output}");
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo eliminar el tag:\n{res.Output}", DialogVariant.Error, DialogType.Info);
+                }
+            });
+        }
 
         private async void HistoryListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -2369,9 +2479,7 @@ namespace Chapi
             if (!confirm) return;
 
             ProjectSettings.RemoveProject(pathToRemove);
-            LoadProjects(); // Recargar la lista
-
-            // Si el proyecto eliminado era el activo, limpiar la UI
+            LoadProjects(); 
             if (projectDirectory == pathToRemove)
             {
                 projectDirectory = null;
@@ -2379,7 +2487,7 @@ namespace Chapi
                 BranchesComboBox.ItemsSource = null;
                 ChangesListView.ItemsSource = null;
                 HistoryListView.ItemsSource = null;
-                TagsListView.ItemsSource = null;
+                ReleasesListView.ItemsSource = null;
             }
 
             DialogService.ShowTrayNotification("Proyecto Removido", "El proyecto se quitó de la lista.");
@@ -3160,61 +3268,7 @@ namespace Chapi
                 }
             });
         }
-        private async void DeleteTag_Click(object sender, RoutedEventArgs e)
-        {
-            // 1. Obtener el nombre del tag
-            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not GitTagItem tag)
-            {
-                return;
-            }
-            string tagName = tag.TagName;
-            // --- FIN DEL CAMBIO ---
 
-            if (!ValidateProject()) return;
-            // 2. Confirmar con el usuario
-            var confirm = await DialogService.ShowConfirmDialog(
-                "Confirmar Eliminación de Tag",
-                $"¿Estás seguro de que deseas eliminar el tag '{tagName}'?\n\n" +
-                "Esto intentará eliminarlo tanto de tu repositorio LOCAL como del REMOTO (origin/GitLab).",
-                DialogVariant.Warning,
-                DialogType.Confirm
-            );
-
-            if (!confirm)
-            {
-                Msg.Assistant("Operación de eliminación de tag cancelada.");
-                return;
-            }
-
-            // 3. Ejecutar los comandos de Git
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant($"Eliminando tag '{tagName}' localmente...");
-                var localResult = await Git.DeleteTagLocal(tagName, projectDirectory);
-
-                if (!localResult.Success)
-                {
-                    Msg.Assistant($"⚠️ No se pudo eliminar el tag local: {localResult.Output}");
-                    // (Continuamos para intentar eliminar el remoto de todos modos)
-                }
-
-                Msg.Assistant($"Eliminando tag '{tagName}' del remoto (origin)...");
-                var remoteResult = await Git.DeleteTagRemote(tagName, projectDirectory);
-
-                if (!remoteResult.Success)
-                {
-                    Msg.Assistant($"⚠️ No se pudo eliminar el tag remoto: {remoteResult.Output}");
-                    await DialogService.ShowConfirmDialog("Aviso", $"El tag se eliminó localmente, pero no se pudo eliminar del remoto (quizás ya no existía allí).\n\n{remoteResult.Output}", DialogVariant.Info, DialogType.Info);
-                }
-                else
-                {
-                    Msg.Assistant($"✅ Tag '{tagName}' eliminado de local y remoto.");
-                }
-
-                // 4. Refrescar la lista de tags
-                await LoadTagsAsync();
-            });
-        }
         private async void Branch_Create_Click(object sender, RoutedEventArgs e)
         {
             // 1. Obtener la rama base desde donde se crea
