@@ -21,7 +21,6 @@
 
     <Window.Resources>
         <converters:IntegerToVisibilityConverter x:Key="IntegerToVisibilityConverter"/>
-        <!-- Estilo minimalista para ScrollBar -->
         <Style x:Key="ThinScrollBar" TargetType="{x:Type ScrollBar}">
             <Setter Property="Width" Value="8"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -73,6 +72,41 @@
         </Style>
 
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
+        <ContextMenu x:Key="ProjectQuickMenu" DataContext="{Binding PlacementTarget, RelativeSource={RelativeSource Self}}">
+            <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+                <MenuItem.Icon>
+                    <materialDesign:PackIcon Kind="VisualStudio" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Abrir en VS Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+                <MenuItem.Icon>
+                    <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Abrir en Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+                <MenuItem.Icon>
+                    <materialDesign:PackIcon Kind="RocketLaunch" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Abrir Carpeta" Click="ProjectMenuItem_OpenExplorer_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+                <MenuItem.Icon>
+                    <materialDesign:PackIcon Kind="FolderOpen" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Abrir Consola (CMD)" Click="ProjectMenuItem_OpenCmd_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+                <MenuItem.Icon>
+                    <materialDesign:PackIcon Kind="Console" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Remover de la lista" Click="ProjectMenuItem_Remove_Click" CommandParameter="{Binding SelectedItem.FullPath}" Foreground="Red">
+                <MenuItem.Icon>
+                    <materialDesign:PackIcon Kind="DeleteOutline" Foreground="Red" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
     </Window.Resources>
 
     <materialDesign:DialogHost x:Name="GlobalDialogHost" Identifier="RootDialog">
@@ -119,11 +153,23 @@
                               materialDesign:TextFieldAssist.DecorationVisibility="Collapsed"
                               materialDesign:HintAssist.Hint="Seleccionar Proyecto"
                               materialDesign:TextFieldAssist.HasClearButton="False"
-                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
                               SelectionChanged="ProjectsComboBox_SelectionChanged"
                               IsEditable="True"
-                              IsTextSearchEnabled="True"
-                              TextSearch.TextPath="Name">
+                               IsTextSearchEnabled="True"
+                               TextSearch.TextPath="Name"
+                                ContextMenu="{DynamicResource ProjectQuickMenu}">
+                        <ComboBox.Style>
+                            <Style TargetType="ComboBox" BasedOn="{StaticResource MaterialDesignOutlinedComboBox}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedItem, RelativeSource={RelativeSource Self}}" Value="{x:Null}">
+                                        <Setter Property="ContextMenu" Value="{x:Null}"/>
+                                    </DataTrigger>
+                                    <Trigger Property="IsDropDownOpen" Value="True">
+                                        <Setter Property="ContextMenu" Value="{x:Null}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ComboBox.Style>
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
                                 <Grid Background="Transparent">
