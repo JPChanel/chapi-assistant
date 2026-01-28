@@ -86,9 +86,7 @@ namespace Chapi
             // Inicializar ViewModels desde DI
             _changesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ChangesViewModel)) 
                 as Presentation.ViewModels.ChangesViewModel;
-            SelectAllCheckBox.DataContext = _changesViewModel;
-            pnlTotalLineStats.DataContext = _changesViewModel;
-            ChangesFooterPanel.DataContext = _changesViewModel;
+            ChangesTab.DataContext = _changesViewModel;
 
             // Hook para hacer scroll automático cuando se agregue un nuevo mensaje
             MessageHelper.Instance.ScrollRequested += (s, e) =>
@@ -406,7 +404,7 @@ namespace Chapi
             if (BranchesComboBox.SelectedItem == null) return;
 
             string newBranch = BranchesComboBox.SelectedItem.ToString();
-            UpdateChangesCount();
+
             if (newBranch == _currentlySelectedBranch)
             {
                 await LoadChangesAsync();
@@ -484,7 +482,7 @@ namespace Chapi
                 ChangesListView.ItemsSource = _changesViewModel.Changes;
                 TotalAdditions = _changesViewModel.TotalAdditions;
                 TotalDeletions = _changesViewModel.TotalDeletions;
-                UpdateChangesCount();
+
             }
              
             // Reset Diff View
@@ -2825,52 +2823,9 @@ namespace Chapi
         /// Actualiza el texto de la pestaña "Cambios" y el botón "Commit"
         /// según la cantidad de archivos seleccionados.
         /// </summary>
-        private void UpdateChangesCount()
-        {
-            if (ChangesListView.ItemsSource == null)
-            {
-                ChangesTabHeader.Text = "Cambios";
-                ChangesCountBadge.Visibility = Visibility.Collapsed;
-                btnCommit.Content = "CONFIRMAR COMMIT";
-                btnCommit.IsEnabled = false;
-                return;
-            }
 
-            int totalCount = 0;
-            int selectedCount = 0;
 
-            if (ChangesListView.ItemsSource is ICollection<Presentation.ViewModels.ChangeItemViewModel> viewModelItems)
-            {
-                totalCount = viewModelItems.Count;
-                selectedCount = viewModelItems.Count(i => i.IsSelected);
-            }
-            else if (ChangesListView.ItemsSource is List<GitStatusItem> oldItems)
-            {
-                // Fallback para legacy si quedara algo
-                 totalCount = oldItems.Count;
-                 selectedCount = oldItems.Count(i => i.IsSelected);
-            }
 
-            string branchName = _currentlySelectedBranch ?? "main";
-
-            // 1. Actualizar la Pestaña (muestra el total en el badge)
-            ChangesTabHeader.Text = "Cambios";
-            txtChangesCount.Text = totalCount.ToString();
-            txtChangesCountSide.Text = totalCount.ToString(); // Actualizar también el contador lateral
-            ChangesCountBadge.Visibility = totalCount > 0 ? Visibility.Visible : Visibility.Collapsed;
-
-            // 2. Actualizar el Botón de Commit (muestra los seleccionados)
-            if (selectedCount > 0)
-            {
-                btnCommit.Content = $"CONFIRMAR COMMIT ({selectedCount})";
-                btnCommit.IsEnabled = true;
-            }
-            else
-            {
-                btnCommit.Content = "CONFIRMAR COMMIT";
-                btnCommit.IsEnabled = false;
-            }
-        }
         // Este método se ejecuta JUSTO ANTES de que se muestre el menú contextual
         private void History_ContextMenu_Opening(object sender, ContextMenuEventArgs e)
         {
