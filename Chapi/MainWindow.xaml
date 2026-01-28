@@ -556,15 +556,15 @@
                                                         <TextBlock x:Name="txtChangesCountSide" Text="0" FontSize="10" FontWeight="Bold" Foreground="White" Opacity="0.9"/>
                                                     </Border>
                                                     <StackPanel Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center" x:Name="pnlTotalLineStats">
-                                                        <TextBlock Text="{Binding TotalAdditions, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='+{0}'}" 
+                                                        <TextBlock Text="{Binding TotalAdditions, StringFormat='+{0}'}" 
                                                                    Foreground="#4CAF50" FontSize="10" FontWeight="Bold" Margin="0,0,5,0"
-                                                                   Visibility="{Binding TotalAdditions, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource IntegerToVisibilityConverter}}"/>
-                                                        <TextBlock Text="{Binding TotalDeletions, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='-{0}'}" 
+                                                                   Visibility="{Binding TotalAdditions, Converter={StaticResource IntegerToVisibilityConverter}}"/>
+                                                        <TextBlock Text="{Binding TotalDeletions, StringFormat='-{0}'}" 
                                                                    Foreground="#F44336" FontSize="10" FontWeight="Bold"
-                                                                   Visibility="{Binding TotalDeletions, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource IntegerToVisibilityConverter}}"/>
+                                                                   Visibility="{Binding TotalDeletions, Converter={StaticResource IntegerToVisibilityConverter}}"/>
                                                     </StackPanel>
                                                 </StackPanel>
-                                                <CheckBox x:Name="SelectAllCheckBox" HorizontalAlignment="Right" Content="Seleccionar" FontSize="10" Foreground="White" Opacity="0.8" Checked="SelectAllCheckBox_Checked" Unchecked="SelectAllCheckBox_Unchecked" VerticalAlignment="Center">
+                                                <CheckBox x:Name="SelectAllCheckBox" HorizontalAlignment="Right" Content="Seleccionar" FontSize="10" Foreground="White" Opacity="0.8" IsChecked="{Binding AreAllSelected, Mode=TwoWay}" VerticalAlignment="Center">
                                                     <CheckBox.ContextMenu>
                                                         <ContextMenu>
                                                             <MenuItem Header="Stash Cambios Seleccionados" Click="StashSelectedMenuItem_Click">
@@ -584,7 +584,7 @@
                                         </Border>
 
                                         <!-- SECCIÓN DE COMMIT (Siempre Abajo del todo del listado) -->
-                                        <Border DockPanel.Dock="Bottom" Padding="12,10" Margin="0" Background="{DynamicResource PrimaryHueMidBrush}" BorderBrush="{x:Null}" BorderThickness="0">
+                                        <Border x:Name="ChangesFooterPanel" DockPanel.Dock="Bottom" Padding="12,10" Margin="0" Background="{DynamicResource PrimaryHueMidBrush}" BorderBrush="{x:Null}" BorderThickness="0">
                                             <StackPanel>
                                                 <Grid Margin="0,0,0,8">
                                                     <Grid.ColumnDefinitions>
@@ -610,6 +610,7 @@
                                                 <TextBox x:Name="txtCommitSummary"
                                                 materialDesign:HintAssist.Hint="Resumen del commit"
                                                 Margin="0,0,0,10"
+                                                Text="{Binding CommitSummary, UpdateSourceTrigger=PropertyChanged}"
                                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
 
                                                 <TextBox x:Name="txtCommitDescription"
@@ -618,12 +619,13 @@
                                                 TextWrapping="Wrap"
                                                 AcceptsReturn="True"
                                                 VerticalScrollBarVisibility="Auto"
+                                                Text="{Binding CommitDescription, UpdateSourceTrigger=PropertyChanged}"
                                                 Margin="0,0,0,10"
                                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
 
                                                 <Button x:Name="btnCommit"
                                                         Content="CONFIRMAR COMMIT"
-                                                        Click="btnCommit_Click"
+                                                        Command="{Binding CommitCommand}"
                                                         Style="{StaticResource MaterialDesignRaisedButton}"
                                                         Foreground="White"
                                                         BorderBrush="{x:Null}"
@@ -734,8 +736,8 @@
                                                             <CheckBox Grid.Column="0"
                                                                       IsChecked="{Binding IsSelected}"
                                                                       VerticalAlignment="Center"
-                                                                      Margin="0,0,10,0"
-                                                                      Click="CommitCheckbox_Click">
+                                                                      Margin="0,0,10,0">
+
                                                                 <CheckBox.LayoutTransform>
                                                                     <ScaleTransform ScaleX="0.9" ScaleY="0.9"/>
                                                                 </CheckBox.LayoutTransform>
@@ -1242,7 +1244,7 @@
                                     <Button x:Name="btnLoadMoreHistory" 
                                             Grid.Row="1"
                                             Content="Cargar más >>" 
-                                            Click="btnLoadMoreHistory_Click"
+                                            Command="{Binding LoadMoreCommand}"
                                             Style="{StaticResource MaterialDesignFlatButton}"
                                             FontSize="10"
                                             FontWeight="Bold"

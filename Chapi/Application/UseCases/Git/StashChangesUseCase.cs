@@ -35,9 +35,12 @@ public class StashChangesUseCase
         {
             _notificationService.ShowInfo($"Guardando cambios en stash: {message}");
 
-            string command = files != null && files.Any()
-                ? $"stash push -m \"{message}\" -- {string.Join(" ", files.Select(f => $"\"{f}\""))}"
-                : $"stash save \"{message}\"";
+            // Normalizar rutas a formato Unix
+            var normalizedFiles = files?.Select(f => f.Replace("\\", "/")).ToList();
+
+            string command = normalizedFiles != null && normalizedFiles.Any()
+                ? $"stash push --include-untracked -m \"{message}\" -- {string.Join(" ", normalizedFiles.Select(f => $"\"{f}\""))}"
+                : $"stash push --include-untracked -m \"{message}\"";
 
             var result = await _gitRepo.ExecuteGitCommandAsync(projectPath, command);
 

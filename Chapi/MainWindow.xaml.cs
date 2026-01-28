@@ -86,6 +86,9 @@ namespace Chapi
             // Inicializar ViewModels desde DI
             _changesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ChangesViewModel)) 
                 as Presentation.ViewModels.ChangesViewModel;
+            SelectAllCheckBox.DataContext = _changesViewModel;
+            pnlTotalLineStats.DataContext = _changesViewModel;
+            ChangesFooterPanel.DataContext = _changesViewModel;
 
             // Hook para hacer scroll automático cuando se agregue un nuevo mensaje
             MessageHelper.Instance.ScrollRequested += (s, e) =>
@@ -466,154 +469,55 @@ namespace Chapi
             if (!ValidateProject())
             {
                 ChangesListView.ItemsSource = null;
-
                 StashExpander.Visibility = Visibility.Collapsed;
                 return;
             }
+
             await UpdateBranchIndicatorsAsync();
+            await LoadStashesAsync();
+
+            if (_changesViewModel != null)
+            {
+                _changesViewModel.ProjectPath = projectDirectory;
+                await _changesViewModel.LoadChangesAsync();
+                
+                ChangesListView.ItemsSource = _changesViewModel.Changes;
+                TotalAdditions = _changesViewModel.TotalAdditions;
+                TotalDeletions = _changesViewModel.TotalDeletions;
+                UpdateChangesCount();
+            }
+             
+            // Reset Diff View
+            DiffLinesItemsControl.ItemsSource = null;
+            if (DiffEmptyStateView != null) DiffEmptyStateView.Visibility = Visibility.Visible;
+            if (DiffContentBorder != null) DiffContentBorder.Visibility = Visibility.Collapsed;
+        }
+
+        private async Task LoadStashesAsync()
+        {
             try
             {
                 var stashes = await Git.ListStashes(projectDirectory);
-
                 if (stashes.Any())
                 {
-                    StashListView.ItemsSource = stashes; // Llenar la lista
-                    StashExpander.Header = $"📦 Stashed Changes ({stashes.Count})"; // Actualizar contador
+                    StashListView.ItemsSource = stashes;
+                    StashExpander.Header = $"📦 Stashed Changes ({stashes.Count})";
                     StashExpander.Visibility = Visibility.Visible;
                 }
                 else
                 {
                     StashListView.ItemsSource = null;
                     StashExpander.Header = "📦 Stashed Changes (0)";
-                    StashExpander.Visibility = Visibility.Collapsed; // Ocultar si no hay stashes
+                    StashExpander.Visibility = Visibility.Collapsed;
                 }
             }
             catch (Exception ex)
             {
-
                 StashExpander.Visibility = Visibility.Collapsed;
                 Msg.Assistant($"⚠️ Error al comprobar stashes: {ex.Message}");
             }
-
-
-            var statusOutput = await Git.EjecutarGit("status --porcelain -uall", projectDirectory);
-            var changes = new List<GitStatusItem>();
-
-            if (string.IsNullOrWhiteSpace(statusOutput))
-            {
-                ChangesListView.ItemsSource = changes; // Lista vacía
-                TotalAdditions = 0;
-                TotalDeletions = 0;
-                UpdateChangesCount();
-                return;
-            }
-
-            var lines = statusOutput
-              .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-              .Select(l => l.TrimEnd('\r'))
-              .ToList();
-
-            var regex = new Regex(@"^(?<status>[A-Z\?]{1,2})\s+(?<file>.+)$");
-            foreach (var line in lines)
-            {
-                var match = regex.Match(line.Trim());
-                if (match.Success)
-                {
-
-                    var status = match.Groups["status"].Value.Trim();
-                    var filePath = match.Groups["file"].Value.Trim().Replace('/', Path.DirectorySeparatorChar).Trim('"');
-
-                    var item = new GitStatusItem { FilePath = filePath };
-
-                    switch (status.Trim()) // Tu lógica de switch está bien
-                    {
-                        case "M":
-                            item.Status = "Modificado";
-                            item.ShortStatus = "M";
-                            item.Icon = PackIconKind.FileEdit;
-                            item.Color = Brushes.Orange;
-                            break;
-                        case "A":
-                            item.Status = "Añadido";
-                            item.ShortStatus = "A";
-                            item.Icon = PackIconKind.FilePlus;
-                            item.Color = Brushes.Green;
-                            break;
-                        case "D":
-                            item.Status = "Eliminado";
-                            item.ShortStatus = "D";
-                            item.Icon = PackIconKind.FileRemove;
-                            item.Color = Brushes.Red;
-                            break;
-                        case "R":
-                            item.Status = "Renombrado";
-                            item.ShortStatus = "R";
-                            item.Icon = PackIconKind.FileMove;
-                            item.Color = Brushes.Blue;
-                            break;
-                        case "??":
-                            item.Status = "Sin seguimiento";
-                            item.ShortStatus = "?";
-                            item.Icon = PackIconKind.FileQuestion;
-                            item.Color = Brushes.Green;
-                            break;
-                        case "UU":
-                            item.Status = "Conflicto";
-                            item.ShortStatus = "U";
-                            item.Icon = PackIconKind.AlertOctagon;
-                            item.Color = Brushes.Red;
-                            break;
-                        case "AU":
-                            item.Status = "Conflicto (Añadido por ti)";
-                            item.ShortStatus = "U";
-                            item.Icon = PackIconKind.Alert;
-                            item.Color = Brushes.Red;
-                            break;
-                        case "UA":
-                            item.Status = "Conflicto (Añadido por ellos)";
-                            item.ShortStatus = "U";
-                            item.Icon = PackIconKind.Alert;
-                            item.Color = Brushes.Red;
-                            break;
-                        default:
-                            item.Status = "Desconocido";
-                            item.ShortStatus = status.Trim().Substring(0, 1);
-                            item.Icon = PackIconKind.FileQuestion;
-                            item.Color = Brushes.Gray;
-                            break;
-                    }
-                    changes.Add(item);
-                }
-            }
-
-            // --- NUEVA LÓGICA: Agregar estadísticas de líneas ---
-            var lineStats = await Git.GetNumStat(projectDirectory);
-            int totalAdd = 0;
-            int totalDel = 0;
-            foreach (var change in changes)
-            {
-                if (lineStats.TryGetValue(change.FilePath, out var stats))
-                {
-                    change.Additions = stats.Additions;
-                    change.Deletions = stats.Deletions;
-                    totalAdd += stats.Additions;
-                    totalDel += stats.Deletions;
-                }
-            }
-            TotalAdditions = totalAdd;
-            TotalDeletions = totalDel;
-            // ----------------------------------------------------
-
-            var sortedChanges = changes.OrderBy(c => c.FilePath).ToList();
-            ChangesListView.ItemsSource = sortedChanges;
-            SelectAllCheckBox.IsChecked = sortedChanges.Any() && sortedChanges.All(c => c.IsSelected);
-            UpdateChangesCount();
-            
-            // Reset Diff View
-            DiffLinesItemsControl.ItemsSource = null;
-            if (DiffEmptyStateView != null) DiffEmptyStateView.Visibility = Visibility.Visible;
-            if (DiffContentBorder != null) DiffContentBorder.Visibility = Visibility.Collapsed;
         }
+
 
         private async void btnReloadChanges_Click(object sender, RoutedEventArgs e)
         {
@@ -626,6 +530,8 @@ namespace Chapi
                 Msg.Assistant("✅ Cambios recargados.");
             });
         }
+        private Presentation.ViewModels.HistoryViewModel? _historyViewModel;
+
         private async Task LoadHistoryAsync()
         {
             if (!ValidateProject())
@@ -633,70 +539,25 @@ namespace Chapi
                 HistoryListView.ItemsSource = null;
                 return;
             }
+
             await UpdateBranchIndicatorsAsync();
-            string currentBranch = BranchesComboBox.SelectedItem as string;
-            HashSet<string> unpushedHashes = new HashSet<string>();
 
-            if (!string.IsNullOrEmpty(currentBranch))
+            if (_historyViewModel == null)
             {
-                // Obtenemos la lista de commits que no están en el remoto
-                unpushedHashes = await Git.GetUnpushedCommitHashes(currentBranch, projectDirectory);
+                 _historyViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.HistoryViewModel)) 
+                    as Presentation.ViewModels.HistoryViewModel;
             }
 
-            var tagMap = await Git.GetTagCommitMap(projectDirectory);
-
-            const string fieldSeparator = "\x1f";
-            const string recordSeparator = "\x1e";
-
-            // %H: hash completo para links, %h: hash corto, %an: autor, %ar: fecha relativa, %s: mensaje, %b: cuerpo
-            string logFormat = $"%H{fieldSeparator}%an{fieldSeparator}%ar{fieldSeparator}%s{fieldSeparator}%b{recordSeparator}";
-            var logOutput = await Git.EjecutarGit($"log --pretty=format:\"{logFormat}\" -n {_currentHistoryLimit}", projectDirectory);
-            var commits = new List<GitLogItem>();
-
-            if (string.IsNullOrWhiteSpace(logOutput))
+            if (_historyViewModel != null)
             {
-                HistoryListView.ItemsSource = commits; // Lista vacía
-                return;
+                _historyViewModel.ProjectPath = projectDirectory;
+                await _historyViewModel.LoadHistoryAsync();
+                HistoryListView.ItemsSource = _historyViewModel.Commits;
             }
-            var commitRecords = logOutput.Split(new[] { recordSeparator }, StringSplitOptions.RemoveEmptyEntries);
-
-            foreach (var line in commitRecords)
-            {
-                var parts = line.Trim().Trim('"').Split(new[] { fieldSeparator }, StringSplitOptions.None);
-                if (parts.Length >= 4)
-                {
-                    var hash = parts[0];
-                    var commit = new GitLogItem
-                    {
-                        Hash = hash,
-                        Author = parts[1],
-                        RelativeDate = parts[2],
-                        Message = parts[3],
-                        Description = parts.Length > 4 ? parts[4].Trim() : string.Empty,
-                        IsUnpushed = unpushedHashes.Contains(hash)
-                    };
-                    var tagEntry = tagMap.Keys.FirstOrDefault(k => k.StartsWith(hash.Substring(0, 7)));
-                    if (tagEntry != null)
-                    {
-                        commit.Tags = tagMap[tagEntry];
-                    }
-                    commits.Add(commit);
-                }
-            }
-
-            HistoryListView.ItemsSource = commits;
         }
 
-        private async void btnLoadMoreHistory_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject()) return;
 
-            _currentHistoryLimit += HistoryPageSize;
-            await RunWithLoading(async () =>
-            {
-                await LoadHistoryAsync();
-            });
-        }
+
 
         #region ✅ UI Helpers (Loading + DialogHost)
         public void ShowLoading() => LoadingOverlay.Visibility = Visibility.Visible;
@@ -1459,7 +1320,7 @@ namespace Chapi
             // Limpiar el visor inmediatamente para dar feedback visual
             DiffLinesItemsControl.ItemsSource = null;
 
-            var selectedItem = e.AddedItems.OfType<GitStatusItem>().FirstOrDefault();
+            var selectedItem = e.AddedItems.OfType<Presentation.ViewModels.ChangeItemViewModel>().FirstOrDefault();
 
             if (selectedItem == null)
             {
@@ -1556,53 +1417,8 @@ namespace Chapi
             }
         }
         // --- REFACTORIZADO: Usando CommitChangesUseCase ---
-private async void btnCommit_Click(object sender, RoutedEventArgs e)
-{
-    if (!ValidateProject()) return;
-    var selectedItems = (ChangesListView.ItemsSource as List<GitStatusItem>)?.Where(i => i.IsSelected).ToList();
-    if (selectedItems == null || !selectedItems.Any())
-    {
-        await DialogService.ShowConfirmDialog("Alerta", "No hay archivos seleccionados para el commit.", DialogVariant.Warning, DialogType.Info);
-        return;
-    }
-    string summary = txtCommitSummary.Text.Trim();
-    string description = txtCommitDescription.Text.Trim();
 
-    if (string.IsNullOrWhiteSpace(summary))
-    {
-        await DialogService.ShowConfirmDialog("Alerta", "El resumen del commit no puede estar vacío.", DialogVariant.Warning, DialogType.Info);
-        return;
-    }
 
-    string commitMessage = summary;
-    if (!string.IsNullOrWhiteSpace(description))
-    {
-        commitMessage += $"\n\n{description}";
-    }
-
-    await RunWithLoading(async () =>
-    {
-        // Usar el Use Case de la nueva arquitectura
-        var useCase = App.ServiceProvider.GetService(typeof(UseCases.CommitChangesUseCase)) as UseCases.CommitChangesUseCase;
-        
-        var request = new UseCases.CommitRequest
-        {
-            ProjectPath = projectDirectory,
-            Message = commitMessage,
-            Files = selectedItems.Select(i => i.FilePath)
-        };
-
-        var result = await useCase.ExecuteAsync(request);
-
-        if (result.IsSuccess)
-        {
-            txtCommitSummary.Text = "";
-            txtCommitDescription.Text = "";
-            await LoadChangesAsync();
-            await LoadHistoryAsync();
-        }
-    });
-}
 
         private async void btnGitCommit_Click(object sender, RoutedEventArgs e)
         {
@@ -1612,8 +1428,8 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
             await RunWithLoading(async () =>
             {
                 // 1. Obtener archivos seleccionados
-                var selectedItems = (ChangesListView.ItemsSource as List<GitStatusItem>)?.Where(i => i.IsSelected).ToList();
-                if (selectedItems == null || !selectedItems.Any())
+                var selectedItems = _changesViewModel.Changes.Where(c => c.IsSelected).ToList();
+                if (!selectedItems.Any())
                 {
                     await DialogService.ShowConfirmDialog("Alerta", "No hay archivos seleccionados para analizar.", DialogVariant.Warning, DialogType.Info);
                     return;
@@ -1846,7 +1662,7 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
             HistoryFilesListView.ItemsSource = null;
             HistoryDiffLinesItemsControl.ItemsSource = null;
 
-            var selectedCommit = e.AddedItems.OfType<GitLogItem>().FirstOrDefault();
+            var selectedCommit = e.AddedItems.OfType<Presentation.ViewModels.CommitItemViewModel>().FirstOrDefault();
             if (selectedCommit == null)
             {
                 CommitSummaryMessage.Text = "SIN INFORMACIÓN";
@@ -1884,7 +1700,7 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
             HistoryDiffLinesItemsControl.ItemsSource = null;
 
             var selectedFile = e.AddedItems.OfType<string>().FirstOrDefault();
-            var selectedCommit = HistoryListView.SelectedItem as GitLogItem; 
+            var selectedCommit = HistoryListView.SelectedItem as Presentation.ViewModels.CommitItemViewModel; 
 
             if (selectedFile == null)
             {
@@ -1961,37 +1777,13 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
         }
 
 
-        private void SelectAllCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            if (ChangesListView.ItemsSource is List<GitStatusItem> items)
-            {
-                foreach (var item in items)
-                {
-                    item.IsSelected = true;
-                }
-                ChangesListView.Items.Refresh();
-                UpdateChangesCount();
-            }
 
-        }
 
-        private void SelectAllCheckBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            if (ChangesListView.ItemsSource is List<GitStatusItem> items)
-            {
-                foreach (var item in items)
-                {
-                    item.IsSelected = false;
-                }
-                ChangesListView.Items.Refresh();
-                UpdateChangesCount();
-            }
-        }
         private async void DiscardChangesMenuItem_Click(object sender, RoutedEventArgs e)
         {
             if (!ValidateProject()) return;
 
-            if (sender is MenuItem menuItem && menuItem.CommandParameter is GitStatusItem itemToDiscard)
+            if (sender is MenuItem menuItem && menuItem.CommandParameter is Presentation.ViewModels.ChangeItemViewModel itemToDiscard)
             {
                 bool confirm = await DialogService.ShowConfirmDialog(
                     "Descartar Cambios",
@@ -2006,22 +1798,16 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
                     var useCase = App.ServiceProvider.GetService(typeof(UseCases.DiscardChangesUseCase)) as UseCases.DiscardChangesUseCase;
                     var result = await useCase.ExecuteAsync(projectDirectory, new[] { itemToDiscard.FilePath });
 
-                    if (result.IsSuccess)
+                    if (!result.IsSuccess)
                     {
-                        // Msg.Assistant("✅ Cambios descartados."); // Use Case ya notifica
+                         await DialogService.ShowConfirmDialog("Error", $"No se pudo descartar cambios:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
                     }
                     else
                     {
-                        await DialogService.ShowConfirmDialog("Error", $"No se pudo descartar cambios:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
+                         await LoadChangesAsync(); 
                     }
-                    
-                    await LoadChangesAsync(); // Refresh the list
                 });
             }
-        }
-        private void CommitCheckbox_Click(object sender, RoutedEventArgs e)
-        {
-            UpdateChangesCount();
         }
 
         private async void StashSelectedMenuItem_Click(object sender, RoutedEventArgs e)
@@ -2029,7 +1815,7 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
             if (!ValidateProject()) return;
 
             // Get all *selected* items from the list
-            var selectedItems = (ChangesListView.ItemsSource as List<GitStatusItem>)?.Where(i => i.IsSelected).ToList();
+            var selectedItems = _changesViewModel.Changes.Where(c => c.IsSelected).ToList();
 
             if (selectedItems == null || !selectedItems.Any())
             {
@@ -2411,7 +2197,7 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
             if (string.IsNullOrEmpty(relativePath)) return;
 
             // Para el historial usamos el commit seleccionado, para cambios usamos HEAD
-            var selectedCommit = HistoryListView.SelectedItem as GitLogItem;
+            var selectedCommit = HistoryListView.SelectedItem as Presentation.ViewModels.CommitItemViewModel;
             string commitHash = selectedCommit?.Hash ?? "HEAD";
 
             try
@@ -2589,7 +2375,7 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
         {
             if (!ValidateProject()) return;
 
-            var items = (ChangesListView.ItemsSource as List<GitStatusItem>);
+            var items = ChangesListView.ItemsSource as IEnumerable<Presentation.ViewModels.ChangeItemViewModel>;
             if (items == null || !items.Any())
             {
                 await DialogService.ShowConfirmDialog("Stash", "No hay cambios para guardar en el stash.", DialogVariant.Info, DialogType.Info);
@@ -2597,7 +2383,7 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
             }
 
             // Pedir un mensaje para el stash
-            var (ok, message) = await DialogService.ShowInputDialog("Stash", "Mensaje para el stash:", $"Stash de {items.Count} archivos");
+            var (ok, message) = await DialogService.ShowInputDialog("Stash", "Mensaje para el stash:", $"Stash de {items.Count()} archivos");
             if (!ok) return; // Usuario canceló
 
             await RunWithLoading(async () =>
@@ -2623,7 +2409,7 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
         {
             if (!ValidateProject()) return;
 
-            var items = (ChangesListView.ItemsSource as List<GitStatusItem>);
+            var items = ChangesListView.ItemsSource as IEnumerable<Presentation.ViewModels.ChangeItemViewModel>;
             if (items == null || !items.Any())
             {
                 await DialogService.ShowConfirmDialog("Descartar", "No hay cambios para descartar.", DialogVariant.Info, DialogType.Info);
@@ -2632,7 +2418,7 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
 
             bool confirm = await DialogService.ShowConfirmDialog(
                 "Descartar Todos los Cambios",
-                $"¿Estás seguro de que deseas descartar TODOS los {items.Count} cambios?\nEsta acción no se puede deshacer.",
+                $"¿Estás seguro de que deseas descartar TODOS los {items.Count()} cambios?\nEsta acción no se puede deshacer.",
                 DialogVariant.Warning, DialogType.Confirm);
 
             if (!confirm) return;
@@ -3050,9 +2836,21 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
                 return;
             }
 
-            var allChanges = (ChangesListView.ItemsSource as List<GitStatusItem>);
-            int totalCount = allChanges.Count;
-            int selectedCount = allChanges.Count(i => i.IsSelected);
+            int totalCount = 0;
+            int selectedCount = 0;
+
+            if (ChangesListView.ItemsSource is ICollection<Presentation.ViewModels.ChangeItemViewModel> viewModelItems)
+            {
+                totalCount = viewModelItems.Count;
+                selectedCount = viewModelItems.Count(i => i.IsSelected);
+            }
+            else if (ChangesListView.ItemsSource is List<GitStatusItem> oldItems)
+            {
+                // Fallback para legacy si quedara algo
+                 totalCount = oldItems.Count;
+                 selectedCount = oldItems.Count(i => i.IsSelected);
+            }
+
             string branchName = _currentlySelectedBranch ?? "main";
 
             // 1. Actualizar la Pestaña (muestra el total en el badge)
@@ -3078,11 +2876,12 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
         {
             // 1. Obtiene el item (StackPanel) donde se hizo clic derecho
             var grid = sender as Grid;
-            var clickedItem = grid?.DataContext as GitLogItem;
+            var clickedItem = grid?.DataContext as Presentation.ViewModels.CommitItemViewModel;
             if (clickedItem == null || HistoryListView.ItemsSource == null) return;
 
             // 2. Obtiene el *primer* item de toda la lista (el HEAD)
-            var items = HistoryListView.ItemsSource as List<GitLogItem>;
+            // ItemsSource es ObservableCollection<CommitItemViewModel>
+            var items = HistoryListView.ItemsSource as IEnumerable<Presentation.ViewModels.CommitItemViewModel>;
             var firstItem = items?.FirstOrDefault();
             if (firstItem == null) return;
 

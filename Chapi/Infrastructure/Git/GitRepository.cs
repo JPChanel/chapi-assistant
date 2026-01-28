@@ -1,6 +1,7 @@
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
 using Chapi.Domain.Interfaces;
+using System.IO;
 
 namespace Chapi.Infrastructure.Git;
 
@@ -109,12 +110,43 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            var result = await _executor.ExecuteAsync("status --porcelain -uall", projectPath);
+            var statusTask = _executor.ExecuteAsync("status --porcelain -uall", projectPath);
+            var statsTask = _executor.ExecuteAsync("diff --numstat", projectPath);
 
-            if (!result.IsSuccess)
+            await Task.WhenAll(statusTask, statsTask);
+
+            var statusResult = statusTask.Result;
+            var statsResult = statsTask.Result;
+
+            if (!statusResult.IsSuccess)
                 return Enumerable.Empty<FileChange>();
 
-            return _parser.ParseStatusOutput(result.Output);
+            var changes = _parser.ParseStatusOutput(statusResult.Output).ToList();
+            
+            if (statsResult.IsSuccess && !string.IsNullOrWhiteSpace(statsResult.Output))
+            {
+                var stats = _parser.ParseNumStatOutput(statsResult.Output);
+                foreach (var change in changes)
+                {
+                    // Intentar normalizar paths para el match
+                    var normalizedPath = change.FilePath.Replace(Path.DirectorySeparatorChar, '/');
+                    
+                    // Buscar en el diccionario (que use claves normalizadas o probar ambas)
+                    // El parser de numstat ya normaliza a DirectorySeparatorChar, así que usamos change.FilePath
+                    if (stats.TryGetValue(change.FilePath, out var stat))
+                    {
+                        change.Additions = stat.Additions;
+                        change.Deletions = stat.Deletions;
+                    }
+                    else if (stats.TryGetValue(normalizedPath, out var stat2))
+                    {
+                        change.Additions = stat2.Additions;
+                        change.Deletions = stat2.Deletions;
+                    }
+                }
+            }
+
+            return changes;
         }
         catch
         {

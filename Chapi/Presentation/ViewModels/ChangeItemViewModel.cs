@@ -33,8 +33,18 @@ public class ChangeItemViewModel : ViewModelBase
     public string FilePath
     {
         get => _filePath;
-        set => SetProperty(ref _filePath, value);
+        set
+        {
+            if (SetProperty(ref _filePath, value))
+            {
+                OnPropertyChanged(nameof(FileName));
+                OnPropertyChanged(nameof(DirectoryPath));
+            }
+        }
     }
+
+    public string FileName => System.IO.Path.GetFileName(_filePath);
+    public string DirectoryPath => System.IO.Path.GetDirectoryName(_filePath) ?? string.Empty;
 
     /// <summary>
     /// Estado del archivo (ej: "Modificado", "Añadido").

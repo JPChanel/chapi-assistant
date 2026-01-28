@@ -83,6 +83,7 @@ namespace Chapi
 
             // Presentation - ViewModels
             services.AddTransient<Presentation.ViewModels.ChangesViewModel>();
+            services.AddTransient<Presentation.ViewModels.HistoryViewModel>();
 
             ServiceProvider = services.BuildServiceProvider();
         }

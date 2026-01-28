@@ -76,6 +76,23 @@ public class ChangesViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Indica si todos los cambios están seleccionados.
+    /// </summary>
+    public bool AreAllSelected
+    {
+        get => Changes.Any() && Changes.All(c => c.IsSelected);
+        set
+        {
+            if (value)
+                SelectAll();
+            else
+                DeselectAll();
+            
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
     /// Resumen del commit.
     /// </summary>
     public string CommitSummary
@@ -131,6 +148,16 @@ public class ChangesViewModel : ViewModelBase
         foreach (var fileChange in fileChanges)
         {
             var viewModel = MapToViewModel(fileChange);
+            viewModel.PropertyChanged += (s, e) =>
+            {
+                if (_isMassUpdating) return;
+                
+                if (e.PropertyName == nameof(ChangeItemViewModel.IsSelected))
+                {
+                    OnPropertyChanged(nameof(AreAllSelected));
+                    (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+                }
+            };
             Changes.Add(viewModel);
             
             totalAdd += viewModel.Additions;
@@ -139,6 +166,7 @@ public class ChangesViewModel : ViewModelBase
 
         TotalAdditions = totalAdd;
         TotalDeletions = totalDel;
+        OnPropertyChanged(nameof(AreAllSelected));
     }
 
     /// <summary>
@@ -183,14 +211,23 @@ public class ChangesViewModel : ViewModelBase
                Changes.Any(c => c.IsSelected);
     }
 
+    private bool _isMassUpdating;
+    
     /// <summary>
     /// Selecciona todos los cambios.
     /// </summary>
     private void SelectAll()
     {
-        foreach (var change in Changes)
+        _isMassUpdating = true;
+        try
         {
-            change.IsSelected = true;
+            foreach (var change in Changes) change.IsSelected = true;
+        }
+        finally
+        {
+            _isMassUpdating = false;
+            OnPropertyChanged(nameof(AreAllSelected));
+            (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         }
     }
 
@@ -199,9 +236,16 @@ public class ChangesViewModel : ViewModelBase
     /// </summary>
     private void DeselectAll()
     {
-        foreach (var change in Changes)
+        _isMassUpdating = true;
+        try
         {
-            change.IsSelected = false;
+            foreach (var change in Changes) change.IsSelected = false;
+        }
+        finally
+        {
+            _isMassUpdating = false;
+            OnPropertyChanged(nameof(AreAllSelected));
+            (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         }
     }
 
@@ -216,7 +260,8 @@ public class ChangesViewModel : ViewModelBase
             Status = GetStatusText(fileChange.Status),
             ShortStatus = GetShortStatus(fileChange.Status),
             Additions = fileChange.Additions,
-            Deletions = fileChange.Deletions
+            Deletions = fileChange.Deletions,
+            IsSelected = true // Por defecto seleccionado
         };
 
         // Asignar icono y color según el estado

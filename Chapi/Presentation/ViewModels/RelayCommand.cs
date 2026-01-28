@@ -55,6 +55,16 @@ public class AsyncRelayCommand : ICommand
         return !_isExecuting && (_canExecute?.Invoke(parameter) ?? true);
     }
 
+    // Método explícito para llamar y esperar el comando manualmente desde código
+    public Task ExecuteAsync(object? parameter)
+    {
+        if (CanExecute(parameter))
+        {
+            return _execute(parameter);
+        }
+        return Task.CompletedTask;
+    }
+
     public async void Execute(object? parameter)
     {
         if (!CanExecute(parameter))

@@ -112,4 +112,39 @@ public class GitOutputParser
             .Select(line => line.Trim().TrimStart('*').Trim())
             .Where(branch => !string.IsNullOrWhiteSpace(branch));
     }
+    /// <summary>
+    /// Parsea la salida de 'git diff --numstat' en un diccionario de cambios por archivo.
+    /// </summary>
+    public Dictionary<string, (int Additions, int Deletions)> ParseNumStatOutput(string output)
+    {
+        var stats = new Dictionary<string, (int Additions, int Deletions)>();
+
+        if (string.IsNullOrWhiteSpace(output))
+            return stats;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split(new[] { '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 3)
+            {
+                // numstat output: <adds> <dels> <path>
+                // git diff --numstat uses "-" for binary files
+                int adds = 0;
+                int dels = 0;
+
+                if (parts[0] != "-") int.TryParse(parts[0], out adds);
+                if (parts[1] != "-") int.TryParse(parts[1], out dels);
+
+                var path = parts[2].Trim().Replace('/', Path.DirectorySeparatorChar).Trim('"');
+
+                if (!stats.ContainsKey(path))
+                {
+                    stats[path] = (adds, dels);
+                }
+            }
+        }
+
+        return stats;
+    }
 }
