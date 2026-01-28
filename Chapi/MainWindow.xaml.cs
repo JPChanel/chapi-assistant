@@ -23,6 +23,7 @@ using System.Windows.Forms;
 using System.Windows.Media;
 using Velopack;
 using Velopack.Sources;
+using UseCases = Chapi.Application.UseCases.Git;
 
 namespace Chapi
 {
@@ -1563,56 +1564,54 @@ namespace Chapi
                 }
             }
         }
-        // --- NUEVO: Lógica para el botón de Commit Manual ---
-        private async void btnCommit_Click(object sender, RoutedEventArgs e)
+        // --- REFACTORIZADO: Usando CommitChangesUseCase ---
+private async void btnCommit_Click(object sender, RoutedEventArgs e)
+{
+    if (!ValidateProject()) return;
+    var selectedItems = (ChangesListView.ItemsSource as List<GitStatusItem>)?.Where(i => i.IsSelected).ToList();
+    if (selectedItems == null || !selectedItems.Any())
+    {
+        await DialogService.ShowConfirmDialog("Alerta", "No hay archivos seleccionados para el commit.", DialogVariant.Warning, DialogType.Info);
+        return;
+    }
+    string summary = txtCommitSummary.Text.Trim();
+    string description = txtCommitDescription.Text.Trim();
+
+    if (string.IsNullOrWhiteSpace(summary))
+    {
+        await DialogService.ShowConfirmDialog("Alerta", "El resumen del commit no puede estar vacío.", DialogVariant.Warning, DialogType.Info);
+        return;
+    }
+
+    string commitMessage = summary;
+    if (!string.IsNullOrWhiteSpace(description))
+    {
+        commitMessage += $"\n\n{description}";
+    }
+
+    await RunWithLoading(async () =>
+    {
+        // Usar el Use Case de la nueva arquitectura
+        var useCase = App.ServiceProvider.GetService(typeof(UseCases.CommitChangesUseCase)) as UseCases.CommitChangesUseCase;
+        
+        var request = new UseCases.CommitRequest
         {
-            if (!ValidateProject()) return;
-            var selectedItems = (ChangesListView.ItemsSource as List<GitStatusItem>)?.Where(i => i.IsSelected).ToList();
-            if (selectedItems == null || !selectedItems.Any())
-            {
-                await DialogService.ShowConfirmDialog("Alerta", "No hay archivos seleccionados para el commit.", DialogVariant.Warning, DialogType.Info);
-                return;
-            }
-            string summary = txtCommitSummary.Text.Trim();
-            string description = txtCommitDescription.Text.Trim();
+            ProjectPath = projectDirectory,
+            Message = commitMessage,
+            Files = selectedItems.Select(i => i.FilePath)
+        };
 
-            if (string.IsNullOrWhiteSpace(summary))
-            {
-                await DialogService.ShowConfirmDialog("Alerta", "El resumen del commit no puede estar vacío.", DialogVariant.Warning, DialogType.Info);
-                return;
-            }
+        var result = await useCase.ExecuteAsync(request);
 
-            string commitMessage = summary;
-            if (!string.IsNullOrWhiteSpace(description))
-            {
-                commitMessage += $"\n\n{description}";
-            }
-
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant("Agregando archivos seleccionados al stage...");
-                await Git.EjecutarGit("reset", projectDirectory);
-                string filePaths = string.Join(" ", selectedItems.Select(i => $"\"{i.FilePath.Replace(Path.DirectorySeparatorChar, '/')}\""));
-                await Git.EjecutarGit($"add -- {filePaths}", projectDirectory);
-
-                Msg.Assistant("Realizando commit...");
-                var commitResult = await Git.EjecutarGit($"commit -m \"{commitMessage.Replace("\"", "'")}\"", projectDirectory);
-
-                if (commitResult.Contains("No changes added to commit") || commitResult.Contains("nothing to commit"))
-                {
-                    Msg.Assistant("No hay cambios para commitear.");
-                    await DialogService.ShowConfirmDialog("Información", "No se encontraron cambios para registrar.", DialogVariant.Info, DialogType.Info);
-                }
-                else
-                {
-                    Msg.Assistant($"Commit realizado: {summary}");
-                    txtCommitSummary.Text = "";
-                    txtCommitDescription.Text = "";
-                    await LoadChangesAsync();
-                    await LoadHistoryAsync();
-                }
-            });
+        if (result.IsSuccess)
+        {
+            txtCommitSummary.Text = "";
+            txtCommitDescription.Text = "";
+            await LoadChangesAsync();
+            await LoadHistoryAsync();
         }
+    });
+}
 
         private async void btnGitCommit_Click(object sender, RoutedEventArgs e)
         {
