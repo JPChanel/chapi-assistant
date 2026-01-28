@@ -298,4 +298,21 @@ public class GitRepository : IGitRepository
     }
 
     #endregion
+
+    #region Generic Command Execution
+
+    public async Task<string> ExecuteGitCommandAsync(string projectPath, string command)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync(command, projectPath);
+            return result.IsSuccess ? result.Output : throw new Exception(result.Error);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error ejecutando comando Git: {ex.Message}");
+        }
+    }
+
+    #endregion
 }

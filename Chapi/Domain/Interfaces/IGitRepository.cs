@@ -29,4 +29,7 @@ public interface IGitRepository
     Task<Result> PullAsync(string projectPath, string branch);
     Task<Result> FetchAsync(string projectPath);
     Task<(int Ahead, int Behind)> GetAheadBehindCountAsync(string projectPath);
+    
+    // Generic command execution
+    Task<string> ExecuteGitCommandAsync(string projectPath, string command);
 }

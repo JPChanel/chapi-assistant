@@ -1,0 +1,58 @@
+using Chapi.Domain.Common;
+using Chapi.Domain.Interfaces;
+
+namespace Chapi.Application.UseCases.Git;
+
+/// <summary>
+/// Use Case para guardar cambios en el stash.
+/// </summary>
+public class StashChangesUseCase
+{
+    private readonly IGitRepository _gitRepo;
+    private readonly INotificationService _notificationService;
+
+    public StashChangesUseCase(IGitRepository gitRepo, INotificationService notificationService)
+    {
+        _gitRepo = gitRepo;
+        _notificationService = notificationService;
+    }
+
+    /// <summary>
+    /// Guarda cambios en el stash.
+    /// </summary>
+    /// <param name="projectPath">Ruta del proyecto</param>
+    /// <param name="message">Mensaje del stash</param>
+    /// <param name="files">Archivos específicos (opcional, null = todos)</param>
+    public async Task<Result> ExecuteAsync(string projectPath, string message, IEnumerable<string>? files = null)
+    {
+        if (string.IsNullOrWhiteSpace(projectPath))
+            return Result.Fail("La ruta del proyecto no puede estar vacía");
+
+        if (string.IsNullOrWhiteSpace(message))
+            message = "Stash automático";
+
+        try
+        {
+            _notificationService.ShowInfo($"Guardando cambios en stash: {message}");
+
+            string command = files != null && files.Any()
+                ? $"stash push -m \"{message}\" -- {string.Join(" ", files.Select(f => $"\"{f}\""))}"
+                : $"stash save \"{message}\"";
+
+            var result = await _gitRepo.ExecuteGitCommandAsync(projectPath, command);
+
+            if (result.Contains("Saved working directory") || result.Contains("No local changes"))
+            {
+                _notificationService.ShowSuccess("✅ Cambios guardados en stash");
+                return Result.Success();
+            }
+
+            return Result.Fail($"Error al guardar en stash: {result}");
+        }
+        catch (Exception ex)
+        {
+            _notificationService.ShowError($"❌ Error al guardar en stash: {ex.Message}");
+            return Result.Fail(ex.Message);
+        }
+    }
+}

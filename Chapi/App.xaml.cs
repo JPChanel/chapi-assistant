@@ -73,6 +73,12 @@ namespace Chapi
             services.AddTransient<UseCases.FetchChangesUseCase>();
             services.AddTransient<UseCases.SwitchBranchUseCase>();
             services.AddTransient<UseCases.GetBranchesUseCase>();
+            services.AddTransient<UseCases.StashChangesUseCase>();
+            services.AddTransient<UseCases.StashPopUseCase>();
+            services.AddTransient<UseCases.StashClearUseCase>();
+            services.AddTransient<UseCases.DiscardChangesUseCase>();
+            services.AddTransient<UseCases.ResetCommitUseCase>();
+            services.AddTransient<UseCases.CreateBranchUseCase>();
 
             // Presentation - ViewModels
             services.AddTransient<Presentation.ViewModels.ChangesViewModel>();
