@@ -1190,86 +1190,85 @@ namespace Chapi
 
             Func<Task> fetchLogic = async () =>
             {
-                if (!isSilent) Msg.Assistant("Realizando fetch de los cambios remotos...");
-                var result = await Git.EjecutarGit("fetch", projectDirectory);
+                // Usar el Use Case de la nueva arquitectura
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.FetchChangesUseCase)) as UseCases.FetchChangesUseCase;
+                var result = await useCase.ExecuteAsync(projectDirectory, isSilent);
 
-                if (result.Contains("error") || result.Contains("fatal"))
+                if (!result.IsSuccess)
                 {
                     if (!isSilent)
                     {
-                        Msg.Assistant($"❌ Error al realizar fetch: {result}");
-                        await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de fetch.\n\n{result}", DialogVariant.Error, DialogType.Info);
+                        await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de fetch.\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
                     }
+                    return;
                 }
-                else
-                {
-                    if (!isSilent) Msg.Assistant("✅ Fetch completado exitosamente.");
 
-                    // 1. Obtener tus cambios locales (con rutas Git '/')
-                    var statusOutput = await Git.EjecutarGit("status --porcelain -uall", projectDirectory);
-                    var localChanges = new HashSet<string>();
-                    if (!string.IsNullOrWhiteSpace(statusOutput))
+                // Lógica adicional: detectar conflictos potenciales
+                // 1. Obtener tus cambios locales (con rutas Git '/')
+                var statusOutput = await Git.EjecutarGit("status --porcelain -uall", projectDirectory);
+                var localChanges = new HashSet<string>();
+                if (!string.IsNullOrWhiteSpace(statusOutput))
+                {
+                    var regex = new Regex(@"^(?<status>[\w\? ]{1,2})\s+(?<file>.+)$");
+                    var lines = statusOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var line in lines)
                     {
-                        var regex = new Regex(@"^(?<status>[\w\? ]{1,2})\s+(?<file>.+)$");
-                        var lines = statusOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                        foreach (var line in lines)
+                        var match = regex.Match(line.Trim());
+                        if (match.Success)
                         {
-                            var match = regex.Match(line.Trim());
-                            if (match.Success)
-                            {
-                                localChanges.Add(match.Groups["file"].Value.Trim().Trim('"'));
-                            }
+                            localChanges.Add(match.Groups["file"].Value.Trim().Trim('"'));
                         }
                     }
-
-                    // 2. Obtener los archivos cambiados en el remoto (con rutas Git '/')
-                    var remoteDiffOutput = await Git.EjecutarGit("diff --name-only HEAD...@{u}", projectDirectory);
-                    var remoteChanges = new HashSet<string>();
-                    if (!string.IsNullOrWhiteSpace(remoteDiffOutput) && !remoteDiffOutput.Contains("fatal:"))
-                    {
-                        remoteChanges = remoteDiffOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                                                     .Select(f => f.Trim().Trim('"'))
-                                                     .ToHashSet();
-                    }
-
-                    // 3. Encontrar la intersección (archivos modificados en AMBOS lados)
-                    var conflictingFiles = localChanges.Intersect(remoteChanges).ToList();
-
-                    // 4. ¡Mostrar la advertencia! (Solo si no es silencioso o si hay conflicto real)
-                    if (conflictingFiles.Any() && !isSilent)
-                    {
-                        string fileList = string.Join("\n- ", conflictingFiles);
-                        await DialogService.ShowConfirmDialog(
-                            "Aviso de Conflicto Potencial",
-                            $"Tu 'pull' puede fallar. Tienes cambios locales en archivos que también cambiaron en el remoto:\n\n- {fileList}\n\n" +
-                            "Se recomienda hacer 'Stash' de tus cambios antes de hacer 'Pull'.",
-                            DialogVariant.Warning, DialogType.Info);
-                    }
-
-                    // Actualizar indicadores del Model
-                    var branches = Git.GetBranches(projectDirectory);
-                    var currentBranch = BranchesComboBox.SelectedItem as string;
-                    BranchesComboBox.ItemsSource = branches;
-                    if (!string.IsNullOrEmpty(currentBranch) && branches.Contains(currentBranch))
-                    {
-                        BranchesComboBox.SelectedItem = currentBranch;
-                    }
-
-                    // --- NUEVO: Actualizar el ProjectViewModel actual ---
-                    ProjectViewModel currentProject = null;
-                    Dispatcher.Invoke(() => {
-                        currentProject = ProjectsComboBox.SelectedItem as ProjectViewModel;
-                    });
-
-                    if (currentProject != null)
-                    {
-                        var counts = await Git.GetAheadBehindCount(projectDirectory);
-                        Dispatcher.Invoke(() => {
-                            currentProject.Ahead = counts.Ahead;
-                            currentProject.Behind = counts.Behind;
-                        });
-                    }
                 }
+
+                // 2. Obtener los archivos cambiados en el remoto (con rutas Git '/')
+                var remoteDiffOutput = await Git.EjecutarGit("diff --name-only HEAD...@{u}", projectDirectory);
+                var remoteChanges = new HashSet<string>();
+                if (!string.IsNullOrWhiteSpace(remoteDiffOutput) && !remoteDiffOutput.Contains("fatal:"))
+                {
+                    remoteChanges = remoteDiffOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                                                 .Select(f => f.Trim().Trim('"'))
+                                                 .ToHashSet();
+                }
+
+                // 3. Encontrar la intersección (archivos modificados en AMBOS lados)
+                var conflictingFiles = localChanges.Intersect(remoteChanges).ToList();
+
+                // 4. ¡Mostrar la advertencia! (Solo si no es silencioso o si hay conflicto real)
+                if (conflictingFiles.Any() && !isSilent)
+                {
+                    string fileList = string.Join("\n- ", conflictingFiles);
+                    await DialogService.ShowConfirmDialog(
+                        "Aviso de Conflicto Potencial",
+                        $"Tu 'pull' puede fallar. Tienes cambios locales en archivos que también cambiaron en el remoto:\n\n- {fileList}\n\n" +
+                        "Se recomienda hacer 'Stash' de tus cambios antes de hacer 'Pull'.",
+                        DialogVariant.Warning, DialogType.Info);
+                }
+
+                // Actualizar indicadores del Model
+                var branches = Git.GetBranches(projectDirectory);
+                var currentBranch = BranchesComboBox.SelectedItem as string;
+                BranchesComboBox.ItemsSource = branches;
+                if (!string.IsNullOrEmpty(currentBranch) && branches.Contains(currentBranch))
+                {
+                    BranchesComboBox.SelectedItem = currentBranch;
+                }
+
+                // --- NUEVO: Actualizar el ProjectViewModel actual ---
+                ProjectViewModel currentProject = null;
+                Dispatcher.Invoke(() => {
+                    currentProject = ProjectsComboBox.SelectedItem as ProjectViewModel;
+                });
+
+                if (currentProject != null)
+                {
+                    var counts = await Git.GetAheadBehindCount(projectDirectory);
+                    Dispatcher.Invoke(() => {
+                        currentProject.Ahead = counts.Ahead;
+                        currentProject.Behind = counts.Behind;
+                    });
+                }
+
                 // Recargar UI
                 await LoadChangesAsync();
                 await LoadHistoryAsync(); 
