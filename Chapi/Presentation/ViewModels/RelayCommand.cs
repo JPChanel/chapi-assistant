@@ -69,7 +69,6 @@ public class AsyncRelayCommand : ICommand
     {
         if (!CanExecute(parameter))
             return;
-
         _isExecuting = true;
         RaiseCanExecuteChanged();
 

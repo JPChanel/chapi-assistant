@@ -1981,6 +1981,15 @@ namespace Chapi
                         return Path.Combine(projectDirectory, statusItem.FilePath);
                     }
                 }
+
+                // Si el parámetro es un ChangeItemViewModel (nuevo)
+                if (menuItem.CommandParameter is Presentation.ViewModels.ChangeItemViewModel changeItem)
+                {
+                    if (!string.IsNullOrEmpty(projectDirectory))
+                    {
+                        return Path.Combine(projectDirectory, changeItem.FilePath);
+                    }
+                }
             }
             return null; // No se pudo obtener la ruta
         }

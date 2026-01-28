@@ -92,6 +92,8 @@ public class ChangesViewModel : ViewModelBase
         }
     }
 
+    public int SelectedCount => Changes.Count(c => c.IsSelected);
+
     /// <summary>
     /// Resumen del commit.
     /// </summary>
@@ -155,6 +157,7 @@ public class ChangesViewModel : ViewModelBase
                 if (e.PropertyName == nameof(ChangeItemViewModel.IsSelected))
                 {
                     OnPropertyChanged(nameof(AreAllSelected));
+                    OnPropertyChanged(nameof(SelectedCount));
                     (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
                 }
             };
@@ -167,6 +170,7 @@ public class ChangesViewModel : ViewModelBase
         TotalAdditions = totalAdd;
         TotalDeletions = totalDel;
         OnPropertyChanged(nameof(AreAllSelected));
+        OnPropertyChanged(nameof(SelectedCount));
     }
 
     /// <summary>
@@ -227,6 +231,7 @@ public class ChangesViewModel : ViewModelBase
         {
             _isMassUpdating = false;
             OnPropertyChanged(nameof(AreAllSelected));
+            OnPropertyChanged(nameof(SelectedCount));
             (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         }
     }
@@ -245,6 +250,7 @@ public class ChangesViewModel : ViewModelBase
         {
             _isMassUpdating = false;
             OnPropertyChanged(nameof(AreAllSelected));
+            OnPropertyChanged(nameof(SelectedCount));
             (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         }
     }

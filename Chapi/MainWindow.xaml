@@ -624,15 +624,15 @@
                                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
 
                                                 <Button x:Name="btnCommit"
-                                                        Content="CONFIRMAR COMMIT"
                                                         Command="{Binding CommitCommand}"
                                                         Style="{StaticResource MaterialDesignRaisedButton}"
                                                         Foreground="White"
                                                         BorderBrush="{x:Null}"
                                                         Height="38"
-                                                        FontSize="12"
                                                         FontWeight="Bold"
-                                                        materialDesign:ButtonAssist.CornerRadius="6"/>
+                                                        materialDesign:ButtonAssist.CornerRadius="6">
+                                                    <TextBlock Text="{Binding SelectedCount, StringFormat='CONFIRMAR COMMIT ({0})'}" />
+                                                </Button>
                                             </StackPanel>
                                         </Border>
                                         <Expander x:Name="StashExpander"
@@ -817,12 +817,7 @@
                                                                             <materialDesign:PackIcon Kind="VisualStudio" />
                                                                         </MenuItem.Icon>
                                                                     </MenuItem>
-                                                                    <Separator />
-                                                                    <MenuItem Header="View on Web" Click="ProjectMenuItem_OpenGitHub_Click" CommandParameter="{Binding}">
-                                                                        <MenuItem.Icon>
-                                                                            <materialDesign:PackIcon Kind="Web" />
-                                                                        </MenuItem.Icon>
-                                                                    </MenuItem>
+
                                                                 </ContextMenu>
                                                             </Grid.ContextMenu>
                                                         </Grid>
