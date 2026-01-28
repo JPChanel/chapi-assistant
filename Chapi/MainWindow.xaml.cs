@@ -431,20 +431,18 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
-                Msg.Assistant($"Cambiando a la rama {newBranch}...");
-                var checkoutResult = await Git.EjecutarGit($"checkout {newBranch}", projectDirectory);
+                // Usar el Use Case de la nueva arquitectura
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.SwitchBranchUseCase)) as UseCases.SwitchBranchUseCase;
+                var result = await useCase.ExecuteAsync(projectDirectory, newBranch);
 
-                if (checkoutResult.Contains("error:") || checkoutResult.Contains("fatal:"))
+                if (result.IsSuccess)
                 {
-                    Msg.Assistant($"❌ Error al cambiar de rama: {checkoutResult}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo cambiar de rama:\n{checkoutResult}", DialogVariant.Error, DialogType.Info);
-                    // Revertimos la selección
-                    BranchesComboBox.SelectedItem = _currentlySelectedBranch;
+                    _currentlySelectedBranch = newBranch;
                 }
                 else
                 {
-                    _currentlySelectedBranch = newBranch;
-                    Msg.Assistant($"✅ Estás en la rama {newBranch}.");
+                    // Revertimos la selección
+                    BranchesComboBox.SelectedItem = _currentlySelectedBranch;
                 }
             });
 
