@@ -432,8 +432,10 @@ namespace Chapi
                 // Si el usuario presionó "Guardar (Stash)"
                 await RunWithLoading(async () =>
                 {
-                    await Git.EjecutarGit("stash save \"[Chapi] Stash automático por cambio de rama\"", projectDirectory);
-                    Msg.Assistant("✅ Cambios guardados en el stash.");
+                     var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashChangesUseCase)) as UseCases.StashChangesUseCase;
+                     var result = await useCase.ExecuteAsync(projectDirectory, "[Chapi] Stash automático por cambio de rama");
+                     if (result.IsSuccess) Msg.Assistant("✅ Cambios guardados en el stash.");
+                     else Msg.Assistant($"⚠️ Error al hacer stash: {result.Error}");
                 });
             }
 
@@ -1366,8 +1368,9 @@ namespace Chapi
                     if (confirmStash)
                     {
                         Msg.Assistant("Guardando cambios locales (Stash)...");
-                        var stashRes = await Git.EjecutarGit("stash save \"Auto-stash antes de Pull (Chapi)\"", projectDirectory);
-                        if (stashRes.Contains("Saved working directory"))
+                        var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashChangesUseCase)) as UseCases.StashChangesUseCase;
+                        var result = await useCase.ExecuteAsync(projectDirectory, "Auto-stash antes de Pull (Chapi)");
+                        if (result.IsSuccess)
                         {
                             usedStash = true;
                         }
@@ -1400,8 +1403,10 @@ namespace Chapi
                 if (usedStash)
                 {
                     Msg.Assistant("Restaurando tus cambios locales (Stash Pop)...");
-                    var popRes = await Git.EjecutarGit("stash pop", projectDirectory);
-                    if (popRes.Contains("CONFLICT"))
+                    var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashPopUseCase)) as UseCases.StashPopUseCase;
+                    var result = await useCase.ExecuteAsync(projectDirectory); // null index = último
+                    
+                    if (!result.IsSuccess) // Si hay error, asumimos conflicto
                     {
                         Msg.Assistant("⚠️ Tus cambios locales tienen conflictos con lo que bajó el servidor.");
                         await DialogService.ShowConfirmDialog("Conflicto en Stash Pop",
@@ -1997,22 +2002,19 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
 
                 await RunWithLoading(async () =>
                 {
-                    string gitPath = itemToDiscard.FilePath.Replace(Path.DirectorySeparatorChar, '/'); // Use Git's path format
+                    // Usar el Use Case de la nueva arquitectura
+                    var useCase = App.ServiceProvider.GetService(typeof(UseCases.DiscardChangesUseCase)) as UseCases.DiscardChangesUseCase;
+                    var result = await useCase.ExecuteAsync(projectDirectory, new[] { itemToDiscard.FilePath });
 
-                    if (itemToDiscard.Status == "Sin seguimiento" || itemToDiscard.Status == "Añadido")
+                    if (result.IsSuccess)
                     {
-                        Msg.Assistant($"Eliminando archivo nuevo/sin seguimiento: {itemToDiscard.FilePath}");
-                        await Git.EjecutarGit($"checkout -- \"{gitPath}\"", projectDirectory); // Try checkout first
-                        await Git.EjecutarGit($"clean -fd -- \"{gitPath}\"", projectDirectory); // Then clean if needed
+                        // Msg.Assistant("✅ Cambios descartados."); // Use Case ya notifica
                     }
                     else
                     {
-                        // For modified, deleted, renamed files, revert to HEAD
-                        Msg.Assistant($"Descartando cambios en: {itemToDiscard.FilePath}");
-                        await Git.EjecutarGit($"checkout -- \"{gitPath}\"", projectDirectory);
+                        await DialogService.ShowConfirmDialog("Error", $"No se pudo descartar cambios:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
                     }
-
-                    Msg.Assistant("✅ Cambios descartados.");
+                    
                     await LoadChangesAsync(); // Refresh the list
                 });
             }
@@ -2039,25 +2041,23 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
             var (ok, message) = await DialogService.ShowInputDialog("Stash", "Mensaje opcional para el stash:", $"Stash parcial ({selectedItems.Count} archivos)");
             if (!ok) return; // User cancelled
 
-            string stashMessage = string.IsNullOrWhiteSpace(message) ? "" : $"-m \"{message.Replace("\"", "'")}\""; // Add message flag if provided
-            string filePaths = string.Join(" ", selectedItems.Select(i => $"\"{i.FilePath.Replace(Path.DirectorySeparatorChar, '/')}\"")); // Get file paths in Git format
+            var selectedFiles = selectedItems.Select(i => i.FilePath);
 
             await RunWithLoading(async () =>
             {
-                Msg.Assistant($"Guardando {selectedItems.Count} archivos seleccionados en el stash...");
-                // Use 'git stash push' with the message and file list
-                var result = await Git.EjecutarGit($"stash push {stashMessage} -- {filePaths}", projectDirectory);
+                // Usar el Use Case de la nueva arquitectura
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashChangesUseCase)) as UseCases.StashChangesUseCase;
+                var result = await useCase.ExecuteAsync(projectDirectory, message, selectedFiles);
 
-                if (result.Contains("Saved working directory and index state"))
+                if (result.IsSuccess)
                 {
-                    Msg.Assistant("✅ Cambios seleccionados guardados en el stash.");
                     await DialogService.ShowConfirmDialog("Éxito", "Los archivos seleccionados han sido guardados en el stash.", DialogVariant.Success, DialogType.Info);
                 }
                 else
                 {
-                    Msg.Assistant($"⚠️ Ocurrió un problema al guardar en el stash: {result}");
-                    await DialogService.ShowConfirmDialog("Advertencia", $"Resultado de la operación stash:\n\n{result}", DialogVariant.Warning, DialogType.Info);
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo guardar en stash:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
                 }
+                
                 await LoadChangesAsync(); // Refresh the list
             });
         }
@@ -2073,19 +2073,25 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
 
             await RunWithLoading(async () =>
             {
-                var applyResult = await Git.ApplyStash(stash.Name, projectDirectory);
-                if (applyResult.Success)
+                int? stashIndex = null;
+                var match = System.Text.RegularExpressions.Regex.Match(stash.Name, @"stash@\{(\d+)\}");
+                if (match.Success)
                 {
-                    await Git.DropStash(stash.Name, projectDirectory);
-                    Msg.Assistant($"✅ Stash {stash.Name} restaurado y eliminado.");
+                    stashIndex = int.Parse(match.Groups[1].Value);
+                }
+
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashPopUseCase)) as UseCases.StashPopUseCase;
+                var result = await useCase.ExecuteAsync(projectDirectory, stashIndex);
+
+                if (result.IsSuccess)
+                {
+                    await DialogService.ShowConfirmDialog("Éxito", $"Stash {stash.Name} restaurado y aplicado correctamente.", DialogVariant.Success, DialogType.Info);
                 }
                 else
                 {
-                    Msg.Assistant($"❌ Error al aplicar stash {stash.Name}: {applyResult.Output}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo aplicar el stash (puede haber conflictos):\n\n{applyResult.Output}", DialogVariant.Error, DialogType.Info);
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo aplicar el stash:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
                 }
 
-                // SOLO RECARGAR, NO CAMBIAR VISTA
                 await LoadChangesAsync();
             });
         }
@@ -2102,8 +2108,25 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
 
             await RunWithLoading(async () =>
             {
-                await Git.DropStash(stash.Name, projectDirectory);
-                Msg.Assistant($"✅ Stash {stash.Name} eliminado.");
+                int stashIndex = 0;
+                var match = System.Text.RegularExpressions.Regex.Match(stash.Name, @"stash@\{(\d+)\}");
+                if (match.Success)
+                {
+                    stashIndex = int.Parse(match.Groups[1].Value);
+                }
+
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashDropUseCase)) as UseCases.StashDropUseCase;
+                var result = await useCase.ExecuteAsync(projectDirectory, stashIndex);
+
+                if (result.IsSuccess)
+                {
+                    Msg.Assistant($"✅ Stash {stash.Name} eliminado.");
+                }
+                else
+                {
+                     await DialogService.ShowConfirmDialog("Error", $"No se pudo eliminar el stash:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
+                }
+                
                 await LoadChangesAsync();
             });
         }
@@ -2121,10 +2144,18 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
 
             await RunWithLoading(async () =>
             {
-                Msg.Assistant("Eliminando todos los stashes...");
-                // Usamos EjecutarGit para 'stash clear'
-                var result = await Git.EjecutarGit("stash clear", projectDirectory);
-                Msg.Assistant("✅ Operación de limpieza de stash completada.");
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashClearUseCase)) as UseCases.StashClearUseCase;
+                var result = await useCase.ExecuteAsync(projectDirectory);
+
+                if (result.IsSuccess)
+                {
+                     // Mensaje ya mostrado por el servicio de notificación
+                }
+                else
+                {
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo limpiar stashes:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
+                }
+
                 await LoadChangesAsync(); // Recargar todo
             });
         }
@@ -2569,24 +2600,19 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
             var (ok, message) = await DialogService.ShowInputDialog("Stash", "Mensaje para el stash:", $"Stash de {items.Count} archivos");
             if (!ok) return; // Usuario canceló
 
-            string stashMessage = string.IsNullOrWhiteSpace(message) ? "" : $"-m \"{message.Replace("\"", "'")}\"";
-
             await RunWithLoading(async () =>
             {
-                Msg.Assistant($"Guardando {items.Count} archivos en el stash...");
+                // Usar el Use Case de la nueva arquitectura
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashChangesUseCase)) as UseCases.StashChangesUseCase;
+                var result = await useCase.ExecuteAsync(projectDirectory, message); 
 
-                // Usamos "git stash push" que es más moderno que "save"
-                var result = await Git.EjecutarGit($"stash save {stashMessage}", projectDirectory);
-
-                if (result.Contains("Saved working directory and index state"))
+                if (result.IsSuccess)
                 {
-                    Msg.Assistant("✅ Cambios guardados en el stash.");
                     await DialogService.ShowConfirmDialog("Éxito", "Todos los cambios han sido guardados en el stash.", DialogVariant.Success, DialogType.Info);
                 }
                 else
                 {
-                    Msg.Assistant($"⚠️ Ocurrió un problema al guardar en el stash: {result}");
-                    await DialogService.ShowConfirmDialog("Advertencia", $"Resultado de la operación stash:\n\n{result}", DialogVariant.Warning, DialogType.Info);
+                    await DialogService.ShowConfirmDialog("Advertencia", $"Resultado de la operación stash:\n\n{result.Error}", DialogVariant.Warning, DialogType.Info);
                 }
                 await LoadChangesAsync(); // Recargar la lista
             });
@@ -2613,15 +2639,19 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
 
             await RunWithLoading(async () =>
             {
-                Msg.Assistant("Descartando todos los cambios...");
+                // Usar el Use Case de la nueva arquitectura
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.DiscardChangesUseCase)) as UseCases.DiscardChangesUseCase;
+                var result = await useCase.ExecuteAsync(projectDirectory); // null = todos los archivos
 
-                // 1. Descartar cambios en archivos rastreados (Modificados, Eliminados, etc.)
-                await Git.EjecutarGit("checkout -- .", projectDirectory);
+                if (result.IsSuccess)
+                {
+                     // Use Case ya notifica
+                }
+                else
+                {
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo descartar cambios:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
+                }
 
-                // 2. Eliminar archivos no rastreados (??)
-                await Git.EjecutarGit("clean -fd", projectDirectory);
-
-                Msg.Assistant("✅ Todos los cambios han sido descartados.");
                 await LoadChangesAsync(); // Recargar la lista
             });
         }
@@ -3126,23 +3156,18 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
 
             await RunWithLoading(async () =>
             {
-                Msg.Assistant("Ejecutando reset --soft HEAD~1...");
-                var result = await Git.EjecutarGit("reset --soft HEAD~1", projectDirectory);
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.ResetCommitUseCase)) as UseCases.ResetCommitUseCase;
+                var result = await useCase.ExecuteAsync(projectDirectory, UseCases.ResetMode.Soft);
 
-                if (result.Contains("fatal:") || result.Contains("error:"))
+                if (result.IsSuccess)
                 {
-                    Msg.Assistant($"❌ Error al ejecutar reset: {result}");
-                    await DialogService.ShowConfirmDialog(
-                        "Error",
-                        $"No se pudo completar el reset:\n{result}",
-                        DialogVariant.Error,
-                        DialogType.Info
-                    );
+                     Msg.Assistant("✅ Commit deshecho correctamente. Los cambios están en 'Changes'.");
                 }
                 else
                 {
-                    Msg.Assistant("✅ Commit deshecho correctamente. Los cambios están en 'Changes'.");
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo completar el reset:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
                 }
+
                 await LoadChangesAsync();
                 await LoadHistoryAsync();
             });
@@ -3223,19 +3248,18 @@ private async void btnCommit_Click(object sender, RoutedEventArgs e)
 
             await RunWithLoading(async () =>
             {
-                Msg.Assistant($"Creando rama {branchName} en {commitHash}...");
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.CreateBranchUseCase)) as UseCases.CreateBranchUseCase;
+                var result = await useCase.ExecuteAsync(projectDirectory, branchName, commitHash);
 
-                // 2. Ejecutar comando Git
-                var result = await Git.EjecutarGit($"branch {branchName} {commitHash}", projectDirectory);
-
-                if (result.Contains("fatal:") || result.Contains("error:"))
+                if (result.IsSuccess)
                 {
-                    Msg.Assistant($"Error al crear rama: {result}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo crear la rama:\n{result}", DialogVariant.Error, DialogType.Info);
+                    Msg.Assistant($"✅ Rama '{branchName}' creada.");
+                }
+                else
+                {
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo crear la rama:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
                     return;
                 }
-
-                Msg.Assistant($"✅ Rama '{branchName}' creada.");
 
                 // 3. Refrescar la lista de ramas
                 var branches = Git.GetBranches(projectDirectory);

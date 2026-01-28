@@ -76,6 +76,7 @@ namespace Chapi
             services.AddTransient<UseCases.StashChangesUseCase>();
             services.AddTransient<UseCases.StashPopUseCase>();
             services.AddTransient<UseCases.StashClearUseCase>();
+            services.AddTransient<UseCases.StashDropUseCase>();
             services.AddTransient<UseCases.DiscardChangesUseCase>();
             services.AddTransient<UseCases.ResetCommitUseCase>();
             services.AddTransient<UseCases.CreateBranchUseCase>();
