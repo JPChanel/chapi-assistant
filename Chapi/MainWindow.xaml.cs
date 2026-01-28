@@ -74,11 +74,18 @@ namespace Chapi
         private int _totalDeletions;
         public int TotalDeletions { get => _totalDeletions; set { _totalDeletions = value; OnPropertyChanged(nameof(TotalDeletions)); } }
 
+        // ViewModels
+        private Presentation.ViewModels.ChangesViewModel? _changesViewModel;
+
         public MainWindow()
         {
             InitializeComponent();
             Instance = this;
             DataContext = MessageHelper.Instance;
+            
+            // Inicializar ViewModels desde DI
+            _changesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ChangesViewModel)) 
+                as Presentation.ViewModels.ChangesViewModel;
 
             // Hook para hacer scroll automático cuando se agregue un nuevo mensaje
             MessageHelper.Instance.ScrollRequested += (s, e) =>
