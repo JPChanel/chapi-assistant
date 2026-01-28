@@ -72,7 +72,7 @@ namespace Chapi
             contextMenu.Items.Add(CreateMenuItem("Servicios", PackIconKind.InformationOutline, (s, e) => {
                 mainWindow.ShowUpdateView();
             }));
-            contextMenu.Items.Add(CreateMenuItem("Salir", PackIconKind.Logout, (s, e) => Application.Current.Shutdown()));
+            contextMenu.Items.Add(CreateMenuItem("Salir", PackIconKind.Logout, (s, e) => System.Windows.Application.Current.Shutdown()));
 
             return contextMenu;
 
@@ -90,7 +90,7 @@ namespace Chapi
         }
         public void ShowNotification(string title, string message)
         {
-            var dispatcher = Application.Current.Dispatcher;
+            var dispatcher = System.Windows.Application.Current.Dispatcher;
             if (dispatcher.CheckAccess())
             {
                 taskbarIcon.ShowBalloonTip(title, message, BalloonIcon.Info);

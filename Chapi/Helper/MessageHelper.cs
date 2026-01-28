@@ -22,7 +22,7 @@ public class MessageHelper : INotifyPropertyChanged
 
     public void AddUserMessage(string text)
     {
-        Application.Current.Dispatcher.Invoke(() =>
+        System.Windows.Application.Current.Dispatcher.Invoke(() =>
         {
             Messages.Add(new ChatMessage
         {
@@ -37,7 +37,7 @@ public class MessageHelper : INotifyPropertyChanged
 
     public void AddAssistantMessage(string text)
     {
-        Application.Current.Dispatcher.Invoke(() =>
+        System.Windows.Application.Current.Dispatcher.Invoke(() =>
         {
             Messages.Add(new ChatMessage
             {

@@ -1,0 +1,301 @@
+using Chapi.Domain.Common;
+using Chapi.Domain.Entities;
+using Chapi.Domain.Interfaces;
+
+namespace Chapi.Infrastructure.Git;
+
+/// <summary>
+/// Implementación del repositorio Git.
+/// Encapsula todas las operaciones Git usando GitCommandExecutor y GitOutputParser.
+/// </summary>
+public class GitRepository : IGitRepository
+{
+    private readonly GitCommandExecutor _executor;
+    private readonly GitOutputParser _parser;
+
+    public GitRepository(GitCommandExecutor executor, GitOutputParser parser)
+    {
+        _executor = executor;
+        _parser = parser;
+    }
+
+    #region Commits
+
+    public async Task<Result<GitCommit>> CommitAsync(string projectPath, string message, IEnumerable<string> files)
+    {
+        try
+        {
+            // 1. Stage files
+            var stageResult = await StageFilesAsync(projectPath, files);
+            if (!stageResult.IsSuccess)
+                return Result<GitCommit>.Fail(stageResult.Error);
+
+            // 2. Commit
+            var escapedMessage = message.Replace("\"", "\\\"");
+            var result = await _executor.ExecuteAsync($"commit -m \"{escapedMessage}\"", projectPath);
+
+            if (!result.IsSuccess)
+                return Result<GitCommit>.Fail(result.Error);
+
+            if (result.Output.Contains("nothing to commit"))
+                return Result<GitCommit>.Fail("No hay cambios para commitear");
+
+            // 3. Obtener hash del commit recién creado
+            var hashResult = await _executor.ExecuteAsync("rev-parse HEAD", projectPath);
+            var hash = hashResult.Output.Trim();
+
+            var commit = new GitCommit
+            {
+                Hash = hash,
+                Message = message,
+                Author = Environment.UserName,
+                Date = DateTime.Now
+            };
+
+            return Result<GitCommit>.Success(commit);
+        }
+        catch (Exception ex)
+        {
+            return Result<GitCommit>.Fail($"Error al hacer commit: {ex.Message}");
+        }
+    }
+
+    public async Task<IEnumerable<GitCommit>> GetCommitsAsync(string projectPath, int limit)
+    {
+        try
+        {
+            const string fieldSeparator = "\x1f";
+            const string recordSeparator = "\x1e";
+
+            string logFormat = $"%H{fieldSeparator}%an{fieldSeparator}%ar{fieldSeparator}%s{fieldSeparator}%b{recordSeparator}";
+            var result = await _executor.ExecuteAsync($"log --pretty=format:\"{logFormat}\" -n {limit}", projectPath);
+
+            if (!result.IsSuccess)
+                return Enumerable.Empty<GitCommit>();
+
+            return _parser.ParseLogOutput(result.Output);
+        }
+        catch
+        {
+            return Enumerable.Empty<GitCommit>();
+        }
+    }
+
+    public async Task<HashSet<string>> GetUnpushedCommitsAsync(string projectPath, string branch)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"log origin/{branch}..{branch} --pretty=format:%H", projectPath);
+
+            if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Output))
+                return new HashSet<string>();
+
+            return result.Output
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(h => h.Trim())
+                .ToHashSet();
+        }
+        catch
+        {
+            return new HashSet<string>();
+        }
+    }
+
+    #endregion
+
+    #region Changes
+
+    public async Task<IEnumerable<FileChange>> GetChangesAsync(string projectPath)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync("status --porcelain -uall", projectPath);
+
+            if (!result.IsSuccess)
+                return Enumerable.Empty<FileChange>();
+
+            return _parser.ParseStatusOutput(result.Output);
+        }
+        catch
+        {
+            return Enumerable.Empty<FileChange>();
+        }
+    }
+
+    public async Task<Result> StageFilesAsync(string projectPath, IEnumerable<string> files)
+    {
+        try
+        {
+            foreach (var file in files)
+            {
+                var result = await _executor.ExecuteAsync($"add \"{file}\"", projectPath);
+                if (!result.IsSuccess)
+                    return Result.Fail($"Error staging {file}: {result.Error}");
+            }
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al agregar archivos: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> UnstageFilesAsync(string projectPath, IEnumerable<string> files)
+    {
+        try
+        {
+            foreach (var file in files)
+            {
+                var result = await _executor.ExecuteAsync($"reset HEAD \"{file}\"", projectPath);
+                if (!result.IsSuccess)
+                    return Result.Fail($"Error unstaging {file}: {result.Error}");
+            }
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al quitar archivos del stage: {ex.Message}");
+        }
+    }
+
+    #endregion
+
+    #region Branches
+
+    public async Task<IEnumerable<string>> GetBranchesAsync(string projectPath)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync("branch", projectPath);
+
+            if (!result.IsSuccess)
+                return Enumerable.Empty<string>();
+
+            return _parser.ParseBranchOutput(result.Output);
+        }
+        catch
+        {
+            return Enumerable.Empty<string>();
+        }
+    }
+
+    public async Task<string> GetCurrentBranchAsync(string projectPath)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync("branch --show-current", projectPath);
+            return result.IsSuccess ? result.Output.Trim() : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    public async Task<Result> SwitchBranchAsync(string projectPath, string branchName)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"checkout {branchName}", projectPath);
+
+            if (!result.IsSuccess)
+                return Result.Fail(result.Error);
+
+            if (result.Output.Contains("error:") || result.Output.Contains("fatal:"))
+                return Result.Fail(result.Output);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al cambiar de rama: {ex.Message}");
+        }
+    }
+
+    #endregion
+
+    #region Remote
+
+    public async Task<Result> PushAsync(string projectPath, string branch)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"push origin {branch}", projectPath);
+
+            if (!result.IsSuccess)
+                return Result.Fail(result.Error);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al hacer push: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> PullAsync(string projectPath, string branch)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"pull origin {branch}", projectPath);
+
+            if (!result.IsSuccess)
+                return Result.Fail(result.Error);
+
+            if (result.Output.Contains("CONFLICT"))
+                return Result.Fail("Hay conflictos que deben resolverse manualmente");
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al hacer pull: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> FetchAsync(string projectPath)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync("fetch", projectPath);
+
+            if (!result.IsSuccess)
+                return Result.Fail(result.Error);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al hacer fetch: {ex.Message}");
+        }
+    }
+
+    public async Task<(int Ahead, int Behind)> GetAheadBehindCountAsync(string projectPath)
+    {
+        try
+        {
+            var currentBranch = await GetCurrentBranchAsync(projectPath);
+            if (string.IsNullOrEmpty(currentBranch))
+                return (0, 0);
+
+            var result = await _executor.ExecuteAsync($"rev-list --left-right --count origin/{currentBranch}...{currentBranch}", projectPath);
+
+            if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Output))
+                return (0, 0);
+
+            var parts = result.Output.Trim().Split('\t');
+            if (parts.Length == 2 && int.TryParse(parts[0], out int behind) && int.TryParse(parts[1], out int ahead))
+            {
+                return (ahead, behind);
+            }
+
+            return (0, 0);
+        }
+        catch
+        {
+            return (0, 0);
+        }
+    }
+
+    #endregion
+}

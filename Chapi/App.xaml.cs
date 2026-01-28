@@ -1,16 +1,23 @@
 using Chapi.Services;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using Velopack;
+using Chapi.Domain.Interfaces;
+using Chapi.Infrastructure.Git;
+using Chapi.Infrastructure.Services;
+using UseCases = Chapi.Application.UseCases.Git;
+
+
 
 namespace Chapi
 {
     /// <summary>
     /// Interaction logic for App.xaml
     /// </summary>
-    public partial class App : Application
+    public partial class App : System.Windows.Application
     {
         private const string AppMutexName = "ChapiAssistan-7E8F4A2B-1D6C-4B8A-9A8C-5D6B7E9F0A3D";
         private static Mutex _mutex;
@@ -41,6 +48,31 @@ namespace Chapi
         public static IConfiguration Configuration { get; private set; }
 
         public static NetworkWatcherService NetworkWatcher { get; private set; }
+        
+        // Dependency Injection
+        public static IServiceProvider ServiceProvider { get; private set; }
+
+        private static void ConfigureServices()
+        {
+            var services = new ServiceCollection();
+
+            // Infrastructure - Git
+            services.AddSingleton<GitCommandExecutor>();
+            services.AddSingleton<GitOutputParser>();
+            services.AddSingleton<IGitRepository, GitRepository>();
+
+            // Infrastructure - Services
+            services.AddSingleton<INotificationService, MessageNotificationService>();
+
+            // Application - Use Cases
+            services.AddTransient<UseCases.CommitChangesUseCase>();
+            services.AddTransient<UseCases.LoadChangesUseCase>();
+            services.AddTransient<UseCases.LoadHistoryUseCase>();
+
+            ServiceProvider = services.BuildServiceProvider();
+        }
+
+
         [STAThread]
         private static void Main(string[] args)
         {
@@ -86,6 +118,10 @@ namespace Chapi
                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
             Configuration = builder.Build();
+            
+            // Configurar Dependency Injection
+            ConfigureServices();
+            
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             MainWindow = new MainWindow();
             

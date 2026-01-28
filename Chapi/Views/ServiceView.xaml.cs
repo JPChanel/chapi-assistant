@@ -231,7 +231,7 @@ namespace Chapi.Views
                 _mgr.ApplyUpdatesAndExit(_updateInfo);
                 
                 // Si llegamos aquí, algo falló - forzar cierre
-                Application.Current.Shutdown();
+                System.Windows.Application.Current.Shutdown();
             }
             catch (Exception ex)
             {
@@ -398,7 +398,7 @@ namespace Chapi.Views
             IsServiceActive = true;
             string exePath = Environment.ProcessPath;
             Process.Start(exePath);
-            Application.Current.Shutdown();
+            System.Windows.Application.Current.Shutdown();
     
         }
 
@@ -406,7 +406,7 @@ namespace Chapi.Views
         {
 
             IsServiceActive = false;
-             Application.Current.Shutdown();
+             System.Windows.Application.Current.Shutdown();
         }
 
 
