@@ -7,6 +7,14 @@
         Background="#f9fafb"
         WindowStartupLocation="CenterOwner">
 
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="Orange" SecondaryColor="Lime" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -48,8 +56,8 @@
                                         <Border Background="{TemplateBinding Background}"
                                                 CornerRadius="{Binding Path=(materialDesign:ButtonAssist.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}">
                                             <ContentPresenter Margin="{TemplateBinding Padding}" 
-                                                              HorizontalAlignment="Left"
-                                                              VerticalAlignment="Center"/>
+                                                               HorizontalAlignment="Left"
+                                                               VerticalAlignment="Center"/>
                                         </Border>
                                     </ControlTemplate>
                                 </Setter.Value>
@@ -442,29 +450,18 @@
                                     </ScrollViewer>
                                 </Border>
 
-                                <!--<Button x:Name="btnOpenImageOutput" Click="btnOpenImageOutput_Click"
-                                        Style="{StaticResource MaterialDesignRaisedButton}"
-                                        Padding="14,10"
-                                        Background="#0ea5e9" BorderBrush="#0ea5e9"
-                                        Foreground="White" HorizontalAlignment="Left"
-                                        materialDesign:ButtonAssist.CornerRadius="6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="FolderOpen" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Abrir Carpeta de Destino" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>-->
-                                    <Button x:Name="btnOpenImageOutput" Click="btnOpenImageOutput_Click"
+                                <Button x:Name="btnOpenImageOutput" Click="btnOpenImageOutput_Click"
                                         Style="{StaticResource MaterialDesignRaisedButton}"
                                         Background="#0ea5e9" BorderBrush="#0ea5e9"
                                         Foreground="White" Padding="16,10"
                                         HorizontalAlignment="Right"
                                         materialDesign:ButtonAssist.CornerRadius="6">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="FolderImage" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Abrir Carpeta de Destino" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                </StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="FolderImage" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Abrir Carpeta de Destino" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
                         </Border>
                     </StackPanel>
                     </Grid>

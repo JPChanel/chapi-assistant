@@ -13,6 +13,14 @@ SizeToContent="Height" MaxHeight="800"
         
         Background="#F9FBFD">
 
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="Orange" SecondaryColor="Lime" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <Grid  Margin="20"
       VerticalAlignment="Top"
       HorizontalAlignment="Stretch">
