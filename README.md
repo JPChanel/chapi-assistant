@@ -64,3 +64,51 @@ Creado por [Johan Chanel][@_chanel](https://gitlab.com/_chanel)
 ## 📝 Licencia
 
 MIT
+
+---
+
+## 🏗️ Propuesta de Refactorización Arquitectónica
+
+> [!IMPORTANT]
+> **Nueva documentación disponible**: Se ha creado una propuesta completa de reorganización arquitectónica aplicando **Clean Architecture** y **principios SOLID**.
+
+### 📚 Documentación Completa
+
+Toda la documentación está disponible en [`doc/migrate/`](./doc/migrate/):
+
+- **[📊 Resumen Ejecutivo](./doc/migrate/resumen_ejecutivo.md)** - Vista general de la propuesta (5 min)
+- **[🏗️ Arquitectura Propuesta](./doc/migrate/arquitectura_propuesta.md)** - Diseño detallado (20 min)
+- **[💻 Ejemplos de Refactorización](./doc/migrate/ejemplos_refactorizacion.md)** - Código antes/después (15 min)
+- **[🗺️ Roadmap Ejecutable](./doc/migrate/roadmap_ejecutable.md)** - Plan paso a paso (10 min)
+- **[📘 Mejores Prácticas](./doc/migrate/mejores_practicas.md)** - Guía de estándares (referencia)
+- **[🖼️ Diagrama de Arquitectura](./doc/migrate/arquitectura_comparacion_1769629057128.png)** - Comparación visual
+
+### 🎯 Inicio Rápido
+
+1. Lee el **[Índice Maestro](./doc/migrate/00_INDICE.md)** para navegar toda la documentación
+2. Comienza con el **[Resumen Ejecutivo](./doc/migrate/resumen_ejecutivo.md)** para entender el panorama general
+
+### 📊 Problema Identificado
+
+- **MainWindow.xaml.cs tiene 3,637 líneas** (God Object anti-pattern)
+- Alto acoplamiento entre componentes
+- Difícil de mantener y extender
+- Sin tests unitarios
+
+### 💡 Solución Propuesta
+
+- Aplicar **Clean Architecture** con 4 capas bien definidas
+- Reducir MainWindow a **~200 líneas** (94% menos)
+- Implementar **MVVM** completo
+- Cobertura de tests **>70%**
+- Desarrollo más rápido y menos bugs
+
+### ⏱️ Cronograma Estimado
+
+**4-6 semanas** divididas en 5 fases:
+1. Fundamentos (3-5 días)
+2. Infraestructura (5-7 días)
+3. Use Cases (7-10 días)
+4. ViewModels (5-7 días)
+
+**👉 [Ver documentación completa →](./doc/migrate/00_INDICE.md)**
