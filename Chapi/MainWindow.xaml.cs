@@ -151,6 +151,7 @@ namespace Chapi
 
             ProjectsComboBox.ItemsSource = projectVMs;
             App.TrayIconManager?.UpdateProjectList(projectVMs);
+            _ = UpdateProjectStatusesAsync(projectVMs);
         }
 
         private void OnDebounceTimerElapsed(object state)
@@ -373,10 +374,24 @@ namespace Chapi
         private void btnAddProject_Click(object sender, RoutedEventArgs e)
         {
             var contextMenu = new ContextMenu();
-            var addMenuItem = new MenuItem { Header = "Agregar Repositorio Existente...", Icon = new PackIcon { Kind = PackIconKind.FolderAdd } };
+
+            var cloneMenuItem = new MenuItem { Header = "Clonar Repositorio", Icon = new PackIcon { Kind = PackIconKind.SourceBranch } };
+            cloneMenuItem.Click += (s, ev) => ShowCloneDialog();
+            contextMenu.Items.Add(cloneMenuItem);
+
+            var addMenuItem = new MenuItem { Header = "Agregar Repositorio Existente", Icon = new PackIcon { Kind = PackIconKind.FolderAdd } };
             addMenuItem.Click += (s, ev) => SelectProject();
             contextMenu.Items.Add(addMenuItem);
+
+            
+
             contextMenu.IsOpen = true;
+        }
+
+        private async void ShowCloneDialog()
+        {
+           Msg.Assistant("Funcionalidad Clonar en desarrollo.");
+           // Aquí iría la lógica para mostrar el diálogo de clonación
         }
 
         private async void SelectProject()
@@ -403,7 +418,43 @@ namespace Chapi
             {
                 await useCase.ExecuteAsync(projectDirectory, isSilent);
                 await LoadChangesAsync();
+                
+                // Actualizar indicadores después del fetch
+                await UpdateProjectStatusesAsync();
             }
+        }
+
+        private async Task UpdateProjectStatusesAsync(List<ProjectViewModel> projects = null)
+        {
+            if (projects == null)
+            {
+                if (ProjectsComboBox.ItemsSource is List<ProjectViewModel> list) projects = list;
+                else return;
+            }
+
+            await Task.Delay(1500);
+
+            await Task.Run(async () =>
+            {
+                foreach (var proj in projects)
+                {
+                    try
+                    {
+                        string branch = await Git.GetCurrentBranch(proj.FullPath);
+                        if (!string.IsNullOrEmpty(branch))
+                        {
+                            var status = await Git.GetAheadBehindCount(proj.FullPath);
+                            
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                proj.Ahead = status.Ahead;
+                                proj.Behind = status.Behind;
+                            });
+                        }
+                    }
+                    catch { /* Ignorar errores en proyectos inaccesibles */ }
+                }
+            });
         }
         #endregion
 

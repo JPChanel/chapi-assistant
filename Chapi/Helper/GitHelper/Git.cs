@@ -877,4 +877,15 @@ public static class Git
         bool success = !output.Contains("fatal:") && !output.Contains("error:");
         return new GitResult(success, output);
     }
+
+    /// <summary>
+    /// Obtiene el contenido de un archivo en una revisión específica (ej. HEAD).
+    /// </summary>
+    public static async Task<string> GetFileContent(string revision, string filePath, string workingDirectory)
+    {
+        // git show HEAD:path/to/file.cs
+        // Ruta normalizada a formato Unix
+        string normalizedPath = filePath.Replace("\\", "/");
+        return await EjecutarGit($"show {revision}:\"{normalizedPath}\"", workingDirectory);
+    }
 }

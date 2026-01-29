@@ -260,7 +260,7 @@
                                         Margin="4,1">
                                     <Border.ContextMenu>
                                         <ContextMenu>                                                                  
-                                            <MenuItem Header="Stash Cambios Seleccionados"
+                                            <MenuItem Header="Stash Este Archivo"
                                                       Click="StashSelectedMenuItem_Click">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="ArchiveArrowDownOutline"/>
@@ -497,7 +497,7 @@
                                       ItemsSource="{Binding DiffLines}"
                                       FontFamily="Consolas" 
                                       FontSize="13" 
-                                      Background="#1E1E1E"
+                                      Background="#0A0A0A"
                                       VirtualizingStackPanel.IsVirtualizing="True"
                                       VirtualizingStackPanel.VirtualizationMode="Recycling">
                             <ItemsControl.ItemTemplate>
@@ -521,10 +521,10 @@
                                                 <Setter Property="Background" Value="Transparent"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding Type}" Value="Inserted">
-                                                        <Setter Property="Background" Value="#1A331A"/>
+                                                        <Setter Property="Background" Value="#102510"/>
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Type}" Value="Deleted">
-                                                        <Setter Property="Background" Value="#331A1A"/>
+                                                        <Setter Property="Background" Value="#251010"/>
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Type}" Value="Imaginary">
                                                         <Setter Property="Background" Value="#111"/>
@@ -534,68 +534,62 @@
                                         </Grid.Style>
 
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40" MaxWidth="50"/>
-                                            <ColumnDefinition Width="40" MaxWidth="50"/>
+                                            <ColumnDefinition Width="35"/>
+                                            <ColumnDefinition Width="35"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Line Numbers -->
-                                        <Border Grid.Column="0" Background="#252525" BorderBrush="#333" BorderThickness="0,0,1,0">
-                                            <TextBlock Text="{Binding Position}" Foreground="#555" Padding="5,2" HorizontalAlignment="Right" FontSize="11">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Type}" Value="Inserted">
-                                                                <Setter Property="Visibility" Value="Hidden"/>
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding Type}" Value="Imaginary">
-                                                                <Setter Property="Visibility" Value="Hidden"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                        </Border>
+                                        <TextBlock Grid.Column="0" Text="{Binding Position}" Foreground="#555" Padding="5,0" HorizontalAlignment="Right">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Inserted">
+                                                            <Setter Property="Visibility" Value="Hidden"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Imaginary">
+                                                            <Setter Property="Visibility" Value="Hidden"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
 
-                                        <Border Grid.Column="1" Background="#252525" BorderBrush="#333" BorderThickness="0,0,1,0">
-                                            <TextBlock Text="{Binding Position}" Foreground="#555" Padding="5,2" HorizontalAlignment="Right" FontSize="11">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Type}" Value="Deleted">
-                                                                <Setter Property="Visibility" Value="Hidden"/>
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding Type}" Value="Imaginary">
-                                                                <Setter Property="Visibility" Value="Hidden"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                        </Border>
+                                        <TextBlock Grid.Column="1" Text="{Binding Position}" Foreground="#555" Padding="5,0" HorizontalAlignment="Right">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Deleted">
+                                                            <Setter Property="Visibility" Value="Hidden"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Imaginary">
+                                                            <Setter Property="Visibility" Value="Hidden"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
 
-                                        <!-- Code Content -->
                                         <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="NoWrap" FontFamily="Consolas" Padding="12,2,0,2">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="{Binding Text, StringFormat='{} {0}'}"/>
+                                                    <Setter Property="Text" Value="{Binding Text, StringFormat='  {0}'}"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding Type}" Value="Inserted">
-                                                            <Setter Property="Foreground" Value="#A5D6A7"/>
+                                                            <Setter Property="Foreground" Value="#80C880"/>
                                                             <Setter Property="Text" Value="{Binding Text, StringFormat='+ {0}'}"/>
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding Type}" Value="Deleted">
-                                                            <Setter Property="Foreground" Value="#EF9A9A"/>
+                                                            <Setter Property="Foreground" Value="#C88080"/>
                                                             <Setter Property="Text" Value="{Binding Text, StringFormat='- {0}'}"/>
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding Type}" Value="Unchanged">
-                                                            <Setter Property="Foreground" Value="#B0BEC5"/>
+                                                            <Setter Property="Foreground" Value="#888"/>
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding Type}" Value="Imaginary">
                                                             <Setter Property="Text" Value="..."/>
-                                                            <Setter Property="Foreground" Value="#666"/>
+                                                            <Setter Property="Foreground" Value="#444"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
