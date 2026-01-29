@@ -3,6 +3,7 @@ using LibGit2Sharp;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Text;
 
 namespace Chapi.Helper.GitHelper;
@@ -241,6 +242,15 @@ public static class Git
             return new GitResult(false, ex.Message);
         }
     }
+    /// <summary>
+    /// Obtiene el nombre de la rama actual.
+    /// </summary>
+    public static async Task<string> GetCurrentBranch(string workingDirectory)
+    {
+        var branch = await EjecutarGit("rev-parse --abbrev-ref HEAD", workingDirectory);
+        return branch.Trim();
+    }
+
     public static List<string> GetBranches(string repositoryPath)
     {
         try

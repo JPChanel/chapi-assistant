@@ -317,11 +317,17 @@ public class ChangesViewModel : ViewModelBase
 
         try
         {
+            var currentBranch = await Git.GetCurrentBranch(ProjectPath);
             var stashes = await Git.ListStashes(ProjectPath);
             Stashes.Clear();
             foreach (var stash in stashes)
             {
-                Stashes.Add(stash);
+                // Filtrar: mostrar si pertenece a la rama actual O si no se pudo determinar la rama ("Unknown")
+                // Esto previene ocultar stashes antiguos sin formato "On branch", pero oculta los de otras ramas conocidas.
+                if (stash.Branch == "Unknown" || stash.Branch == currentBranch)
+                {
+                    Stashes.Add(stash);
+                }
             }
         }
         catch (Exception ex)
