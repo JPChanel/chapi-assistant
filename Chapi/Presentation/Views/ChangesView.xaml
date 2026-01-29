@@ -246,17 +246,48 @@
                                 <Setter Property="materialDesign:RippleAssist.IsDisabled" Value="True"/>
                                 <Setter Property="Padding" Value="4,2"/>
                                 <Setter Property="Margin" Value="0"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                             </Style>
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate>
-                                <Border Padding="8,6" 
+                                <Border x:Name="ItemBorder"
+                                        Padding="8,6" 
                                         Background="#241A3D" 
                                         CornerRadius="6" 
                                         BorderBrush="#3D2B66" 
                                         BorderThickness="1"
                                         Margin="4,1">
-                                    <Grid>
+                                    <Border.ContextMenu>
+                                        <ContextMenu>                                                                  
+                                            <MenuItem Header="Stash Cambios Seleccionados"
+                                                      Click="StashSelectedMenuItem_Click">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="ArchiveArrowDownOutline"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Descartar Cambios"
+                                                      Click="DiscardChangesMenuItem_Click"
+                                                      CommandParameter="{Binding}"
+                                                      Foreground="Red">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="UndoVariant" Foreground="Red"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator />
+                                            <MenuItem Header="Abrir en VS Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="VisualStudio" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+                                    <Grid Background="Transparent">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
@@ -320,36 +351,6 @@
                                                        HorizontalAlignment="Center" 
                                                        VerticalAlignment="Center"/>
                                         </Border>
-
-                                        <Grid.ContextMenu>
-                                            <ContextMenu>                                                                  
-                                                <MenuItem Header="Stash Cambios Seleccionados"
-                                                          Click="StashSelectedMenuItem_Click">
-                                                    <MenuItem.Icon>
-                                                        <materialDesign:PackIcon Kind="ArchiveArrowDownOutline"/>
-                                                    </MenuItem.Icon>
-                                                </MenuItem>
-                                                <MenuItem Header="Descartar Cambios"
-                                                          Click="DiscardChangesMenuItem_Click"
-                                                          CommandParameter="{Binding}"
-                                                          Foreground="Red">
-                                                    <MenuItem.Icon>
-                                                        <materialDesign:PackIcon Kind="UndoVariant" Foreground="Red"/>
-                                                    </MenuItem.Icon>
-                                                </MenuItem>
-                                                <Separator />
-                                                <MenuItem Header="Abrir en VS Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding}">
-                                                    <MenuItem.Icon>
-                                                        <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
-                                                    </MenuItem.Icon>
-                                                </MenuItem>
-                                                <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding}">
-                                                    <MenuItem.Icon>
-                                                        <materialDesign:PackIcon Kind="VisualStudio" />
-                                                    </MenuItem.Icon>
-                                                </MenuItem>
-                                            </ContextMenu>
-                                        </Grid.ContextMenu>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

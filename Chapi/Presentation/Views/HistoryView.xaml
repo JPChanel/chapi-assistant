@@ -59,29 +59,30 @@
                                     CornerRadius="8"                                                   
                                     Background="#241A3D"  
                                     BorderBrush="#3D2B66" 
-                                    BorderThickness="1">
-                                <Grid ContextMenuOpening="History_ContextMenu_Opening">
-                                     <Grid.ContextMenu>
-                                         <ContextMenu>
-                                             <MenuItem x:Name="ResetSoftMenuItem" Header="Undo Last Commit (Soft)" Click="History_ResetSoft_Click" CommandParameter="{Binding}">
-                                                 <MenuItem.Icon>
-                                                     <materialDesign:PackIcon Kind="Undo" Foreground="Orange"/>
-                                                 </MenuItem.Icon>
-                                             </MenuItem>
-                                             <Separator />
-                                             <MenuItem Header="Create Branch from this Commit..." Click="History_CreateBranch_Click" CommandParameter="{Binding Hash}">
-                                                 <MenuItem.Icon>
-                                                     <materialDesign:PackIcon Kind="SourceBranch" Foreground="DeepSkyBlue"/>
-                                                 </MenuItem.Icon>
-                                             </MenuItem>
-                                             <MenuItem Header="Create Tag from this Commit..." Click="History_CreateTag_Click" CommandParameter="{Binding Hash}">
-                                                 <MenuItem.Icon>
-                                                     <materialDesign:PackIcon Kind="TagPlus" Foreground="LightSlateGray"/>
-                                                 </MenuItem.Icon>
-                                             </MenuItem>
-                                         </ContextMenu>
-                                     </Grid.ContextMenu>
-                                     <Grid.RowDefinitions>
+                                    BorderThickness="1"
+                                    ContextMenuOpening="History_ContextMenu_Opening">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem x:Name="ResetSoftMenuItem" Header="Undo Last Commit (Soft)" Click="History_ResetSoft_Click" CommandParameter="{Binding}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="Undo" Foreground="Orange"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <Separator />
+                                        <MenuItem Header="Create Branch from this Commit..." Click="History_CreateBranch_Click" CommandParameter="{Binding Hash}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="SourceBranch" Foreground="DeepSkyBlue"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Create Tag from this Commit..." Click="History_CreateTag_Click" CommandParameter="{Binding Hash}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="TagPlus" Foreground="LightSlateGray"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <Grid>
+                                    <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
@@ -290,7 +291,7 @@
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <Grid>
+                            <Grid Background="Transparent">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
