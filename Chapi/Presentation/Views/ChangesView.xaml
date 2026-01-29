@@ -380,7 +380,9 @@
                                     Grid.Column="0"
                                     Content="Restaurar"
                                     Click="StashView_RestoreButton_Click"
-                                    Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    Foreground="DeepSkyBlue"
+                                    BorderBrush="DeepSkyBlue"/>
 
                             <Button x:Name="StashView_DiscardButton"
                                     Grid.Column="1"
@@ -388,6 +390,7 @@
                                     Click="StashView_DiscardButton_Click"
                                     Style="{StaticResource MaterialDesignOutlinedButton}"
                                     Foreground="Red"
+                                    BorderBrush="Red"
                                     Margin="10,0,0,0"/>
 
                             <TextBlock x:Name="StashView_Header"
@@ -455,6 +458,7 @@
             <Grid Grid.Column="1" Margin="1,0,0,0" Background="#130D21" VerticalAlignment="Stretch">
                 <!-- Empty State View -->
                 <Grid x:Name="DiffEmptyStateView" 
+                      Grid.Column="1"
                       Visibility="Visible" 
                       HorizontalAlignment="Center" 
                       VerticalAlignment="Center">
@@ -481,8 +485,10 @@
                 </Grid>
 
                 <!-- Diff View -->
+                <!-- Diff View -->
                 <Border x:Name="DiffContentBorder" 
-                        Visibility="Collapsed" 
+                        Grid.Column="1"
+                        Visibility="{Binding DiffLines.Count, Converter={StaticResource IntegerToVisibilityConverter}}"
                         Background="#1E1E1E">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                         <ItemsControl x:Name="DiffLinesItemsControl" 
