@@ -208,7 +208,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Message}" FontWeight="SemiBold"/>
-                                            <TextBlock Text="{Binding Branch, StringFormat='En {0}'}" Foreground="Gray" FontSize="11"/>
+                                            <TextBlock Text="{Binding FileCount, StringFormat='{}{0} archivos'}" Foreground="{DynamicResource MaterialDesignBody}" Opacity="0.7" FontSize="11"/>
                                         </StackPanel>
                                         <Button x:Name="RestoreStashItemButton"
                                                 Grid.Column="1"
@@ -395,10 +395,12 @@
 
                             <TextBlock x:Name="StashView_Header"
                                        Grid.Column="2"
-                                       Text="{Binding SelectedStash.Message, StringFormat='Stash: {0}'}"
                                        VerticalAlignment="Center"
                                        HorizontalAlignment="Center"
-                                       FontWeight="Bold"/>
+                                       FontWeight="Bold">
+                                <Run Text="{Binding SelectedStash.Message, StringFormat='Stash: {0}'}"/>
+                                <Run Text="{Binding SelectedStash.FileCount, StringFormat=' ({0} archivos)'}" FontSize="11" Foreground="Gray"/>
+                            </TextBlock>
 
                             <Button x:Name="StashView_BackButton"
                                     Grid.Column="3"
