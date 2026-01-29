@@ -46,11 +46,11 @@ public class CommitChangesUseCase
         // 3. Notificar resultado
         if (result.IsSuccess)
         {
-            _notifications.ShowSuccess($"âœ… Commit realizado: {request.Message}");
+            _notifications.ShowSuccess($"Commit realizado: {request.Message}");
         }
         else
         {
-            _notifications.ShowError($"âŒ Error al hacer commit: {result.Error}");
+            _notifications.ShowError($"Error al hacer commit: {result.Error}");
         }
 
         return result;
