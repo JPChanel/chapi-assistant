@@ -554,6 +554,14 @@ public class ChangesViewModel : ViewModelBase
     {
         if (stash == null || string.IsNullOrEmpty(ProjectPath)) return;
 
+        var confirmed = await DialogService.ShowConfirmDialog(
+            "Eliminar Stash",
+            $"¿Estás seguro de eliminar el stash?\n\n'{stash.Message}'\n\nEsta acción es irreversible.",
+            DialogVariant.Warning,
+            DialogType.Confirm);
+
+        if (!confirmed) return;
+
         int index = 0;
         var match = System.Text.RegularExpressions.Regex.Match(stash.Name, @"\{(\d+)\}");
         if (match.Success) index = int.Parse(match.Groups[1].Value);
@@ -568,6 +576,15 @@ public class ChangesViewModel : ViewModelBase
     private async Task ClearStashesAsync()
     {
         if (string.IsNullOrEmpty(ProjectPath)) return;
+
+        var confirmed = await DialogService.ShowConfirmDialog(
+            "Limpiar Stashes",
+            "¿Estás seguro de que deseas eliminar TODOS los stashes?\n\nEsta acción borrará permanentemente todas las entradas guardadas.",
+            DialogVariant.Warning,
+            DialogType.Confirm);
+
+        if (!confirmed) return;
+
         var result = await _stashClearUseCase.ExecuteAsync(ProjectPath);
         if (result.IsSuccess)
         {
