@@ -81,6 +81,7 @@ namespace Chapi
             services.AddTransient<UseCases.DiscardChangesUseCase>();
             services.AddTransient<UseCases.ResetCommitUseCase>();
             services.AddTransient<UseCases.CreateBranchUseCase>();
+            services.AddTransient<UseCases.CreateTagUseCase>();
             services.AddTransient<UseCases.GetFilesChangedInCommitUseCase>();
             services.AddTransient<UseCases.GetFileDiffUseCase>();
 

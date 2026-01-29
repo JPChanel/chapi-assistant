@@ -27,14 +27,19 @@ public partial class HistoryView : UserControl
 
     private void History_CreateBranch_Click(object sender, RoutedEventArgs e)
     {
-        // _viewModel?.CreateBranchCommand.Execute(null);
+        if (sender is MenuItem menuItem && menuItem.CommandParameter is string hash)
+        {
+            _viewModel?.CreateBranchCommand.Execute(hash);
+        }
     }
 
     private void History_CreateTag_Click(object sender, RoutedEventArgs e)
     {
-        // _viewModel?.CreateTagCommand.Execute(null);
+        if (sender is MenuItem menuItem && menuItem.CommandParameter is string hash)
+        {
+            _viewModel?.CreateTagCommand.Execute(hash);
+        }
     }
-
     private void ProjectMenuItem_OpenExplorer_Click(object sender, RoutedEventArgs e)
     {
         string path = GetPathFromMenuItem(sender);

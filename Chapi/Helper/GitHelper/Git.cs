@@ -831,4 +831,24 @@ public static class Git
 
         return url.Trim();
     }
+
+    /// <summary>
+    /// Comprueba si la rama especificada tiene una rama de seguimiento remota (upstream).
+    /// </summary>
+    public static async Task<bool> HasUpstream(string branchName, string workingDirectory)
+    {
+        var output = await EjecutarGit($"rev-parse --abbrev-ref \"{branchName}@{{u}}\"", workingDirectory);
+        return !output.Contains("fatal:") && !string.IsNullOrWhiteSpace(output);
+    }
+
+    /// <summary>
+    /// Crea una nueva rama local.
+    /// </summary>
+    public static async Task<GitResult> CreateBranch(string branchName, string startPoint, string workingDirectory)
+    {
+        string args = $"branch \"{branchName}\" \"{startPoint}\"";
+        var output = await EjecutarGit(args, workingDirectory);
+        bool success = !output.Contains("fatal:") && !output.Contains("error:");
+        return new GitResult(success, output);
+    }
 }

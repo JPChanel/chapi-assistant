@@ -22,6 +22,7 @@
 
     <Window.Resources>
         <converters:IntegerToVisibilityConverter x:Key="IntegerToVisibilityConverter"/>
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
         <Style x:Key="ThinScrollBar" TargetType="{x:Type ScrollBar}">
             <Setter Property="Width" Value="8"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -244,44 +245,60 @@
                     </Button>
 
                     <!-- 3. RAMA (Columna 4) -->
-                    <ComboBox x:Name="BranchesComboBox"
-                                Grid.Column="4"
-                                Width="180"
-                                Height="40"
-                                VerticalAlignment="Center"
-                                VerticalContentAlignment="Center"
-                                Padding="12,0"
-                                materialDesign:TextFieldAssist.DecorationVisibility="Collapsed"
-                                materialDesign:HintAssist.Hint="Rama"
-                                Style="{StaticResource MaterialDesignOutlinedComboBox}"
-                                SelectionChanged="BranchesComboBox_SelectionChanged" 
-                                HorizontalContentAlignment="Stretch">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Background="Transparent">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <materialDesign:PackIcon Kind="SourceBranch" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <Grid.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Header="Crear Rama..." Click="Branch_Create_Click" CommandParameter="{Binding}">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="SourceBranchPlus" Foreground="Green"/>
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="Eliminar Rama..." Click="Branch_Delete_Click" CommandParameter="{Binding}" Foreground="Red" Visibility="{Binding Converter={StaticResource IsNotDefaultBranchConverter}}">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="SourceBranchRemove" Foreground="Red"/>
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                        </ContextMenu>
-                                    </Grid.ContextMenu>
-                                </Grid>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                        <ComboBox x:Name="BranchesComboBox"
+                                    Width="180"
+                                    Height="40"
+                                    VerticalAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Padding="12,0"
+                                    materialDesign:TextFieldAssist.DecorationVisibility="Collapsed"
+                                    materialDesign:HintAssist.Hint="Rama"
+                                    Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                    SelectionChanged="BranchesComboBox_SelectionChanged" 
+                                    HorizontalContentAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Background="Transparent">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <materialDesign:PackIcon Kind="SourceBranch" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <Grid.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Crear Rama..." Click="Branch_Create_Click" CommandParameter="{Binding}">
+                                                    <MenuItem.Icon>
+                                                        <materialDesign:PackIcon Kind="SourceBranchPlus" Foreground="Green"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <MenuItem Header="Eliminar Rama..." Click="Branch_Delete_Click" CommandParameter="{Binding}" Foreground="Red" Visibility="{Binding Converter={StaticResource IsNotDefaultBranchConverter}}">
+                                                    <MenuItem.Icon>
+                                                        <materialDesign:PackIcon Kind="SourceBranchRemove" Foreground="Red"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                            </ContextMenu>
+                                        </Grid.ContextMenu>
+                                    </Grid>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
 
+                        <Button Style="{StaticResource MaterialDesignOutlinedButton}"
+                                Height="40"
+                                Margin="10,0,0,0"
+                                Padding="8,0"
+                                Click="PublishBranch_Click"
+                                Visibility="{Binding NeedsPublish, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                ToolTip="Publicar esta rama en el servidor remoto">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="CloudUploadOutline" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Publish branch" FontSize="12" FontWeight="Bold"/>
+                                    <TextBlock Text="Publish this branch to Git..." FontSize="10" Opacity="0.7"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                     <!-- 4. ACCIONES (Columnas 5-6) -->
                     <ComboBox x:Name="GitActionsComboBox"
                               Grid.Column="5"
@@ -296,6 +313,10 @@
                               Style="{StaticResource MaterialDesignOutlinedComboBox}"
                               SelectionChanged="GitActionsComboBox_SelectionChanged"
                               PreviewMouseLeftButtonDown="GitActionsComboBox_PreviewMouseLeftButtonDown">
+                        <ComboBox.Visibility>
+                            <Binding Path="NeedsPublish" RelativeSource="{RelativeSource AncestorType=Window}" 
+                                     Converter="{StaticResource InverseBooleanToVisibilityConverter}"/>
+                        </ComboBox.Visibility>
                         <ComboBox.Items>
                             <ComboBoxItem x:Name="DefaultGitActionItem" Padding="10,5">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">

@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using DiffPlex.DiffBuilder;
 using DiffPlex.DiffBuilder.Model;
 using Chapi.Views.Dialogs;
+using Chapi.Helper.GitHelper;
 
 namespace Chapi.Presentation.ViewModels;
 
@@ -16,6 +17,8 @@ public class HistoryViewModel : ViewModelBase
     private readonly LoadHistoryUseCase _loadHistoryUseCase;
     private readonly GetFilesChangedInCommitUseCase _getFilesUseCase;
     private readonly GetFileDiffUseCase _getFileDiffUseCase;
+    private readonly CreateBranchUseCase _createBranchUseCase;
+    private readonly CreateTagUseCase _createTagUseCase;
     
     private string _projectPath = string.Empty;
     private bool _isLoading;
@@ -31,11 +34,15 @@ public class HistoryViewModel : ViewModelBase
     public HistoryViewModel(
         LoadHistoryUseCase loadHistoryUseCase,
         GetFilesChangedInCommitUseCase getFilesUseCase,
-        GetFileDiffUseCase getFileDiffUseCase)
+        GetFileDiffUseCase getFileDiffUseCase,
+        CreateBranchUseCase createBranchUseCase,
+        CreateTagUseCase createTagUseCase)
     {
         _loadHistoryUseCase = loadHistoryUseCase;
         _getFilesUseCase = getFilesUseCase;
         _getFileDiffUseCase = getFileDiffUseCase;
+        _createBranchUseCase = createBranchUseCase;
+        _createTagUseCase = createTagUseCase;
         
         Commits = new ObservableCollection<CommitItemViewModel>();
         FilesChanged = new ObservableCollection<string>();
@@ -48,6 +55,18 @@ public class HistoryViewModel : ViewModelBase
         {
             if (param is CommitItemViewModel commit)
                 await ResetSoftAsync(commit);
+        });
+
+        CreateBranchCommand = new AsyncRelayCommand(async param => 
+        {
+            if (param is string hash) await CreateBranchAsync(hash);
+            else if (param is CommitItemViewModel commit) await CreateBranchAsync(commit.Hash);
+        });
+
+        CreateTagCommand = new AsyncRelayCommand(async param => 
+        {
+            if (param is string hash) await CreateTagAsync(hash);
+            else if (param is CommitItemViewModel commit) await CreateTagAsync(commit.Hash);
         });
     }
 
@@ -114,6 +133,8 @@ public class HistoryViewModel : ViewModelBase
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand LoadMoreCommand { get; }
     public AsyncRelayCommand ResetSoftCommand { get; }
+    public AsyncRelayCommand CreateBranchCommand { get; }
+    public AsyncRelayCommand CreateTagCommand { get; }
 
     #endregion
 
@@ -287,6 +308,51 @@ public class HistoryViewModel : ViewModelBase
                 $"No se pudo deshacer el commit:\n{result}",
                 DialogVariant.Error,
                 DialogType.Info);
+        }
+    }
+
+    private async Task CreateBranchAsync(string commitHash)
+    {
+        if (string.IsNullOrEmpty(ProjectPath) || string.IsNullOrEmpty(commitHash)) return;
+
+        var (ok, branchName) = await Services.DialogService.ShowInputDialog("Crear Rama", "Ingresa el nombre de la nueva rama:");
+        if (!ok || string.IsNullOrWhiteSpace(branchName)) return;
+
+        var result = await _createBranchUseCase.ExecuteAsync(ProjectPath, branchName, commitHash);
+        if (result.IsSuccess)
+        {
+            // Notificar que se creó una rama para actualizar combos si es necesario
+            // En este caso, MainWindow debería refrescar sus ramas.
+            ResetCompleted?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private async Task CreateTagAsync(string commitHash)
+    {
+        if (string.IsNullOrEmpty(ProjectPath) || string.IsNullOrEmpty(commitHash)) return;
+
+        // Verificar si la rama está publicada (requerimiento del usuario)
+        string currentBranch = await Git.GetCurrentBranch(ProjectPath);
+        bool isPublished = await Git.HasUpstream(currentBranch, ProjectPath);
+        
+        if (!isPublished)
+        {
+            await Services.DialogService.ShowConfirmDialog("Rama no publicada", 
+                "Debes publicar la rama antes de crear etiquetas (tags) para asegurar la consistencia con el servidor.", 
+                DialogVariant.Warning, DialogType.Info);
+            return;
+        }
+
+        var (ok, tagName) = await Services.DialogService.ShowInputDialog("Crear Etiqueta (Tag)", "Ingresa el nombre del tag:");
+        if (!ok || string.IsNullOrWhiteSpace(tagName)) return;
+
+        var (okMsg, message) = await Services.DialogService.ShowInputDialog("Mensaje del Tag", "Ingresa un mensaje para el tag anotado:", tagName);
+        if (!okMsg) return;
+
+        var result = await _createTagUseCase.ExecuteAsync(ProjectPath, tagName, message, commitHash);
+        if (result.IsSuccess)
+        {
+            await ReloadHistoryAsync();
         }
     }
 

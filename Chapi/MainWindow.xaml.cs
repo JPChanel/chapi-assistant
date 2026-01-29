@@ -46,6 +46,13 @@ namespace Chapi
         public string ServiceStatusText => "Activo";
         public Brush ServiceStatusBrush => Brushes.Lime;
 
+        private bool _needsPublish;
+        public bool NeedsPublish
+        {
+            get => _needsPublish;
+            set { _needsPublish = value; OnPropertyChanged(nameof(NeedsPublish)); }
+        }
+
         private Presentation.ViewModels.ChangesViewModel? _changesViewModel;
         private Presentation.ViewModels.HistoryViewModel? _historyViewModel;
 
@@ -198,6 +205,7 @@ namespace Chapi
 
             await LoadChangesAsync();
             await LoadHistoryAsync();
+            await CheckBranchStatusAsync();
             _ = DoFetchAsync(isSilent: true);
         }
 
@@ -215,6 +223,7 @@ namespace Chapi
 
             await LoadChangesAsync();
             await LoadHistoryAsync();
+            await CheckBranchStatusAsync();
         }
 
         private async Task LoadChangesAsync()
@@ -229,6 +238,36 @@ namespace Chapi
             if (string.IsNullOrEmpty(projectDirectory) || _historyViewModel == null) return;
             _historyViewModel.ProjectPath = projectDirectory;
             await _historyViewModel.ReloadHistoryAsync();
+        }
+
+        private async Task CheckBranchStatusAsync()
+        {
+            if (string.IsNullOrEmpty(projectDirectory) || string.IsNullOrEmpty(_currentlySelectedBranch))
+            {
+                NeedsPublish = false;
+                return;
+            }
+
+            NeedsPublish = !await Git.HasUpstream(_currentlySelectedBranch, projectDirectory);
+        }
+
+        private async void PublishBranch_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateProject()) return;
+
+            await RunWithLoading(async () =>
+            {
+                var result = await Git.EjecutarGit($"push -u origin {_currentlySelectedBranch}", projectDirectory);
+                if (!result.Contains("fatal:") && !result.Contains("error:"))
+                {
+                    Msg.Assistant($"✅ Rama '{_currentlySelectedBranch}' publicada en origin.");
+                    await CheckBranchStatusAsync();
+                }
+                else
+                {
+                    await DialogService.ShowConfirmDialog("Error al publicar", $"No se pudo publicar la rama: {result}", DialogVariant.Error, DialogType.Info);
+                }
+            });
         }
 
         #region ✅ UI Helpers
