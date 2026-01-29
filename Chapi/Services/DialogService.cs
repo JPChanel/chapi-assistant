@@ -40,6 +40,12 @@ namespace Chapi.Services
 
             return bool.TryParse(result?.ToString(), out var boolResult) && boolResult;
         }
+
+        public static async Task<object> ShowDialog(object dialogContent)
+        {
+            return await DialogHost.Show(dialogContent, App.GlobalDialogIdentifier);
+        }
+
         public static void ShowTrayNotification(string title, string message)
         {
             App.TrayIconManager.ShowNotification(title, message);

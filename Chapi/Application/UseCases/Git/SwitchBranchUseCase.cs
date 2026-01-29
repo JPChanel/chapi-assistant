@@ -18,7 +18,7 @@ public class SwitchBranchUseCase
         _notifications = notifications;
     }
 
-    public async Task<Result> ExecuteAsync(string projectPath, string branchName)
+    public async Task<Result> ExecuteAsync(string projectPath, string branchName, bool stashChanges = false)
     {
         if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
         {
@@ -30,6 +30,17 @@ public class SwitchBranchUseCase
         {
             _notifications.ShowWarning("Nombre de rama inválido");
             return Result.Fail("Nombre de rama inválido");
+        }
+
+        // Si se solicita, hacer stash antes de cambiar de rama
+        if (stashChanges)
+        {
+            var stashCommand = await _gitRepo.ExecuteGitCommandAsync(projectPath, "stash push -m \"Auto-stash al cambiar de rama\"");
+            if (string.IsNullOrEmpty(stashCommand) || stashCommand.Contains("fatal:"))
+            {
+                _notifications.ShowWarning("No se pudo crear el stash");
+                return Result.Fail("Error al crear stash");
+            }
         }
 
         var result = await _gitRepo.SwitchBranchAsync(projectPath, branchName);

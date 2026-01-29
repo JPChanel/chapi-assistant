@@ -1,0 +1,89 @@
+<UserControl x:Class="Chapi.Views.Dialogs.SwitchBranchDialog"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Chapi.Views.Dialogs"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="250" d:DesignWidth="450"
+             x:Name="Self"
+             MaxWidth="500">
+
+    <Border BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Barra lateral azul -->
+            <Border Grid.Column="0" Width="5" Background="{DynamicResource PrimaryHueMidBrush}"/>
+
+            <StackPanel Grid.Column="1" Margin="15">
+                <!-- Título e ícono -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="SourceBranch" 
+                                             Width="24" 
+                                             Height="24" 
+                                             VerticalAlignment="Center"
+                                             Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                    <TextBlock Text="Cambiar de rama"
+                               FontSize="18" 
+                               FontWeight="Bold"
+                               Margin="10,0,0,0"/>
+                </StackPanel>
+
+                <!-- Mensaje -->
+                <TextBlock TextWrapping="Wrap" Margin="0,15,0,15">
+                    <Run Text="Tienes cambios en esta rama. ¿Qué quieres hacer con ellos al cambiar a "/>
+                    <Run Text="{Binding TargetBranch, ElementName=Self}" FontWeight="Bold" Foreground="Orange"/>
+                    <Run Text="?"/>
+                </TextBlock>
+
+                <!-- Opciones de RadioButton -->
+                <StackPanel Margin="0,0,0,20">
+                    <RadioButton x:Name="StashOption" 
+                                 IsChecked="True"
+                                 GroupName="SwitchOptions"
+                                 Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Guardar mis cambios en stash" 
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Text="Tu trabajo en progreso se guardará en stash para volver más tarde"
+                                       FontSize="11"
+                                       Opacity="0.7"
+                                       TextWrapping="Wrap"
+                                       Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="BringOption" 
+                                 GroupName="SwitchOptions">
+                        <StackPanel>
+                            <TextBlock Text="Llevar mis cambios a la nueva rama" 
+                                       FontWeight="SemiBold"/>
+                            <TextBlock FontSize="11" Opacity="0.7" TextWrapping="Wrap" Margin="0,2,0,0">
+                                <Run Text="Tu trabajo en progreso se moverá a "/>
+                                <Run Text="{Binding TargetBranch, ElementName=Self}" FontWeight="SemiBold"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </RadioButton>
+                </StackPanel>
+
+                <!-- Botones -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Cancelar"
+                            Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
+                            CommandParameter="cancel"
+                            Style="{StaticResource MaterialDesignFlatButton}"
+                            Margin="0,0,8,0"/>
+                    <Button Content="Cambiar de rama"
+                            Click="SwitchBranch_Click"
+                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+                </StackPanel>
+
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

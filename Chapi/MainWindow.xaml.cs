@@ -215,9 +215,35 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
+                // Verificar si hay cambios pendientes
+                var statusOutput = await Git.EjecutarGit("status --porcelain", projectDirectory);
+                bool hasChanges = !string.IsNullOrWhiteSpace(statusOutput);
+
+                bool stashChanges = false;
+
+                if (hasChanges)
+                {
+                    // Mostrar diálogo de opciones
+                    var dialog = new Views.Dialogs.SwitchBranchDialog
+                    {
+                        TargetBranch = newBranch
+                    };
+                    var result = await DialogService.ShowDialog(dialog);
+
+                    if (result == null || result.ToString() == "cancel")
+                    {
+                        // Usuario canceló, revertir selección
+                        BranchesComboBox.SelectedItem = _currentlySelectedBranch;
+                        return;
+                    }
+
+                    stashChanges = result.ToString() == "stash";
+                }
+
                 var useCase = App.ServiceProvider.GetService(typeof(UseCases.SwitchBranchUseCase)) as UseCases.SwitchBranchUseCase;
-                var result = await useCase.ExecuteAsync(projectDirectory, newBranch);
-                if (result.IsSuccess) _currentlySelectedBranch = newBranch;
+                var switchResult = await useCase.ExecuteAsync(projectDirectory, newBranch, stashChanges);
+                
+                if (switchResult.IsSuccess) _currentlySelectedBranch = newBranch;
                 else BranchesComboBox.SelectedItem = _currentlySelectedBranch;
             });
 
