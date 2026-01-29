@@ -14,6 +14,7 @@ public class CommitItemViewModel : ViewModelBase
     private DateTime _date;
     private string _relativeDate;
     private bool _isSynced;
+    private string _description;
 
     public string Hash
     {
@@ -31,6 +32,12 @@ public class CommitItemViewModel : ViewModelBase
     {
         get => _message;
         set => SetProperty(ref _message, value);
+    }
+
+    public string Description
+    {
+        get => _description;
+        set => SetProperty(ref _description, value);
     }
 
     public string Author
@@ -58,15 +65,4 @@ public class CommitItemViewModel : ViewModelBase
     }
 
     public string Summary => _message?.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
-
-    public string Description
-    {
-        get
-        {
-            if (string.IsNullOrEmpty(_message)) return string.Empty;
-            var lines = _message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            if (lines.Length <= 1) return string.Empty;
-            return string.Join(Environment.NewLine, lines.Skip(1));
-        }
-    }
 }

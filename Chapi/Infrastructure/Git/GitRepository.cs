@@ -331,6 +331,58 @@ public class GitRepository : IGitRepository
 
     #endregion
 
+    #region History Details
+
+    public async Task<IEnumerable<string>> GetFilesChangedInCommitAsync(string projectPath, string hash)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"show --name-only --pretty=format: {hash}", projectPath);
+            if (!result.IsSuccess)
+                return Enumerable.Empty<string>();
+
+            return result.Output
+                .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(f => f.Trim())
+                .Where(f => !string.IsNullOrEmpty(f));
+        }
+        catch
+        {
+            return Enumerable.Empty<string>();
+        }
+    }
+
+    public async Task<string> GetFileContentAtCommitAsync(string projectPath, string file, string hash)
+    {
+        try
+        {
+            // Normalizar separators para Git
+            var normalizedFile = file.Replace("\\", "/");
+            var result = await _executor.ExecuteAsync($"show \"{hash}:{normalizedFile}\"", projectPath);
+            return result.IsSuccess ? result.Output : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    public async Task<string> GetCommitParentHashAsync(string projectPath, string hash)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"rev-parse {hash}^", projectPath);
+            return result.IsSuccess ? result.Output.Trim() : string.Empty;
+        }
+        catch
+        {
+            // Si es el primer commit, no tiene padre
+            return string.Empty;
+        }
+    }
+
+    #endregion
+
     #region Generic Command Execution
 
     public async Task<string> ExecuteGitCommandAsync(string projectPath, string command)

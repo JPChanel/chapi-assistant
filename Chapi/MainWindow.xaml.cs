@@ -8,14 +8,9 @@ using Chapi.Model;
 using Chapi.Services;
 using Chapi.Views;
 using Chapi.Views.Dialogs;
-using DiffPlex.DiffBuilder;
-using DiffPlex.DiffBuilder.Model;
 using MaterialDesignThemes.Wpf;
-using Microsoft.VisualBasic;
 using System.Diagnostics;
 using System.IO;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -27,8 +22,6 @@ using UseCases = Chapi.Application.UseCases.Git;
 
 namespace Chapi
 {
-
-
     public partial class MainWindow : Window, System.ComponentModel.INotifyPropertyChanged
     {
         public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
@@ -36,46 +29,25 @@ namespace Chapi
 
         private bool _isWindowInitialized = false;
         private string projectDirectory;
-        private List<string> createdPaths = new List<string>();
-        private Git.StashEntry _currentlyViewedStash = null;
-
-        private enum GitActionState { Fetch, Pull, Push }
-        private GitActionState _currentGitAction = GitActionState.Fetch;
-        private Git.AheadBehindResult _currentGitStatus = new(0, 0);
-
         private string _currentlySelectedBranch;
         private string repoUrl = App.Configuration["AppConfig:UrlGit"] ?? throw new Exception("No se encontro Url Git");
         private string updateUrl = App.Configuration["AppConfig:UpdateUrl"] ?? throw new Exception("No se encontro Url Updater");
         public static MainWindow Instance { get; private set; }
 
         private List<string> _repositories = new List<string>();
-        private string _activeDiffFile;
-        private int? _activeDiffLine;
-
         private FileSystemWatcher _fileWatcher;
         private System.Threading.Timer _debounceTimer;
         private readonly object _lock = new object();
         private bool _isReloadingChanges = false;
-
         private bool _isGitInstalled = false;
-        private System.Threading.CancellationTokenSource _diffCts;
-
-        private int _currentHistoryLimit = 50;
-        private const int HistoryPageSize = 50;
         private System.Windows.Threading.DispatcherTimer _fetchTimer;
 
         public string AppVersion { get; private set; }
-        public string ServiceStatusText => "Activo"; // Lógica simplificada basada en UpdateView
+        public string ServiceStatusText => "Activo";
         public Brush ServiceStatusBrush => Brushes.Lime;
 
-        private int _totalAdditions;
-        public int TotalAdditions { get => _totalAdditions; set { _totalAdditions = value; OnPropertyChanged(nameof(TotalAdditions)); } }
-        
-        private int _totalDeletions;
-        public int TotalDeletions { get => _totalDeletions; set { _totalDeletions = value; OnPropertyChanged(nameof(TotalDeletions)); } }
-
-        // ViewModels
         private Presentation.ViewModels.ChangesViewModel? _changesViewModel;
+        private Presentation.ViewModels.HistoryViewModel? _historyViewModel;
 
         public MainWindow()
         {
@@ -83,35 +55,22 @@ namespace Chapi
             Instance = this;
             DataContext = MessageHelper.Instance;
             
-            // Inicializar ViewModels desde DI
-            _changesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ChangesViewModel)) 
-                as Presentation.ViewModels.ChangesViewModel;
+            _changesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ChangesViewModel)) as Presentation.ViewModels.ChangesViewModel;
+            _historyViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.HistoryViewModel)) as Presentation.ViewModels.HistoryViewModel;
+            
             ChangesTab.DataContext = _changesViewModel;
+            HistoryTab.DataContext = _historyViewModel;
 
-            // Hook para hacer scroll automático cuando se agregue un nuevo mensaje
-            MessageHelper.Instance.ScrollRequested += (s, e) =>
-            {
-                ChatScrollViewer?.ScrollToEnd();
-            };
-            Msg.Assistant("👋 ¡Hey! Soy Chapi 🤖 Tu dev buddy para arquitectura. Estoy listo para ayudarte hoy 🚀");
+            Msg.Assistant("👋 ¡Hey! Soy Chapi 🤖 Tu dev buddy para arquitectura.");
 
-
-            _debounceTimer = new System.Threading.Timer(
-                OnDebounceTimerElapsed,
-                null,
-                Timeout.Infinite,
-                Timeout.Infinite);
+            _debounceTimer = new System.Threading.Timer(OnDebounceTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);
             Task.Run(CheckForUpdates);
             LoadVersion();
 
-            // Configurar Timer para Fetch en segundo plano (cada 10 minutos)
             _fetchTimer = new System.Windows.Threading.DispatcherTimer();
             _fetchTimer.Interval = TimeSpan.FromMinutes(10);
             _fetchTimer.Tick += async (s, ev) => await DoFetchAsync(isSilent: true);
             _fetchTimer.Start();
-
-            // Fetch inicial de todos los proyectos para llenar los indicadores
-            _ = Task.Run(async () => await PreFetchAllProjectsAsync());
         }
 
         private void LoadVersion()
@@ -124,41 +83,46 @@ namespace Chapi
                 OnPropertyChanged(nameof(AppVersion));
             }
         }
+
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             _isWindowInitialized = true;
             LoadProjects();
             await RunWithLoading(CheckGitInstallationAsync);
+            
+            // Suscribir eventos entre ViewModels
+            if (_changesViewModel != null)
+            {
+                _changesViewModel.CommitCompleted += async (s, e) => await LoadHistoryAsync();
+            }
+            if (_historyViewModel != null)
+            {
+                _historyViewModel.ResetCompleted += async (s, e) => await LoadChangesAsync();
+            }
         }
+
         private async Task CheckForUpdates()
         {
             try
             {
-
                 var mgr = new UpdateManager(new GithubSource(updateUrl, null, false));
                 var info = await mgr.CheckForUpdatesAsync();
-                if (info == null)
-                {
-                    Msg.Assistant("✅ Chapi está actualizado.");
-                    return;
-                }
+                if (info == null) return;
+                Msg.Assistant($"📢 Nueva versión v{info.TargetFullRelease.Version} disponible.");
+            }
+            catch { }
+        }
 
-                // Solo notificar, NO descargar automáticamente
-                Msg.Assistant($"📢 Nueva versión v{info.TargetFullRelease.Version} disponible. Ve a Configuración (click en el logo) para actualizar.");
-            }
-            catch (Exception ex)
-            {
-                Msg.Assistant($"⚠️ No se pudo comprobar actualizaciones: {ex.Message}");
-            }
-        }
-        /// <summary>
-        /// Se dispara al hacer clic en el logo principal.
-        /// Abre la ventana de Servicios y Administración (UpdateView).
-        /// </summary>
-        private void LogoButton_Click(object sender, RoutedEventArgs e)
+        private bool ValidateProject()
         {
-            ShowUpdateView();
+            if (string.IsNullOrEmpty(projectDirectory))
+            {
+                Msg.Assistant("⚠️ No hay proyecto seleccionado.");
+                return false;
+            }
+            return true;
         }
+
         public void ShowUpdateView()
         {
             var updateView = new Chapi.Views.UpdateView(projectDirectory);
@@ -166,3244 +130,395 @@ namespace Chapi
             updateView.ShowDialog();
         }
 
-        private async Task PreFetchAllProjectsAsync()
-        {
-            // Acceder a la lista de proyectos en el hilo de la UI
-            List<ProjectViewModel> projects = null;
-            Dispatcher.Invoke(() => {
-                projects = (ProjectsComboBox.ItemsSource as IEnumerable<ProjectViewModel>)?.ToList();
-            });
+        private void LogoButton_Click(object sender, RoutedEventArgs e) => ShowUpdateView();
 
-            if (projects == null) return;
-
-            foreach (var project in projects)
-            {
-                try
-                {
-                    // Fetch silencioso solo para actualizar el contador
-                    await Git.EjecutarGit("fetch", project.FullPath);
-                    var counts = await Git.GetAheadBehindCount(project.FullPath);
-                    
-                    Dispatcher.Invoke(() => {
-                        project.Ahead = counts.Ahead;
-                        project.Behind = counts.Behind;
-                    });
-                }
-                catch (Exception ex) 
-                { 
-                    // Log silencioso para no molestar al usuario en pre-fetch
-                    System.Diagnostics.Debug.WriteLine($"Error en pre-fetch para {project.Name}: {ex.Message}");
-                }
-            }
-        }
         private void LoadProjects()
         {
             _repositories = ProjectSettings.LoadProjects();
-
-            var projectVMs = new List<ProjectViewModel>();
-
-            foreach (var r in _repositories)
+            var projectVMs = _repositories.Select(r => new ProjectViewModel
             {
-                projectVMs.Add(new ProjectViewModel
-                {
-                    FullPath = r,
-                    Name = new DirectoryInfo(r).Name,
-                    Icon = PackIconKind.FolderOutline
-                });
-            }
+                FullPath = r,
+                Name = new DirectoryInfo(r).Name,
+                Icon = PackIconKind.FolderOutline
+            }).ToList();
 
             ProjectsComboBox.ItemsSource = projectVMs;
-            if (App.TrayIconManager != null)
-            {
-                App.TrayIconManager.UpdateProjectList(projectVMs);
-            }
+            App.TrayIconManager?.UpdateProjectList(projectVMs);
         }
-        /// <summary>
-        /// Cambia el proyecto activo desde una llamada externa (como el TrayIcon).
-        /// </summary>
-        public void SwitchToProject(string projectPath)
-        {
-            // 1. Asegúrate de que la ventana esté visible
-            if (!IsVisible) Show();
-            Activate();
 
-            // 2. Encuentra el proyecto en el ComboBox
-            var projectToSelect = (ProjectsComboBox.ItemsSource as List<ProjectViewModel>)?.FirstOrDefault(p => p.FullPath == projectPath);
-            // 3. Selecciónalo (esto disparará 'ProjectsComboBox_SelectionChanged'
-            if (projectToSelect != null)
-            {
-                ProjectsComboBox.SelectedItem = projectToSelect;
-            }
-        }
-        /// <summary>
-        /// Este método se ejecuta cuando el timer de "debounce" (500ms) se completa.
-        /// </summary>
         private void OnDebounceTimerElapsed(object state)
         {
-            // Prevenir que se ejecute varias veces si ya está cargando
-            lock (_lock)
-            {
-                if (_isReloadingChanges) return;
-                _isReloadingChanges = true;
-            }
-
-            // Volver al hilo de la UI para tocar la lista de cambios
+            lock (_lock) { if (_isReloadingChanges) return; _isReloadingChanges = true; }
             Dispatcher.InvokeAsync(async () =>
             {
-                try
-                {
-                    await LoadChangesAsync();
-                }
-                finally
-                {
-                    lock (_lock)
-                    {
-                        _isReloadingChanges = false;
-                    }
-                }
+                try { await LoadChangesAsync(); }
+                finally { lock (_lock) { _isReloadingChanges = false; } }
             });
         }
 
-        /// <summary>
-        /// Se dispara CADA VEZ que un archivo cambia.
-        /// Su único trabajo es resetear el timer de "debounce".
-        /// </summary>
         private void OnFileSystemChanged(object sender, FileSystemEventArgs e)
         {
-            // Si el cambio está dentro de la carpeta .git, ignorarlo.
-            if (projectDirectory == null || e.FullPath.Contains(Path.Combine(projectDirectory, ".git")))
-            {
-                return;
-            }
-
-            // Reinicia el timer para que espere 500ms MÁS.
+            if (projectDirectory == null || e.FullPath.Contains(".git")) return;
             _debounceTimer?.Change(500, Timeout.Infinite);
         }
 
-        /// <summary>
-        /// Inicializa el FileSystemWatcher para el proyecto actual.
-        /// </summary>
         private void InitializeFileSystemWatcher(string path)
         {
-            // 1. Limpia el watcher anterior (si existe)
-            if (_fileWatcher != null)
-            {
-                _fileWatcher.EnableRaisingEvents = false;
-                _fileWatcher.Dispose();
-            }
+            if (_fileWatcher != null) { _fileWatcher.EnableRaisingEvents = false; _fileWatcher.Dispose(); }
+            if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
 
-            if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
-            {
-                return;
-            }
-
-            // 2. Crea uno nuevo para la ruta del proyecto
-            _fileWatcher = new FileSystemWatcher(path)
-            {
-                IncludeSubdirectories = true,
-                // Filtros sensibles
-                NotifyFilter = NotifyFilters.LastWrite
-                               | NotifyFilters.FileName
-                               | NotifyFilters.DirectoryName
-                               | NotifyFilters.CreationTime
-                               | NotifyFilters.Size,
-                InternalBufferSize = 65536 // 64KB para evitar desbordes
-            };
-
-            // 3. Conecta los eventos al handler que inicia el timer
+            _fileWatcher = new FileSystemWatcher(path) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName };
             _fileWatcher.Changed += OnFileSystemChanged;
             _fileWatcher.Created += OnFileSystemChanged;
             _fileWatcher.Deleted += OnFileSystemChanged;
-            _fileWatcher.Renamed += (s, e) => OnFileSystemChanged(s, e);
-
-            // 4. ¡Encenderlo!
+            _fileWatcher.Renamed += (s, ev) => OnFileSystemChanged(s, ev);
             _fileWatcher.EnableRaisingEvents = true;
         }
-        private async void ProjectsComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+
+        private async void ProjectsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (ProjectsComboBox.SelectedItem == null) return;
-
-            var selectedProject = ProjectsComboBox.SelectedItem as ProjectViewModel;
-            if (selectedProject == null) return;
+            if (ProjectsComboBox.SelectedItem is not ProjectViewModel selectedProject) return;
             projectDirectory = selectedProject.FullPath;
-            _currentHistoryLimit = HistoryPageSize; // Reset limit on project change
             InitializeFileSystemWatcher(projectDirectory);
-            if (!_isGitInstalled)
-            { var msg = "Seleccionaste un proyecto, pero Git sigue sin detectarse\nChapi necesita Git para rastrear cambios, ver el historial y gestionar commits. Parece que no está instalado o no se agregó al PATH del sistema.";
-                Msg.Assistant(msg);
-                await DialogService.ShowConfirmDialog("Alerta", msg, DialogVariant.Warning, DialogType.Info);
-                return; 
-            }
-            string projectName = new DirectoryInfo(projectDirectory).Name;
-            App.TrayIconManager.UpdateProjectMenuItem(projectName, false);
+            
+            if (!_isGitInstalled) return;
 
-            // Cargamos todo lo local SIN el overlay de carga (RunWithLoading)
-            try
+            App.TrayIconManager?.UpdateProjectMenuItem(selectedProject.Name, false);
+
+            var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
+            var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
+            BranchesComboBox.ItemsSource = branches;
+
+            string activeBranch = await Git.GetCurrentBranch(projectDirectory);
+            if (!string.IsNullOrEmpty(activeBranch))
             {
-                if (projectDirectory != null)
-                {
-                    var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
-                    var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
-                    BranchesComboBox.ItemsSource = branches;
-
-                    if (branches.Any())
-                    {
-                        string activeBranch = await Git.GetCurrentBranch(projectDirectory);
-
-                        if (!string.IsNullOrEmpty(activeBranch) && branches.Contains(activeBranch))
-                        {
-                            _currentlySelectedBranch = activeBranch;
-                            BranchesComboBox.SelectedItem = activeBranch;
-                        }
-                        else
-                        {
-                            var defaultBranch = branches.FirstOrDefault(b => b.Contains("master") || b.Contains("main")) ?? branches.First();
-                            _currentlySelectedBranch = defaultBranch;
-                            BranchesComboBox.SelectedItem = defaultBranch;
-                        }
-                    }
-                    else
-                    {
-                        string activeBranch = await Git.GetCurrentBranch(projectDirectory);
-                        if (!string.IsNullOrEmpty(activeBranch))
-                        {
-                            branches.Add(activeBranch); 
-                            BranchesComboBox.ItemsSource = null; // Refrescar binding
-                            BranchesComboBox.ItemsSource = branches;
-                            
-                            _currentlySelectedBranch = activeBranch;
-                            BranchesComboBox.SelectedItem = activeBranch;
-                        }
-                    }
-
-                    await LoadChangesAsync();
-                    await LoadHistoryAsync();
-                    await LoadTagsAsync();
-
-                    // Lanzar fetch en segundo plano SIN bloquear el overlay
-                    _ = Task.Run(async () => {
-                        try 
-                        {
-                            await DoFetchAsync(isSilent: true);
-                        }
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Error en fetch de fondo: {ex.Message}");
-                        }
-                    });
-                }
+                _currentlySelectedBranch = activeBranch;
+                BranchesComboBox.SelectedItem = activeBranch;
             }
-            catch (Exception ex)
-            {
-                Msg.Assistant($"❌ Error al cargar el proyecto: {ex.Message}");
-            }
+
+            await LoadChangesAsync();
+            await LoadHistoryAsync();
+            _ = DoFetchAsync(isSilent: true);
         }
 
         private async void BranchesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (BranchesComboBox.SelectedItem == null) return;
-
-            string newBranch = BranchesComboBox.SelectedItem.ToString();
-
-            if (newBranch == _currentlySelectedBranch)
-            {
-                await LoadChangesAsync();
-                await LoadHistoryAsync();
-                return;
-            }
-            var statusOutput = await Git.EjecutarGit("status --porcelain", projectDirectory);
-
-            if (!string.IsNullOrWhiteSpace(statusOutput))
-            {
-                // ¡Hay cambios sin "commitear"!
-                var stashResult = await DialogService.ShowConfirmDialog(
-                    "Cambios sin guardar",
-                    "Tienes cambios sin guardar. ¿Quieres guardarlos en el stash antes de cambiar de rama?",
-                    DialogVariant.Warning,
-                    DialogType.Confirm
-                );
-
-                if (!stashResult) // Si el usuario presiona "Cancelar"
-                {
-                    // Revertimos la selección del ComboBox a la rama anterior
-                    BranchesComboBox.SelectedItem = _currentlySelectedBranch;
-                    return;
-                }
-
-                // Si el usuario presionó "Guardar (Stash)"
-                await RunWithLoading(async () =>
-                {
-                     var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashChangesUseCase)) as UseCases.StashChangesUseCase;
-                     var result = await useCase.ExecuteAsync(projectDirectory, "[Chapi] Stash automático por cambio de rama");
-                     if (result.IsSuccess) Msg.Assistant("✅ Cambios guardados en el stash.");
-                     else Msg.Assistant($"⚠️ Error al hacer stash: {result.Error}");
-                });
-            }
+            if (BranchesComboBox.SelectedItem is not string newBranch || newBranch == _currentlySelectedBranch) return;
 
             await RunWithLoading(async () =>
             {
-                // Usar el Use Case de la nueva arquitectura
                 var useCase = App.ServiceProvider.GetService(typeof(UseCases.SwitchBranchUseCase)) as UseCases.SwitchBranchUseCase;
                 var result = await useCase.ExecuteAsync(projectDirectory, newBranch);
-
-                if (result.IsSuccess)
-                {
-                    _currentlySelectedBranch = newBranch;
-                }
-                else
-                {
-                    // Revertimos la selección
-                    BranchesComboBox.SelectedItem = _currentlySelectedBranch;
-                }
+                if (result.IsSuccess) _currentlySelectedBranch = newBranch;
+                else BranchesComboBox.SelectedItem = _currentlySelectedBranch;
             });
 
             await LoadChangesAsync();
             await LoadHistoryAsync();
-
         }
 
         private async Task LoadChangesAsync()
         {
-            if (!ValidateProject())
-            {
-                ChangesListView.ItemsSource = null;
-                StashExpander.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            await UpdateBranchIndicatorsAsync();
-            await LoadStashesAsync();
-
-            if (_changesViewModel != null)
-            {
-                _changesViewModel.ProjectPath = projectDirectory;
-                await _changesViewModel.LoadChangesAsync();
-                
-                ChangesListView.ItemsSource = _changesViewModel.Changes;
-                TotalAdditions = _changesViewModel.TotalAdditions;
-                TotalDeletions = _changesViewModel.TotalDeletions;
-
-            }
-             
-            // Reset Diff View
-            DiffLinesItemsControl.ItemsSource = null;
-            if (DiffEmptyStateView != null) DiffEmptyStateView.Visibility = Visibility.Visible;
-            if (DiffContentBorder != null) DiffContentBorder.Visibility = Visibility.Collapsed;
+            if (string.IsNullOrEmpty(projectDirectory) || _changesViewModel == null) return;
+            _changesViewModel.ProjectPath = projectDirectory;
+            await _changesViewModel.LoadChangesAsync();
         }
-
-        private async Task LoadStashesAsync()
-        {
-            try
-            {
-                var stashes = await Git.ListStashes(projectDirectory);
-                if (stashes.Any())
-                {
-                    StashListView.ItemsSource = stashes;
-                    StashExpander.Header = $"📦 Stashed Changes ({stashes.Count})";
-                    StashExpander.Visibility = Visibility.Visible;
-                }
-                else
-                {
-                    StashListView.ItemsSource = null;
-                    StashExpander.Header = "📦 Stashed Changes (0)";
-                    StashExpander.Visibility = Visibility.Collapsed;
-                }
-            }
-            catch (Exception ex)
-            {
-                StashExpander.Visibility = Visibility.Collapsed;
-                Msg.Assistant($"⚠️ Error al comprobar stashes: {ex.Message}");
-            }
-        }
-
-
-        private async void btnReloadChanges_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject()) return;
-            
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant("🔄 Recargando cambios...");
-                await LoadChangesAsync();
-                Msg.Assistant("✅ Cambios recargados.");
-            });
-        }
-        private Presentation.ViewModels.HistoryViewModel? _historyViewModel;
 
         private async Task LoadHistoryAsync()
         {
-            if (!ValidateProject())
-            {
-                HistoryListView.ItemsSource = null;
-                return;
-            }
-
-            await UpdateBranchIndicatorsAsync();
-
-            if (_historyViewModel == null)
-            {
-                 _historyViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.HistoryViewModel)) 
-                    as Presentation.ViewModels.HistoryViewModel;
-            }
-
-            if (_historyViewModel != null)
-            {
-                _historyViewModel.ProjectPath = projectDirectory;
-                await _historyViewModel.LoadHistoryAsync();
-                HistoryListView.ItemsSource = _historyViewModel.Commits;
-            }
+            if (string.IsNullOrEmpty(projectDirectory) || _historyViewModel == null) return;
+            _historyViewModel.ProjectPath = projectDirectory;
+            // El ViewModel carga el historial automáticamente al cambiar la ruta
         }
 
-
-
-
-        #region ✅ UI Helpers (Loading + DialogHost)
-        public void ShowLoading() => LoadingOverlay.Visibility = Visibility.Visible;
-        public void HideLoading() => LoadingOverlay.Visibility = Visibility.Collapsed;
-
-        public async Task<T> RunWithLoading<T>(Func<Task<T>> action)
-        {
-            try
-            {
-                ShowLoading();
-                return await action();
-            }
-            finally
-            {
-                HideLoading();
-            }
-        }
+        #region ✅ UI Helpers
+        private void ShowLoading() => LoadingOverlay.Visibility = Visibility.Visible;
+        private void HideLoading() => LoadingOverlay.Visibility = Visibility.Collapsed;
 
         public async Task RunWithLoading(Func<Task> action)
         {
-            try
-            {
-                ShowLoading();
-                await action();
-            }
-            finally
-            {
-                HideLoading();
-            }
+            try { ShowLoading(); await action(); }
+            finally { HideLoading(); }
         }
         #endregion
-        #region ✅ Proyecto Base
-        public async void CreateNewTemplate()
-        {
-
-            if (!IsVisible) Show();
-
-            var (ok, projectName) = await DialogService.ShowInputDialog("Nuevo Proyecto", "Ingrese nombre del proyecto");
-            if (!ok || string.IsNullOrWhiteSpace(projectName))
-                return;
-
-            var folderDialog = new FolderBrowserDialog();
-            if (folderDialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
-                return;
-
-            projectDirectory = folderDialog.SelectedPath;
-            DialogService.ShowTrayNotification("Nuevo Proyecto", $"Se creará: {projectName}\nDestino: {projectDirectory}");
-
-
-            string rutaProyecto = Path.Combine(projectDirectory, projectName);
-
-
-
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant("Clonando repositorio base...");
-                await Git.CloneRepo(repoUrl, rutaProyecto);
-
-                Msg.Assistant("Eliminando .git...");
-                Git.DeleteGitFolder(rutaProyecto);
-
-                Msg.Assistant("Renombrando estructura...");
-                string oldName = Path.GetFileNameWithoutExtension(repoUrl);
-                RenameDirectoryAndFiles.RenombrarRecursivamente(rutaProyecto, oldName, projectName);
-
-                projectDirectory = rutaProyecto;
-
-                Msg.Assistant("Inicializando nuevo repo Git...");
-                await Git.InitGit(rutaProyecto);
-
-                var asociar = await DialogService.ShowConfirmDialog("¿Deseas asociar un repositorio remoto ahora?", "Asociar Git");
-                if (asociar)
-                {
-                    var (assocOk, urlGit) = await DialogService.ShowInputDialog("Repositorio Git", "Ingrese la URL del repositorio remoto:");
-                    if (assocOk && !string.IsNullOrWhiteSpace(urlGit))
-                    {
-                        Msg.Assistant("Asociando repositorio remoto...");
-                        await Git.EjecutarGit($"remote add origin {urlGit}", rutaProyecto);
-                        Msg.Assistant("Repositorio remoto asociado correctamente.");
-                    }
-                    else
-                    {
-                        Msg.Assistant("URL vacía u operación cancelada.");
-                    }
-                }
-                else
-                {
-                    Msg.Assistant("Asociación omitida por el usuario.");
-                }
-
-                ProjectSettings.AddProject(rutaProyecto);
-                LoadProjects();
-                ProjectsComboBox.SelectedItem = new DirectoryInfo(rutaProyecto).Name;
-
-                App.TrayIconManager.UpdateProjectMenuItem($"{Path.GetFileName(rutaProyecto)}", true);
-                FileHelper.DeleteRollbackFiles();
-                Msg.Assistant("Proyecto creado exitosamente en: " + rutaProyecto);
-
-            });
-        }
-        #endregion
-        #region ✅ Selección de Proyecto Existente
-        public async void SelectProjectMenu_Click(object sender, RoutedEventArgs e)
-        {
-            using var folderDialog = new FolderBrowserDialog
-            {
-                Description = "Dale sin Miedo al éxito",
-                ShowNewFolderButton = false
-            };
-            using var owner = new Form { TopMost = true, StartPosition = FormStartPosition.CenterScreen };
-            if (folderDialog.ShowDialog(owner) != System.Windows.Forms.DialogResult.OK)
-                return;
-            await RunWithLoading(async () =>
-            {
-                projectDirectory = folderDialog.SelectedPath;
-                ProjectSettings.AddProject(projectDirectory);
-                LoadProjects();
-                ProjectsComboBox.SelectedItem = new DirectoryInfo(projectDirectory).Name;
-
-                string projectName = Path.GetFileName(projectDirectory);
-                DialogService.ShowTrayNotification("Proyecto Existente", $"Seleccionado: {projectDirectory}");
-                App.TrayIconManager.UpdateProjectMenuItem(projectName, false);
-                FileHelper.DeleteRollbackFiles();
-                await Task.Delay(100);
-            });
-        }
-
-        private void btnAddProject_Click(object sender, RoutedEventArgs e)
-        {
-            var button = sender as System.Windows.Controls.Button;
-            if (button == null) return;
-
-            var contextMenu = new System.Windows.Controls.ContextMenu();
-            
-            var cloneMenuItem = new System.Windows.Controls.MenuItem
-            {
-                Header = "Clonar Nuevo Repositorio...",
-                Icon = new PackIcon { Kind = PackIconKind.Add }
-            };
-            cloneMenuItem.Click += CloneProject_Click;
-            
-            var addMenuItem = new System.Windows.Controls.MenuItem
-            {
-                Header = "Agregar Repositorio Existente...",
-                Icon = new PackIcon { Kind = PackIconKind.FolderAdd }
-            };
-            addMenuItem.Click += SelectProjectMenu_Click;
-            
-            contextMenu.Items.Add(cloneMenuItem);
-            contextMenu.Items.Add(addMenuItem);
-            
-            contextMenu.PlacementTarget = button;
-            contextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
-            contextMenu.IsOpen = true;
-        }
-        #endregion
-        #region ✅ Git - Asociar y Commit Asistido
-        public async void AsociateGitMenu_Click()
-        {
-            if (!ValidateProject()) return;
-
-            var asociar = await DialogService.ShowConfirmDialog("¿Deseas asociar un repositorio remoto ahora?", "Asociar Git");
-            if (!asociar)
-            {
-                Msg.Assistant("Asociación omitida por el usuario.");
-                return;
-            }
-
-            var (ok, urlGit) = await DialogService.ShowInputDialog("Repositorio Git", "Ingrese la URL del repositorio remoto:");
-            if (ok && !string.IsNullOrWhiteSpace(urlGit))
-            {
-                Msg.Assistant("Asociando repositorio remoto...");
-                await Git.EjecutarGit($"remote add origin {urlGit}", projectDirectory);
-                Msg.Assistant("Repositorio remoto asociado correctamente.");
-            }
-            else
-            {
-                Msg.Assistant("URL vacía o cancelado.");
-            }
-        }
-        public async void GitCommitAsistance()
-        {
-            if (!ValidateProject()) return;
-            Msg.User("Genera Commit");
-            await RunWithLoading(async () =>
-            {
-                var head = await Git.EjecutarGit("rev-parse --quiet --verify HEAD", projectDirectory);
-                if (string.IsNullOrWhiteSpace(head))
-                {
-                    await Git.EjecutarGit("add .", projectDirectory);
-                    await Git.EjecutarGit("commit --allow-empty -m \"first commit\"", projectDirectory);
-                    await DialogService.ShowConfirmDialog("Listo", "🚀 Primer commit creado.", DialogVariant.Success, DialogType.Info);
-                    return;
-                }
-
-                await Git.EjecutarGit("add .", projectDirectory);
-                string diff = await Git.EjecutarGit("diff --cached", projectDirectory);
-                if (string.IsNullOrWhiteSpace(diff))
-                {
-                    await DialogService.ShowConfirmDialog("Alerta", "No hay cambios para commitear.", DialogVariant.Warning, DialogType.Info);
-                    return;
-                }
-                var prompt = GetPrompt.GitCommit(diff);
-                string commitMsg = await AIClient.SendPromptAsync(prompt);
-                if (string.IsNullOrWhiteSpace(commitMsg)) return;
-
-                var (confirm, msg) = await DialogService.ShowInputDialog("¿Desea realizar el commit?", "Mensaje generado por IA:", commitMsg);
-                if (!confirm)
-                {
-                    Msg.Assistant("Commit cancelado por el usuario.");
-                    return;
-                }
-
-                await Git.EjecutarGit($"commit -m  \"{msg}\"", projectDirectory);
-                var response = await DialogService.ShowConfirmDialog(
-                     "Confirmación",
-                     "Commit realizado exitosamente.\n¿Desea subir los cambios al repositorio?",
-                     DialogVariant.Success,
-                     DialogType.Confirm
-                 );
-                Msg.Assistant("Commit realizado exitosamente.");
-
-                if (response)
-                {
-                    // Usar el Use Case de la nueva arquitectura
-                    var pushUseCase = App.ServiceProvider.GetService(typeof(UseCases.PushChangesUseCase)) as UseCases.PushChangesUseCase;
-                    var currentBranch = BranchesComboBox.SelectedItem?.ToString() ?? "main";
-                    var pushResult = await pushUseCase.ExecuteAsync(projectDirectory, currentBranch);
-
-                    if (!pushResult.IsSuccess)
-                    {
-                        await DialogService.ShowConfirmDialog(
-                            "Error al subir",
-                            $"El push no se realizó correctamente:\n\n{pushResult.Error}",
-                            DialogVariant.Error,
-                            DialogType.Info
-                        );
-                    }
-                    else
-                    {
-                        await DialogService.ShowConfirmDialog(
-                            "Éxito",
-                            "Los cambios se subieron correctamente al repositorio.",
-                            DialogVariant.Success,
-                            DialogType.Info
-                        );
-                    }
-                }
-            });
-        }
-
-        #endregion
-
-        #region ✅ Generación de Módulos y Métodos
-        public async void GenerateModuleMenu_Click()
-        {
-            if (!IsVisible) Show();
-            if (!ValidateProject()) return;
-
-            var (result, inputModules) = await DialogService.ShowInputDialog("Crear Módulo", "Ingrese los nombres de los módulos separados por ';':");
-            if (!result || string.IsNullOrWhiteSpace(inputModules)) return;
-
-            var modules = inputModules.Split(';').Select(m => m.Trim()).Where(m => m.Length > 0).ToArray();
-            var (dbOk, dbChoice) = await DialogService.ShowInputDialog("Seleccionar Base de Datos", "Ingrese 'S' para Sybase o 'P' para Postgres:");
-            if (!dbOk || string.IsNullOrWhiteSpace(dbChoice)) return;
-
-            string dbName = dbChoice.ToUpper() == "S" ? "Sybase" : "Postgres";
-
-            foreach (var module in modules)
-                await RunWithLoading(() => GenerateModule(module, dbName));
-        }
-        private async Task GenerateModule(string moduleName, string dbName)
-        {
-            moduleName = char.ToUpper(moduleName[0]) + moduleName[1..];
-            Msg.Assistant($"Generando módulo: {moduleName}");
-
-
-            string basePath = projectDirectory;
-            string apiProjectPath = FindApiDirectory.GetDirectory(basePath);
-
-            if (apiProjectPath == null)
-            {
-                DialogService.ShowTrayNotification("Error", "No se pudo detectar el proyecto API.");
-                return;
-            }
-
-            string apiPath = Path.Combine(basePath, Path.GetFileName(apiProjectPath), "Controllers", moduleName);
-            string appPath = Path.Combine(basePath, "Application", moduleName);
-            string domainPath = Path.Combine(basePath, "Domain", moduleName);
-            string infraPath = Path.Combine(basePath, "Infrastructure", dbName, "Repositories", moduleName);
-
-            Msg.Assistant("Creando carpetas...");
-            Directory.CreateDirectory(apiPath);
-            Directory.CreateDirectory(appPath);
-            Directory.CreateDirectory(domainPath);
-            Directory.CreateDirectory(infraPath);
-
-            createdPaths.AddRange(new[] { apiPath, appPath, domainPath, infraPath });
-            Msg.Assistant("Carpetas creadas.");
-
-            // ✅ OPERACIONES POR DEFECTO DEL MÓDULO
-            var defaultOperations = new[] { "Get", "Post", "GetById" };
-
-            Msg.Assistant("Generando clases base con Roslyn...");
-
-            foreach (var operation in defaultOperations)
-            {
-                var rollbackEntry = RollbackManager.StartTransaction(moduleName, moduleName, operation);
-                try
-                {
-                    // API Controller
-                    AddApiControllerMethod.Add(apiPath, moduleName, operation, moduleName, rollbackEntry);
-
-                    // Application Layer
-                    AddApplicationMethod.Add(appPath, moduleName, operation, moduleName, rollbackEntry);
-
-                    // Domain Layer
-                    await AddDomainMethod.Add(domainPath, moduleName, operation, moduleName, rollbackEntry);
-
-                    // Infrastructure Layer
-                    await AddInfrastructureMethod.Add(infraPath, moduleName, dbName, operation, moduleName, rollbackEntry);
-
-
-                    Msg.Assistant("Inyectando Servicios...");
-
-                    #region Servicios Injection
-                    string dependencyInjectionPath = Path.Combine(basePath, Path.GetFileName(apiProjectPath), "Config", "DependencyInjection.cs");
-
-                    // ✅ USAR EL MÉTODO ROSLYN PARA DEPENDENCY INJECTION
-                    var diContent = File.ReadAllText(dependencyInjectionPath);
-                    RollbackManager.RecordFileModification(rollbackEntry, dependencyInjectionPath, diContent);
-
-                    AddDependencyInjection.Add(dependencyInjectionPath, moduleName, defaultOperations);
-                    // 💾 GUARDAR ROLLBACK
-                    RollbackManager.CommitTransaction(rollbackEntry);
-                }
-                catch (Exception ex)
-                {
-                    Msg.Assistant($"❌ Error al agregar mudulo base {moduleName}: {ex.Message}");
-                    Msg.Assistant($"🔄 Ejecutando rollback automático...");
-
-                    // Si algo falla, hacer rollback automático de los cambios parciales
-                    var tempPath = RollbackManager.GetRollbackFilePathForEntry(rollbackEntry);
-                    RollbackManager.CommitTransaction(rollbackEntry); // Guardar para poder hacer rollback
-                    RollbackManager.ExecuteRollback(tempPath);
-
-                    throw new Exception($"Error al agregar mudulo: {ex.Message}\nSe ha realizado rollback de los cambios.");
-                }
-            }
-            await DialogService.ShowConfirmDialog(
-                "Confirmación",
-                $"✅ Métodos Agregados Correctamente en Módulo {moduleName}",
-                DialogVariant.Info,
-                DialogType.Info
-            );
-
-            Msg.Assistant("✅ Servicios inyectados correctamente.");
-            #endregion
-
-            Msg.Assistant($"✅ Módulo '{moduleName}' generado correctamente.");
-
-        }
-        public async Task RollbackSelectModule()
-        {
-            if (!IsVisible) Show();
-
-            var rollbacks = RollbackManager.GetAvailableRollbacks();
-
-            if (!rollbacks.Any())
-            {
-                await DialogService.ShowConfirmDialog(
-                    "Información",
-                    "No hay rollbacks disponibles.",
-                    Views.Dialogs.DialogVariant.Info,
-                    Views.Dialogs.DialogType.Info
-                );
-                return;
-            }
-
-            // Abrir ventana de selección de rollback
-            RollbackSelectorView rollbackView = new RollbackSelectorView();
-            var result = rollbackView.ShowDialog();
-
-            if (result == true)
-            {
-                Msg.Assistant("✅ Rollback ejecutado correctamente.");
-            }
-        }
-
-        #endregion
-
-        public async void AddMethod_Click()
-        {
-            if (!Directory.Exists(projectDirectory))
-            {
-                DialogService.ShowTrayNotification("Error", "Por favor selecciona un proyecto.");
-                return;
-            }
-            if (!this.IsVisible)
-            {
-                this.Show();
-            }
-            AddMethodView am = new AddMethodView(projectDirectory);
-            am.Owner = this;
-            am.ShowDialog();
-        }
-
-
-
-        private void btnNuevo_Click(object sender, RoutedEventArgs e)
-        {
-            AddMethod_Click();
-        }
-        private void btnRecuve_Click(object sender, RoutedEventArgs e)
-        {
-            RollbackSelectModule();
-        }
-
-
-        public void AddClassLog_Click()
-        {
-            this.Show();
-            this.Activate();
-            GitTabs.SelectedItem = AssistantTab;
-        }
-
-
-
-        #region ✅ Utilidades y Validaciones
-        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
-        {
-            e.Cancel = true;
-            Hide();
-        }
-
-        private bool ValidateProject()
-        {
-            if (string.IsNullOrEmpty(projectDirectory) || !Directory.Exists(projectDirectory))
-            {
-                DialogService.ShowTrayNotification("Error", "Por favor selecciona un proyecto primero.");
-                return false;
-            }
-            return true;
-        }
-
-        private async void CloneProject_Click(object sender, RoutedEventArgs e)
-        {
-            var (ok, repoUrl) = await DialogService.ShowInputDialog("Clonar Repositorio", "Ingrese la URL del repositorio:");
-            if (!ok || string.IsNullOrWhiteSpace(repoUrl))
-                return;
-
-            var folderDialog = new FolderBrowserDialog();
-            if (folderDialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
-                return;
-
-            string projectPath = Path.Combine(folderDialog.SelectedPath, Path.GetFileNameWithoutExtension(repoUrl));
-
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant("Clonando repositorio...");
-                var result = await Git.CloneRepo(repoUrl, projectPath);
-                if (result.Success)
-                {
-                    ProjectSettings.AddProject(projectPath);
-                    LoadProjects();
-                    ProjectsComboBox.SelectedItem = new DirectoryInfo(projectPath).Name;
-                    Msg.Assistant("Repositorio clonado exitosamente.");
-                }
-                else
-                {
-                    Msg.Assistant($"Error al clonar el repositorio: {result.Output}");
-                }
-            });
-        }
-
-
-
-        private async Task DoFetchAsync(bool isSilent = false)
-        {
-            if (!ValidateProject()) return;
-
-            Func<Task> fetchLogic = async () =>
-            {
-                // Usar el Use Case de la nueva arquitectura
-                var useCase = App.ServiceProvider.GetService(typeof(UseCases.FetchChangesUseCase)) as UseCases.FetchChangesUseCase;
-                var result = await useCase.ExecuteAsync(projectDirectory, isSilent);
-
-                if (!result.IsSuccess)
-                {
-                    if (!isSilent)
-                    {
-                        await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de fetch.\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
-                    }
-                    return;
-                }
-
-                // Lógica adicional: detectar conflictos potenciales
-                // 1. Obtener tus cambios locales (con rutas Git '/')
-                var statusOutput = await Git.EjecutarGit("status --porcelain -uall", projectDirectory);
-                var localChanges = new HashSet<string>();
-                if (!string.IsNullOrWhiteSpace(statusOutput))
-                {
-                    var regex = new Regex(@"^(?<status>[\w\? ]{1,2})\s+(?<file>.+)$");
-                    var lines = statusOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var line in lines)
-                    {
-                        var match = regex.Match(line.Trim());
-                        if (match.Success)
-                        {
-                            localChanges.Add(match.Groups["file"].Value.Trim().Trim('"'));
-                        }
-                    }
-                }
-
-                // 2. Obtener los archivos cambiados en el remoto (con rutas Git '/')
-                var remoteDiffOutput = await Git.EjecutarGit("diff --name-only HEAD...@{u}", projectDirectory);
-                var remoteChanges = new HashSet<string>();
-                if (!string.IsNullOrWhiteSpace(remoteDiffOutput) && !remoteDiffOutput.Contains("fatal:"))
-                {
-                    remoteChanges = remoteDiffOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                                                 .Select(f => f.Trim().Trim('"'))
-                                                 .ToHashSet();
-                }
-
-                // 3. Encontrar la intersección (archivos modificados en AMBOS lados)
-                var conflictingFiles = localChanges.Intersect(remoteChanges).ToList();
-
-                // 4. ¡Mostrar la advertencia! (Solo si no es silencioso o si hay conflicto real)
-                if (conflictingFiles.Any() && !isSilent)
-                {
-                    string fileList = string.Join("\n- ", conflictingFiles);
-                    await DialogService.ShowConfirmDialog(
-                        "Aviso de Conflicto Potencial",
-                        $"Tu 'pull' puede fallar. Tienes cambios locales en archivos que también cambiaron en el remoto:\n\n- {fileList}\n\n" +
-                        "Se recomienda hacer 'Stash' de tus cambios antes de hacer 'Pull'.",
-                        DialogVariant.Warning, DialogType.Info);
-                }
-
-                // Actualizar indicadores del Model
-                var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
-                var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
-                var currentBranch = BranchesComboBox.SelectedItem as string;
-                BranchesComboBox.ItemsSource = branches;
-                if (!string.IsNullOrEmpty(currentBranch) && branches.Contains(currentBranch))
-                {
-                    BranchesComboBox.SelectedItem = currentBranch;
-                }
-
-                // --- NUEVO: Actualizar el ProjectViewModel actual ---
-                ProjectViewModel currentProject = null;
-                Dispatcher.Invoke(() => {
-                    currentProject = ProjectsComboBox.SelectedItem as ProjectViewModel;
-                });
-
-                if (currentProject != null)
-                {
-                    var counts = await Git.GetAheadBehindCount(projectDirectory);
-                    Dispatcher.Invoke(() => {
-                        currentProject.Ahead = counts.Ahead;
-                        currentProject.Behind = counts.Behind;
-                    });
-                }
-
-                // Recargar UI
-                await LoadChangesAsync();
-                await LoadHistoryAsync(); 
-            };
-
-            if (isSilent)
-            {
-                await fetchLogic();
-            }
-            else
-            {
-                await RunWithLoading(fetchLogic);
-            }
-        }
-        private async Task DoPushAsync()
-        {
-            if (!ValidateProject()) return;
-            var originalIcon = DefaultGitActionIcon.Kind;
-            var originalText = DefaultGitActionText.Text;
-            GitActionsComboBox.IsEnabled = false;
-            await RunWithLoading(async () =>
-            {
-                try
-                {
-                    Msg.Assistant("Subiendo cambios al repositorio remoto...");
-
-                    // 2. Define la acción que se ejecutará con cada línea de progreso
-                    Action<string> progressCallback = (line) =>
-                    {
-                        // ¡Importante! Debemos usar el Dispatcher para actualizar la UI
-                        // desde un hilo de fondo.
-                        Dispatcher.Invoke(() =>
-                        {
-                            // Busca la línea de progreso (ej: "Writing objects: 30%")
-                            if (line.Contains("Writing objects:") || line.Contains("Compressing objects:"))
-                            {
-                                // Extrae el texto principal (ej: "Writing objects: 30%")
-                                var progressText = line.Split(',').FirstOrDefault()?.Trim();
-
-                                // Actualiza el botón para que actúe como un spinner
-                                DefaultGitActionIcon.Kind = PackIconKind.Refresh;
-                                DefaultGitActionText.Text = progressText ?? "Subiendo...";
-                            }
-                            else if (line.StartsWith("Pushing to"))
-                            {
-                                DefaultGitActionIcon.Kind = PackIconKind.Refresh;
-                                DefaultGitActionText.Text = "Subiendo...";
-                            }
-                        });
-                    };
-
-                    // 3. Llama al nuevo método de Git
-                    var result = await Git.EjecutarGitConProgreso("push", projectDirectory, progressCallback);
-
-                    // 4. Analiza el resultado final (como hacías antes)
-                    if (result.Contains("error") || result.Contains("fatal") || result.Contains("rejected"))
-                    {
-                        Msg.Assistant($"❌ Error al realizar push: {result}");
-                        await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de push.\n\n{result}", DialogVariant.Error, DialogType.Info);
-                    }
-                    else if (result.Contains("Everything up-to-date"))
-                    {
-                        Msg.Assistant("✅ Todo está actualizado. No hay nada para subir.");
-                    }
-                    else
-                    {
-                        Msg.Assistant($"✅ Push completado exitosamente.\n{result}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Msg.Assistant($"❌ Error fatal durante el push: {ex.Message}");
-                }
-                finally
-                {
-                    // 5. Restaura el botón a su estado original
-                    GitActionsComboBox.IsEnabled = true;
-
-                    // Recargamos el estado (que pondrá el texto e icono correctos)
-                    await LoadChangesAsync();
-                    await LoadHistoryAsync();
-                }
-            });
-        }
-        private async Task DoPullAsync()
-        {
-            if (!ValidateProject()) return;
-
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant("Preparando Pull...");
-
-                // 1. Verificar si hay cambios locales
-                var statusOutput = await Git.EjecutarGit("status --porcelain", projectDirectory);
-                bool hasLocalChanges = !string.IsNullOrWhiteSpace(statusOutput);
-
-                bool usedStash = false;
-                if (hasLocalChanges)
-                {
-                    bool confirmStash = await DialogService.ShowConfirmDialog(
-                        "Cambios Locales Detectados",
-                        "Tienes cambios locales que podrían causar conflictos con el Pull.\n\n" +
-                        "¿Deseas que Chapi guarde tus cambios (Stash) temporalmente, realice el Pull y luego los restaure automáticamente?",
-                        DialogVariant.Warning, DialogType.Confirm);
-
-                    if (confirmStash)
-                    {
-                        Msg.Assistant("Guardando cambios locales (Stash)...");
-                        var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashChangesUseCase)) as UseCases.StashChangesUseCase;
-                        var result = await useCase.ExecuteAsync(projectDirectory, "Auto-stash antes de Pull (Chapi)");
-                        if (result.IsSuccess)
-                        {
-                            usedStash = true;
-                        }
-                        else
-                        {
-                            Msg.Assistant("⚠️ No se pudo realizar Stash. Intentando pull directamente...");
-                        }
-                    }
-                }
-
-                Msg.Assistant("Realizando pull de los cambios remotos...");
-                
-                // Usar el Use Case de la nueva arquitectura
-                var pullUseCase = App.ServiceProvider.GetService(typeof(UseCases.PullChangesUseCase)) as UseCases.PullChangesUseCase;
-                var currentBranch = BranchesComboBox.SelectedItem?.ToString() ?? "main";
-                var pullResult = await pullUseCase.ExecuteAsync(projectDirectory, currentBranch);
-
-                if (!pullResult.IsSuccess)
-                {
-                    // El Use Case ya mostró el error, solo verificamos si hay conflictos específicos
-                    if (pullResult.Error.Contains("CONFLICT") || pullResult.Error.Contains("Automatic merge failed"))
-                    {
-                        await DialogService.ShowConfirmDialog("Conflicto de Merge",
-                            "No se pudo completar el pull automáticamente. Tienes conflictos:\n\n" + pullResult.Error,
-                            DialogVariant.Error, DialogType.Info);
-                    }
-                }
-
-                // 3. Si usamos stash, intentar restaurarlo
-                if (usedStash)
-                {
-                    Msg.Assistant("Restaurando tus cambios locales (Stash Pop)...");
-                    var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashPopUseCase)) as UseCases.StashPopUseCase;
-                    var result = await useCase.ExecuteAsync(projectDirectory); // null index = último
-                    
-                    if (!result.IsSuccess) // Si hay error, asumimos conflicto
-                    {
-                        Msg.Assistant("⚠️ Tus cambios locales tienen conflictos con lo que bajó el servidor.");
-                        await DialogService.ShowConfirmDialog("Conflicto en Stash Pop",
-                            "Tus cambios locales fueron restaurados pero tienen conflictos. Deberás resolverlos manualmente.",
-                            DialogVariant.Warning, DialogType.Info);
-                    }
-                    else
-                    {
-                        Msg.Assistant("✅ Cambios locales restaurados correctamente.");
-                    }
-                }
-
-                await LoadChangesAsync();
-                await LoadHistoryAsync();
-            });
-        }
-        #endregion
-
-        private async void GitTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (e.Source is System.Windows.Controls.TabControl)
-            {
-                if (GitTabs.SelectedItem is TabItem tabItem)
-                {
-                    string header = tabItem.Header.ToString();
-                    if (header == "Cambios")
-                    {
-                        await LoadChangesAsync();
-                    }
-                    else if (header == "Historial")
-                    {
-                        await LoadHistoryAsync();
-                    }
-                    // --- NUEVO ---
-                    else if (header == "Tags")
-                    {
-                        await LoadTagsAsync();
-                    }
-                }
-            }
-        }
-
-        private async void ChangesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            // Cancelar cualquier proceso de diff anterior
-            _diffCts?.Cancel();
-            _diffCts = new System.Threading.CancellationTokenSource();
-            var token = _diffCts.Token;
-
-            // Limpiar el visor inmediatamente para dar feedback visual
-            DiffLinesItemsControl.ItemsSource = null;
-
-            var selectedItem = e.AddedItems.OfType<Presentation.ViewModels.ChangeItemViewModel>().FirstOrDefault();
-
-            if (selectedItem == null)
-            {
-                // Mostrar "Sin Archivo Seleccionado"
-                if (DiffEmptyStateView != null) DiffEmptyStateView.Visibility = Visibility.Visible;
-                if (DiffContentBorder != null) DiffContentBorder.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            // Ocultar "Sin Archivo" y mostrar Diff
-            if (DiffEmptyStateView != null) DiffEmptyStateView.Visibility = Visibility.Collapsed;
-            if (DiffContentBorder != null) DiffContentBorder.Visibility = Visibility.Visible;
-
-            if (!ValidateProject())
-            {
-                return;
-            }
-
-            try
-            {
-                // Envolvemos toda la lógica pesada en Task.Run para no bloquear el hilo de la UI
-                var result = await Task.Run(async () =>
-                {
-                    string oldText = await Git.GetFileContentAtCommitish(selectedItem.FilePath, "HEAD", projectDirectory);
-                    string fullPath = Path.Combine(projectDirectory, selectedItem.FilePath);
-                    string newText = string.Empty;
-
-                    if (File.Exists(fullPath) && selectedItem.Status != "Eliminado")
-                    {
-                        newText = await File.ReadAllTextAsync(fullPath);
-                    }
-
-                    token.ThrowIfCancellationRequested();
-
-                    var diffBuilder = new InlineDiffBuilder(new DiffPlex.Differ());
-                    var diff = diffBuilder.BuildDiffModel(oldText, newText);
-
-                    token.ThrowIfCancellationRequested();
-
-                    var filteredLines = new List<DiffPiece>();
-                    const int contextLines = 3;
-
-                    for (int i = 0; i < diff.Lines.Count; i++)
-                    {
-                        if (token.IsCancellationRequested) break;
-
-                        var line = diff.Lines[i];
-                        if (line.Type == ChangeType.Unchanged)
-                        {
-                            bool isContext = false;
-                            for (int j = 1; j <= contextLines; j++)
-                            {
-                                if (i - j >= 0 && diff.Lines[i - j].Type != ChangeType.Unchanged) { isContext = true; break; }
-                            }
-                            if (!isContext)
-                            {
-                                for (int j = 1; j <= contextLines; j++)
-                                {
-                                    if (i + j < diff.Lines.Count && diff.Lines[i + j].Type != ChangeType.Unchanged) { isContext = true; break; }
-                                }
-                            }
-                            if (isContext) { filteredLines.Add(line); }
-                            else if (filteredLines.Count > 0 && filteredLines.Last().Type != ChangeType.Imaginary)
-                            {
-                                filteredLines.Add(new DiffPiece("...", ChangeType.Imaginary, null));
-                            }
-                        }
-                        else { filteredLines.Add(line); }
-                    }
-
-                    return filteredLines;
-                }, token);
-
-                // Si no se canceló durante el proceso, asignamos los resultados a la UI
-                if (!token.IsCancellationRequested)
-                {
-                    DiffLinesItemsControl.ItemsSource = result;
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // El proceso fue cancelado porque el usuario seleccionó otro archivo rápido
-            }
-            catch (Exception ex)
-            {
-                if (!token.IsCancellationRequested)
-                {
-                    Msg.Assistant($"--- !!! ERROR AL CARGAR DIFF: {ex.Message} ---");
-                    DiffLinesItemsControl.ItemsSource = new List<DiffPiece>
-                    {
-                        new DiffPiece($"ERROR AL CARGAR DIFF: {ex.Message}", ChangeType.Deleted)
-                    };
-                }
-            }
-        }
-        // --- REFACTORIZADO: Usando CommitChangesUseCase ---
-
-
-
-        private async void btnGitCommit_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject()) return;
-            Msg.User("Genera Commit con IA");
-
-            await RunWithLoading(async () =>
-            {
-                // 1. Obtener archivos seleccionados
-                var selectedItems = _changesViewModel.Changes.Where(c => c.IsSelected).ToList();
-                if (!selectedItems.Any())
-                {
-                    await DialogService.ShowConfirmDialog("Alerta", "No hay archivos seleccionados para analizar.", DialogVariant.Warning, DialogType.Info);
-                    return;
-                }
-
-                string filePaths = string.Join(" ", selectedItems.Select(i => $"\"{i.FilePath.Replace(Path.DirectorySeparatorChar, '/')}\""));
-
-                string diff = await Git.EjecutarGit($"diff HEAD -- {filePaths}", projectDirectory);
-
-
-                if (string.IsNullOrWhiteSpace(diff))
-                {
-                    await DialogService.ShowConfirmDialog("Alerta", "No se encontraron cambios en los archivos seleccionados.", DialogVariant.Warning, DialogType.Info);
-                    return;
-                }
-
-                var prompt = GetPrompt.GitCommit(diff);
-                string jsonResponse = await AIClient.SendPromptAsync(prompt);
-                if (string.IsNullOrWhiteSpace(jsonResponse))
-                {
-                   
-                    Msg.Assistant("La IA no pudo generar un mensaje.");
-                    return;
-                }
-
-                try
-                {
-                    // La IA a veces devuelve JSON inválido, lo envolvemos en un try-catch
-                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    var commitMsg = JsonSerializer.Deserialize<CommitMessageResponse>(jsonResponse, options);
-
-                    if (commitMsg != null)
-                    {
-                        txtCommitSummary.Text = commitMsg.Summary;
-                        txtCommitDescription.Text = commitMsg.Description;
-                        Msg.Assistant("Mensaje de commit y descripción generados por IA.");
-                    }
-                    else
-                    {
-                        txtCommitSummary.Text = jsonResponse;
-                        txtCommitDescription.Text = "";
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Msg.Assistant($"Error al procesar respuesta de IA. Se usará respuesta en crudo: {ex.Message}");
-                    txtCommitSummary.Text = jsonResponse;
-                    txtCommitDescription.Text = "";
-                }
-            });
-        }
-
-        private async Task LoadTagsAsync()
-        {
-            if (!ValidateProject())
-            {
-                ReleasesListView.ItemsSource = null;
-                return;
-            }
-
-            var tags = await Git.GetTags(projectDirectory);
-            if (tags.Count > 0)
-            {
-                // El primer tag en la lista (ordenada por fecha desc) es el Latest
-                tags[0].IsLatest = true;
-            }
-            
-            ReleasesListView.ItemsSource = tags;
-            
-            // Si no hay tags, asegurar que el estado vacío se vea
-            ReleasesEmptyState.Visibility = tags.Count == 0 ? Visibility.Visible : Visibility.Visible; // Se mantiene visible hasta elegir uno
-            ReleaseDetailContainer.Visibility = Visibility.Collapsed;
-            ReleaseStatsContainer.Visibility = Visibility.Collapsed;
-        }
-
-        private async void btnCrearTag_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject()) return;
-
-            // 1. Pedir nombre del Tag
-            var (okTag, tagName) = await DialogService.ShowInputDialog("Crear Tag", "Ingrese el nombre del tag (ej: v1.0.0):");
-            if (!okTag || string.IsNullOrWhiteSpace(tagName)) return;
-
-            // 2. Pedir mensaje del Tag
-            var (okMsg, tagMessage) = await DialogService.ShowInputDialog("Crear Tag", "Ingrese un mensaje para el tag (anotación):", $"Release {tagName}");
-            if (!okMsg || string.IsNullOrWhiteSpace(tagMessage)) return;
-
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant($"Creando tag {tagName}...");
-                var result = await Git.CreateTag(tagName, tagMessage, projectDirectory);
-
-                if (!result.Success)
-                {
-                    Msg.Assistant($"Error al crear tag: {result.Output}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo crear el tag:\n{result.Output}", DialogVariant.Error, DialogType.Info);
-                    return;
-                }
-
-                Msg.Assistant($"Tag {tagName} creado localmente.");
-                await LoadTagsAsync(); // Recargar lista de tags
-
-                // 3. Preguntar si desea subirlo
-                var push = await DialogService.ShowConfirmDialog("Tag Creado",
-                    $"El tag '{tagName}' se creó localmente.\n\n¿Desea subir (push) este tag al repositorio remoto (origin) ahora?",
-                    DialogVariant.Info, DialogType.Confirm);
-
-                if (push)
-                {
-                    Msg.Assistant($"Subiendo tag {tagName}...");
-                    var pushResult = await Git.PushTag(tagName, projectDirectory);
-
-                    if (!pushResult.Success)
-                    {
-                        Msg.Assistant($"Error al subir tag: {pushResult.Output}");
-                        await DialogService.ShowConfirmDialog("Error", $"No se pudo subir el tag:\n{pushResult.Output}", DialogVariant.Error, DialogType.Info);
-                    }
-                    else
-                    {
-                        Msg.Assistant($"Tag {tagName} subido al remoto.");
-                        await DialogService.ShowConfirmDialog("Éxito", $"Tag '{tagName}' subido al repositorio.", DialogVariant.Success, DialogType.Info);
-                    }
-                }
-            });
-        }
-
-
-        private async void ReleasesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            var selectedTag = ReleasesListView.SelectedItem as GitTagItem;
-            if (selectedTag == null)
-            {
-                ReleasesEmptyState.Visibility = Visibility.Visible;
-                ReleaseDetailContainer.Visibility = Visibility.Collapsed;
-                ReleaseStatsContainer.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            ReleasesEmptyState.Visibility = Visibility.Collapsed;
-            ReleaseDetailContainer.Visibility = Visibility.Visible;
-            ReleaseStatsContainer.Visibility = Visibility.Visible;
-
-            // Poblar Panel 2 (Detalle)
-            txtReleaseTitle.Text = selectedTag.TagName;
-            txtReleaseHash.Text = $"# {selectedTag.ShortHash}";
-            txtReleaseAuthor.Text = selectedTag.AuthorName ?? "Autor Desconocido";
-
-            // Notas de versión
-            var notes = new List<string>();
-            if (!string.IsNullOrWhiteSpace(selectedTag.TagMessage))
-                notes.Add(selectedTag.TagMessage);
-            else if (!string.IsNullOrWhiteSpace(selectedTag.CommitMessage))
-                notes.Add(selectedTag.CommitMessage);
-            else
-                notes.Add("Sin descripción disponible para esta versión.");
-
-            ReleaseNotesItemsControl.ItemsSource = notes;
-
-            // Detalle del Commit
-            if (!string.IsNullOrWhiteSpace(selectedTag.CommitDescription))
-                txtCommitFullMessage.Text = selectedTag.CommitDescription;
-            else if (!string.IsNullOrWhiteSpace(selectedTag.CommitMessage))
-                txtCommitFullMessage.Text = selectedTag.CommitMessage;
-            else
-                txtCommitFullMessage.Text = "Sin detalles adicionales.";
-
-            // Poblar Panel 3 (Estadísticas)
-            await RunWithLoading(async () =>
-            {
-                var stats = await Git.GetCommitNumStat(selectedTag.CommitHash, projectDirectory);
-                
-                int totalAdded = stats.Values.Sum(s => s.Additions);
-                int totalDeleted = stats.Values.Sum(s => s.Deletions);
-                int totalFiles = stats.Count;
-
-                txtFilesCount.Text = totalFiles.ToString();
-                txtAdditionsCount.Text = $"+{totalAdded}";
-                txtDeletionsCount.Text = $"-{totalDeleted}";
-
-                ReleaseFilesListView.ItemsSource = stats.Keys.ToList();
-            });
-        }
-
-        private async void DeleteTag_Click(object sender, RoutedEventArgs e)
-        {
-            var tag = ReleasesListView.SelectedItem as GitTagItem;
-            if (tag == null) return;
-
-            var confirm = await DialogService.ShowConfirmDialog("Eliminar Tag", 
-                $"¿Está seguro de que desea eliminar el tag '{tag.TagName}'?\nEsta acción no se puede deshacer.",
-                DialogVariant.Error, DialogType.Confirm);
-
-            if (!confirm) return;
-
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant($"Eliminando tag {tag.TagName}...");
-                var res = await Git.DeleteTagLocal(tag.TagName, projectDirectory);
-
-                if (res.Success)
-                {
-                    Msg.Assistant($"Tag {tag.TagName} eliminado localmente.");
-                    
-                    var remote = await DialogService.ShowConfirmDialog("Eliminar Remoto",
-                        $"El tag local fue eliminado.\n\n¿Desea intentar eliminarlo también del servidor remoto (origin)?",
-                        DialogVariant.Warning, DialogType.Confirm);
-
-                    if (remote)
-                    {
-                        var resRem = await Git.DeleteTagRemote(tag.TagName, projectDirectory);
-                        if (resRem.Success)
-                            Msg.Assistant($"Tag {tag.TagName} eliminado del remoto.");
-                        else
-                             Msg.Assistant($"No se pudo eliminar el remoto: {resRem.Output}");
-                    }
-
-                    await LoadTagsAsync();
-                }
-                else
-                {
-                    Msg.Assistant($"Error al eliminar tag: {res.Output}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo eliminar el tag:\n{res.Output}", DialogVariant.Error, DialogType.Info);
-                }
-            });
-        }
-
-        private async void HistoryListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            // Limpiar las listas de abajo
-            HistoryFilesListView.ItemsSource = null;
-            HistoryDiffLinesItemsControl.ItemsSource = null;
-
-            var selectedCommit = e.AddedItems.OfType<Presentation.ViewModels.CommitItemViewModel>().FirstOrDefault();
-            if (selectedCommit == null)
-            {
-                CommitSummaryMessage.Text = "SIN INFORMACIÓN";
-                CommitSummaryDescription.Text = "Selecciona un commit del historial para ver sus detalles.";
-                CommitSummaryInfo.Text = "";
-                HistoryFilesListView.ItemsSource = null;
-                CommitDetailContainer.Visibility = Visibility.Visible;
-                return;
-            }
-
-            // Poblar los campos según el nuevo diseño estructurado
-            CommitSummaryMessage.Text = selectedCommit.Message;
-            CommitSummaryInfo.Text = $"{selectedCommit.Author} cometió {selectedCommit.ShortHash} ({selectedCommit.RelativeDate})";
-            CommitSummaryDescription.Text = selectedCommit.Description;
-
-            CommitDetailContainer.Visibility = Visibility.Visible;
-
-            if (!ValidateProject()) return;
-
-            try
-            {
-                // Cargar la lista de archivos para este commit
-                var files = await Git.GetFilesChangedInCommit(selectedCommit.Hash, projectDirectory);
-                HistoryFilesListView.ItemsSource = files;
-            }
-            catch (Exception ex)
-            {
-                Msg.Assistant($"Error al cargar archivos del commit: {ex.Message}");
-            }
-        }
-
-        // --- NUEVO EVENTO: Cuando se hace clic en un ARCHIVO DEL HISTORIAL ---
-        private async void HistoryFilesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            HistoryDiffLinesItemsControl.ItemsSource = null;
-
-            var selectedFile = e.AddedItems.OfType<string>().FirstOrDefault();
-            var selectedCommit = HistoryListView.SelectedItem as Presentation.ViewModels.CommitItemViewModel; 
-
-            if (selectedFile == null)
-            {
-                // Mostrar "Sin Archivo Seleccionado"
-                if (DiffViewerPlaceholder != null) DiffViewerPlaceholder.Visibility = Visibility.Visible;
-                if (DiffViewerContent != null) DiffViewerContent.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            // Ocultar placeholder, mostrar contenido
-            if (DiffViewerPlaceholder != null) DiffViewerPlaceholder.Visibility = Visibility.Collapsed;
-            if (DiffViewerContent != null) DiffViewerContent.Visibility = Visibility.Visible;
-
-
-            if (selectedCommit == null || !ValidateProject())
-            {
-                return;
-            }
-
-            HistoryDiffFileName.Text = selectedFile.ToUpper();
-            _activeDiffFile = selectedFile; // Guardar para "Abrir en Web"
-
-            try
-            {
-                // 1. Obtener el commit "padre"
-                string parentHash = await Git.GetCommitParentHash(selectedCommit.Hash, projectDirectory);
-                // 2. Obtener el texto del archivo en el commit PADRE (el "antes")
-                string oldText = await Git.GetFileContentAtCommitish(selectedFile, parentHash, projectDirectory);
-                // 3. Obtener el texto del archivo en el commit ACTUAL (el "después")
-                string newText = await Git.GetFileContentAtCommitish(selectedFile, selectedCommit.Hash, projectDirectory);
-
-
-
-                // 4. Generar el DiffModel (Lógica de Hunks copiada de ChangesListView_SelectionChanged)
-                var diffBuilder = new InlineDiffBuilder(new DiffPlex.Differ());
-                var diff = diffBuilder.BuildDiffModel(oldText, newText);
-
-                var filteredLines = new List<DiffPiece>();
-                const int contextLines = 3;
-
-                for (int i = 0; i < diff.Lines.Count; i++)
-                {
-                    var line = diff.Lines[i];
-                    if (line.Type == ChangeType.Unchanged)
-                    {
-                        bool isContext = false;
-                        for (int j = 1; j <= contextLines; j++)
-                        {
-                            if (i - j >= 0 && diff.Lines[i - j].Type != ChangeType.Unchanged) { isContext = true; break; }
-                        }
-                        if (!isContext)
-                        {
-                            for (int j = 1; j <= contextLines; j++)
-                            {
-                                if (i + j < diff.Lines.Count && diff.Lines[i + j].Type != ChangeType.Unchanged) { isContext = true; break; }
-                            }
-                        }
-                        if (isContext) { filteredLines.Add(line); }
-                        else if (filteredLines.Count > 0 && filteredLines.Last().Type != ChangeType.Imaginary)
-                        {
-                            filteredLines.Add(new DiffPiece("...", ChangeType.Imaginary, null));
-                        }
-                    }
-                    else { filteredLines.Add(line); }
-                }
-
-                HistoryDiffLinesItemsControl.ItemsSource = filteredLines;
-            }
-            catch (Exception ex)
-            {
-                HistoryDiffLinesItemsControl.ItemsSource = new List<DiffPiece>
-                    { new DiffPiece($"ERROR AL CARGAR DIFF: {ex.Message}", ChangeType.Deleted) };
-            }
-        }
-
-
-
-
-        private async void DiscardChangesMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject()) return;
-
-            if (sender is MenuItem menuItem && menuItem.CommandParameter is Presentation.ViewModels.ChangeItemViewModel itemToDiscard)
-            {
-                bool confirm = await DialogService.ShowConfirmDialog(
-                    "Descartar Cambios",
-                    $"¿Estás seguro de que deseas descartar los cambios en '{itemToDiscard.FilePath}'?\nEsta acción no se puede deshacer.",
-                    DialogVariant.Warning, DialogType.Confirm);
-
-                if (!confirm) return;
-
-                await RunWithLoading(async () =>
-                {
-                    // Usar el Use Case de la nueva arquitectura
-                    var useCase = App.ServiceProvider.GetService(typeof(UseCases.DiscardChangesUseCase)) as UseCases.DiscardChangesUseCase;
-                    var result = await useCase.ExecuteAsync(projectDirectory, new[] { itemToDiscard.FilePath });
-
-                    if (!result.IsSuccess)
-                    {
-                         await DialogService.ShowConfirmDialog("Error", $"No se pudo descartar cambios:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
-                    }
-                    else
-                    {
-                         await LoadChangesAsync(); 
-                    }
-                });
-            }
-        }
-
-        private async void StashSelectedMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject()) return;
-
-            // Get all *selected* items from the list
-            var selectedItems = _changesViewModel.Changes.Where(c => c.IsSelected).ToList();
-
-            if (selectedItems == null || !selectedItems.Any())
-            {
-                await DialogService.ShowConfirmDialog("Stash", "No hay archivos seleccionados para guardar en el stash.", DialogVariant.Info, DialogType.Info);
-                return;
-            }
-
-            // Ask for an optional stash message
-            var (ok, message) = await DialogService.ShowInputDialog("Stash", "Mensaje opcional para el stash:", $"Stash parcial ({selectedItems.Count} archivos)");
-            if (!ok) return; // User cancelled
-
-            var selectedFiles = selectedItems.Select(i => i.FilePath);
-
-            await RunWithLoading(async () =>
-            {
-                // Usar el Use Case de la nueva arquitectura
-                var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashChangesUseCase)) as UseCases.StashChangesUseCase;
-                var result = await useCase.ExecuteAsync(projectDirectory, message, selectedFiles);
-
-                if (result.IsSuccess)
-                {
-                    await DialogService.ShowConfirmDialog("Éxito", "Los archivos seleccionados han sido guardados en el stash.", DialogVariant.Success, DialogType.Info);
-                }
-                else
-                {
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo guardar en stash:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
-                }
-                
-                await LoadChangesAsync(); // Refresh the list
-            });
-        }
-        private async void RestoreStashItemButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject() || (sender as System.Windows.Controls.Button)?.CommandParameter is not Git.StashEntry stash) return;
-
-            bool confirm = await DialogService.ShowConfirmDialog(
-                "Restaurar Stash",
-                $"Esto aplicará los cambios de '{stash.Name}' ({stash.Message}) y lo eliminará.\n\n¿Continuar?",
-                DialogVariant.Info, DialogType.Confirm);
-            if (!confirm) return;
-
-            await RunWithLoading(async () =>
-            {
-                int? stashIndex = null;
-                var match = System.Text.RegularExpressions.Regex.Match(stash.Name, @"stash@\{(\d+)\}");
-                if (match.Success)
-                {
-                    stashIndex = int.Parse(match.Groups[1].Value);
-                }
-
-                var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashPopUseCase)) as UseCases.StashPopUseCase;
-                var result = await useCase.ExecuteAsync(projectDirectory, stashIndex);
-
-                if (result.IsSuccess)
-                {
-                    await DialogService.ShowConfirmDialog("Éxito", $"Stash {stash.Name} restaurado y aplicado correctamente.", DialogVariant.Success, DialogType.Info);
-                }
-                else
-                {
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo aplicar el stash:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
-                }
-
-                await LoadChangesAsync();
-            });
-        }
-
-        private async void DiscardStashItemButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject() || (sender as System.Windows.Controls.Button)?.CommandParameter is not Git.StashEntry stash) return;
-
-            bool confirm = await DialogService.ShowConfirmDialog(
-                "Descartar Stash",
-                $"¿Estás seguro de que deseas eliminar permanentemente '{stash.Name}' ({stash.Message})?\nEsta acción no se puede deshacer.",
-                DialogVariant.Warning, DialogType.Confirm);
-            if (!confirm) return;
-
-            await RunWithLoading(async () =>
-            {
-                int stashIndex = 0;
-                var match = System.Text.RegularExpressions.Regex.Match(stash.Name, @"stash@\{(\d+)\}");
-                if (match.Success)
-                {
-                    stashIndex = int.Parse(match.Groups[1].Value);
-                }
-
-                var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashDropUseCase)) as UseCases.StashDropUseCase;
-                var result = await useCase.ExecuteAsync(projectDirectory, stashIndex);
-
-                if (result.IsSuccess)
-                {
-                    Msg.Assistant($"✅ Stash {stash.Name} eliminado.");
-                }
-                else
-                {
-                     await DialogService.ShowConfirmDialog("Error", $"No se pudo eliminar el stash:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
-                }
-                
-                await LoadChangesAsync();
-            });
-        }
-
-        private async void DiscardAllStashesButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject()) return;
-
-            bool confirm = await DialogService.ShowConfirmDialog(
-                "Descartar TODOS los Stashes",
-                $"¿Estás seguro de que deseas eliminar permanentemente TODOS los stashes guardados?\nEsta acción no se puede deshacer.",
-                DialogVariant.Warning, DialogType.Confirm);
-
-            if (!confirm) return;
-
-            await RunWithLoading(async () =>
-            {
-                var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashClearUseCase)) as UseCases.StashClearUseCase;
-                var result = await useCase.ExecuteAsync(projectDirectory);
-
-                if (result.IsSuccess)
-                {
-                     // Mensaje ya mostrado por el servicio de notificación
-                }
-                else
-                {
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo limpiar stashes:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
-                }
-
-                await LoadChangesAsync(); // Recargar todo
-            });
-        }
-
 
         #region ✅ Project Context Menu Handlers
-
-        /// <summary>
-        /// Helper para obtener la ruta (FullPath) desde el CommandParameter del MenuItem.
-        /// </summary>
         private string GetPathFromMenuItem(object sender)
         {
-            if (sender is MenuItem menuItem)
+            if (sender is MenuItem menuItem && menuItem.CommandParameter is string path)
             {
-                // Si el parámetro ya es una ruta completa (string)
-                if (menuItem.CommandParameter is string path)
-                {
-                    // Si la ruta es absoluta, devolverla tal cual
-                    if (Path.IsPathRooted(path) || path.StartsWith(@"\\wsl$") || path.StartsWith(@"\\wsl.localhost"))
-                    {
-                        return path;
-                    }
-
-                    // Si es una ruta relativa (típico del historial), combinarla con el proyecto
-                    if (!string.IsNullOrEmpty(projectDirectory))
-                    {
-                        return Path.Combine(projectDirectory, path);
-                    }
-
-                    return path;
-                }
-                
-                // Si el parámetro es un GitStatusItem (de la lista de cambios)
-                if (menuItem.CommandParameter is GitStatusItem statusItem)
-                {
-                    // Combinar con el directorio del proyecto actual
-                    if (!string.IsNullOrEmpty(projectDirectory))
-                    {
-                        return Path.Combine(projectDirectory, statusItem.FilePath);
-                    }
-                }
-
-                // Si el parámetro es un ChangeItemViewModel (nuevo)
-                if (menuItem.CommandParameter is Presentation.ViewModels.ChangeItemViewModel changeItem)
-                {
-                    if (!string.IsNullOrEmpty(projectDirectory))
-                    {
-                        return Path.Combine(projectDirectory, changeItem.FilePath);
-                    }
-                }
+                return Path.IsPathRooted(path) ? path : Path.Combine(projectDirectory ?? "", path);
             }
-            return null; // No se pudo obtener la ruta
-        }
-
-        private void HistoryFiles_CopyPath_Click(object sender, RoutedEventArgs e)
-        {
-            string path = GetPathFromMenuItem(sender);
-            if (!string.IsNullOrEmpty(path))
-            {
-                System.Windows.Clipboard.SetText(path);
-                DialogService.ShowTrayNotification("Copiado", "Ruta completa copiada al portapapeles");
-            }
-        }
-
-        private void HistoryFiles_CopyRelativePath_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is MenuItem menuItem && menuItem.CommandParameter is string relativePath)
-            {
-                System.Windows.Clipboard.SetText(relativePath);
-                DialogService.ShowTrayNotification("Copiado", "Ruta relativa copiada al portapapeles");
-            }
-        }
-
-        private async void ProjectMenuItem_OpenVisualStudio_Click(object sender, RoutedEventArgs e)
-        {
-            string path = GetPathFromMenuItem(sender);
-            if (string.IsNullOrEmpty(path)) return;
-
-            // Reutilizamos la lógica de 'btnAbrirSln' pero con el path específico
-            try
-            {
-                string searchDir = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
-                var slnFile = Directory.GetFiles(searchDir, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
-
-                // Si no hay SLN en la carpeta actual, buscamos en la carpeta raíz del proyecto
-                if (slnFile == null && !string.IsNullOrEmpty(projectDirectory))
-                {
-                    slnFile = Directory.GetFiles(projectDirectory, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
-                }
-
-                if (slnFile != null)
-                {
-                    var vsInstances = System.Diagnostics.Process.GetProcessesByName("devenv");
-
-                    bool estaAbierta = vsInstances.Any(p =>
-                    {
-                        try
-                        {
-                            return p.MainWindowTitle.Contains(Path.GetFileNameWithoutExtension(slnFile), StringComparison.OrdinalIgnoreCase);
-                        }
-                        catch { { return false; } }
-                    });
-
-                    if (estaAbierta)
-                    {
-                        await DialogService.ShowConfirmDialog("Información",
-                            "Esta solución ya está abierta en Visual Studio."
-                            ,
-                            Views.Dialogs.DialogVariant.Info,
-                            Views.Dialogs.DialogType.Info);
-                        return;
-                    }
-
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = slnFile,
-                        UseShellExecute = true
-                    });
-
-                }
-                else
-                {
-                    await DialogService.ShowConfirmDialog("Alerta",
-                        $"No se encontró ningún archivo .sln en el directorio"
-                        ,
-                        Views.Dialogs.DialogVariant.Warning,
-                        Views.Dialogs.DialogType.Info);
-                }
-            }
-            catch (Exception ex)
-            {
-                await DialogService.ShowConfirmDialog("Error",
-                    $"Error al abrir: {ex.Message}"
-                    ,
-                    Views.Dialogs.DialogVariant.Error,
-                    Views.Dialogs.DialogType.Info);
-            }
+            return null;
         }
 
         private void ProjectMenuItem_OpenVSCode_Click(object sender, RoutedEventArgs e)
         {
             string path = GetPathFromMenuItem(sender);
             if (string.IsNullOrEmpty(path)) return;
-            bool isWslPath = path.StartsWith(@"\\wsl$") || path.StartsWith(@"\\wsl.localhost");
-            try
-            {
-                if (isWslPath)
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = "wsl",
-                        Arguments = "code .", 
-                        WorkingDirectory = path, 
-                        UseShellExecute = false, 
-                        CreateNoWindow = true
-                    });
-                }
-                else
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = "code",
-                        Arguments = $"\"{path}\"",
-                        UseShellExecute = true,
-                        CreateNoWindow = true
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                DialogService.ShowTrayNotification("Error", $"No se pudo iniciar VS Code: {ex.Message}");
-            }
+            try { Process.Start(new ProcessStartInfo { FileName = "code", Arguments = $"\"{path}\"", UseShellExecute = true }); }
+            catch (Exception ex) { Msg.Assistant($"Error al abrir VS Code: {ex.Message}"); }
         }
 
-        private  void ProjectMenuItem_OpenAntigravity_Click(object sender, RoutedEventArgs e)
+        private void ProjectMenuItem_OpenVisualStudio_Click(object sender, RoutedEventArgs e)
         {
             string path = GetPathFromMenuItem(sender);
             if (string.IsNullOrEmpty(path)) return;
-            bool isWslPath = path.StartsWith(@"\\wsl$") || path.StartsWith(@"\\wsl.localhost");
             try
             {
-                if (isWslPath)
-                {
-                    DialogService.ShowConfirmDialog("Advertencia", "Antygravity aun no soporta abrir proyectos en WSL, se recomienda abrir con Visual Studio Code", DialogVariant.Warning, DialogType.Info);
-                }
-                else
-                {
-           
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = "antigravity", 
-                        Arguments = $"\"{path}\"",
-                        UseShellExecute = true,
-                        CreateNoWindow = true
-                    });
-                }
+                string sln = Directory.GetFiles(path, "*.sln").FirstOrDefault();
+                if (sln != null) Process.Start(new ProcessStartInfo { FileName = sln, UseShellExecute = true });
             }
-            catch (Exception ex)
-            {
-                DialogService.ShowTrayNotification("Error", $"No se pudo iniciar Antigravity: {ex.Message}");
-            }
+            catch (Exception ex) { Msg.Assistant($"Error al abrir Visual Studio: {ex.Message}"); }
         }
 
         private void ProjectMenuItem_OpenExplorer_Click(object sender, RoutedEventArgs e)
         {
             string path = GetPathFromMenuItem(sender);
             if (string.IsNullOrEmpty(path)) return;
-
-            try
-            {
-                string arguments = "";
-                if (File.Exists(path))
-                {
-                    // Si es un archivo, abrir la carpeta y SELECCIONAR el archivo
-                    arguments = $"/select,\"{path}\"";
-                }
-                else if (Directory.Exists(path))
-                {
-                    // Si es una carpeta, abrirla directamente
-                    arguments = $"\"{path}\"";
-                }
-                else
-                {
-                    // Si no existe (ej. fue borrado), intentar abrir la carpeta contenedora si existe
-                    string parent = Path.GetDirectoryName(path);
-                    if (Directory.Exists(parent))
-                        arguments = $"\"{parent}\"";
-                    else
-                        return;
-                }
-
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    Arguments = arguments,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                DialogService.ShowTrayNotification("Error", $"No se pudo abrir el explorador: {ex.Message}");
-            }
+            try { Process.Start("explorer.exe", $"/select,\"{path}\""); }
+            catch { Process.Start("explorer.exe", path); }
         }
 
-        private async void ProjectMenuItem_OpenGitHub_Click(object sender, RoutedEventArgs e)
+        private void ProjectMenuItem_OpenAntigravity_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrEmpty(projectDirectory)) return;
-
-            string relativePath = null;
-            if (sender is MenuItem menuItem)
-            {
-                if (menuItem.CommandParameter is string rel)
-                {
-                    relativePath = rel;
-                }
-                else if (menuItem.CommandParameter is GitStatusItem statusItem)
-                {
-                    relativePath = statusItem.FilePath;
-                }
-            }
-
-            if (string.IsNullOrEmpty(relativePath)) return;
-
-            // Para el historial usamos el commit seleccionado, para cambios usamos HEAD
-            var selectedCommit = HistoryListView.SelectedItem as Presentation.ViewModels.CommitItemViewModel;
-            string commitHash = selectedCommit?.Hash ?? "HEAD";
-
-            try
-            {
-                string remoteUrl = await Git.GetRemoteUrl(projectDirectory);
-                if (string.IsNullOrEmpty(remoteUrl))
-                {
-                    DialogService.ShowTrayNotification("Información", "Este proyecto no tiene un repositorio remoto configurado.");
-                    return;
-                }
-
-                bool isGitLab = remoteUrl.Contains("gitlab.com") || remoteUrl.Contains("gitlab.");
-                string webUrl;
-
-                if (commitHash != "HEAD" && !isGitLab)
-                {
-                    // En el historial de GitHub, es mejor ir al commit con el anchor del archivo
-                    string pathHash = GetGitHubPathHash(relativePath);
-                    webUrl = $"{remoteUrl}/commit/{commitHash}#{pathHash}";
-                }
-                else
-                {
-                    // En Cambios actuales o GitLab, usamos la vista de blob tradicional
-                    string branchPart = isGitLab ? "-/blob" : "blob";
-                    webUrl = $"{remoteUrl}/{branchPart}/{commitHash}/{relativePath.Replace("\\", "/")}";
-                }
-
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = webUrl,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                DialogService.ShowTrayNotification("Error", $"No se pudo abrir la URL: {ex.Message}");
-            }
-        }
-
-        private string GetGitHubPathHash(string path)
-        {
-            // GitHub usa SHA-256 del path (con barras hacia adelante) para el anchor del diff
-            string normalizedPath = path.Replace("\\", "/");
-            using (var sha256 = System.Security.Cryptography.SHA256.Create())
-            {
-                byte[] hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(normalizedPath));
-                return "diff-" + BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
-            }
+            string path = GetPathFromMenuItem(sender);
+            if (string.IsNullOrEmpty(path)) return;
+            try { Process.Start(new ProcessStartInfo { FileName = "antigravity", Arguments = $"\"{path}\"", UseShellExecute = true }); }
+            catch { Msg.Assistant("Antigravity no detectado."); }
         }
 
         private void ProjectMenuItem_OpenCmd_Click(object sender, RoutedEventArgs e)
         {
             string path = GetPathFromMenuItem(sender);
             if (string.IsNullOrEmpty(path)) return;
-
-            try
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "cmd.exe",
-                    WorkingDirectory = path // Iniciar cmd en el directorio del proyecto
-                });
-            }
-            catch (Exception ex)
-            {
-                DialogService.ShowTrayNotification("Error", $"No se pudo abrir cmd: {ex.Message}");
-            }
+            Process.Start(new ProcessStartInfo { FileName = "cmd.exe", WorkingDirectory = path });
         }
 
         private async void ProjectMenuItem_Remove_Click(object sender, RoutedEventArgs e)
         {
-            string pathToRemove = GetPathFromMenuItem(sender);
-            if (string.IsNullOrEmpty(pathToRemove)) return;
-
-            var confirm = await DialogService.ShowConfirmDialog(
-                "Remover Proyecto",
-                $"¿Seguro que quieres remover '{new DirectoryInfo(pathToRemove).Name}' de la lista?\n(Esto no eliminará los archivos del disco).",
-                DialogVariant.Warning,
-                DialogType.Confirm);
-
-            if (!confirm) return;
-
-            ProjectSettings.RemoveProject(pathToRemove);
-            LoadProjects(); 
-            if (projectDirectory == pathToRemove)
-            {
-                projectDirectory = null;
-                ProjectsComboBox.SelectedItem = null;
-                BranchesComboBox.ItemsSource = null;
-                ChangesListView.ItemsSource = null;
-                HistoryListView.ItemsSource = null;
-                ReleasesListView.ItemsSource = null;
-            }
-
-            DialogService.ShowTrayNotification("Proyecto Removido", "El proyecto se quitó de la lista.");
+            string path = GetPathFromMenuItem(sender);
+            if (string.IsNullOrEmpty(path)) return;
+            var confirm = await DialogService.ShowConfirmDialog("Remover Proyecto", $"¿Seguro que quieres remover '{new DirectoryInfo(path).Name}'?", DialogVariant.Warning, DialogType.Confirm);
+            if (confirm) { ProjectSettings.RemoveProject(path); LoadProjects(); }
         }
-
-        #endregion
-        #region ✅ Stash List Context Menu
-
-        /// <summary>
-        /// Helper para obtener el StashEntry desde el CommandParameter del MenuItem.
-        /// </summary>
-        private Git.StashEntry GetStashFromMenuItem(object sender)
-        {
-            if (sender is MenuItem menuItem && menuItem.CommandParameter is Git.StashEntry stash)
-            {
-                return stash;
-            }
-            return null;
-        }
-
-        private async void StashList_Apply_Click(object sender, RoutedEventArgs e)
-        {
-            var stash = GetStashFromMenuItem(sender);
-            if (stash == null || !ValidateProject()) return;
-
-            bool confirm = await DialogService.ShowConfirmDialog(
-                "Aplicar Stash",
-                $"Esto aplicará los cambios de '{stash.Name}: {stash.Message}' a tu directorio de trabajo.\n\n¿Continuar?",
-                DialogVariant.Info, DialogType.Confirm);
-
-            if (!confirm) return;
-
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant($"Aplicando stash: {stash.Name}...");
-                var applyResult = await Git.ApplyStash(stash.Name, projectDirectory);
-
-                if (applyResult.Success)
-                {
-                    Msg.Assistant($"✅ Stash {stash.Name} aplicado.");
-                    await DialogService.ShowConfirmDialog("Éxito", $"Stash aplicado correctamente.", DialogVariant.Success, DialogType.Info);
-                }
-                else
-                {
-                    Msg.Assistant($"❌ Error al aplicar stash {stash.Name}: {applyResult.Output}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo aplicar el stash (puede haber conflictos):\n\n{applyResult.Output}", DialogVariant.Error, DialogType.Info);
-                }
-                await LoadChangesAsync();
-            });
-        }
-
-        private async void StashList_Drop_Click(object sender, RoutedEventArgs e)
-        {
-            var stash = GetStashFromMenuItem(sender);
-            if (stash == null || !ValidateProject()) return;
-
-            bool confirm = await DialogService.ShowConfirmDialog(
-                "Eliminar Stash",
-                $"¿Estás seguro de que deseas eliminar permanentemente '{stash.Name}: {stash.Message}'?\nEsta acción no se puede deshacer.",
-                DialogVariant.Warning, DialogType.Confirm);
-
-            if (!confirm) return;
-
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant($"Eliminando stash: {stash.Name}...");
-                var dropResult = await Git.DropStash(stash.Name, projectDirectory);
-
-                if (dropResult.Success)
-                {
-                    Msg.Assistant($"✅ Stash {stash.Name} eliminado.");
-                    await DialogService.ShowConfirmDialog("Éxito", $"Stash eliminado.", DialogVariant.Success, DialogType.Info);
-                }
-                else
-                {
-                    Msg.Assistant($"❌ Error al eliminar stash {stash.Name}: {dropResult.Output}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo eliminar el stash:\n\n{dropResult.Output}", DialogVariant.Error, DialogType.Info);
-                }
-                await LoadChangesAsync();
-            });
-        }
-        private async void StashAllChangesMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject()) return;
-
-            var items = ChangesListView.ItemsSource as IEnumerable<Presentation.ViewModels.ChangeItemViewModel>;
-            if (items == null || !items.Any())
-            {
-                await DialogService.ShowConfirmDialog("Stash", "No hay cambios para guardar en el stash.", DialogVariant.Info, DialogType.Info);
-                return;
-            }
-
-            // Pedir un mensaje para el stash
-            var (ok, message) = await DialogService.ShowInputDialog("Stash", "Mensaje para el stash:", $"Stash de {items.Count()} archivos");
-            if (!ok) return; // Usuario canceló
-
-            await RunWithLoading(async () =>
-            {
-                // Usar el Use Case de la nueva arquitectura
-                var useCase = App.ServiceProvider.GetService(typeof(UseCases.StashChangesUseCase)) as UseCases.StashChangesUseCase;
-                var result = await useCase.ExecuteAsync(projectDirectory, message); 
-
-                if (result.IsSuccess)
-                {
-                    await DialogService.ShowConfirmDialog("Éxito", "Todos los cambios han sido guardados en el stash.", DialogVariant.Success, DialogType.Info);
-                }
-                else
-                {
-                    await DialogService.ShowConfirmDialog("Advertencia", $"Resultado de la operación stash:\n\n{result.Error}", DialogVariant.Warning, DialogType.Info);
-                }
-                await LoadChangesAsync(); // Recargar la lista
-            });
-        }
-
-        // ✅ --- NUEVO: Descartar todos los cambios ---
-        private async void DiscardAllChangesMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject()) return;
-
-            var items = ChangesListView.ItemsSource as IEnumerable<Presentation.ViewModels.ChangeItemViewModel>;
-            if (items == null || !items.Any())
-            {
-                await DialogService.ShowConfirmDialog("Descartar", "No hay cambios para descartar.", DialogVariant.Info, DialogType.Info);
-                return;
-            }
-
-            bool confirm = await DialogService.ShowConfirmDialog(
-                "Descartar Todos los Cambios",
-                $"¿Estás seguro de que deseas descartar TODOS los {items.Count()} cambios?\nEsta acción no se puede deshacer.",
-                DialogVariant.Warning, DialogType.Confirm);
-
-            if (!confirm) return;
-
-            await RunWithLoading(async () =>
-            {
-                // Usar el Use Case de la nueva arquitectura
-                var useCase = App.ServiceProvider.GetService(typeof(UseCases.DiscardChangesUseCase)) as UseCases.DiscardChangesUseCase;
-                var result = await useCase.ExecuteAsync(projectDirectory); // null = todos los archivos
-
-                if (result.IsSuccess)
-                {
-                     // Use Case ya notifica
-                }
-                else
-                {
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo descartar cambios:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
-                }
-
-                await LoadChangesAsync(); // Recargar la lista
-            });
-        }
-
-        private async void StashListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            var selectedStash = e.AddedItems.OfType<Git.StashEntry>().FirstOrDefault();
-            // Si no hay un stash seleccionado (o se des-seleccionó),
-            // volvemos a cargar los cambios reales (git status).
-            if (selectedStash == null)
-            {
-                await LoadChangesAsync();
-                return;
-            }
-            _currentlyViewedStash = selectedStash;
-            // 1. Ocultar la vista normal, mostrar la vista de stash
-            NormalChangesView.Visibility = Visibility.Collapsed;
-            StashedChangesView.Visibility = Visibility.Visible;
-            DiffLinesItemsControl.ItemsSource = null; // Limpiar diff
-
-            // 2. Poblar la nueva vista
-            StashView_Header.Text = selectedStash.Message;
-
-
-
-            if (!ValidateProject()) return;
-
-            // --- Muestra los archivos DENTRO del stash ---
-            try
-            {
-                var fileStatuses = await Git.GetFileStatusesForStash(selectedStash.Name, projectDirectory);
-                var stashChanges = new List<GitStatusItem>();
-
-                foreach (var file in fileStatuses)
-                {
-                    var item = new GitStatusItem { FilePath = file.Key, IsSelected = false };
-                    var status = file.Value;
-
-                    switch (status)
-                    {
-                        case 'M':
-                            item.Status = "Modificado (en Stash)";
-                            item.Icon = PackIconKind.FileEdit;
-                            item.Color = Brushes.Orange;
-                            break;
-                        case 'A':
-                            item.Status = "Añadido (en Stash)";
-                            item.Icon = PackIconKind.FilePlus;
-                            item.Color = Brushes.Green;
-                            break;
-                        case 'D':
-                            item.Status = "Eliminado (en Stash)";
-                            item.Icon = PackIconKind.FileRemove;
-                            item.Color = Brushes.Red;
-                            break;
-                        case 'R':
-                            item.Status = "Renombrado (en Stash)";
-                            item.Icon = PackIconKind.FileMove;
-                            item.Color = Brushes.Blue;
-                            break;
-                        default:
-                            item.Status = "Desconocido (en Stash)";
-                            item.Icon = PackIconKind.FileQuestion;
-                            item.Color = Brushes.Gray;
-                            break;
-                    }
-                    stashChanges.Add(item);
-                }
-
-                StashFilesListView.ItemsSource = stashChanges; // ¡Poblamos la lista principal!
-                //SelectAllCheckBox.IsChecked = false;
-                // 4. Limpiar la selección del expander para que se pueda volver a clicar
-                StashListView.SelectedItem = null;
-            }
-            catch (Exception ex)
-            {
-                Msg.Assistant($"Error al mostrar archivos del stash: {ex.Message}");
-            }
-        }
-
-        private async void StashFilesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            var selectedFile = e.AddedItems.OfType<GitStatusItem>().FirstOrDefault();
-            if (selectedFile == null || _currentlyViewedStash == null || !ValidateProject())
-            {
-                DiffLinesItemsControl.ItemsSource = null;
-                return;
-            }
-
-            try
-            {
-                // "Old Text" = El commit en el que se basó el stash (stash^)
-                string oldText = await Git.GetFileContentAtCommitish(selectedFile.FilePath, $"{_currentlyViewedStash.Name}^", projectDirectory);
-
-                // "New Text" = El contenido guardado en el stash
-                string newText = await Git.GetFileContentAtCommitish(selectedFile.FilePath, _currentlyViewedStash.Name, projectDirectory);
-
-                // (Copiar la lógica de Hunks/Diff de ChangesListView_SelectionChanged)
-                var diffBuilder = new InlineDiffBuilder(new DiffPlex.Differ());
-                var diff = diffBuilder.BuildDiffModel(oldText, newText);
-
-                var filteredLines = new List<DiffPiece>();
-                const int contextLines = 3;
-
-                for (int i = 0; i < diff.Lines.Count; i++)
-                {
-                    var line = diff.Lines[i];
-                    if (line.Type == ChangeType.Unchanged)
-                    {
-                        bool isContext = false;
-                        for (int j = 1; j <= contextLines; j++)
-                        {
-                            if (i - j >= 0 && diff.Lines[i - j].Type != ChangeType.Unchanged) { isContext = true; break; }
-                        }
-                        if (!isContext)
-                        {
-                            for (int j = 1; j <= contextLines; j++)
-                            {
-                                if (i + j < diff.Lines.Count && diff.Lines[i + j].Type != ChangeType.Unchanged) { isContext = true; break; }
-                            }
-                        }
-                        if (isContext) { filteredLines.Add(line); }
-                        else if (filteredLines.Count > 0 && filteredLines.Last().Type != ChangeType.Imaginary)
-                        {
-                            filteredLines.Add(new DiffPiece("...", ChangeType.Imaginary, null));
-                        }
-                    }
-                    else { filteredLines.Add(line); }
-                }
-
-                DiffLinesItemsControl.ItemsSource = filteredLines;
-            }
-            catch (Exception ex)
-            {
-                DiffLinesItemsControl.ItemsSource = new List<DiffPiece>
-        { new DiffPiece($"ERROR AL CARGAR DIFF DE STASH: {ex.Message}", ChangeType.Deleted) };
-            }
-        }
-
-        // Botón "Volver" en la vista de Stash
-        private void StashView_BackButton_Click(object sender, RoutedEventArgs e)
-        {
-            _currentlyViewedStash = null;
-            NormalChangesView.Visibility = Visibility.Visible;
-            StashedChangesView.Visibility = Visibility.Collapsed;
-            DiffLinesItemsControl.ItemsSource = null; // Limpiar diff
-        }
-
-        // Botón "Restaurar" en la vista de Stash
-        private async void StashView_RestoreButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_currentlyViewedStash == null) return;
-
-            string stashName = _currentlyViewedStash.Name;
-
-            bool confirm = await DialogService.ShowConfirmDialog(
-                "Restaurar Stash",
-                $"Esto aplicará los cambios de '{stashName}' y lo eliminará.\n\n¿Continuar?",
-                DialogVariant.Info, DialogType.Confirm);
-            if (!confirm) return;
-
-            await RunWithLoading(async () =>
-            {
-                var applyResult = await Git.ApplyStash(stashName, projectDirectory);
-                if (applyResult.Success)
-                {
-                    await Git.DropStash(stashName, projectDirectory);
-                    Msg.Assistant($"✅ Stash {stashName} restaurado y eliminado.");
-                }
-                else
-                {
-                    Msg.Assistant($"❌ Error al aplicar stash {stashName}: {applyResult.Output}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo aplicar el stash (puede haber conflictos):\n\n{applyResult.Output}", DialogVariant.Error, DialogType.Info);
-                }
-
-                // Volver a la vista normal y recargar
-                StashView_BackButton_Click(null, null);
-                await LoadChangesAsync();
-            });
-        }
-
-        // Botón "Descartar" en la vista de Stash
-        private async void StashView_DiscardButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_currentlyViewedStash == null) return;
-
-            string stashName = _currentlyViewedStash.Name;
-
-            bool confirm = await DialogService.ShowConfirmDialog(
-                "Descartar Stash",
-                $"¿Estás seguro de que deseas eliminar permanentemente '{stashName}'?\nEsta acción no se puede deshacer.",
-                DialogVariant.Warning, DialogType.Confirm);
-            if (!confirm) return;
-
-            await RunWithLoading(async () =>
-            {
-                await Git.DropStash(stashName, projectDirectory);
-                Msg.Assistant($"✅ Stash {stashName} eliminado.");
-
-                // Volver a la vista normal y recargar
-                StashView_BackButton_Click(null, null);
-                await LoadChangesAsync();
-            });
-        }
-
         #endregion
 
-        private async Task UpdateBranchIndicatorsAsync()
+        #region ✅ Project Management
+        private void btnAddProject_Click(object sender, RoutedEventArgs e)
         {
-            if (!_isWindowInitialized) return;
-
-            if (!ValidateProject())
-            {
-                GitActionsComboBox.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            _currentGitStatus = await Git.GetAheadBehindCount(projectDirectory);
-            GitActionsComboBox.Visibility = Visibility.Visible;
-
-            var activeBrush = Brushes.Orange;
-            var defaultBrush = Brushes.White; // O Brushes.Gray si prefieres en el tema oscuro
-
-            // --- Resetea el color del ComboBox ---
-            GitActionsComboBox.BorderBrush = defaultBrush;
-            DefaultGitActionText.Foreground = defaultBrush;
-            DefaultGitActionIcon.Foreground = defaultBrush;
-
-            // --- 2. Resetea la visibilidad (sin cambios) ---
-            PullGitActionItem.Visibility = Visibility.Visible;
-            PushGitActionItem.Visibility = Visibility.Visible;
-            FetchGitActionItem.Visibility = Visibility.Visible;
-
-            // --- Actualiza los textos de los items del DROPDOWN ---
-            string pullText = "Pull Origin";
-            if (_currentGitStatus.Behind > 0)
-            {
-                pullText = $"Pull Origin ({_currentGitStatus.Behind} ↓)";
-            }
-            PullGitActionText.Text = pullText;
-
-            string pushText = "Push Origin";
-            if (_currentGitStatus.Ahead > 0)
-            {
-                pushText = $"Push Origin ({_currentGitStatus.Ahead} ↑)";
-            }
-            PushGitActionText.Text = pushText;
-            GitActionsComboBox.SelectionChanged -= GitActionsComboBox_SelectionChanged;
-            // --- Lógica de Prioridad para el item SELECCIONADO (Índice 0) ---
-            if (_currentGitStatus.Behind > 0) // Prioridad 1: Pull
-            {
-                _currentGitAction = GitActionState.Pull;
-                DefaultGitActionIcon.Kind = PackIconKind.CloudDownloadOutline;
-                DefaultGitActionText.Text = pullText; // Muestra "Pull Origin (2 ↓)"
-                GitActionsComboBox.BorderBrush = activeBrush;
-                DefaultGitActionText.Foreground = activeBrush;
-                DefaultGitActionIcon.Foreground = activeBrush;
-
-                PullGitActionItem.Visibility = Visibility.Collapsed;
-            }
-            else if (_currentGitStatus.Ahead > 0) // Prioridad 2: Push
-            {
-                _currentGitAction = GitActionState.Push;
-                DefaultGitActionIcon.Kind = PackIconKind.CloudUploadOutline;
-                DefaultGitActionText.Text = pushText; // Muestra "Push Origin (1 ↑)"
-                GitActionsComboBox.BorderBrush = activeBrush;
-                DefaultGitActionText.Foreground = activeBrush;
-                DefaultGitActionIcon.Foreground = activeBrush;
-
-                PushGitActionItem.Visibility = Visibility.Collapsed;
-            }
-            else // Prioridad 3: Fetch
-            {
-                _currentGitAction = GitActionState.Fetch;
-                DefaultGitActionIcon.Kind = PackIconKind.Refresh;
-                DefaultGitActionText.Text = "Fetch Origin";
-                FetchGitActionItem.Visibility = Visibility.Collapsed;
-            }
-
-            // Asegurarse de que el ítem 0 esté seleccionado
-            GitActionsComboBox.SelectedIndex = 0;
-            GitActionsComboBox.SelectionChanged += GitActionsComboBox_SelectionChanged;
-        }
-        private async void GitActionsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (!_isWindowInitialized) return;
-            if (GitActionsComboBox.SelectedItem == null) return;
-
-            var selectedItem = (ComboBoxItem)GitActionsComboBox.SelectedItem;
-            int selectedIndex = GitActionsComboBox.SelectedIndex;
-
-            if (selectedItem == PullGitActionItem)
-            {
-                await DoPullAsync();
-            }
-            else if (selectedItem == PushGitActionItem)
-            {
-                await DoPushAsync();
-            }
-            else if (selectedItem == FetchGitActionItem)
-            {
-                await DoFetchAsync(isSilent: false);
-            }
-
-            // 4. Reseteo (sin cambios)
-            if (selectedIndex > 0)
-            {
-                GitActionsComboBox.SelectionChanged -= GitActionsComboBox_SelectionChanged;
-                GitActionsComboBox.SelectedIndex = 0;
-                GitActionsComboBox.SelectionChanged += GitActionsComboBox_SelectionChanged;
-            }
-        }
-        private async void GitActionsComboBox_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            if (!_isWindowInitialized) return;
-            if (GitActionsComboBox.IsDropDownOpen)
-            {
-                return;
-            }
-            if (e.OriginalSource is System.Windows.Shapes.Path)
-            {
-                // Deja que el ComboBox abra el desplegable normalmente.
-                return;
-            }
-            e.Handled = true;
-
-            // 3. Ejecutamos la acción prioritaria (la misma lógica del switch)
-            switch (_currentGitAction)
-            {
-                case GitActionState.Pull:
-                    await DoPullAsync();
-                    break;
-                case GitActionState.Push:
-                    await DoPushAsync();
-                    break;
-                case GitActionState.Fetch:
-                    await DoFetchAsync(isSilent: false);
-                    break;
-            }
+            var contextMenu = new ContextMenu();
+            var addMenuItem = new MenuItem { Header = "Agregar Repositorio Existente...", Icon = new PackIcon { Kind = PackIconKind.FolderAdd } };
+            addMenuItem.Click += (s, ev) => SelectProject();
+            contextMenu.Items.Add(addMenuItem);
+            contextMenu.IsOpen = true;
         }
 
-        private void GitActionsComboBox_PreviewMouseRightButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private async void SelectProject()
         {
-            if (_isWindowInitialized)
-            {
-                e.Handled = true; // Detenemos cualquier otro menú contextual
-                GitActionsComboBox.IsDropDownOpen = true; // Forzamos la apertura
-            }
-        }
-        // 1. El "Master" Click Handler para el botón principal
-        private async void btnGitAction_Click(object sender, RoutedEventArgs e)
-        {
-            // Ejecuta la acción que esté configurada actualmente
-            switch (_currentGitAction)
-            {
-                case GitActionState.Pull:
-                    await DoPullAsync();
-                    break;
-                case GitActionState.Push:
-                    await DoPushAsync();
-                    break;
-                case GitActionState.Fetch:
-                    await DoFetchAsync(isSilent: false);
-                    break;
-            }
-        }
-
-        // 2. El handler para el botón del menú (la flecha)
-        private void btnGitActionMenu_Click(object sender, RoutedEventArgs e)
-        {
-            // Abre el ContextMenu que está definido en el XAML
-            var button = sender as System.Windows.Controls.Button;
-            if (button?.ContextMenu != null)
-            {
-                button.ContextMenu.IsOpen = true;
-            }
-        }
-
-        // 3. El handler para el item "Fetch" DENTRO del menú
-        private async void FetchMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            await DoFetchAsync(isSilent: false);
-        }
-        /// <summary>
-        /// Actualiza el texto de la pestaña "Cambios" y el botón "Commit"
-        /// según la cantidad de archivos seleccionados.
-        /// </summary>
-
-
-
-        // Este método se ejecuta JUSTO ANTES de que se muestre el menú contextual
-        private void History_ContextMenu_Opening(object sender, ContextMenuEventArgs e)
-        {
-            // 1. Obtiene el item (StackPanel) donde se hizo clic derecho
-            var grid = sender as Grid;
-            var clickedItem = grid?.DataContext as Presentation.ViewModels.CommitItemViewModel;
-            if (clickedItem == null || HistoryListView.ItemsSource == null) return;
-
-            // 2. Obtiene el *primer* item de toda la lista (el HEAD)
-            // ItemsSource es ObservableCollection<CommitItemViewModel>
-            var items = HistoryListView.ItemsSource as IEnumerable<Presentation.ViewModels.CommitItemViewModel>;
-            var firstItem = items?.FirstOrDefault();
-            if (firstItem == null) return;
-
-            // 3. Busca el MenuItem por su nombre
-            var contextMenu = grid.ContextMenu;
-            var resetMenuItem = contextMenu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Name == "ResetSoftMenuItem");
-            if (resetMenuItem == null) return;
-
-            // 4. Habilita el botón SÓLO SI el item clickeado es el primer item
-            bool isFirstItem = (clickedItem.Hash == firstItem.Hash);
-            resetMenuItem.IsEnabled = isFirstItem;
-
-            // Opcional: Cambia el texto si está deshabilitado
-            if (!isFirstItem)
-            {
-                resetMenuItem.Header = "Solo se puede deshacer el último commit";
-            }
-            else
-            {
-                resetMenuItem.Header = "Undo Last Commit (Soft)";
-            }
-        }
-        private async void History_ResetSoft_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject()) return;
-
-            var repoStatus = _currentGitStatus;
-
-            if (repoStatus == null)
-            {
-                Msg.Assistant("⚠️ No se pudo determinar el estado remoto. Actualiza primero el historial.");
-                await DialogService.ShowConfirmDialog(
-                    "Estado desconocido",
-                    "No se puede verificar si el commit ya fue subido.\n" +
-                    "Actualiza el historial o sincroniza el repositorio antes de continuar.",
-                    DialogVariant.Warning,
-                    DialogType.Info
-                );
-                return;
-            }
-
-            // Si no hay commits pendientes de subida, bloquear
-            if (repoStatus.Ahead == 0)
-            {
-                Msg.Assistant("⚠️ No hay commits pendientes por subir. El último commit ya fue subido.");
-                await DialogService.ShowConfirmDialog(
-                    "Commit ya publicado",
-                    "El último commit ya fue subido al repositorio remoto.\n" +
-                    "No se puede deshacer un commit que ya fue compartido.",
-                    DialogVariant.Warning,
-                    DialogType.Info
-                );
-                return;
-            }
-
-            // Confirmar acción
-            var confirm = await DialogService.ShowConfirmDialog(
-                "Confirmar 'Undo Last Commit'",
-                "¿Deseas deshacer el último commit?\n\n" +
-                "Esta acción moverá el puntero de la rama hacia atrás un commit (reset --soft HEAD~1).\n" +
-                "Los cambios del commit volverán a 'Changes' (Staged).",
-                DialogVariant.Warning,
-                DialogType.Confirm
-            );
-
-            if (!confirm)
-            {
-                Msg.Assistant("Operación de reset cancelada.");
-                return;
-            }
+            using var folderDialog = new FolderBrowserDialog();
+            if (folderDialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
 
             await RunWithLoading(async () =>
             {
-                var useCase = App.ServiceProvider.GetService(typeof(UseCases.ResetCommitUseCase)) as UseCases.ResetCommitUseCase;
-                var result = await useCase.ExecuteAsync(projectDirectory, UseCases.ResetMode.Soft);
-
-                if (result.IsSuccess)
-                {
-                     Msg.Assistant("✅ Commit deshecho correctamente. Los cambios están en 'Changes'.");
-                }
-                else
-                {
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo completar el reset:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
-                }
-
-                await LoadChangesAsync();
-                await LoadHistoryAsync();
+                projectDirectory = folderDialog.SelectedPath;
+                ProjectSettings.AddProject(projectDirectory);
+                LoadProjects();
+                ProjectsComboBox.SelectedItem = ProjectsComboBox.Items.OfType<ProjectViewModel>().FirstOrDefault(p => p.FullPath == projectDirectory);
             });
         }
-        /// <summary>
-        /// Crea un nuevo TAG a partir de un commit seleccionado en el historial.
-        /// </summary>
-        private async void History_CreateTag_Click(object sender, RoutedEventArgs e)
+
+        private async Task CheckGitInstallationAsync() => _isGitInstalled = Git.IsGitInstalled();
+
+        private async Task DoFetchAsync(bool isSilent = false)
         {
-            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string commitHash) return;
+            if (string.IsNullOrEmpty(projectDirectory)) return;
+            var useCase = App.ServiceProvider.GetService(typeof(UseCases.FetchChangesUseCase)) as UseCases.FetchChangesUseCase;
+            if (useCase != null)
+            {
+                await useCase.ExecuteAsync(projectDirectory, isSilent);
+                await LoadChangesAsync();
+            }
+        }
+        #endregion
+
+        #region ✅ TrayIcon and XAML Event Handlers
+        public void SwitchToProject(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+            projectDirectory = path;
+            ProjectsComboBox.SelectedItem = ProjectsComboBox.Items.OfType<ProjectViewModel>().FirstOrDefault(p => p.FullPath == path);
+        }
+
+        public void SelectProjectMenu_Click(object sender, RoutedEventArgs e) => SelectProject();
+
+        public void CreateNewTemplate()
+        {
+            // Placeholder para crear nuevo template
+            Msg.Assistant("Funcionalidad de crear template en desarrollo.");
+        }
+
+        public void GenerateModuleMenu_Click()
+        {
+            // Placeholder para generar módulo
+            Msg.Assistant("Funcionalidad de generar módulo en desarrollo.");
+        }
+
+        public void AsociateGitMenu_Click()
+        {
+            // Placeholder para asociar Git
+            Msg.Assistant("Funcionalidad de asociar Git en desarrollo.");
+        }
+
+        public void AddMethod_Click()
+        {
+            // Placeholder para agregar método
+            Msg.Assistant("Funcionalidad de agregar método en desarrollo.");
+        }
+
+        public void RollbackSelectModule()
+        {
+            // Placeholder para rollback
+            Msg.Assistant("Funcionalidad de rollback en desarrollo.");
+        }
+
+        public void AddClassLog_Click()
+        {
+            // Placeholder para log
+            Msg.Assistant("Funcionalidad de log en desarrollo.");
+        }
+
+        private void GitTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Placeholder para cambio de pestaña Git
+        }
+
+        private void ModoAgenteComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Placeholder para cambio de modo agente
+        }
+
+        private void ReleasesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Placeholder para cambio de release
+        }
+        #endregion
+
+        #region ✅ Git Operations Event Handlers
+        private async void Branch_Create_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string sourceBranch) return;
             if (!ValidateProject()) return;
 
-            // 1. Pedir nombre del Tag
-            var (okTag, tagName) = await DialogService.ShowInputDialog("Crear Tag desde Commit", "Ingrese el nombre del tag (ej: v1.0.1):");
+            var (ok, newBranchName) = await DialogService.ShowInputDialog("Crear Rama", $"Ingrese el nombre de la nueva rama (basada en '{sourceBranch}'):");
+            if (!ok || string.IsNullOrWhiteSpace(newBranchName)) return;
+
+            await RunWithLoading(async () =>
+            {
+                var result = await Git.EjecutarGit($"branch {newBranchName} {sourceBranch}", projectDirectory);
+                if (!result.Contains("fatal:") && !result.Contains("error:"))
+                {
+                    var branches = Git.GetBranches(projectDirectory);
+                    BranchesComboBox.ItemsSource = branches;
+                    Msg.Assistant($"✅ Rama '{newBranchName}' creada correctamente.");
+                }
+            });
+        }
+
+        private async void Branch_Delete_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string branchName) return;
+            if (!ValidateProject()) return;
+
+            if (branchName.Equals(_currentlySelectedBranch, StringComparison.OrdinalIgnoreCase))
+            {
+                await DialogService.ShowConfirmDialog("Error", $"No puedes eliminar la rama '{branchName}' porque es la rama activa.", DialogVariant.Error, DialogType.Info);
+                return;
+            }
+
+            var confirm = await DialogService.ShowConfirmDialog("Eliminar Rama", $"¿Estás seguro de eliminar la rama '{branchName}'?", DialogVariant.Warning, DialogType.Confirm);
+            if (!confirm) return;
+
+            await RunWithLoading(async () =>
+            {
+                var result = await Git.EjecutarGit($"branch -d \"{branchName}\"", projectDirectory);
+                if (!result.Contains("fatal:") && !result.Contains("error:"))
+                {
+                    var branches = Git.GetBranches(projectDirectory);
+                    BranchesComboBox.ItemsSource = branches;
+                    Msg.Assistant($"✅ Rama '{branchName}' eliminada.");
+                }
+            });
+        }
+
+        private async void btnCrearTag_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateProject()) return;
+
+            var (okTag, tagName) = await DialogService.ShowInputDialog("Crear Tag", "Ingrese el nombre del tag (ej: v1.0.0):");
             if (!okTag || string.IsNullOrWhiteSpace(tagName)) return;
 
-            // 2. Pedir mensaje del Tag
-            var (okMsg, tagMessage) = await DialogService.ShowInputDialog("Crear Tag", "Ingrese un mensaje para el tag (anotación):", $"Release {tagName}");
+            var (okMsg, tagMessage) = await DialogService.ShowInputDialog("Mensaje del Tag", "Ingrese un mensaje para el tag:", $"Release {tagName}");
             if (!okMsg || string.IsNullOrWhiteSpace(tagMessage)) return;
 
             await RunWithLoading(async () =>
             {
-                Msg.Assistant($"Creando tag {tagName} en {commitHash}...");
-
-                // 3. Llamar al método de Git MODIFICADO
-                var result = await Git.CreateTag(tagName, tagMessage, projectDirectory, commitHash);
-
-                if (!result.Success)
+                var result = await Git.CreateTag(tagName, tagMessage, projectDirectory);
+                if (result.Success)
                 {
-                    Msg.Assistant($"Error al crear tag: {result.Output}");
+                    Msg.Assistant($"✅ Tag '{tagName}' creado correctamente.");
+                }
+                else
+                {
                     await DialogService.ShowConfirmDialog("Error", $"No se pudo crear el tag:\n{result.Output}", DialogVariant.Error, DialogType.Info);
-                    return;
                 }
-
-                Msg.Assistant($"Tag {tagName} creado localmente.");
-
-                // 4. Recargar la lista de Tags y cambiar de pestaña
-                await LoadTagsAsync();
-                GitTabs.SelectedItem = TagsTab;
-
-                // --- ✅ LÓGICA DE PUSH AÑADIDA ---
-                // 5. Preguntar si desea subirlo
-                var push = await DialogService.ShowConfirmDialog("Tag Creado",
-                    $"El tag '{tagName}' se creó localmente.\n\n¿Desea subir (push) este tag al repositorio remoto (origin) ahora?",
-                    DialogVariant.Info, DialogType.Confirm);
-
-                if (push)
-                {
-                    Msg.Assistant($"Subiendo tag {tagName}...");
-                    var pushResult = await Git.PushTag(tagName, projectDirectory);
-
-                    if (!pushResult.Success)
-                    {
-                        Msg.Assistant($"Error al subir tag: {pushResult.Output}");
-                        await DialogService.ShowConfirmDialog("Error", $"No se pudo subir el tag:\n{pushResult.Output}", DialogVariant.Error, DialogType.Info);
-                    }
-                    else
-                    {
-                        Msg.Assistant($"Tag {tagName} subido al remoto.");
-                        await DialogService.ShowConfirmDialog("Éxito", $"Tag '{tagName}' subido al repositorio.", DialogVariant.Success, DialogType.Info);
-                    }
-                }
-                // --- FIN DE LA LÓGICA DE PUSH ---
             });
         }
 
-        /// <summary>
-        /// Crea una nueva RAMA a partir de un commit seleccionado en el historial.
-        /// </summary>
-        private async void History_CreateBranch_Click(object sender, RoutedEventArgs e)
+        private async void DeleteTag_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string commitHash) return;
+            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string tagName) return;
             if (!ValidateProject()) return;
 
-            // 1. Pedir nombre de la Rama
-            var (okBranch, branchName) = await DialogService.ShowInputDialog("Crear Rama desde Commit", "Ingrese el nombre de la nueva rama:");
-            if (!okBranch || string.IsNullOrWhiteSpace(branchName)) return;
+            var confirm = await DialogService.ShowConfirmDialog("Eliminar Tag", $"¿Estás seguro de eliminar el tag '{tagName}'?", DialogVariant.Warning, DialogType.Confirm);
+            if (!confirm) return;
 
             await RunWithLoading(async () =>
             {
-                var useCase = App.ServiceProvider.GetService(typeof(UseCases.CreateBranchUseCase)) as UseCases.CreateBranchUseCase;
-                var result = await useCase.ExecuteAsync(projectDirectory, branchName, commitHash);
-
-                if (result.IsSuccess)
+                var result = await Git.DeleteTagLocal(tagName, projectDirectory);
+                if (result.Success)
                 {
-                    Msg.Assistant($"✅ Rama '{branchName}' creada.");
-                }
-                else
-                {
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo crear la rama:\n\n{result.Error}", DialogVariant.Error, DialogType.Info);
-                    return;
-                }
-
-                // 3. Refrescar la lista de ramas
-                var branches = Git.GetBranches(projectDirectory);
-                BranchesComboBox.ItemsSource = branches;
-
-                // 4. Preguntar si quiere cambiarse a la nueva rama
-                var checkout = await DialogService.ShowConfirmDialog("Rama Creada",
-                    $"La rama '{branchName}' se creó correctamente.\n\n¿Quieres cambiarte (checkout) a esta rama ahora?",
-                    DialogVariant.Info, DialogType.Confirm);
-
-                if (checkout)
-                {
-
-                    BranchesComboBox.SelectedItem = branchName;
+                    Msg.Assistant($"✅ Tag '{tagName}' eliminado.");
                 }
             });
         }
 
-        private async void Branch_Create_Click(object sender, RoutedEventArgs e)
+        private async void btnReloadChanges_Click(object sender, RoutedEventArgs e)
         {
-            // 1. Obtener la rama base desde donde se crea
-            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string sourceBranch)
-                return;
-
-            if (!ValidateProject()) return;
-
-
-            // 2. Pedir nombre de la nueva Rama
-            var (okBranch, newBranchName) = await DialogService.ShowInputDialog("Crear Rama", $"Ingrese el nombre de la nueva rama (basada en '{sourceBranch}'):");
-            if (!okBranch || string.IsNullOrWhiteSpace(newBranchName)) return;
-
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant($"Creando rama '{newBranchName}' desde '{sourceBranch}'...");
-
-                // 3. Ejecutar comando Git
-                // "git branch <new_branch> <start_point>"
-                var result = await Git.EjecutarGit($"branch {newBranchName} {sourceBranch}", projectDirectory);
-
-                if (result.Contains("fatal:") || result.Contains("error:"))
-                {
-                    Msg.Assistant($"Error al crear rama: {result}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo crear la rama:\n{result}", DialogVariant.Error, DialogType.Info);
-                    return;
-                }
-
-                Msg.Assistant($"✅ Rama '{newBranchName}' creada correctamente.");
-
-                // 4. Refrescar la lista de ramas
-                var branches = Git.GetBranches(projectDirectory);
-                BranchesComboBox.ItemsSource = branches;
-
-                // 5. Preguntar si quiere cambiarse a la nueva rama
-                var checkout = await DialogService.ShowConfirmDialog("Rama Creada",
-                    $"La rama '{newBranchName}' se creó correctamente.\n\n¿Quieres cambiarte (checkout) a esta rama ahora?",
-                    DialogVariant.Info, DialogType.Confirm);
-
-                if (checkout)
-                {
-                    // Esto disparará el evento SelectionChanged y hará el checkout real
-                    BranchesComboBox.SelectedItem = newBranchName;
-                }
-            });
-        }
-        private async void Branch_Delete_Click(object sender, RoutedEventArgs e)
-        {
-            // 1. Obtener el nombre de la rama
-            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string branchName)
-                return;
-
-            if (!ValidateProject()) return;
-
-            // 2. No permitir borrar la rama activa
-            if (branchName.Equals(_currentlySelectedBranch, StringComparison.OrdinalIgnoreCase))
-            {
-                await DialogService.ShowConfirmDialog(
-                    "Error",
-                    $"No puedes eliminar la rama '{branchName}' porque es la rama en la que estás trabajando actualmente.",
-                    DialogVariant.Error,
-                    DialogType.Info
-                );
-                return;
-            }
-
-            // 3. Proteger ramas principales
-            if (branchName.Equals("main", StringComparison.OrdinalIgnoreCase) ||
-                branchName.Equals("master", StringComparison.OrdinalIgnoreCase))
-            {
-                await DialogService.ShowConfirmDialog(
-                    "Error",
-                    $"No se puede eliminar la rama principal ('{branchName}').",
-                    DialogVariant.Error,
-                    DialogType.Info
-                );
-                return;
-            }
-
-            // 4. Confirmar eliminación local
-            var confirmLocal = await DialogService.ShowConfirmDialog(
-                "Eliminar Rama Local",
-                $"¿Deseas eliminar la rama local '{branchName}'?\n\n" +
-                "Esta acción eliminará la rama en tu repositorio local.",
-                DialogVariant.Warning,
-                DialogType.Confirm
-            );
-
-            if (!confirmLocal)
-            {
-                Msg.Assistant("Operación cancelada: no se eliminó la rama local.");
-                return;
-            }
-
-            // 5. Eliminar rama local
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant($"Eliminando rama local '{branchName}'...");
-                var localResult = await Git.DeleteBranchLocal(branchName, projectDirectory);
-
-                if (!localResult.Success)
-                {
-                    Msg.Assistant($"⚠️ No se pudo eliminar la rama local: {localResult.Output}");
-                    await DialogService.ShowConfirmDialog(
-                        "Error",
-                        $"No se pudo eliminar la rama local '{branchName}'.\n\n{localResult.Output}",
-                        DialogVariant.Error,
-                        DialogType.Info
-                    );
-                    return;
-                }
-
-                Msg.Assistant($"✅ Rama local '{branchName}' eliminada correctamente.");
-
-                // 6. Preguntar si también desea eliminar la remota
-                var confirmRemote = await DialogService.ShowConfirmDialog(
-                    "Eliminar Rama Remota",
-                    $"¿Deseas eliminar también la rama remota 'origin/{branchName}'?",
-                    DialogVariant.Warning,
-                    DialogType.Confirm
-                );
-
-                if (confirmRemote)
-                {
-                    Msg.Assistant($"Eliminando rama remota 'origin/{branchName}'...");
-                    var remoteResult = await Git.DeleteBranchRemote(branchName, projectDirectory);
-
-                    if (!remoteResult.Success)
-                    {
-                        Msg.Assistant($"⚠️ No se pudo eliminar la rama remota: {remoteResult.Output}");
-                        await DialogService.ShowConfirmDialog(
-                            "Aviso",
-                            $"No se pudo eliminar la rama remota 'origin/{branchName}'.\n\n{remoteResult.Output}",
-                            DialogVariant.Warning,
-                            DialogType.Info
-                        );
-                    }
-                    else
-                    {
-                        Msg.Assistant($"✅ Rama remota 'origin/{branchName}' eliminada correctamente.");
-                    }
-                }
-                else
-                {
-                    Msg.Assistant("Eliminación remota cancelada por el usuario.");
-                }
-
-                // 7. Refrescar lista de ramas
-                var branches = Git.GetBranches(projectDirectory);
-                BranchesComboBox.ItemsSource = branches;
-                if (branches.Contains(_currentlySelectedBranch))
-                    BranchesComboBox.SelectedItem = _currentlySelectedBranch;
-            });
-        }
-        private async void ModoAgenteComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (ModoAgenteComboBox.SelectedIndex <= 0)
-                return;
-
-            var selectedItem = (ComboBoxItem)ModoAgenteComboBox.SelectedItem;
-            // Detecta qué opción fue elegida por el usuario
-            if (selectedItem == AddMethodItem)
-            {
-                await RunWithLoading(async () =>
-                {
-                    AddMethod_Click();
-                });
-            }
-            else if (selectedItem == RollbackItem)
-            {
-
-
-                await RunWithLoading(async () =>
-                {
-                    RollbackSelectModule();
-                });
-            }
-            else if (selectedItem == SqlGeneratorItem)
-            {
-                var sqlView = new Chapi.Views.SqlGeneratorView();
-                sqlView.Owner = this;
-                sqlView.ShowDialog();
-            }
-            ModoAgenteComboBox.SelectedIndex = 0;
+            await LoadChangesAsync();
         }
 
-        private void DiffLine_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        private Git.AheadBehindResult _currentGitStatus = new(0, 0);
+        private enum GitActionState { Pull, Push, Fetch }
+        private GitActionState _currentGitAction = GitActionState.Fetch;
+
+        private async void GitActionsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // 1. Obtener la línea (DiffPiece) donde se hizo clic
-            var grid = sender as Grid;
-            var diffPiece = grid?.DataContext as DiffPlex.DiffBuilder.Model.DiffPiece;
-
-            // 2. Obtener el MenuItem
-            var contextMenu = grid.ContextMenu;
-            var menuItem = contextMenu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Name == "DiffLineMenu_OpenFile");
-            if (menuItem == null || diffPiece == null) return;
-
-            // 3. Obtener el número de línea
-            _activeDiffLine = diffPiece.Position;
-            if (!_activeDiffLine.HasValue || diffPiece.Type == DiffPlex.DiffBuilder.Model.ChangeType.Imaginary)
-            {
-                menuItem.IsEnabled = false;
-                _activeDiffFile = null;
-                return;
-            }
-
-            // 4. Determinar el archivo activo (depende de la pestaña)
-            _activeDiffFile = null;
-            if (GitTabs.SelectedItem == ChangesTab)
-            {
-                // Si estamos en "Cambios" (o viendo un Stash)
-                GitStatusItem selectedChange = null;
-
-
-                if (NormalChangesView.Visibility == Visibility.Visible)
-                {
-                    selectedChange = ChangesListView.SelectedItem as GitStatusItem;
-                }
-                else if (StashedChangesView.Visibility == Visibility.Visible)
-                {
-                    selectedChange = StashFilesListView.SelectedItem as GitStatusItem;
-                }
-
-                if (selectedChange != null)
-                {
-                    _activeDiffFile = selectedChange.FilePath;
-                }
-            }
-
-
-            // 5. Actualizar el texto y estado del MenuItem
-            if (!string.IsNullOrEmpty(_activeDiffFile))
-            {
-                menuItem.Header = $"Abrir '{Path.GetFileName(_activeDiffFile)}' en línea {_activeDiffLine.Value}";
-                menuItem.IsEnabled = true;
-            }
-            else
-            {
-                menuItem.Header = "Abrir en Editor";
-                menuItem.IsEnabled = false;
-            }
+            if (!_isWindowInitialized || GitActionsComboBox.SelectedItem == null) return;
+            // Placeholder para acciones Git
         }
 
-        // --- 👇 AÑADIR ESTE MÉTODO (Handler de Acción) ---
-        private async void DiffLineMenu_OpenFile_Click(object sender, RoutedEventArgs e)
+        private async void GitActionsComboBox_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (string.IsNullOrEmpty(_activeDiffFile) || !_activeDiffLine.HasValue || !ValidateProject())
-            {
-                Msg.Assistant("No se pudo determinar el archivo o la línea.");
-                return;
-            }
-
-            try
-            {
-                string fullPath = Path.Combine(projectDirectory, _activeDiffFile);
-                if (!File.Exists(fullPath))
-                {
-                    Msg.Assistant($"El archivo no existe: {fullPath}");
-                    return;
-                }
-
-                // Usamos el comando "code -g" (goto)
-                // Reutilizamos la lógica de 'ProjectMenuItem_OpenVSCode_Click' para WSL
-                bool isWslPath = projectDirectory.StartsWith(@"\\wsl$") || projectDirectory.StartsWith(@"\\wsl.localhost");
-
-                if (isWslPath)
-                {
-                    // Para WSL, 'code -g' debe ejecutarse desde wsl
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = "wsl",
-                        Arguments = $"code -g \"{fullPath}\":{_activeDiffLine.Value}",
-                        WorkingDirectory = projectDirectory,
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    });
-                }
-                else
-                {
-                    // Para Windows normal
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = "code",
-                        Arguments = $"-g \"{fullPath}\":{_activeDiffLine.Value}",
-                        UseShellExecute = true,
-                        CreateNoWindow = true
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                Msg.Assistant($"Error al abrir VS Code: {ex.Message}");
-                await DialogService.ShowConfirmDialog("Error",
-                    $"No se pudo iniciar VS Code (¿está en el PATH?):\n{ex.Message}"
-                    , Views.Dialogs.DialogVariant.Error, Views.Dialogs.DialogType.Info);
-            }
+            if (!_isWindowInitialized) return;
+            // Placeholder para acciones Git
         }
+        #endregion
 
-
-        /// <summary>
-        /// Comprueba si Git está instalado y actualiza la UI.
-        /// </summary>
-        private async Task CheckGitInstallationAsync()
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            _isGitInstalled = Git.IsGitInstalled();
-
-            if (_isGitInstalled)
-            {
-                // Git está. Muestra la UI normal.
-                GitControlsView.Visibility = Visibility.Visible;
-                GitMissingView.Visibility = Visibility.Collapsed;
-
-                // Habilita las otras pestañas de Git
-                HistoryTab.IsEnabled = true;
-                TagsTab.IsEnabled = true;
-
-                // Intenta cargar los cambios del proyecto (si hay uno seleccionado)
-                if (projectDirectory != null)
-                {
-                    await LoadChangesAsync();
-                }
-            }
-            else
-            {
-                // Git NO está. Muestra el error.
-                GitControlsView.Visibility = Visibility.Collapsed;
-                GitMissingView.Visibility = Visibility.Visible;
-
-                // Deshabilita las pestañas que dependen de Git
-                ChangesTab.IsSelected = true;
-                HistoryTab.IsEnabled = false;
-                TagsTab.IsEnabled = false;
-
-                Msg.Assistant("⚠️ No se pudo detectar Git. Por favor, instálalo para continuar.");
-            }
-        }
-
-        /// <summary>
-        /// Abre el navegador para descargar Git.
-        /// </summary>
-        private void btnInstallGit_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "https://git-scm.com/downloads",
-                    UseShellExecute = true // Importante para abrir en el navegador
-                });
-            }
-            catch (Exception ex)
-            {
-                Msg.Assistant($"Error al abrir el navegador: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Vuelve a comprobar si el usuario ya instaló Git.
-        /// </summary>
-        private async void btnRefreshGitCheck_Click(object sender, RoutedEventArgs e)
-        {
-            await RunWithLoading(CheckGitInstallationAsync);
+            e.Cancel = true;
+            Hide();
         }
     }
-
 }

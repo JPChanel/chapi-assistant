@@ -30,6 +30,10 @@ public interface IGitRepository
     Task<Result> FetchAsync(string projectPath);
     Task<(int Ahead, int Behind)> GetAheadBehindCountAsync(string projectPath);
     
+    Task<IEnumerable<string>> GetFilesChangedInCommitAsync(string projectPath, string hash);
+    Task<string> GetFileContentAtCommitAsync(string projectPath, string file, string hash);
+    Task<string> GetCommitParentHashAsync(string projectPath, string hash);
+
     // Generic command execution
     Task<string> ExecuteGitCommandAsync(string projectPath, string command);
 }

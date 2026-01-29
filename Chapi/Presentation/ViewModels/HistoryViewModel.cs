@@ -1,43 +1,62 @@
 using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities;
 using System.Collections.ObjectModel;
+using DiffPlex.DiffBuilder;
+using DiffPlex.DiffBuilder.Model;
+using Chapi.Views.Dialogs;
 
 namespace Chapi.Presentation.ViewModels;
 
 /// <summary>
 /// ViewModel para la pestaña de historial.
-/// Maneja la lista de commits y su carga.
+/// Maneja la lista de commits, archivos cambiados y diffs.
 /// </summary>
 public class HistoryViewModel : ViewModelBase
 {
     private readonly LoadHistoryUseCase _loadHistoryUseCase;
+    private readonly GetFilesChangedInCommitUseCase _getFilesUseCase;
+    private readonly GetFileDiffUseCase _getFileDiffUseCase;
+    
     private string _projectPath = string.Empty;
     private bool _isLoading;
     private CommitItemViewModel? _selectedCommit;
+    private string? _selectedFile;
+    private string _commitDetailsInfo = string.Empty;
 
     private int _currentLimit = 50;
     private const int PageSize = 50;
 
-    public HistoryViewModel(LoadHistoryUseCase loadHistoryUseCase)
+    public event EventHandler? ResetCompleted;
+
+    public HistoryViewModel(
+        LoadHistoryUseCase loadHistoryUseCase,
+        GetFilesChangedInCommitUseCase getFilesUseCase,
+        GetFileDiffUseCase getFileDiffUseCase)
     {
         _loadHistoryUseCase = loadHistoryUseCase;
+        _getFilesUseCase = getFilesUseCase;
+        _getFileDiffUseCase = getFileDiffUseCase;
+        
         Commits = new ObservableCollection<CommitItemViewModel>();
+        FilesChanged = new ObservableCollection<string>();
+        DiffLines = new ObservableCollection<DiffPiece>();
         
         LoadHistoryCommand = new AsyncRelayCommand(async _ => await LoadHistoryAsync());
         RefreshCommand = new AsyncRelayCommand(async _ => await ReloadHistoryAsync());
         LoadMoreCommand = new AsyncRelayCommand(async _ => await LoadMoreHistoryAsync());
+        ResetSoftCommand = new AsyncRelayCommand(async param => 
+        {
+            if (param is CommitItemViewModel commit)
+                await ResetSoftAsync(commit);
+        });
     }
 
     #region Properties
 
-    /// <summary>
-    /// Colección de commits en el historial.
-    /// </summary>
     public ObservableCollection<CommitItemViewModel> Commits { get; }
+    public ObservableCollection<string> FilesChanged { get; }
+    public ObservableCollection<DiffPiece> DiffLines { get; }
 
-    /// <summary>
-    /// Ruta del proyecto actual.
-    /// </summary>
     public string ProjectPath
     {
         get => _projectPath;
@@ -50,22 +69,41 @@ public class HistoryViewModel : ViewModelBase
         }
     }
 
-    /// <summary>
-    /// Indica si se están cargando los commits.
-    /// </summary>
     public bool IsLoading
     {
         get => _isLoading;
         set => SetProperty(ref _isLoading, value);
     }
 
-    /// <summary>
-    /// Commit seleccionado actualmente.
-    /// </summary>
     public CommitItemViewModel? SelectedCommit
     {
         get => _selectedCommit;
-        set => SetProperty(ref _selectedCommit, value);
+        set
+        {
+            if (SetProperty(ref _selectedCommit, value))
+            {
+                UpdateCommitDetails();
+                _ = LoadCommitFilesAsync();
+            }
+        }
+    }
+
+    public string? SelectedFile
+    {
+        get => _selectedFile;
+        set
+        {
+            if (SetProperty(ref _selectedFile, value))
+            {
+                _ = LoadFileDiffAsync();
+            }
+        }
+    }
+
+    public string CommitDetailsInfo
+    {
+        get => _commitDetailsInfo;
+        set => SetProperty(ref _commitDetailsInfo, value);
     }
 
     #endregion
@@ -75,17 +113,12 @@ public class HistoryViewModel : ViewModelBase
     public AsyncRelayCommand LoadHistoryCommand { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand LoadMoreCommand { get; }
+    public AsyncRelayCommand ResetSoftCommand { get; }
 
     #endregion
 
     #region Methods
 
-    /// <summary>
-    /// Carga el historial de commits.
-    /// </summary>
-    /// <summary>
-    /// Carga el historial usando el límite actual.
-    /// </summary>
     public async Task LoadHistoryAsync()
     {
         if (string.IsNullOrWhiteSpace(ProjectPath))
@@ -120,6 +153,94 @@ public class HistoryViewModel : ViewModelBase
         await LoadHistoryAsync();
     }
 
+    private void UpdateCommitDetails()
+    {
+        if (SelectedCommit == null)
+        {
+            CommitDetailsInfo = string.Empty;
+            return;
+        }
+
+        CommitDetailsInfo = $"{SelectedCommit.Author} cometió {SelectedCommit.ShortHash} ({SelectedCommit.RelativeDate})";
+    }
+
+    private async Task LoadCommitFilesAsync()
+    {
+        FilesChanged.Clear();
+        SelectedFile = null;
+        DiffLines.Clear();
+
+        if (SelectedCommit == null || string.IsNullOrEmpty(ProjectPath))
+            return;
+
+        var files = await _getFilesUseCase.ExecuteAsync(ProjectPath, SelectedCommit.Hash);
+        foreach (var file in files)
+        {
+            FilesChanged.Add(file);
+        }
+    }
+
+    private async Task LoadFileDiffAsync()
+    {
+        DiffLines.Clear();
+
+        if (SelectedCommit == null || string.IsNullOrEmpty(SelectedFile) || string.IsNullOrEmpty(ProjectPath))
+            return;
+
+        try
+        {
+            var (oldText, newText) = await _getFileDiffUseCase.ExecuteAsync(ProjectPath, SelectedFile, SelectedCommit.Hash);
+
+            var diffBuilder = new InlineDiffBuilder(new DiffPlex.Differ());
+            var diff = diffBuilder.BuildDiffModel(oldText, newText);
+
+            // Aplicar lógica de filtrado de Hunks
+            var filteredLines = FilterHunks(diff.Lines);
+            foreach (var line in filteredLines)
+            {
+                DiffLines.Add(line);
+            }
+        }
+        catch (Exception ex)
+        {
+            DiffLines.Add(new DiffPiece($"ERROR AL CARGAR DIFF: {ex.Message}", ChangeType.Deleted, null));
+        }
+    }
+
+    private List<DiffPiece> FilterHunks(IList<DiffPiece> lines)
+    {
+        var filteredLines = new List<DiffPiece>();
+        const int contextLines = 3;
+
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            if (line.Type == ChangeType.Unchanged)
+            {
+                bool isContext = false;
+                for (int j = 1; j <= contextLines; j++)
+                {
+                    if (i - j >= 0 && lines[i - j].Type != ChangeType.Unchanged) { isContext = true; break; }
+                }
+                if (!isContext)
+                {
+                    for (int j = 1; j <= contextLines; j++)
+                    {
+                        if (i + j < lines.Count && lines[i + j].Type != ChangeType.Unchanged) { isContext = true; break; }
+                    }
+                }
+                
+                if (isContext) { filteredLines.Add(line); }
+                else if (filteredLines.Count > 0 && filteredLines.Last().Type != ChangeType.Imaginary)
+                {
+                    filteredLines.Add(new DiffPiece("...", ChangeType.Imaginary, null));
+                }
+            }
+            else { filteredLines.Add(line); }
+        }
+        return filteredLines;
+    }
+
     private CommitItemViewModel MapToViewModel(GitCommit commit)
     {
         return new CommitItemViewModel
@@ -127,11 +248,46 @@ public class HistoryViewModel : ViewModelBase
             Hash = commit.Hash,
             ShortHash = commit.ShortHash,
             Message = commit.Message,
+            Description = commit.Description,
             Author = commit.Author,
             Date = commit.Date,
             RelativeDate = commit.RelativeDate,
             IsSynced = !commit.IsUnpushed
         };
+    }
+
+    private async Task ResetSoftAsync(CommitItemViewModel? commit)
+    {
+        if (commit == null || string.IsNullOrEmpty(ProjectPath)) return;
+
+        // Confirmar con el usuario
+        var confirm = await Services.DialogService.ShowConfirmDialog(
+            "Deshacer Último Commit",
+            $"¿Estás seguro de deshacer el commit '{commit.ShortHash}'?\n\nLos cambios se mantendrán en el área de trabajo.",
+            DialogVariant.Warning,
+            DialogType.Confirm);
+
+        if (!confirm) return;
+
+        // Ejecutar reset soft
+        var result = await Helper.GitHelper.Git.EjecutarGit($"reset --soft {commit.Hash}^", ProjectPath);
+        
+        if (!result.Contains("fatal:") && !result.Contains("error:"))
+        {
+            Helper.Msg.Assistant($"✅ Commit '{commit.ShortHash}' deshecho. Los cambios están en el área de trabajo.");
+            await ReloadHistoryAsync();
+            
+            // Notificar que se completó el reset para que los cambios se actualicen
+            ResetCompleted?.Invoke(this, EventArgs.Empty);
+        }
+        else
+        {
+            await Services.DialogService.ShowConfirmDialog(
+                "Error",
+                $"No se pudo deshacer el commit:\n{result}",
+                DialogVariant.Error,
+                DialogType.Info);
+        }
     }
 
     #endregion

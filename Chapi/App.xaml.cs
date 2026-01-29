@@ -63,6 +63,7 @@ namespace Chapi
 
             // Infrastructure - Services
             services.AddSingleton<INotificationService, MessageNotificationService>();
+            services.AddSingleton<ModuleGeneratorService>();
 
             // Application - Use Cases
             services.AddTransient<UseCases.CommitChangesUseCase>();
@@ -80,10 +81,13 @@ namespace Chapi
             services.AddTransient<UseCases.DiscardChangesUseCase>();
             services.AddTransient<UseCases.ResetCommitUseCase>();
             services.AddTransient<UseCases.CreateBranchUseCase>();
+            services.AddTransient<UseCases.GetFilesChangedInCommitUseCase>();
+            services.AddTransient<UseCases.GetFileDiffUseCase>();
 
             // Presentation - ViewModels
             services.AddTransient<Presentation.ViewModels.ChangesViewModel>();
             services.AddTransient<Presentation.ViewModels.HistoryViewModel>();
+            services.AddTransient<Presentation.ViewModels.AssistantViewModel>();
 
             ServiceProvider = services.BuildServiceProvider();
         }

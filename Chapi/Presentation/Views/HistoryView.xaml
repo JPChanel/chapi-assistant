@@ -1,0 +1,477 @@
+<UserControl x:Class="Chapi.Presentation.Views.HistoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Chapi.Presentation.Views"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="1000">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <Grid Background="#1A132D" >
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="0.3*" MinWidth="200"/>
+            <ColumnDefinition Width="0.3*" MinWidth="200"/>
+            <ColumnDefinition Width="0.4*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0"  Padding="0,8">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <ListView x:Name="HistoryListView" 
+                          Grid.Row="0"
+                          ItemsSource="{Binding Commits}"
+                          SelectedItem="{Binding SelectedCommit}"
+                          Background="Transparent" 
+                          BorderThickness="0" 
+                          Padding="5,4"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0,0,0,6"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="materialDesign:RippleAssist.IsDisabled" Value="True"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <ContentPresenter/>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Border x:Name="CardBorder" 
+                                    Margin="8,0" 
+                                    Padding="12"                                                     
+                                    CornerRadius="8"                                                   
+                                    Background="#241A3D"  
+                                    BorderBrush="#3D2B66" 
+                                    BorderThickness="1">
+                                <Grid ContextMenuOpening="History_ContextMenu_Opening">
+                                     <Grid.ContextMenu>
+                                         <ContextMenu>
+                                             <MenuItem x:Name="ResetSoftMenuItem" Header="Undo Last Commit (Soft)" Click="History_ResetSoft_Click" CommandParameter="{Binding}">
+                                                 <MenuItem.Icon>
+                                                     <materialDesign:PackIcon Kind="Undo" Foreground="Orange"/>
+                                                 </MenuItem.Icon>
+                                             </MenuItem>
+                                             <Separator />
+                                             <MenuItem Header="Create Branch from this Commit..." Click="History_CreateBranch_Click" CommandParameter="{Binding Hash}">
+                                                 <MenuItem.Icon>
+                                                     <materialDesign:PackIcon Kind="SourceBranch" Foreground="DeepSkyBlue"/>
+                                                 </MenuItem.Icon>
+                                             </MenuItem>
+                                             <MenuItem Header="Create Tag from this Commit..." Click="History_CreateTag_Click" CommandParameter="{Binding Hash}">
+                                                 <MenuItem.Icon>
+                                                     <materialDesign:PackIcon Kind="TagPlus" Foreground="LightSlateGray"/>
+                                                 </MenuItem.Icon>
+                                             </MenuItem>
+                                         </ContextMenu>
+                                     </Grid.ContextMenu>
+                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Row 0: Hash & Message -->
+                                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <Border Grid.Column="0" Background="#2D2D30" CornerRadius="3" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="SourceCommit" Width="10" Height="10" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                <TextBlock Text="{Binding ShortHash}" FontFamily="Consolas" FontSize="11"  Foreground="#FFA500" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                        
+                                        <TextBlock Grid.Column="1" 
+                                                   Text="{Binding Message}" 
+                                                   FontSize="13" 
+                                                   FontWeight="Bold" 
+                                                   Foreground="White" 
+                                                   TextWrapping="NoWrap" 
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center"/>
+
+                                        <materialDesign:PackIcon Grid.Column="2" 
+                                                                 Kind="ArrowUp" 
+                                                                 Width="14" 
+                                                                 Height="14" 
+                                                                 Foreground="#FF5252" 
+                                                                 VerticalAlignment="Center" 
+                                                                 Margin="8,0,0,0"
+                                                                 Visibility="{Binding IsUnpushed, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                 ToolTip="Pendiente de subir"/>
+                                    </Grid>
+
+                                    <!-- Row 1: Tags -->
+                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                                        <ItemsControl ItemsSource="{Binding Tags}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#3D2B66" CornerRadius="8" Padding="6,1" Margin="0,0,4,0">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <materialDesign:PackIcon Kind="TagOutline" Width="10" Height="10" Foreground="#8A7BB1" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding}" FontSize="9" Foreground="#DCDCDC" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <!-- Row 2: Author & Date -->
+                                    <Grid Grid.Row="2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                                             <materialDesign:PackIcon Kind="AccountCircleOutline" Width="14" Height="14" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                             <TextBlock Text="{Binding Author}" FontSize="11" Foreground="#999" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        
+                                        <TextBlock Grid.Column="1" 
+                                                   Text="{Binding RelativeDate}" 
+                                                   FontSize="10" 
+                                                   Foreground="#666" 
+                                                   FontStyle="Italic" 
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
+                                    <Setter TargetName="CardBorder" Property="BorderBrush" Value="#FFA500"/>
+                                    <Setter TargetName="CardBorder" Property="BorderThickness" Value="1"/>
+                                    <Setter TargetName="CardBorder" Property="Background" Value="#252525"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                
+                <Button x:Name="btnLoadMoreHistory" 
+                        Grid.Row="1"
+                        Content="Cargar más >>" 
+                        Command="{Binding LoadMoreCommand}"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        FontSize="10"
+                        FontWeight="Bold"
+                        Height="35"
+                        Margin="8,4"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.Column="1" Background="Transparent" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Commit Detail Header -->
+                    <Border Grid.Row="0" x:Name="CommitDetailContainer" Padding="25,30,25,20" Visibility="Visible">
+                        <StackPanel>
+                            <TextBlock x:Name="CommitSummaryMessage" Text="{Binding SelectedCommit.Message, FallbackValue='SIN INFORMACIÓN'}" FontSize="22" FontWeight="Black" Foreground="White" TextWrapping="Wrap" LineHeight="28"/>
+                            
+                            <Border Margin="0,20,0,0" Padding="0" Background="Transparent">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="AccountCircle" Width="24" Height="24" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock x:Name="CommitSummaryInfo" Text="{Binding CommitDetailsInfo}" FontSize="14" Foreground="#888" VerticalAlignment="Center" FontWeight="Normal"/>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock x:Name="CommitSummaryDescription" Text="{Binding SelectedCommit.Description, FallbackValue='Selecciona un commit para ver los detalles.'}" Margin="0,25,0,0" FontSize="14" Foreground="#CCC" TextWrapping="Wrap" Opacity="0.8" LineHeight="22"/>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,20,0,0" >
+                                <materialDesign:PackIcon Kind="FileDocumentMultipleOutline" Width="18" Height="18" Foreground="#FFA500" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="ARCHIVOS CAMBIADOS" FontSize="11" FontWeight="Black" Foreground="#FFA500" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <ListView x:Name="HistoryFilesListView" 
+                              Grid.Row="1" 
+                              Margin="10,0" 
+                              BorderThickness="0" 
+                              Background="Transparent" 
+                              ItemsSource="{Binding FilesChanged}"
+                              SelectedItem="{Binding SelectedFile}"
+                              ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
+                            <Setter Property="Padding" Value="10,8"/>
+                            <Setter Property="Margin" Value="0,2"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="BorderBrush" Value="Transparent"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <Border Background="{TemplateBinding Background}" 
+                                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                                CornerRadius="6"
+                                                SnapsToDevicePixels="True">
+                                            <Border.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Show in Explorer" Click="ProjectMenuItem_OpenExplorer_Click" CommandParameter="{Binding}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="FolderOpenOutline" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <MenuItem Header="Open in Visual Studio Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <MenuItem Header="Open with default program" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="OpenInNew" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <Separator />
+                                                    <MenuItem Header="Copy file path" Click="HistoryFiles_CopyPath_Click" CommandParameter="{Binding}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="ContentCopy" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <MenuItem Header="Copy relative file path" Click="HistoryFiles_CopyRelativePath_Click" CommandParameter="{Binding}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="LinkVariant" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <Separator />
+                                                    <MenuItem Header="View on Web" Click="ProjectMenuItem_OpenGitHub_Click" CommandParameter="{Binding}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="Web" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#26FFA500"/>
+                                                <Setter Property="BorderBrush" Value="#FFA500"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <materialDesign:PackIcon Kind="FileOutline" Width="18" Height="18" Margin="2,0,12,0" VerticalAlignment="Center">
+                                    <materialDesign:PackIcon.Style>
+                                        <Style TargetType="materialDesign:PackIcon">
+                                                <Setter Property="Foreground" Value="#FFA500"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
+                                                    <Setter Property="Foreground" Value="#FFA500"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
+                                                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </materialDesign:PackIcon.Style>
+                                </materialDesign:PackIcon>
+                                
+                                <TextBlock Grid.Column="1" Text="{Binding}" Foreground="#DCDCDC" VerticalAlignment="Center" FontSize="13" Padding="3,5"/>
+                                <materialDesign:PackIcon Grid.Column="2" Kind="ChevronRight" Width="14" Height="14" Foreground="#3D2B66" VerticalAlignment="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                </Grid>
+            </ScrollViewer>
+        </Border>
+
+        <Border Grid.Column="2" Background="#0A0A0A" BorderBrush="#2D2447" BorderThickness="1,0,0,0">
+            <Grid>
+                <!-- Empty State -->
+                <Grid x:Name="DiffViewerPlaceholder" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedFile}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <StackPanel HorizontalAlignment="Center">
+                        <Border Background="#1A1A1A" CornerRadius="8" Padding="20" HorizontalAlignment="Center" Margin="0,0,0,20">
+                            <materialDesign:PackIcon Kind="CodeTags" Width="48" Height="48" Foreground="#333"/>
+                        </Border>
+                        <TextBlock Text="SIN ARCHIVO SELECCIONADO" 
+                                   FontSize="16" 
+                                   FontWeight="Bold" 
+                                   Foreground="#444" 
+                                   HorizontalAlignment="Center" 
+                                   Margin="0,0,0,8"/>
+                        <TextBlock Text="Selecciona un archivo modificado en el panel&#x0a;izquierdo para ver las diferencias (diff)." 
+                                    FontSize="13" 
+                                    Foreground="#333" 
+                                    TextAlignment="Center" 
+                                    LineHeight="20"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Content State -->
+                <Grid x:Name="DiffViewerContent">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedFile}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Padding="15,12" BorderBrush="#2D2447" BorderThickness="0,0,1,0">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="CodeBraces" Width="16" Height="16" Foreground="#8A7BB1" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="HistoryDiffFileName" Text="{Binding SelectedFile, TargetNullValue='VISOR DE CÓDIGO'}" FontSize="10" FontWeight="Bold" Foreground="#8A7BB1" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="HistoryDiffLinesItemsControl" 
+                                      ItemsSource="{Binding DiffLines}"
+                                      FontFamily="Consolas" 
+                                      FontSize="13"
+                                      Background="#0A0A0A"
+                                      VirtualizingStackPanel.IsVirtualizing="True"
+                                      VirtualizingStackPanel.VirtualizationMode="Recycling">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Type}" Value="Inserted">
+                                                        <Setter Property="Background" Value="#102510"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Type}" Value="Deleted">
+                                                        <Setter Property="Background" Value="#251010"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Type}" Value="Imaginary">
+                                                        <Setter Property="Background" Value="#111"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="35"/>
+                                            <ColumnDefinition Width="35"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="{Binding Position}" Foreground="#555" Padding="5,0" HorizontalAlignment="Right">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Inserted">
+                                                            <Setter Property="Visibility" Value="Hidden"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Imaginary">
+                                                            <Setter Property="Visibility" Value="Hidden"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding Position}" Foreground="#555" Padding="5,0" HorizontalAlignment="Right">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Deleted">
+                                                            <Setter Property="Visibility" Value="Hidden"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Imaginary">
+                                                            <Setter Property="Visibility" Value="Hidden"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
+                                        <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="NoWrap" FontFamily="Consolas" Padding="12,2,0,2">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="{Binding Text, StringFormat='  {0}'}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Inserted">
+                                                            <Setter Property="Foreground" Value="#80C880"/>
+                                                            <Setter Property="Text" Value="{Binding Text, StringFormat='+ {0}'}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Deleted">
+                                                            <Setter Property="Foreground" Value="#C88080"/>
+                                                            <Setter Property="Text" Value="{Binding Text, StringFormat='- {0}'}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Unchanged">
+                                                            <Setter Property="Foreground" Value="#888"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Imaginary">
+                                                            <Setter Property="Text" Value="..."/>
+                                                            <Setter Property="Foreground" Value="#444"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
