@@ -242,14 +242,6 @@ public static class Git
             return new GitResult(false, ex.Message);
         }
     }
-    /// <summary>
-    /// Obtiene el nombre de la rama actual.
-    /// </summary>
-    public static async Task<string> GetCurrentBranch(string workingDirectory)
-    {
-        var branch = await EjecutarGit("rev-parse --abbrev-ref HEAD", workingDirectory);
-        return branch.Trim();
-    }
 
     public static List<string> GetBranches(string repositoryPath)
     {
@@ -515,7 +507,7 @@ public static class Git
     /// <summary>
     /// Representa una entrada en la lista de stashes.
     /// </summary>
-    public record StashEntry(string Name, string Branch, string Message);
+    public record StashEntry(string Name, string Branch, string Message, int FileCount = 0);
 
     /// <summary>
     /// Obtiene la lista de stashes disponibles.
@@ -543,7 +535,31 @@ public static class Git
             var parts = line.Trim().Split('|');
             if (parts.Length == 3)
             {
-                stashes.Add(new StashEntry(parts[0], parts[1].Replace("refs/heads/", ""), parts[2]));
+                string name = parts[0].Trim();
+                string message = parts[2].Trim();
+                string branch = "Unknown";
+                
+                // Intentar extraer la rama del mensaje
+                var match = System.Text.RegularExpressions.Regex.Match(message, @"^(?:WIP on|On|Auto-stash de) ([^:]+):");
+                if (match.Success)
+                {
+                    branch = match.Groups[1].Value.Trim();
+                }
+
+                // Obtener conteo de archivos
+                int count = 0;
+                try 
+                {
+                    // "stash show --name-only" devuelve la lista de archivos, uno por línea
+                    var filesOutput = await EjecutarGit($"stash show --name-only {name}", workingDirectory);
+                    if (!string.IsNullOrWhiteSpace(filesOutput))
+                    {
+                        count = filesOutput.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                    }
+                }
+                catch { /* Ignorar error al contar archivos para no bloquear */ }
+                
+                stashes.Add(new StashEntry(name, branch, message, count));
             }
         }
         return stashes;

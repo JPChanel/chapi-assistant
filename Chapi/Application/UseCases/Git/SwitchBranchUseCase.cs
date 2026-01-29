@@ -31,7 +31,7 @@ public class SwitchBranchUseCase
         {
             // Intentar obtener rama actual para el mensaje
             string currentBranch = "unknown";
-            try { currentBranch = await Git.GetCurrentBranch(projectPath); } catch {}
+            try { currentBranch = await Chapi.Helper.GitHelper.Git.GetCurrentBranch(projectPath); } catch {}
 
             var stashCommand = await _gitRepo.ExecuteGitCommandAsync(projectPath, $"stash push -m \"Auto-stash de {currentBranch}: Cambio a {branchName}\"");
             if (string.IsNullOrEmpty(stashCommand) || stashCommand.Contains("fatal:"))
