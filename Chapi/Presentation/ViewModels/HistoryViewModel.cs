@@ -141,7 +141,7 @@ public class HistoryViewModel : ViewModelBase
         }
     }
 
-    private async Task ReloadHistoryAsync()
+    public async Task ReloadHistoryAsync()
     {
         _currentLimit = PageSize;
         await LoadHistoryAsync();

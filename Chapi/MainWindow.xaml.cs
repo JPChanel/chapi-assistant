@@ -228,7 +228,7 @@ namespace Chapi
         {
             if (string.IsNullOrEmpty(projectDirectory) || _historyViewModel == null) return;
             _historyViewModel.ProjectPath = projectDirectory;
-            // El ViewModel carga el historial automáticamente al cambiar la ruta
+            await _historyViewModel.ReloadHistoryAsync();
         }
 
         #region ✅ UI Helpers

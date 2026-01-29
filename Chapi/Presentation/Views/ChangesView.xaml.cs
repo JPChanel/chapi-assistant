@@ -26,8 +26,6 @@ public partial class ChangesView : UserControl
 
     private void btnInstallGit_Click(object sender, RoutedEventArgs e)
     {
-        // Esta lógica podría delegarse a un servicio o al MainWindow
-        // Por ahora, buscaremos la forma de invocarla o simplemente abrir el link
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
         {
             FileName = "https://git-scm.com/downloads",
@@ -37,7 +35,7 @@ public partial class ChangesView : UserControl
 
     private void btnRefreshGitCheck_Click(object sender, RoutedEventArgs e)
     {
-        // Recargar el estado
+        _ = _viewModel?.LoadChangesAsync();
     }
 
     private async void btnGitCommitIA_Click(object sender, RoutedEventArgs e)
@@ -64,7 +62,15 @@ public partial class ChangesView : UserControl
         _viewModel?.ClearStashesCommand.Execute(null);
     }
 
-    private void StashListView_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
+    private void StashListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (StashListView.SelectedItem is Git.StashEntry stash && _viewModel != null)
+        {
+            _viewModel.SelectedStash = stash;
+            _viewModel.IsStashViewVisible = true;
+            StashListView.SelectedItem = null; // Reset para permitir volver a seleccionar
+        }
+    }
 
     private void RestoreStashItemButton_Click(object sender, RoutedEventArgs e)
     {
@@ -97,6 +103,7 @@ public partial class ChangesView : UserControl
             _viewModel?.DiscardCommand.Execute(item);
         }
     }
+
     private void ProjectMenuItem_OpenVSCode_Click(object sender, RoutedEventArgs e)
     {
         string path = GetPathFromMenuItem(sender);
@@ -143,14 +150,38 @@ public partial class ChangesView : UserControl
         }
     }
 
-    private void StashView_RestoreButton_Click(object sender, RoutedEventArgs e)
+    private void StashView_RestoreButton_Click(object sender, RoutedEventArgs e) 
     {
-        // _viewModel?.PopStashCommand.Execute(_viewModel.SelectedStash);
+        if (_viewModel?.SelectedStash is Git.StashEntry stash)
+        {
+            _viewModel.PopStashCommand.Execute(stash);
+            _viewModel.IsStashViewVisible = false;
+        }
     }
 
-    private void StashView_DiscardButton_Click(object sender, RoutedEventArgs e) { }
-    private void StashView_BackButton_Click(object sender, RoutedEventArgs e) { }
-    private void StashFilesListView_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
+    private async void StashView_DiscardButton_Click(object sender, RoutedEventArgs e) 
+    {
+        if (_viewModel?.SelectedStash is Git.StashEntry stash)
+        {
+            var result = MessageBox.Show($"¿Estás seguro de que deseas eliminar el stash '{stash.Message}'?", "Confirmar", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (result == MessageBoxResult.Yes)
+            {
+                await _viewModel.DropStashCommand.ExecuteAsync(stash);
+                _viewModel.IsStashViewVisible = false;
+            }
+        }
+    }
+
+    private void StashView_BackButton_Click(object sender, RoutedEventArgs e) 
+    {
+        if (_viewModel != null) _viewModel.IsStashViewVisible = false;
+    }
+
+    private void StashFilesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // El ViewModel ya maneja el cambio vía binding SelectedStashedFile en XAML
+    }
+
     private void DiffLine_ContextMenuOpening(object sender, ContextMenuEventArgs e) { }
     private void DiffLineMenu_OpenFile_Click(object sender, RoutedEventArgs e) { }
 

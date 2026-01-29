@@ -67,7 +67,8 @@
                            Margin="0"
                            LastChildFill="True"
                            VerticalAlignment="Stretch"
-                           HorizontalAlignment="Stretch">
+                           HorizontalAlignment="Stretch"
+                           Visibility="{Binding IsStashViewVisible, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
 
                     <!-- Header Lista -->
                     <Border DockPanel.Dock="Top" Padding="12,8" Background="{DynamicResource PrimaryHueMidBrush}" BorderBrush="{x:Null}" BorderThickness="0">
@@ -163,17 +164,11 @@
                               DockPanel.Dock="Bottom"
                               Margin="0,5,0,0"
                               materialDesign:ExpanderAssist.HeaderBackground="#1A132D"
-                              Visibility="Collapsed"
                               BorderBrush="#3D2B66"
                               BorderThickness="0,1,0,0">
                         <Expander.Style>
                             <Style TargetType="Expander" BasedOn="{StaticResource MaterialDesignExpander}">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding HasStashes}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
+                                <Setter Property="Visibility" Value="{Binding HasStashes, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                             </Style>
                         </Expander.Style>
                         <Expander.Header>
@@ -365,7 +360,7 @@
                 <DockPanel x:Name="StashedChangesView" 
                            Margin="5" 
                            LastChildFill="True" 
-                           Visibility="Collapsed">
+                           Visibility="{Binding IsStashViewVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
 
                     <Border DockPanel.Dock="Top"
                             Background="{DynamicResource MaterialDesignPaper}"
@@ -396,7 +391,7 @@
 
                             <TextBlock x:Name="StashView_Header"
                                        Grid.Column="2"
-                                       Text="Stash de archivos"
+                                       Text="{Binding SelectedStash.Message, StringFormat='Stash: {0}'}"
                                        VerticalAlignment="Center"
                                        HorizontalAlignment="Center"
                                        FontWeight="Bold"/>
@@ -411,6 +406,8 @@
                     </Border>
 
                     <ListView x:Name="StashFilesListView"
+                              ItemsSource="{Binding StashedFiles}"
+                              SelectedItem="{Binding SelectedStashedFile}"
                               VerticalAlignment="Stretch"
                               VerticalContentAlignment="Stretch"
                               Margin="0,0,0,5"
@@ -435,7 +432,18 @@
                                                Foreground="{Binding Color}"
                                                VerticalAlignment="Center"
                                                HorizontalAlignment="Right"
-                                               Margin="0,0,5,0"/>
+                                               Margin="0,0,30,0"/>
+
+                                    <Button Grid.Column="1"
+                                            Style="{StaticResource MaterialDesignIconButton}"
+                                            Width="24" Height="24"
+                                            VerticalAlignment="Center" 
+                                            HorizontalAlignment="Right"
+                                            ToolTip="Restaurar solo este archivo"
+                                            Command="{Binding DataContext.RestoreFileFromStashCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}">
+                                        <materialDesign:PackIcon Kind="Restore" Width="16" Height="16"/>
+                                    </Button>
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>

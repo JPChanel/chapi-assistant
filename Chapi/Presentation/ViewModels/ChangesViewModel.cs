@@ -4,7 +4,11 @@ using Chapi.Helper.GitHelper;
 using DiffPlex.DiffBuilder.Model;
 using MaterialDesignThemes.Wpf;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Media;
+using Chapi.Services;
+using Chapi.Helper;
+using Chapi.Views.Dialogs;
 
 namespace Chapi.Presentation.ViewModels;
 
@@ -29,6 +33,8 @@ public class ChangesViewModel : ViewModelBase
     private string _commitSummary = string.Empty;
     private string _commitDescription = string.Empty;
     private ChangeItemViewModel? _selectedChange;
+    private Git.StashEntry? _selectedStash;
+    private ChangeItemViewModel? _selectedStashedFile;
     private bool _isMassUpdating;
     private bool _isStashViewVisible;
     private bool _isGenerating;
@@ -56,6 +62,7 @@ public class ChangesViewModel : ViewModelBase
         
         Changes = new ObservableCollection<ChangeItemViewModel>();
         Stashes = new ObservableCollection<Git.StashEntry>();
+        StashedFiles = new ObservableCollection<ChangeItemViewModel>();
         DiffLines = new ObservableCollection<DiffPiece>();
         
         LoadChangesCommand = new AsyncRelayCommand(async _ => await LoadChangesAsync());
@@ -68,6 +75,7 @@ public class ChangesViewModel : ViewModelBase
         PopStashCommand = new AsyncRelayCommand(async param => await PopStashAsync(param as Git.StashEntry));
         DropStashCommand = new AsyncRelayCommand(async param => await DropStashAsync(param as Git.StashEntry));
         ClearStashesCommand = new AsyncRelayCommand(async _ => await ClearStashesAsync());
+        RestoreFileFromStashCommand = new AsyncRelayCommand(async param => await RestoreFileFromStashAsync(param as ChangeItemViewModel));
         GenerateCommitMessageCommand = new AsyncRelayCommand(async _ => await GenerateCommitMessageAsync());
     }
 
@@ -89,6 +97,7 @@ public class ChangesViewModel : ViewModelBase
             if (SetProperty(ref _projectPath, value))
             {
                 _ = LoadChangesAsync();
+                _ = LoadStashesAsync();
             }
         }
     }
@@ -191,6 +200,41 @@ public class ChangesViewModel : ViewModelBase
     public bool HasStashes => Stashes.Any();
 
     /// <summary>
+    /// Stash seleccionado actualmente.
+    /// </summary>
+    public Git.StashEntry? SelectedStash
+    {
+        get => _selectedStash;
+        set
+        {
+            if (SetProperty(ref _selectedStash, value))
+            {
+                _ = LoadStashedFilesAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Colección de archivos contenidos en el stash seleccionado.
+    /// </summary>
+    public ObservableCollection<ChangeItemViewModel> StashedFiles { get; }
+
+    /// <summary>
+    /// Archivo seleccionado dentro de un stash.
+    /// </summary>
+    public ChangeItemViewModel? SelectedStashedFile
+    {
+        get => _selectedStashedFile;
+        set
+        {
+            if (SetProperty(ref _selectedStashedFile, value))
+            {
+                _ = LoadStashedFileDiffAsync();
+            }
+        }
+    }
+
+    /// <summary>
     /// Indica si se está generando un mensaje de commit con IA.
     /// </summary>
     public bool IsGenerating
@@ -212,6 +256,7 @@ public class ChangesViewModel : ViewModelBase
     public AsyncRelayCommand PopStashCommand { get; }
     public AsyncRelayCommand DropStashCommand { get; }
     public AsyncRelayCommand ClearStashesCommand { get; }
+    public AsyncRelayCommand RestoreFileFromStashCommand { get; }
     public AsyncRelayCommand GenerateCommitMessageCommand { get; }
 
     #endregion
@@ -270,13 +315,24 @@ public class ChangesViewModel : ViewModelBase
     {
         if (string.IsNullOrWhiteSpace(ProjectPath)) return;
 
-        var stashes = await Git.ListStashes(ProjectPath);
-        Stashes.Clear();
-        foreach (var stash in stashes)
+        try
         {
-            Stashes.Add(stash);
+            var stashes = await Git.ListStashes(ProjectPath);
+            Stashes.Clear();
+            foreach (var stash in stashes)
+            {
+                Stashes.Add(stash);
+            }
         }
-        OnPropertyChanged(nameof(HasStashes));
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error cargando stashes: {ex.Message}");
+            Stashes.Clear();
+        }
+        finally
+        {
+            OnPropertyChanged(nameof(HasStashes));
+        }
     }
 
     /// <summary>
@@ -289,32 +345,92 @@ public class ChangesViewModel : ViewModelBase
 
         try
         {
-            // Usar GetFileDiffUseCase (usando HEAD para comparar con working directory si el use case lo permite)
-            // NOTA: El UseCase actual parece pedir un commitHash. Para cambios locales, necesitamos otra lógica o adaptar el UseCase.
-            // Por ahora, simularemos o usaremos el helper directamente si es necesario, 
-            // pero lo ideal es que el UseCase maneje "Uncommitted changes".
-            
             var diff = await Git.EjecutarGit($"diff HEAD -- \"{SelectedChange.FilePath}\"", ProjectPath);
             if (string.IsNullOrWhiteSpace(diff))
             {
-                // Si no hay diff con HEAD, tal vez es un archivo nuevo (Untracked)
                 diff = await Git.EjecutarGit($"diff --no-index /dev/null \"{SelectedChange.FilePath}\"", ProjectPath);
             }
 
-            // Parsear el diff simple a DiffPieces (esto es una simplificación)
-            // En una refactorización real, usaríamos DiffPlex como en HistoryViewModel
-            var lines = diff.Split('\n');
-            foreach (var line in lines)
-            {
-                var type = ChangeType.Unchanged;
-                var text = line;
-                if (line.StartsWith("+")) { type = ChangeType.Inserted; text = line.Substring(1); }
-                else if (line.StartsWith("-")) { type = ChangeType.Deleted; text = line.Substring(1); }
-                
-                DiffLines.Add(new DiffPiece(text, type, null));
-            }
+            ParseDiffToLines(diff);
         }
         catch { /* Ignorar errores de carga de diff */ }
+    }
+
+    /// <summary>
+    /// Carga los archivos contenidos en el stash seleccionado.
+    /// </summary>
+    public async Task LoadStashedFilesAsync()
+    {
+        StashedFiles.Clear();
+        if (SelectedStash == null || string.IsNullOrEmpty(ProjectPath)) return;
+
+        try
+        {
+            var fileStatuses = await Git.GetFileStatusesForStash(SelectedStash.Name, ProjectPath);
+            foreach (var kvp in fileStatuses)
+            {
+                var changeStatus = kvp.Value switch
+                {
+                    'A' => ChangeStatus.Added,
+                    'M' => ChangeStatus.Modified,
+                    'D' => ChangeStatus.Deleted,
+                    'R' => ChangeStatus.Renamed,
+                    '?' => ChangeStatus.Untracked,
+                    _ => ChangeStatus.Modified
+                };
+
+                var viewModel = new ChangeItemViewModel
+                {
+                    FilePath = kvp.Key,
+                    Status = GetStatusText(changeStatus),
+                    ShortStatus = GetShortStatus(changeStatus),
+                    IsSelected = false
+                };
+
+                (viewModel.Icon, viewModel.Color) = GetIconAndColor(changeStatus);
+                StashedFiles.Add(viewModel);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error cargando archivos del stash: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Carga el diff de un archivo dentro de un stash.
+    /// </summary>
+    public async Task LoadStashedFileDiffAsync()
+    {
+        DiffLines.Clear();
+        if (SelectedStash == null || SelectedStashedFile == null || string.IsNullOrEmpty(ProjectPath)) return;
+
+        try
+        {
+            // stash show -p stash@{n} -- filepath
+            var diff = await Git.EjecutarGit($"stash show -p {SelectedStash.Name} -- \"{SelectedStashedFile.FilePath}\"", ProjectPath);
+            ParseDiffToLines(diff);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error cargando diff del stash: {ex.Message}");
+        }
+    }
+
+    private void ParseDiffToLines(string diff)
+    {
+        var lines = diff.Split('\n');
+        foreach (var line in lines)
+        {
+            var type = ChangeType.Unchanged;
+            var text = line;
+
+            if (line.StartsWith("+")) { type = ChangeType.Inserted; text = line.Substring(1); }
+            else if (line.StartsWith("-")) { type = ChangeType.Deleted; text = line.Substring(1); }
+            else if (line.StartsWith("@@")) type = ChangeType.Imaginary;
+
+            DiffLines.Add(new DiffPiece(text, type, null));
+        }
     }
 
     /// <summary>
@@ -399,6 +515,32 @@ public class ChangesViewModel : ViewModelBase
         if (result.IsSuccess)
         {
             await LoadChangesAsync();
+        }
+        else
+        {
+            await DialogService.ShowConfirmDialog("Error en Stash", 
+                $"No se pudo aplicar el stash: {result.Error}\n\nEs posible que existan conflictos con tus cambios actuales.", 
+                Chapi.Views.Dialogs.DialogVariant.Error, DialogType.Info);
+        }
+    }
+
+    private async Task RestoreFileFromStashAsync(ChangeItemViewModel? item)
+    {
+        if (item == null || SelectedStash == null || string.IsNullOrEmpty(ProjectPath)) return;
+
+        try 
+        {
+            // git checkout stash@{n} -- <filepath>
+            await Git.EjecutarGit($"checkout {SelectedStash.Name} -- \"{item.FilePath}\"", ProjectPath);
+            
+            await LoadChangesAsync();
+            IsStashViewVisible = false;
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowConfirmDialog("Error al restaurar archivo", 
+                $"No se pudo restaurar el archivo '{item.FileName}': {ex.Message}", 
+                DialogVariant.Error, DialogType.Info);
         }
     }
 
