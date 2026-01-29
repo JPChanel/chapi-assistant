@@ -7,46 +7,41 @@ namespace Chapi.Application.UseCases.CodeGeneration;
 
 public class AddInfrastructureMethodUseCase
 {
-    private readonly AddInfrastructureMethod _addInfrastructureMethod;
-
-    public AddInfrastructureMethodUseCase(AddInfrastructureMethod addInfrastructureMethod)
-    {
-        _addInfrastructureMethod = addInfrastructureMethod;
-    }
-
-    public Result<string> Execute(
+    public async Task<Result<RollbackManager.RollbackEntry>> ExecuteAsync(
         string projectPath,
         string moduleName,
+        string dbName,
+        string operation,
         string methodName,
-        MethodType methodType,
         RollbackManager.RollbackEntry? rollbackEntry = null)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(projectPath))
-                return Result<string>.Fail("La ruta del proyecto no puede estar vacía");
+                return Result<RollbackManager.RollbackEntry>.Fail("La ruta del proyecto no puede estar vacía");
 
             if (string.IsNullOrWhiteSpace(moduleName))
-                return Result<string>.Fail("El nombre del módulo no puede estar vacío");
+                return Result<RollbackManager.RollbackEntry>.Fail("El nombre del módulo no puede estar vacío");
 
             if (string.IsNullOrWhiteSpace(methodName))
-                return Result<string>.Fail("El nombre del método no puede estar vacío");
+                return Result<RollbackManager.RollbackEntry>.Fail("El nombre del método no puede estar vacío");
 
-            var result = _addInfrastructureMethod.Add(
+            var result = await AddInfrastructureMethod.Add(
                 projectPath,
                 moduleName,
+                dbName,
+                operation,
                 methodName,
-                methodType,
                 rollbackEntry);
 
-            if (string.IsNullOrWhiteSpace(result))
-                return Result<string>.Fail("No se pudo agregar el método a Infrastructure");
+            if (result == null)
+                return Result<RollbackManager.RollbackEntry>.Fail("No se pudo agregar el método a Infrastructure");
 
-            return Result<string>.Success(result);
+            return Result<RollbackManager.RollbackEntry>.Success(result);
         }
         catch (Exception ex)
         {
-            return Result<string>.Fail($"Error agregando método a Infrastructure: {ex.Message}");
+            return Result<RollbackManager.RollbackEntry>.Fail($"Error agregando método a Infrastructure: {ex.Message}");
         }
     }
 }

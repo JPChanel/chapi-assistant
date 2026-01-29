@@ -5,14 +5,14 @@ namespace Chapi.Application.UseCases.Rollback;
 
 public class ExecuteRollbackUseCase
 {
-    public async Task<Result> ExecuteAsync(RollbackManager.RollbackEntry entry)
+    public Result Execute(RollbackManager.RollbackEntry entry)
     {
         try
         {
             if (entry == null)
                 return Result.Fail("La entrada de rollback no puede ser nula");
 
-            await RollbackManager.ExecuteRollback(entry);
+            RollbackManager.ExecuteRollback(entry);
             return Result.Success();
         }
         catch (Exception ex)

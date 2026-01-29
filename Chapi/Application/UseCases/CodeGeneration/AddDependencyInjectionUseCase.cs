@@ -5,44 +5,29 @@ namespace Chapi.Application.UseCases.CodeGeneration;
 
 public class AddDependencyInjectionUseCase
 {
-    private readonly AddDependencyInjection _addDependencyInjection;
-
-    public AddDependencyInjectionUseCase(AddDependencyInjection addDependencyInjection)
-    {
-        _addDependencyInjection = addDependencyInjection;
-    }
-
-    public async Task<Result<string>> ExecuteAsync(
+    public Result Execute(
         string projectPath,
-        string interfaceName,
-        string implementationName,
-        string lifetime = "Scoped")
+        string moduleName,
+        IEnumerable<string> operations)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(projectPath))
-                return Result<string>.Fail("La ruta del proyecto no puede estar vacía");
+                return Result.Fail("La ruta del proyecto no puede estar vacía");
 
-            if (string.IsNullOrWhiteSpace(interfaceName))
-                return Result<string>.Fail("El nombre de la interfaz no puede estar vacío");
+            if (string.IsNullOrWhiteSpace(moduleName))
+                return Result.Fail("El nombre del módulo no puede estar vacío");
 
-            if (string.IsNullOrWhiteSpace(implementationName))
-                return Result<string>.Fail("El nombre de la implementación no puede estar vacío");
-
-            var result = await _addDependencyInjection.AddServiceAsync(
+            AddDependencyInjection.Add(
                 projectPath,
-                interfaceName,
-                implementationName,
-                lifetime);
+                moduleName,
+                operations);
 
-            if (string.IsNullOrWhiteSpace(result))
-                return Result<string>.Fail("No se pudo agregar la configuración de DI");
-
-            return Result<string>.Success(result);
+            return Result.Success();
         }
         catch (Exception ex)
         {
-            return Result<string>.Fail($"Error agregando Dependency Injection: {ex.Message}");
+            return Result.Fail($"Error agregando Dependency Injection: {ex.Message}");
         }
     }
 }
