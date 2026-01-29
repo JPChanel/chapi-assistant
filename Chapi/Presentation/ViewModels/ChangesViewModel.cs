@@ -1,6 +1,6 @@
-using Chapi.Application.UseCases.Git;
+﻿using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities;
-using Chapi.Helper.GitHelper;
+using Chapi.Infrastructure.Git;
 using DiffPlex;
 using DiffPlex.DiffBuilder;
 using DiffPlex.DiffBuilder.Model;
@@ -8,14 +8,15 @@ using MaterialDesignThemes.Wpf;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows.Media;
-using Chapi.Services;
-using Chapi.Helper;
-using Chapi.Views.Dialogs;
+using Chapi.Infrastructure.Services;
+using Chapi.Infrastructure.AI;
+
+using Chapi.Presentation.Views.Dialogs;
 
 namespace Chapi.Presentation.ViewModels;
 
 /// <summary>
-/// ViewModel para la pestaña de cambios.
+/// ViewModel para la pestana de cambios.
 /// Maneja la lista de archivos modificados y comandos relacionados.
 /// </summary>
 public class ChangesViewModel : ViewModelBase
@@ -84,7 +85,7 @@ public class ChangesViewModel : ViewModelBase
     #region Properties
 
     /// <summary>
-    /// Colección de cambios en el repositorio.
+    /// Coleccion de cambios en el repositorio.
     /// </summary>
     public ObservableCollection<ChangeItemViewModel> Changes { get; }
 
@@ -105,7 +106,7 @@ public class ChangesViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Total de líneas añadidas.
+    /// Total de lineas anadidas.
     /// </summary>
     public int TotalAdditions
     {
@@ -114,7 +115,7 @@ public class ChangesViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Total de líneas eliminadas.
+    /// Total de lineas eliminadas.
     /// </summary>
     public int TotalDeletions
     {
@@ -123,7 +124,7 @@ public class ChangesViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Indica si todos los cambios están seleccionados.
+    /// Indica si todos los cambios estan seleccionados.
     /// </summary>
     public bool AreAllSelected
     {
@@ -157,7 +158,7 @@ public class ChangesViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Descripción detallada del commit.
+    /// Descripcion detallada del commit.
     /// </summary>
     public string CommitDescription
     {
@@ -166,12 +167,12 @@ public class ChangesViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Colección de stashes.
+    /// Coleccion de stashes.
     /// </summary>
     public ObservableCollection<Git.StashEntry> Stashes { get; }
 
     /// <summary>
-    /// Líneas de diferencia del archivo seleccionado.
+    /// Lineas de diferencia del archivo seleccionado.
     /// </summary>
     public ObservableCollection<DiffPiece> DiffLines { get; }
 
@@ -191,7 +192,7 @@ public class ChangesViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Indica si la vista de stash está visible.
+    /// Indica si la vista de stash esta visible.
     /// </summary>
     public bool IsStashViewVisible
     {
@@ -217,7 +218,7 @@ public class ChangesViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Colección de archivos contenidos en el stash seleccionado.
+    /// Coleccion de archivos contenidos en el stash seleccionado.
     /// </summary>
     public ObservableCollection<ChangeItemViewModel> StashedFiles { get; }
 
@@ -237,7 +238,7 @@ public class ChangesViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Indica si se está generando un mensaje de commit con IA.
+    /// Indica si se esta generando un mensaje de commit con IA.
     /// </summary>
     public bool IsGenerating
     {
@@ -306,7 +307,7 @@ public class ChangesViewModel : ViewModelBase
         OnPropertyChanged(nameof(AreAllSelected));
         OnPropertyChanged(nameof(SelectedCount));
 
-        // Cargar stashes también
+        // Cargar stashes tambien
         await LoadStashesAsync();
     }
 
@@ -398,14 +399,14 @@ public class ChangesViewModel : ViewModelBase
             string newText = string.Empty;
 
             // 1. Obtener contenido antiguo (HEAD)
-            // Si el archivo es Nuevo, oldText debe ser vacío.
+            // Si el archivo es Nuevo, oldText debe ser vacio.
             if (SelectedChange.ShortStatus != "A" && SelectedChange.ShortStatus != "?")
             {
                  try { oldText = await Git.GetFileContent("HEAD", SelectedChange.FilePath, ProjectPath); } catch {}
             }
 
             // 2. Obtener contenido nuevo (File System)
-            // Si el archivo es Borrado, newText debe ser vacío.
+            // Si el archivo es Borrado, newText debe ser vacio.
             if (SelectedChange.ShortStatus != "D")
             {
                  string fullPath = Path.Combine(ProjectPath, SelectedChange.FilePath);
@@ -434,8 +435,8 @@ public class ChangesViewModel : ViewModelBase
 
         try
         {
-            // Para stash, necesitamos comparar el archivo dentro del stash contra su versión anterior en el mismo stash
-            // O, simplemente visualizar qué tiene el stash.
+            // Para stash, necesitamos comparar el archivo dentro del stash contra su version anterior en el mismo stash
+            // O, simplemente visualizar que tiene el stash.
             // "stash show -p" da el diff contra el commit donde se hizo stash.
             
             // Estrategia: Obtener el diff crudo como antes, pero parsearlo es complejo.
@@ -443,8 +444,8 @@ public class ChangesViewModel : ViewModelBase
             string newText = await Git.GetFileContent(SelectedStash.Name, SelectedStashedFile.FilePath, ProjectPath);
             
             // Intentar obtener el contenido contra el que se compara (Parent del stash o HEAD al momento de stash)
-            // Esto es más complejo. Para simplificar y mantener consistencia visual,
-            // podemos mostrar el contenido del stash como "Nuevo" y vacío como "Viejo" si es difícil obtener el base,
+            // Esto es mas complejo. Para simplificar y mantener consistencia visual,
+            // podemos mostrar el contenido del stash como "Nuevo" y vacio como "Viejo" si es dificil obtener el base,
             // pero lo ideal es ver el DIFF.
             
             // Como fallback, volvemos a usar el comando git stash show -p y lo parseamos simple, 
@@ -541,7 +542,7 @@ public class ChangesViewModel : ViewModelBase
             CommitDescription = string.Empty;
             await LoadChangesAsync();
             
-            // Notificar que se completó el commit para que el historial se actualice
+            // Notificar que se completo el commit para que el historial se actualice
             CommitCompleted?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -597,7 +598,7 @@ public class ChangesViewModel : ViewModelBase
     {
         if (stash == null || string.IsNullOrEmpty(ProjectPath)) return;
         
-        // Extraer índice del nombre "stash@{n}"
+        // Extraer indice del nombre "stash@{n}"
         int index = 0;
         var match = System.Text.RegularExpressions.Regex.Match(stash.Name, @"\{(\d+)\}");
         if (match.Success) index = int.Parse(match.Groups[1].Value);
@@ -611,7 +612,7 @@ public class ChangesViewModel : ViewModelBase
         {
             await DialogService.ShowConfirmDialog("Error en Stash", 
                 $"No se pudo aplicar el stash: {result.Error}\n\nEs posible que existan conflictos con tus cambios actuales.", 
-                Chapi.Views.Dialogs.DialogVariant.Error, DialogType.Info);
+                Chapi.Presentation.Views.Dialogs.DialogVariant.Error, DialogType.Info);
         }
     }
 
@@ -641,7 +642,7 @@ public class ChangesViewModel : ViewModelBase
 
         var confirmed = await DialogService.ShowConfirmDialog(
             "Eliminar Stash",
-            $"¿Estás seguro de eliminar el stash?\n\n'{stash.Message}'\n\nEsta acción es irreversible.",
+            $"Â¿Estas seguro de eliminar el stash?\n\n'{stash.Message}'\n\nEsta accion es irreversible.",
             DialogVariant.Warning,
             DialogType.Confirm);
 
@@ -664,7 +665,7 @@ public class ChangesViewModel : ViewModelBase
 
         var confirmed = await DialogService.ShowConfirmDialog(
             "Limpiar Stashes",
-            "¿Estás seguro de que deseas eliminar TODOS los stashes?\n\nEsta acción borrará permanentemente todas las entradas guardadas.",
+            "Â¿Estas seguro de que deseas eliminar TODOS los stashes?\n\nEsta accion borrara permanentemente todas las entradas guardadas.",
             DialogVariant.Warning,
             DialogType.Confirm);
 
@@ -698,15 +699,15 @@ public class ChangesViewModel : ViewModelBase
             if (string.IsNullOrWhiteSpace(fullDiff)) return;
 
             // Llamar a IA (usando helper existente por ahora para no romper nada)
-            var prompt = Chapi.Helper.AI.GetPrompt.GitCommit(fullDiff);
-            string jsonResponse = await AI.Clients.AIClient.SendPromptAsync(prompt);
+            var prompt = Chapi.Infrastructure.AI.GetPrompt.GitCommit(fullDiff);
+            string jsonResponse = await Chapi.Infrastructure.AI.AIClient.SendPromptAsync(prompt);
 
             if (!string.IsNullOrWhiteSpace(jsonResponse))
             {
                 try
                 {
                     var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    var commitMsg = System.Text.Json.JsonSerializer.Deserialize<Chapi.Helper.Entities.CommitMessageResponse>(jsonResponse, options);
+                    var commitMsg = System.Text.Json.JsonSerializer.Deserialize<Chapi.Domain.Entities.CommitMessageResponse>(jsonResponse, options);
                     if (commitMsg != null)
                     {
                         CommitSummary = commitMsg.Summary;
@@ -780,7 +781,7 @@ public class ChangesViewModel : ViewModelBase
             IsSelected = true // Por defecto seleccionado
         };
 
-        // Asignar icono y color según el estado
+        // Asignar icono y color segun el estado
         (viewModel.Icon, viewModel.Color) = GetIconAndColor(fileChange.Status);
 
         return viewModel;
@@ -811,7 +812,7 @@ public class ChangesViewModel : ViewModelBase
         return status switch
         {
             ChangeStatus.Modified => "Modificado",
-            ChangeStatus.Added => "Añadido",
+            ChangeStatus.Added => "Anadido",
             ChangeStatus.Deleted => "Eliminado",
             ChangeStatus.Renamed => "Renombrado",
             ChangeStatus.Untracked => "Sin seguimiento",
@@ -839,3 +840,8 @@ public class ChangesViewModel : ViewModelBase
 
     #endregion
 }
+
+
+
+
+

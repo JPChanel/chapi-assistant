@@ -5,9 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Chapi"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:views="clr-namespace:Chapi.Presentation.Views"
+        xmlns:views="clr-namespace:Chapi.Presentation.Views.Tabs"
         xmlns:diffPlex="clr-namespace:DiffPlex.Wpf.Controls;assembly=DiffPlex.Wpf"
-        xmlns:converters="clr-namespace:Chapi.Helper.Converters"
+        xmlns:converters="clr-namespace:Chapi.Presentation.Converters"
         mc:Ignorable="d"
         Title="Chapi Assistance"
         Height="700"
@@ -128,7 +128,7 @@
                         <ColumnDefinition Width="Auto"/>
                         <!-- Proyecto Combo -->
                         <ColumnDefinition Width="Auto"/>
-                        <!-- Botón Add -->
+                        <!-- Boton Add -->
                         <ColumnDefinition Width="Auto"/>
                         <!-- Rama Combo -->
                         <ColumnDefinition Width="Auto"/>
@@ -140,7 +140,7 @@
                     <!-- 1. LOGO / MENÚ (Columna 0) -->
                     <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,15,0">
                         <Button x:Name="LogoButton" Click="LogoButton_Click" Style="{StaticResource MaterialDesignToolButton}" ToolTip="Menú Principal Chapi" Height="60" Width="70" Background="Transparent" BorderThickness="0">
-                            <Image Source="/Chapi;component/Image/logo.png" Width="74" Height="60" Stretch="Uniform"/>
+                            <Image Source="/Chapi;component/Presentation/Assets/logo.png" Width="74" Height="60" Stretch="Uniform"/>
                         </Button>
                     </StackPanel>
 

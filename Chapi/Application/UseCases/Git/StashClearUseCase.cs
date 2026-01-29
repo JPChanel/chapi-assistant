@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
@@ -23,7 +23,7 @@ public class StashClearUseCase
     public async Task<Result> ExecuteAsync(string projectPath)
     {
         if (string.IsNullOrWhiteSpace(projectPath))
-            return Result.Fail("La ruta del proyecto no puede estar vacía");
+            return Result.Fail("La ruta del proyecto no puede estar vacia");
 
         try
         {
@@ -31,13 +31,14 @@ public class StashClearUseCase
 
             var result = await _gitRepo.ExecuteGitCommandAsync(projectPath, "stash clear");
 
-            _notificationService.ShowSuccess("✅ Todos los stashes han sido eliminados");
+            _notificationService.ShowSuccess("âœ… Todos los stashes han sido eliminados");
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"❌ Error al limpiar stashes: {ex.Message}");
+            _notificationService.ShowError($"âŒ Error al limpiar stashes: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }
 }
+

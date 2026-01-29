@@ -6,7 +6,7 @@
 		<Nullable>enable</Nullable>
 		<UseWPF>true</UseWPF>
 		<ImplicitUsings>enable</ImplicitUsings>
-		<ApplicationIcon>Image\icon.ico</ApplicationIcon>
+		<ApplicationIcon>Presentation\Assets\icon.ico</ApplicationIcon>
 		<StartupObject>Chapi.App</StartupObject>
 	</PropertyGroup>
 	<ItemGroup>
@@ -14,7 +14,7 @@
 		<Page Include="App.xaml" />
 	</ItemGroup>
 	<ItemGroup>
-		<None Remove="Image\logo.png" />
+		<None Remove="Presentation\Assets\logo.png" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -32,7 +32,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Resource Include="Image\logo.png">
+		<Resource Include="Presentation\Assets\logo.png">
 			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</Resource>
 	</ItemGroup>
@@ -56,11 +56,11 @@
 		<None Update="appsettings.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
-		<None Update="Image\icon.png">
+		<None Update="Presentation\Assets\icon.png">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-		<None Update="Image\icon.ico">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		<None Update="Presentation\Assets\icon.ico">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
 

@@ -1,10 +1,10 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
 
 /// <summary>
-/// Use Case para eliminar un stash específico sin aplicarlo.
+/// Use Case para eliminar un stash especifico sin aplicarlo.
 /// </summary>
 public class StashDropUseCase
 {
@@ -18,14 +18,14 @@ public class StashDropUseCase
     }
 
     /// <summary>
-    /// Elimina un stash específico.
+    /// Elimina un stash especifico.
     /// </summary>
     /// <param name="projectPath">Ruta del proyecto</param>
-    /// <param name="stashIndex">Índice del stash (obligaorio)</param>
+    /// <param name="stashIndex"> ndice del stash (obligaorio)</param>
     public async Task<Result> ExecuteAsync(string projectPath, int stashIndex)
     {
         if (string.IsNullOrWhiteSpace(projectPath))
-            return Result.Fail("La ruta del proyecto no puede estar vacía");
+            return Result.Fail("La ruta del proyecto no puede estar vacia");
 
         try
         {
@@ -35,7 +35,7 @@ public class StashDropUseCase
 
             if (result.Contains("Dropped"))
             {
-                _notificationService.ShowSuccess($"✅ Stash@{stashIndex} eliminado correctamente");
+                _notificationService.ShowSuccess($"âœ… Stash@{stashIndex} eliminado correctamente");
                 return Result.Success();
             }
 
@@ -43,8 +43,9 @@ public class StashDropUseCase
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"❌ Error al eliminar stash: {ex.Message}");
+            _notificationService.ShowError($"âŒ Error al eliminar stash: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }
 }
+

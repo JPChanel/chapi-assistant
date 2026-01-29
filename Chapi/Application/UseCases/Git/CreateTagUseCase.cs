@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
@@ -27,10 +27,10 @@ public class CreateTagUseCase
     public async Task<Result> ExecuteAsync(string projectPath, string tagName, string message, string? commitHash = null)
     {
         if (string.IsNullOrWhiteSpace(projectPath))
-            return Result.Fail("La ruta del proyecto no puede estar vacía");
+            return Result.Fail("La ruta del proyecto no puede estar vacia");
 
         if (string.IsNullOrWhiteSpace(tagName))
-            return Result.Fail("El nombre de la etiqueta no puede estar vacío");
+            return Result.Fail("El nombre de la etiqueta no puede estar vacio");
 
         try
         {
@@ -47,17 +47,18 @@ public class CreateTagUseCase
 
             if (result.Contains("already exists"))
             {
-                _notificationService.ShowWarning($"⚠️ La etiqueta '{tagName}' ya existe");
+                _notificationService.ShowWarning($"âš ï¸ La etiqueta '{tagName}' ya existe");
                 return Result.Fail($"La etiqueta '{tagName}' ya existe");
             }
 
-            _notificationService.ShowSuccess($"✅ Etiqueta '{tagName}' creada correctamente");
+            _notificationService.ShowSuccess($"âœ… Etiqueta '{tagName}' creada correctamente");
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"❌ Error al crear etiqueta: {ex.Message}");
+            _notificationService.ShowError($"âŒ Error al crear etiqueta: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }
 }
+

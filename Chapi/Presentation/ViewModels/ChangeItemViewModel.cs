@@ -1,11 +1,11 @@
-using MaterialDesignThemes.Wpf;
+﻿using MaterialDesignThemes.Wpf;
 using System.Windows.Media;
 
 namespace Chapi.Presentation.ViewModels;
 
 /// <summary>
 /// ViewModel para un item de cambio en la lista de cambios.
-/// Representa un archivo modificado con su estado, iconos y estadísticas.
+/// Representa un archivo modificado con su estado, iconos y estadisticas.
 /// </summary>
 public class ChangeItemViewModel : ViewModelBase
 {
@@ -19,7 +19,7 @@ public class ChangeItemViewModel : ViewModelBase
     private int _deletions;
 
     /// <summary>
-    /// Indica si el item está seleccionado para commit.
+    /// Indica si el item esta seleccionado para commit.
     /// </summary>
     public bool IsSelected
     {
@@ -47,7 +47,7 @@ public class ChangeItemViewModel : ViewModelBase
     public string DirectoryPath => System.IO.Path.GetDirectoryName(_filePath) ?? string.Empty;
 
     /// <summary>
-    /// Estado del archivo (ej: "Modificado", "Añadido").
+    /// Estado del archivo (ej: "Modificado", "Anadido").
     /// </summary>
     public string Status
     {
@@ -83,7 +83,7 @@ public class ChangeItemViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Número de líneas añadidas.
+    /// Numero de lineas anadidas.
     /// </summary>
     public int Additions
     {
@@ -92,7 +92,7 @@ public class ChangeItemViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Número de líneas eliminadas.
+    /// Numero de lineas eliminadas.
     /// </summary>
     public int Deletions
     {
@@ -100,3 +100,4 @@ public class ChangeItemViewModel : ViewModelBase
         set => SetProperty(ref _deletions, value);
     }
 }
+

@@ -1,4 +1,4 @@
-using Chapi.Services;
+﻿
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
@@ -146,7 +146,7 @@ namespace Chapi
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             MainWindow = new MainWindow();
             
-            // Hook para escuchar el mensaje de restauración
+            // Hook para escuchar el mensaje de restauracion
             MainWindow.Loaded += (s, ev) =>
             {
                 var source = System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(MainWindow).Handle);
@@ -199,7 +199,7 @@ namespace Chapi
             if (ex == null) return;
             Current.Dispatcher.Invoke(async () =>
             {
-                await DialogService.ShowConfirmDialog("Error", ex.Message, Views.Dialogs.DialogVariant.Error, Views.Dialogs.DialogType.Info);
+                await DialogService.ShowConfirmDialog("Error", ex.Message, Chapi.Presentation.Views.Dialogs.DialogVariant.Error, Chapi.Presentation.Views.Dialogs.DialogType.Info);
 
             });
         }
@@ -212,3 +212,7 @@ namespace Chapi
     }
 
 }
+
+
+
+

@@ -1,10 +1,11 @@
-using Chapi.Domain.Interfaces;
-using Chapi.Helper;
+﻿using Chapi.Domain.Interfaces;
+using Chapi.Infrastructure.Services;
+
 
 namespace Chapi.Infrastructure.Services;
 
 /// <summary>
-/// Implementación del servicio de notificaciones usando MessageHelper existente.
+/// Implementacion del servicio de notificaciones usando MessageHelper existente.
 /// </summary>
 public class MessageNotificationService : INotificationService
 {
@@ -28,3 +29,5 @@ public class MessageNotificationService : INotificationService
         MessageHelper.Instance.AddAssistantMessage(message);
     }
 }
+
+

@@ -1,9 +1,9 @@
-using Chapi.Domain.Interfaces;
+﻿using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
 
 /// <summary>
-/// Use Case para obtener la lista de archivos cambiados en un commit específico.
+/// Use Case para obtener la lista de archivos cambiados en un commit especifico.
 /// </summary>
 public class GetFilesChangedInCommitUseCase
 {
@@ -22,3 +22,4 @@ public class GetFilesChangedInCommitUseCase
         return await _gitRepo.GetFilesChangedInCommitAsync(projectPath, hash);
     }
 }
+

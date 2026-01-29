@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
@@ -18,14 +18,14 @@ public class StashPopUseCase
     }
 
     /// <summary>
-    /// Aplica y elimina el último stash (o uno específico).
+    /// Aplica y elimina el ultimo stash (o uno especifico).
     /// </summary>
     /// <param name="projectPath">Ruta del proyecto</param>
-    /// <param name="stashIndex">Índice del stash (opcional, null = último)</param>
+    /// <param name="stashIndex"> ndice del stash (opcional, null = ultimo)</param>
     public async Task<Result> ExecuteAsync(string projectPath, int? stashIndex = null)
     {
         if (string.IsNullOrWhiteSpace(projectPath))
-            return Result.Fail("La ruta del proyecto no puede estar vacía");
+            return Result.Fail("La ruta del proyecto no puede estar vacia");
 
         try
         {
@@ -39,13 +39,13 @@ public class StashPopUseCase
 
             if (result.Contains("CONFLICT"))
             {
-                _notificationService.ShowWarning("⚠️ Conflictos detectados al aplicar stash");
+                _notificationService.ShowWarning("âš ï¸ Conflictos detectados al aplicar stash");
                 return Result.Fail("Conflictos detectados. Resuelve los conflictos manualmente.");
             }
 
             if (result.Contains("Dropped") || result.Contains("Applied"))
             {
-                _notificationService.ShowSuccess("✅ Stash aplicado correctamente");
+                _notificationService.ShowSuccess("âœ… Stash aplicado correctamente");
                 return Result.Success();
             }
 
@@ -53,8 +53,9 @@ public class StashPopUseCase
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"❌ Error al aplicar stash: {ex.Message}");
+            _notificationService.ShowError($"âŒ Error al aplicar stash: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }
 }
+

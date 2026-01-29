@@ -1,8 +1,8 @@
-namespace Chapi.Domain.Common;
+﻿namespace Chapi.Domain.Common;
 
 /// <summary>
-/// Representa el resultado de una operación que puede fallar.
-/// Usa este patrón en lugar de excepciones para flujo de control.
+/// Representa el resultado de una operacion que puede fallar.
+/// Usa este patron en lugar de excepciones para flujo de control.
 /// </summary>
 public class Result
 {
@@ -23,3 +23,4 @@ public class Result<T> : Result
     public static Result<T> Success(T data) => new() { IsSuccess = true, Data = data };
     public new static Result<T> Fail(string error) => new() { IsSuccess = false, Error = error };
 }
+

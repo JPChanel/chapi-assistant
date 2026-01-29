@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
 using Chapi.Domain.Interfaces;
 using System.IO;
@@ -6,7 +6,7 @@ using System.IO;
 namespace Chapi.Infrastructure.Git;
 
 /// <summary>
-/// Implementación del repositorio Git.
+/// Implementacion del repositorio Git.
 /// Encapsula todas las operaciones Git usando GitCommandExecutor y GitOutputParser.
 /// </summary>
 public class GitRepository : IGitRepository
@@ -41,7 +41,7 @@ public class GitRepository : IGitRepository
             if (result.Output.Contains("nothing to commit"))
                 return Result<GitCommit>.Fail("No hay cambios para commitear");
 
-            // 3. Obtener hash del commit recién creado
+            // 3. Obtener hash del commit recien creado
             var hashResult = await _executor.ExecuteAsync("rev-parse HEAD", projectPath);
             var hash = hashResult.Output.Trim();
 
@@ -132,7 +132,7 @@ public class GitRepository : IGitRepository
                     var normalizedPath = change.FilePath.Replace(Path.DirectorySeparatorChar, '/');
                     
                     // Buscar en el diccionario (que use claves normalizadas o probar ambas)
-                    // El parser de numstat ya normaliza a DirectorySeparatorChar, así que usamos change.FilePath
+                    // El parser de numstat ya normaliza a DirectorySeparatorChar, asi que usamos change.FilePath
                     if (stats.TryGetValue(change.FilePath, out var stat))
                     {
                         change.Additions = stat.Additions;
@@ -400,3 +400,4 @@ public class GitRepository : IGitRepository
 
     #endregion
 }
+

@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
 using Chapi.Domain.Interfaces;
 using System.IO;
@@ -17,7 +17,7 @@ public class CommitRequest
 
 /// <summary>
 /// Use Case para hacer commit de cambios.
-/// Orquesta la lógica de negocio para commits.
+/// Orquesta la logica de negocio para commits.
 /// </summary>
 public class CommitChangesUseCase
 {
@@ -46,11 +46,11 @@ public class CommitChangesUseCase
         // 3. Notificar resultado
         if (result.IsSuccess)
         {
-            _notifications.ShowSuccess($"✅ Commit realizado: {request.Message}");
+            _notifications.ShowSuccess($"âœ… Commit realizado: {request.Message}");
         }
         else
         {
-            _notifications.ShowError($"❌ Error al hacer commit: {result.Error}");
+            _notifications.ShowError($"âŒ Error al hacer commit: {result.Error}");
         }
 
         return result;
@@ -59,7 +59,7 @@ public class CommitChangesUseCase
     private Result Validate(CommitRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.ProjectPath))
-            return Result.Fail("Ruta de proyecto inválida");
+            return Result.Fail("Ruta de proyecto invalida");
 
         if (!Directory.Exists(request.ProjectPath))
             return Result.Fail("El proyecto no existe");
@@ -73,3 +73,4 @@ public class CommitChangesUseCase
         return Result.Success();
     }
 }
+

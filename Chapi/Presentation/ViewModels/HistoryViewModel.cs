@@ -1,15 +1,17 @@
-using Chapi.Application.UseCases.Git;
+﻿using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities;
 using System.Collections.ObjectModel;
 using DiffPlex.DiffBuilder;
 using DiffPlex.DiffBuilder.Model;
-using Chapi.Views.Dialogs;
-using Chapi.Helper.GitHelper;
+using Chapi.Presentation.Views.Dialogs;
+using Chapi.Infrastructure.Git;
 
+using Chapi.Infrastructure.Services;
+using Chapi.Infrastructure.Persistence.Settings;
 namespace Chapi.Presentation.ViewModels;
 
 /// <summary>
-/// ViewModel para la pestaña de historial.
+/// ViewModel para la pestana de historial.
 /// Maneja la lista de commits, archivos cambiados y diffs.
 /// </summary>
 public class HistoryViewModel : ViewModelBase
@@ -182,7 +184,7 @@ public class HistoryViewModel : ViewModelBase
             return;
         }
 
-        CommitDetailsInfo = $"{SelectedCommit.Author} cometió {SelectedCommit.ShortHash} ({SelectedCommit.RelativeDate})";
+        CommitDetailsInfo = $"{SelectedCommit.Author} cometio {SelectedCommit.ShortHash} ({SelectedCommit.RelativeDate})";
     }
 
     private async Task LoadCommitFilesAsync()
@@ -215,7 +217,7 @@ public class HistoryViewModel : ViewModelBase
             var diffBuilder = new InlineDiffBuilder(new DiffPlex.Differ());
             var diff = diffBuilder.BuildDiffModel(oldText, newText);
 
-            // Aplicar lógica de filtrado de Hunks
+            // Aplicar logica de filtrado de Hunks
             var filteredLines = FilterHunks(diff.Lines);
             foreach (var line in filteredLines)
             {
@@ -282,28 +284,28 @@ public class HistoryViewModel : ViewModelBase
         if (commit == null || string.IsNullOrEmpty(ProjectPath)) return;
 
         // Confirmar con el usuario
-        var confirm = await Services.DialogService.ShowConfirmDialog(
-            "Deshacer Último Commit",
-            $"¿Estás seguro de deshacer el commit '{commit.ShortHash}'?\n\nLos cambios se mantendrán en el área de trabajo.",
+        var confirm = await DialogService.ShowConfirmDialog(
+            "Deshacer  šltimo Commit",
+            $"Â¿Estas seguro de deshacer el commit '{commit.ShortHash}'?\n\nLos cambios se mantendran en el area de trabajo.",
             DialogVariant.Warning,
             DialogType.Confirm);
 
         if (!confirm) return;
 
         // Ejecutar reset soft
-        var result = await Helper.GitHelper.Git.EjecutarGit($"reset --soft {commit.Hash}^", ProjectPath);
+        var result = await Git.EjecutarGit($"reset --soft {commit.Hash}^", ProjectPath);
         
         if (!result.Contains("fatal:") && !result.Contains("error:"))
         {
-            Helper.Msg.Assistant($"✅ Commit '{commit.ShortHash}' deshecho. Los cambios están en el área de trabajo.");
+            Msg.Assistant($"âœ… Commit '{commit.ShortHash}' deshecho. Los cambios estan en el area de trabajo.");
             await ReloadHistoryAsync();
             
-            // Notificar que se completó el reset para que los cambios se actualicen
+            // Notificar que se completo el reset para que los cambios se actualicen
             ResetCompleted?.Invoke(this, EventArgs.Empty);
         }
         else
         {
-            await Services.DialogService.ShowConfirmDialog(
+            await DialogService.ShowConfirmDialog(
                 "Error",
                 $"No se pudo deshacer el commit:\n{result}",
                 DialogVariant.Error,
@@ -315,14 +317,14 @@ public class HistoryViewModel : ViewModelBase
     {
         if (string.IsNullOrEmpty(ProjectPath) || string.IsNullOrEmpty(commitHash)) return;
 
-        var (ok, branchName) = await Services.DialogService.ShowInputDialog("Crear Rama", "Ingresa el nombre de la nueva rama:");
+        var (ok, branchName) = await DialogService.ShowInputDialog("Crear Rama", "Ingresa el nombre de la nueva rama:");
         if (!ok || string.IsNullOrWhiteSpace(branchName)) return;
 
         var result = await _createBranchUseCase.ExecuteAsync(ProjectPath, branchName, commitHash);
         if (result.IsSuccess)
         {
-            // Notificar que se creó una rama para actualizar combos si es necesario
-            // En este caso, MainWindow debería refrescar sus ramas.
+            // Notificar que se creo una rama para actualizar combos si es necesario
+            // En este caso, MainWindow deberia refrescar sus ramas.
             ResetCompleted?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -331,22 +333,22 @@ public class HistoryViewModel : ViewModelBase
     {
         if (string.IsNullOrEmpty(ProjectPath) || string.IsNullOrEmpty(commitHash)) return;
 
-        // Verificar si la rama está publicada (requerimiento del usuario)
+        // Verificar si la rama esta publicada (requerimiento del usuario)
         string currentBranch = await Git.GetCurrentBranch(ProjectPath);
         bool isPublished = await Git.HasUpstream(currentBranch, ProjectPath);
         
         if (!isPublished)
         {
-            await Services.DialogService.ShowConfirmDialog("Rama no publicada", 
+            await DialogService.ShowConfirmDialog("Rama no publicada", 
                 "Debes publicar la rama antes de crear etiquetas (tags) para asegurar la consistencia con el servidor.", 
                 DialogVariant.Warning, DialogType.Info);
             return;
         }
 
-        var (ok, tagName) = await Services.DialogService.ShowInputDialog("Crear Etiqueta (Tag)", "Ingresa el nombre del tag:");
+        var (ok, tagName) = await DialogService.ShowInputDialog("Crear Etiqueta (Tag)", "Ingresa el nombre del tag:");
         if (!ok || string.IsNullOrWhiteSpace(tagName)) return;
 
-        var (okMsg, message) = await Services.DialogService.ShowInputDialog("Mensaje del Tag", "Ingresa un mensaje para el tag anotado:", tagName);
+        var (okMsg, message) = await DialogService.ShowInputDialog("Mensaje del Tag", "Ingresa un mensaje para el tag anotado:", tagName);
         if (!okMsg) return;
 
         var result = await _createTagUseCase.ExecuteAsync(ProjectPath, tagName, message, commitHash);
@@ -358,3 +360,11 @@ public class HistoryViewModel : ViewModelBase
 
     #endregion
 }
+
+
+
+
+
+
+
+

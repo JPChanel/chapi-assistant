@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
@@ -26,10 +26,10 @@ public class CreateBranchUseCase
     public async Task<Result> ExecuteAsync(string projectPath, string branchName, string? fromCommitOrBranch = null)
     {
         if (string.IsNullOrWhiteSpace(projectPath))
-            return Result.Fail("La ruta del proyecto no puede estar vacía");
+            return Result.Fail("La ruta del proyecto no puede estar vacia");
 
         if (string.IsNullOrWhiteSpace(branchName))
-            return Result.Fail("El nombre de la rama no puede estar vacío");
+            return Result.Fail("El nombre de la rama no puede estar vacio");
 
         try
         {
@@ -43,21 +43,22 @@ public class CreateBranchUseCase
 
             if (result.Contains("already exists"))
             {
-                _notificationService.ShowWarning($"⚠️ La rama '{branchName}' ya existe");
+                _notificationService.ShowWarning($"âš ï¸ La rama '{branchName}' ya existe");
                 return Result.Fail($"La rama '{branchName}' ya existe");
             }
 
             string message = string.IsNullOrWhiteSpace(fromCommitOrBranch)
-                ? $"✅ Rama '{branchName}' creada desde HEAD"
-                : $"✅ Rama '{branchName}' creada desde '{fromCommitOrBranch}'";
+                ? $"âœ… Rama '{branchName}' creada desde HEAD"
+                : $"âœ… Rama '{branchName}' creada desde '{fromCommitOrBranch}'";
 
             _notificationService.ShowSuccess(message);
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"❌ Error al crear rama: {ex.Message}");
+            _notificationService.ShowError($"âŒ Error al crear rama: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }
 }
+

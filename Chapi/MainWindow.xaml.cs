@@ -1,13 +1,14 @@
-using AI.Clients;
-using Chapi.Helper.AI;
-using Chapi.Helper.Entities;
-using Chapi.Helper.GitHelper;
-using Chapi.Helper.Roslyn;
-using Chapi.Helper.UserSettings;
-using Chapi.Model;
-using Chapi.Services;
-using Chapi.Views;
-using Chapi.Views.Dialogs;
+using Chapi.Infrastructure.AI;
+using Chapi.Domain.Entities;
+using Chapi.Infrastructure.Git;
+using Chapi.Infrastructure.Roslyn;
+using Chapi.Infrastructure.Persistence.Settings;
+using Chapi.Domain.Models;
+using Chapi.Infrastructure.Services;
+using Chapi.Presentation.Views.Tabs;
+using Chapi.Presentation.Views.Agent;
+using Chapi.Presentation.Views.Settings;
+using Chapi.Presentation.Views.Dialogs;
 using MaterialDesignThemes.Wpf;
 using System.Diagnostics;
 using System.IO;
@@ -115,7 +116,7 @@ namespace Chapi
                 var mgr = new UpdateManager(new GithubSource(updateUrl, null, false));
                 var info = await mgr.CheckForUpdatesAsync();
                 if (info == null) return;
-                Msg.Assistant($"📢 Nueva versión v{info.TargetFullRelease.Version} disponible.");
+                Msg.Assistant($"ðŸ“¢ Nueva version v{info.TargetFullRelease.Version} disponible.");
             }
             catch { }
         }
@@ -124,7 +125,7 @@ namespace Chapi
         {
             if (string.IsNullOrEmpty(projectDirectory))
             {
-                Msg.Assistant("⚠️ No hay proyecto seleccionado.");
+                Msg.Assistant("âš ï¸ No hay proyecto seleccionado.");
                 return false;
             }
             return true;
@@ -132,7 +133,7 @@ namespace Chapi
 
         public void ShowUpdateView()
         {
-            var updateView = new Chapi.Views.UpdateView(projectDirectory);
+            var updateView = new Chapi.Presentation.Views.Settings.UpdateView(projectDirectory);
             updateView.Owner = this;
             updateView.ShowDialog();
         }
@@ -224,8 +225,8 @@ namespace Chapi
 
                 if (hasChanges)
                 {
-                    // Mostrar diálogo de opciones
-                    var dialog = new Views.Dialogs.SwitchBranchDialog
+                    // Mostrar dialogo de opciones
+                    var dialog = new Chapi.Presentation.Views.Dialogs.SwitchBranchDialog
                     {
                         TargetBranch = newBranch
                     };
@@ -233,7 +234,7 @@ namespace Chapi
 
                     if (result == null || result.ToString() == "cancel")
                     {
-                        // Usuario canceló, revertir selección
+                        // Usuario cancelo, revertir seleccion
                         BranchesComboBox.SelectedItem = _currentlySelectedBranch;
                         return;
                     }
@@ -287,7 +288,7 @@ namespace Chapi
                 var result = await Git.EjecutarGit($"push -u origin {_currentlySelectedBranch}", projectDirectory);
                 if (!result.Contains("fatal:") && !result.Contains("error:"))
                 {
-                    Msg.Assistant($"✅ Rama '{_currentlySelectedBranch}' publicada en origin.");
+                    Msg.Assistant($"âœ… Rama '{_currentlySelectedBranch}' publicada en origin.");
                     await CheckBranchStatusAsync();
                 }
                 else
@@ -297,7 +298,7 @@ namespace Chapi
             });
         }
 
-        #region ✅ UI Helpers
+        #region âœ… UI Helpers
         private void ShowLoading() => LoadingOverlay.Visibility = Visibility.Visible;
         private void HideLoading() => LoadingOverlay.Visibility = Visibility.Collapsed;
 
@@ -308,7 +309,7 @@ namespace Chapi
         }
         #endregion
 
-        #region ✅ Project Context Menu Handlers
+        #region âœ… Project Context Menu Handlers
         private string GetPathFromMenuItem(object sender)
         {
             if (sender is MenuItem menuItem && menuItem.CommandParameter is string path)
@@ -365,12 +366,12 @@ namespace Chapi
         {
             string path = GetPathFromMenuItem(sender);
             if (string.IsNullOrEmpty(path)) return;
-            var confirm = await DialogService.ShowConfirmDialog("Remover Proyecto", $"¿Seguro que quieres remover '{new DirectoryInfo(path).Name}'?", DialogVariant.Warning, DialogType.Confirm);
+            var confirm = await DialogService.ShowConfirmDialog("Remover Proyecto", $"Â¿Seguro que quieres remover '{new DirectoryInfo(path).Name}'?", DialogVariant.Warning, DialogType.Confirm);
             if (confirm) { ProjectSettings.RemoveProject(path); LoadProjects(); }
         }
         #endregion
 
-        #region ✅ Project Management
+        #region âœ… Project Management
         private void btnAddProject_Click(object sender, RoutedEventArgs e)
         {
             var contextMenu = new ContextMenu();
@@ -391,7 +392,7 @@ namespace Chapi
         private async void ShowCloneDialog()
         {
            Msg.Assistant("Funcionalidad Clonar en desarrollo.");
-           // Aquí iría la lógica para mostrar el diálogo de clonación
+           // Aqui iria la logica para mostrar el dialogo de clonacion
         }
 
         private async void SelectProject()
@@ -419,7 +420,7 @@ namespace Chapi
                 await useCase.ExecuteAsync(projectDirectory, isSilent);
                 await LoadChangesAsync();
                 
-                // Actualizar indicadores después del fetch
+                // Actualizar indicadores despues del fetch
                 await UpdateProjectStatusesAsync();
             }
         }
@@ -458,7 +459,7 @@ namespace Chapi
         }
         #endregion
 
-        #region ✅ TrayIcon and XAML Event Handlers
+        #region âœ… TrayIcon and XAML Event Handlers
         public void SwitchToProject(string path)
         {
             if (string.IsNullOrEmpty(path)) return;
@@ -476,8 +477,8 @@ namespace Chapi
 
         public void GenerateModuleMenu_Click()
         {
-            // Placeholder para generar módulo
-            Msg.Assistant("Funcionalidad de generar módulo en desarrollo.");
+            // Placeholder para generar modulo
+            Msg.Assistant("Funcionalidad de generar modulo en desarrollo.");
         }
 
         public void AsociateGitMenu_Click()
@@ -488,8 +489,8 @@ namespace Chapi
 
         public void AddMethod_Click()
         {
-            // Placeholder para agregar método
-            Msg.Assistant("Funcionalidad de agregar método en desarrollo.");
+            // Placeholder para agregar metodo
+            Msg.Assistant("Funcionalidad de agregar metodo en desarrollo.");
         }
 
         public void RollbackSelectModule()
@@ -506,7 +507,7 @@ namespace Chapi
 
         private void GitTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Placeholder para cambio de pestaña Git
+            // Placeholder para cambio de pestana Git
         }
 
         private void ModoAgenteComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -520,7 +521,7 @@ namespace Chapi
         }
         #endregion
 
-        #region ✅ Git Operations Event Handlers
+        #region âœ… Git Operations Event Handlers
         private async void Branch_Create_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string sourceBranch) return;
@@ -536,7 +537,7 @@ namespace Chapi
                 {
                     var branches = Git.GetBranches(projectDirectory);
                     BranchesComboBox.ItemsSource = branches;
-                    Msg.Assistant($"✅ Rama '{newBranchName}' creada correctamente.");
+                    Msg.Assistant($"âœ… Rama '{newBranchName}' creada correctamente.");
                 }
             });
         }
@@ -552,7 +553,7 @@ namespace Chapi
                 return;
             }
 
-            var confirm = await DialogService.ShowConfirmDialog("Eliminar Rama", $"¿Estás seguro de eliminar la rama '{branchName}'?", DialogVariant.Warning, DialogType.Confirm);
+            var confirm = await DialogService.ShowConfirmDialog("Eliminar Rama", $"Â¿Estas seguro de eliminar la rama '{branchName}'?", DialogVariant.Warning, DialogType.Confirm);
             if (!confirm) return;
 
             await RunWithLoading(async () =>
@@ -562,7 +563,7 @@ namespace Chapi
                 {
                     var branches = Git.GetBranches(projectDirectory);
                     BranchesComboBox.ItemsSource = branches;
-                    Msg.Assistant($"✅ Rama '{branchName}' eliminada.");
+                    Msg.Assistant($"âœ… Rama '{branchName}' eliminada.");
                 }
             });
         }
@@ -582,7 +583,7 @@ namespace Chapi
                 var result = await Git.CreateTag(tagName, tagMessage, projectDirectory);
                 if (result.Success)
                 {
-                    Msg.Assistant($"✅ Tag '{tagName}' creado correctamente.");
+                    Msg.Assistant($"âœ… Tag '{tagName}' creado correctamente.");
                 }
                 else
                 {
@@ -596,7 +597,7 @@ namespace Chapi
             if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string tagName) return;
             if (!ValidateProject()) return;
 
-            var confirm = await DialogService.ShowConfirmDialog("Eliminar Tag", $"¿Estás seguro de eliminar el tag '{tagName}'?", DialogVariant.Warning, DialogType.Confirm);
+            var confirm = await DialogService.ShowConfirmDialog("Eliminar Tag", $"Â¿Estas seguro de eliminar el tag '{tagName}'?", DialogVariant.Warning, DialogType.Confirm);
             if (!confirm) return;
 
             await RunWithLoading(async () =>
@@ -604,7 +605,7 @@ namespace Chapi
                 var result = await Git.DeleteTagLocal(tagName, projectDirectory);
                 if (result.Success)
                 {
-                    Msg.Assistant($"✅ Tag '{tagName}' eliminado.");
+                    Msg.Assistant($"âœ… Tag '{tagName}' eliminado.");
                 }
             });
         }
@@ -638,3 +639,10 @@ namespace Chapi
         }
     }
 }
+
+
+
+
+
+
+

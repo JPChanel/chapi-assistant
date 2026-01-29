@@ -1,9 +1,9 @@
-using System.Windows.Input;
+﻿using System.Windows.Input;
 
 namespace Chapi.Presentation.ViewModels;
 
 /// <summary>
-/// Implementación de ICommand para ViewModels.
+/// Implementacion de ICommand para ViewModels.
 /// </summary>
 public class RelayCommand : ICommand
 {
@@ -30,7 +30,7 @@ public class RelayCommand : ICommand
 }
 
 /// <summary>
-/// Implementación de ICommand para comandos asíncronos.
+/// Implementacion de ICommand para comandos asincronos.
 /// </summary>
 public class AsyncRelayCommand : ICommand
 {
@@ -55,7 +55,7 @@ public class AsyncRelayCommand : ICommand
         return !_isExecuting && (_canExecute?.Invoke(parameter) ?? true);
     }
 
-    // Método explícito para llamar y esperar el comando manualmente desde código
+    // Metodo explicito para llamar y esperar el comando manualmente desde codigo
     public Task ExecuteAsync(object? parameter)
     {
         if (CanExecute(parameter))
@@ -85,3 +85,4 @@ public class AsyncRelayCommand : ICommand
 
     public void RaiseCanExecuteChanged() => CommandManager.InvalidateRequerySuggested();
 }
+

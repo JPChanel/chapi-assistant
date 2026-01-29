@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 using System.IO;
 
@@ -23,21 +23,22 @@ public class FetchChangesUseCase
         if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
         {
             if (!isSilent)
-                _notifications.ShowWarning("Ruta de proyecto inválida");
-            return Result.Fail("Ruta de proyecto inválida");
+                _notifications.ShowWarning("Ruta de proyecto invalida");
+            return Result.Fail("Ruta de proyecto invalida");
         }
 
         var result = await _gitRepo.FetchAsync(projectPath);
 
         if (result.IsSuccess && !isSilent)
         {
-            _notifications.ShowSuccess("✅ Fetch completado");
+            _notifications.ShowSuccess("âœ… Fetch completado");
         }
         else if (!result.IsSuccess && !isSilent)
         {
-            _notifications.ShowError($"❌ Error al hacer fetch: {result.Error}");
+            _notifications.ShowError($"âŒ Error al hacer fetch: {result.Error}");
         }
 
         return result;
     }
 }
+

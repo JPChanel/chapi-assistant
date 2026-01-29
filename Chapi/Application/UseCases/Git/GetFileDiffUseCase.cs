@@ -1,9 +1,9 @@
-using Chapi.Domain.Interfaces;
+﻿using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
 
 /// <summary>
-/// Use Case para obtener el contenido de un archivo antes y después de un commit.
+/// Use Case para obtener el contenido de un archivo antes y despues de un commit.
 /// Esto permite generar diffs en el historial.
 /// </summary>
 public class GetFileDiffUseCase
@@ -24,14 +24,15 @@ public class GetFileDiffUseCase
         string parentHash = await _gitRepo.GetCommitParentHashAsync(projectPath, commitHash);
         
         // 2. Obtener el texto del archivo en el commit PADRE (el "antes")
-        // Si no hay padre (primer commit), el texto antiguo es vacío
+        // Si no hay padre (primer commit), el texto antiguo es vacio
         string oldText = string.IsNullOrEmpty(parentHash) 
             ? string.Empty 
             : await _gitRepo.GetFileContentAtCommitAsync(projectPath, file, parentHash);
 
-        // 3. Obtener el texto del archivo en el commit ACTUAL (el "después")
+        // 3. Obtener el texto del archivo en el commit ACTUAL (el "despues")
         string newText = await _gitRepo.GetFileContentAtCommitAsync(projectPath, file, commitHash);
 
         return (oldText, newText);
     }
 }
+

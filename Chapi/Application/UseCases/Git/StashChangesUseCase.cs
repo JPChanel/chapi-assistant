@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
@@ -22,14 +22,14 @@ public class StashChangesUseCase
     /// </summary>
     /// <param name="projectPath">Ruta del proyecto</param>
     /// <param name="message">Mensaje del stash</param>
-    /// <param name="files">Archivos específicos (opcional, null = todos)</param>
+    /// <param name="files">Archivos especificos (opcional, null = todos)</param>
     public async Task<Result> ExecuteAsync(string projectPath, string message, IEnumerable<string>? files = null)
     {
         if (string.IsNullOrWhiteSpace(projectPath))
-            return Result.Fail("La ruta del proyecto no puede estar vacía");
+            return Result.Fail("La ruta del proyecto no puede estar vacia");
 
         if (string.IsNullOrWhiteSpace(message))
-            message = "Stash automático";
+            message = "Stash automatico";
 
         try
         {
@@ -46,7 +46,7 @@ public class StashChangesUseCase
 
             if (result.Contains("Saved working directory") || result.Contains("No local changes"))
             {
-                _notificationService.ShowSuccess("✅ Cambios guardados en stash");
+                _notificationService.ShowSuccess("âœ… Cambios guardados en stash");
                 return Result.Success();
             }
 
@@ -54,8 +54,9 @@ public class StashChangesUseCase
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"❌ Error al guardar en stash: {ex.Message}");
+            _notificationService.ShowError($"âŒ Error al guardar en stash: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }
 }
+

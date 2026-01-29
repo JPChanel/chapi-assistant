@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
@@ -18,14 +18,14 @@ public class DiscardChangesUseCase
     }
 
     /// <summary>
-    /// Descarta cambios en archivos específicos o todos.
+    /// Descarta cambios en archivos especificos o todos.
     /// </summary>
     /// <param name="projectPath">Ruta del proyecto</param>
-    /// <param name="files">Archivos específicos (opcional, null = todos)</param>
+    /// <param name="files">Archivos especificos (opcional, null = todos)</param>
     public async Task<Result> ExecuteAsync(string projectPath, IEnumerable<string>? files = null)
     {
         if (string.IsNullOrWhiteSpace(projectPath))
-            return Result.Fail("La ruta del proyecto no puede estar vacía");
+            return Result.Fail("La ruta del proyecto no puede estar vacia");
 
         try
         {
@@ -43,7 +43,7 @@ public class DiscardChangesUseCase
             }
             else
             {
-                // Descartar archivos específicos
+                // Descartar archivos especificos
                 foreach (var file in files!)
                 {
                     var gitPath = file.Replace("\\", "/");
@@ -65,15 +65,16 @@ public class DiscardChangesUseCase
             }
 
             _notificationService.ShowSuccess(isAll 
-                ? "✅ Todos los cambios han sido descartados" 
-                : $"✅ Cambios descartados en {files!.Count()} archivo(s)");
+                ? "âœ… Todos los cambios han sido descartados" 
+                : $"âœ… Cambios descartados en {files!.Count()} archivo(s)");
             
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"❌ Error al descartar cambios: {ex.Message}");
+            _notificationService.ShowError($"âŒ Error al descartar cambios: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }
 }
+

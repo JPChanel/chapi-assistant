@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 using System.IO;
 
@@ -22,27 +22,28 @@ public class PullChangesUseCase
     {
         if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
         {
-            _notifications.ShowWarning("Ruta de proyecto inválida");
-            return Result.Fail("Ruta de proyecto inválida");
+            _notifications.ShowWarning("Ruta de proyecto invalida");
+            return Result.Fail("Ruta de proyecto invalida");
         }
 
         if (string.IsNullOrWhiteSpace(branch))
         {
-            _notifications.ShowWarning("Nombre de rama inválido");
-            return Result.Fail("Nombre de rama inválido");
+            _notifications.ShowWarning("Nombre de rama invalido");
+            return Result.Fail("Nombre de rama invalido");
         }
 
         var result = await _gitRepo.PullAsync(projectPath, branch);
 
         if (result.IsSuccess)
         {
-            _notifications.ShowSuccess($"✅ Pull exitoso desde {branch}");
+            _notifications.ShowSuccess($"âœ… Pull exitoso desde {branch}");
         }
         else
         {
-            _notifications.ShowError($"❌ Error al hacer pull: {result.Error}");
+            _notifications.ShowError($"âŒ Error al hacer pull: {result.Error}");
         }
 
         return result;
     }
 }
+

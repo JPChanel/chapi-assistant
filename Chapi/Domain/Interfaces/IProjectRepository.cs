@@ -1,9 +1,9 @@
-using Chapi.Domain.Entities;
+﻿using Chapi.Domain.Entities;
 
 namespace Chapi.Domain.Interfaces;
 
 /// <summary>
-/// Repositorio para gestión de proyectos.
+/// Repositorio para gestion de proyectos.
 /// </summary>
 public interface IProjectRepository
 {
@@ -12,3 +12,4 @@ public interface IProjectRepository
     Task AddProjectAsync(string path);
     Task RemoveProjectAsync(string path);
 }
+

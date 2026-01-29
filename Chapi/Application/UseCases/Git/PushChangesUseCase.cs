@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 using System.IO;
 
@@ -22,27 +22,28 @@ public class PushChangesUseCase
     {
         if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
         {
-            _notifications.ShowWarning("Ruta de proyecto inválida");
-            return Result.Fail("Ruta de proyecto inválida");
+            _notifications.ShowWarning("Ruta de proyecto invalida");
+            return Result.Fail("Ruta de proyecto invalida");
         }
 
         if (string.IsNullOrWhiteSpace(branch))
         {
-            _notifications.ShowWarning("Nombre de rama inválido");
-            return Result.Fail("Nombre de rama inválido");
+            _notifications.ShowWarning("Nombre de rama invalido");
+            return Result.Fail("Nombre de rama invalido");
         }
 
         var result = await _gitRepo.PushAsync(projectPath, branch);
 
         if (result.IsSuccess)
         {
-            _notifications.ShowSuccess($"✅ Push exitoso a {branch}");
+            _notifications.ShowSuccess($"âœ… Push exitoso a {branch}");
         }
         else
         {
-            _notifications.ShowError($"❌ Error al hacer push: {result.Error}");
+            _notifications.ShowError($"âŒ Error al hacer push: {result.Error}");
         }
 
         return result;
     }
 }
+

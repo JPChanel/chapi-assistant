@@ -1,9 +1,9 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace Chapi.Infrastructure.Git;
 
 /// <summary>
-/// Resultado de la ejecución de un comando Git.
+/// Resultado de la ejecucion de un comando Git.
 /// </summary>
 public class CommandResult
 {
@@ -20,7 +20,7 @@ public class CommandResult
 
 /// <summary>
 /// Ejecutor de comandos Git.
-/// Encapsula la lógica de ejecución de procesos Git.
+/// Encapsula la logica de ejecucion de procesos Git.
 /// </summary>
 public class GitCommandExecutor
 {
@@ -62,3 +62,4 @@ public class GitCommandExecutor
         }
     }
 }
+

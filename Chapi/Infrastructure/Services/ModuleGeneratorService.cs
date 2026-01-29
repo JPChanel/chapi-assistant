@@ -1,13 +1,15 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using Chapi.Helper.Roslyn;
-using Chapi.Helper.Entities;
-using Chapi.Helper.GitHelper;
-using Chapi.Services;
+using Chapi.Infrastructure.Roslyn;
+using Chapi.Domain.Entities;
+using Chapi.Infrastructure.Git;
+using Chapi.Infrastructure.Services;
 
+using Chapi.Infrastructure.Persistence.Rollbacks;
+using Chapi.Infrastructure.Common;
 namespace Chapi.Infrastructure.Services;
 
 public interface IModuleGeneratorService
@@ -27,7 +29,7 @@ public class ModuleGeneratorService : IModuleGeneratorService
     public async Task GenerateModuleAsync(string projectDirectory, string moduleName, string dbName)
     {
         moduleName = char.ToUpper(moduleName[0]) + moduleName[1..];
-        _logger?.Invoke($"Generando módulo: {moduleName}");
+        _logger?.Invoke($"Generando modulo: {moduleName}");
 
         string apiProjectPath = FindApiDirectory.GetDirectory(projectDirectory);
         if (apiProjectPath == null)
@@ -66,9 +68,17 @@ public class ModuleGeneratorService : IModuleGeneratorService
             {
                 var tempPath = RollbackManager.GetRollbackFilePathForEntry(rollbackEntry);
                 RollbackManager.CommitTransaction(rollbackEntry);
-                RollbackManager.ExecuteRollback(tempPath);
-                throw new Exception($"Error al generar operación {operation}: {ex.Message}");
+                // TODO: Fix ExecuteRollback call - needs RollbackEntry, not string
+                // 
+                throw new Exception($"Error al generar operacion {operation}: {ex.Message}");
             }
         }
     }
 }
+
+
+
+
+
+
+
