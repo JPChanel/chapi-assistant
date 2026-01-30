@@ -84,6 +84,21 @@ namespace Chapi
             services.AddTransient<UseCases.CreateTagUseCase>();
             services.AddTransient<UseCases.GetFilesChangedInCommitUseCase>();
             services.AddTransient<UseCases.GetFileDiffUseCase>();
+            services.AddTransient<UseCases.AssociateGitUseCase>();
+
+            // Application - Project Use Cases
+            services.AddTransient<Chapi.Application.UseCases.Projects.AddProjectUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.Projects.LoadProjectsUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.Projects.RemoveProjectUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.Projects.SwitchProjectUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.Projects.CreateProjectUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.Projects.UpdateProjectIndicatorsUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.Projects.CloneProjectUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.GenerateModuleUseCase>();
+
+            // Infrastructure - Template Service
+            services.AddSingleton<ITemplateService, ProjectTemplateService>();
+            services.AddSingleton<IProjectRepository, Chapi.Infrastructure.Persistence.Settings.ProjectSettingsRepository>();
 
             // Presentation - ViewModels
             services.AddTransient<Presentation.ViewModels.ChangesViewModel>();

@@ -141,4 +141,20 @@ public class RollbackManager
             catch { }
         }
     }
+
+    public static void ClearAllRollbacks()
+    {
+        if (!Directory.Exists(RollbackDirectory))
+            return;
+
+        foreach (var file in Directory.GetFiles(RollbackDirectory))
+        {
+            try { File.Delete(file); } catch { }
+        }
+
+        foreach (var dir in Directory.GetDirectories(RollbackDirectory))
+        {
+            try { Directory.Delete(dir, true); } catch { }
+        }
+    }
 }

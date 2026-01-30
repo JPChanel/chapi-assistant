@@ -383,6 +383,53 @@ public class GitRepository : IGitRepository
 
     #endregion
 
+    #region Lifecycle
+
+    public async Task<Result> CloneAsync(string url, string destinationPath)
+    {
+        try
+        {
+            // Para clonar, el projectPath es el directorio padre
+            var parentDir = Path.GetDirectoryName(destinationPath);
+            if (!Directory.Exists(parentDir)) Directory.CreateDirectory(parentDir);
+
+            var result = await _executor.ExecuteAsync($"clone \"{url}\" \"{destinationPath}\"", parentDir);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al clonar repositorio: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> InitAsync(string projectPath)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync("init", projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al inicializar repositorio: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> AddRemoteAsync(string projectPath, string name, string url)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"remote add {name} \"{url}\"", projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al agregar remoto: {ex.Message}");
+        }
+    }
+
+    #endregion
+
     #region Generic Command Execution
 
     public async Task<string> ExecuteGitCommandAsync(string projectPath, string command)

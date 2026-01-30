@@ -10,6 +10,7 @@ using Chapi.Infrastructure.Services;
 
 using Chapi.Infrastructure.Persistence.Rollbacks;
 using Chapi.Infrastructure.Common;
+using Chapi.Domain.Interfaces;
 namespace Chapi.Infrastructure.Services;
 
 public interface IModuleGeneratorService
@@ -19,17 +20,17 @@ public interface IModuleGeneratorService
 
 public class ModuleGeneratorService : IModuleGeneratorService
 {
-    private readonly Action<string> _logger;
+    private readonly INotificationService _notificationService;
 
-    public ModuleGeneratorService(Action<string> logger)
+    public ModuleGeneratorService(INotificationService notificationService)
     {
-        _logger = logger;
+        _notificationService = notificationService;
     }
 
     public async Task GenerateModuleAsync(string projectDirectory, string moduleName, string dbName)
     {
         moduleName = char.ToUpper(moduleName[0]) + moduleName[1..];
-        _logger?.Invoke($"Generando modulo: {moduleName}");
+        _notificationService.ShowInfo($"Generando modulo: {moduleName}");
 
         string apiProjectPath = FindApiDirectory.GetDirectory(projectDirectory);
         if (apiProjectPath == null)

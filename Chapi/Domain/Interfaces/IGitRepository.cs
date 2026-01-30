@@ -34,6 +34,11 @@ public interface IGitRepository
     Task<string> GetFileContentAtCommitAsync(string projectPath, string file, string hash);
     Task<string> GetCommitParentHashAsync(string projectPath, string hash);
 
+    // Lifecycle
+    Task<Result> CloneAsync(string url, string destinationPath);
+    Task<Result> InitAsync(string projectPath);
+    Task<Result> AddRemoteAsync(string projectPath, string name, string url);
+
     // Generic command execution
     Task<string> ExecuteGitCommandAsync(string projectPath, string command);
 }

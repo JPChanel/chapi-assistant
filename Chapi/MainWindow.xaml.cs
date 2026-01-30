@@ -1,5 +1,6 @@
 using Chapi.Infrastructure.AI;
 using Chapi.Domain.Entities;
+using Microsoft.Extensions.DependencyInjection;
 using Chapi.Infrastructure.Git;
 using Chapi.Infrastructure.Roslyn;
 using Chapi.Infrastructure.Persistence.Settings;
@@ -121,15 +122,6 @@ namespace Chapi
             catch { }
         }
 
-        private bool ValidateProject()
-        {
-            if (string.IsNullOrEmpty(projectDirectory))
-            {
-                Msg.Assistant("âš ï¸ No hay proyecto seleccionado.");
-                return false;
-            }
-            return true;
-        }
 
         public void ShowUpdateView()
         {
@@ -372,27 +364,38 @@ namespace Chapi
         #endregion
 
         #region âœ… Project Management
-        private void btnAddProject_Click(object sender, RoutedEventArgs e)
-        {
-            var contextMenu = new ContextMenu();
-
-            var cloneMenuItem = new MenuItem { Header = "Clonar Repositorio", Icon = new PackIcon { Kind = PackIconKind.SourceBranch } };
-            cloneMenuItem.Click += (s, ev) => ShowCloneDialog();
-            contextMenu.Items.Add(cloneMenuItem);
-
-            var addMenuItem = new MenuItem { Header = "Agregar Repositorio Existente", Icon = new PackIcon { Kind = PackIconKind.FolderAdd } };
-            addMenuItem.Click += (s, ev) => SelectProject();
-            contextMenu.Items.Add(addMenuItem);
-
-            
-
-            contextMenu.IsOpen = true;
-        }
 
         private async void ShowCloneDialog()
         {
-           Msg.Assistant("Funcionalidad Clonar en desarrollo.");
-           // Aqui iria la logica para mostrar el dialogo de clonacion
+            try
+            {
+                var (success, urlRepo) = await DialogService.ShowInputDialog("Clonar Repositorio", "Ingrese la URL del repositorio Git:");
+                if (!success || string.IsNullOrWhiteSpace(urlRepo)) return;
+
+                using var folderDialog = new FolderBrowserDialog { Description = "Seleccione la carpeta donde se clonará el repositorio" };
+                if (folderDialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+
+                await RunWithLoading(async () =>
+                {
+                    var useCase = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Projects.CloneProjectUseCase>();
+                    var result = await useCase.ExecuteAsync(urlRepo, folderDialog.SelectedPath);
+
+                    if (result.IsSuccess)
+                    {
+                        Msg.Assistant($"✅ Repositorio clonado exitosamente en {result.Data}");
+                        LoadProjects();
+                        SwitchToProject(result.Data);
+                    }
+                    else
+                    {
+                        await DialogService.ShowConfirmDialog("Error", $"No se pudo clonar: {result.Error}", DialogVariant.Error, DialogType.Info);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Msg.Assistant($"❌ Error: {ex.Message}");
+            }
         }
 
         private async void SelectProject()
@@ -406,6 +409,7 @@ namespace Chapi
                 ProjectSettings.AddProject(projectDirectory);
                 LoadProjects();
                 ProjectsComboBox.SelectedItem = ProjectsComboBox.Items.OfType<ProjectViewModel>().FirstOrDefault(p => p.FullPath == projectDirectory);
+                Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager.ClearAllRollbacks();
             });
         }
 
@@ -425,7 +429,7 @@ namespace Chapi
             }
         }
 
-        private async Task UpdateProjectStatusesAsync(List<ProjectViewModel> projects = null)
+        private async Task UpdateProjectStatusesAsync(List<ProjectViewModel>? projects = null)
         {
             if (projects == null)
             {
@@ -433,76 +437,217 @@ namespace Chapi
                 else return;
             }
 
-            await Task.Delay(1500);
+            var useCase = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Projects.UpdateProjectIndicatorsUseCase>();
 
-            await Task.Run(async () =>
+            // Ejecutar actualizaciones en paralelo
+            var tasks = projects.Select(proj => useCase.ExecuteAsync(proj.FullPath, (ahead, behind) =>
             {
-                foreach (var proj in projects)
+                Dispatcher.Invoke(() =>
                 {
-                    try
-                    {
-                        string branch = await Git.GetCurrentBranch(proj.FullPath);
-                        if (!string.IsNullOrEmpty(branch))
-                        {
-                            var status = await Git.GetAheadBehindCount(proj.FullPath);
-                            
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                proj.Ahead = status.Ahead;
-                                proj.Behind = status.Behind;
-                            });
-                        }
-                    }
-                    catch { /* Ignorar errores en proyectos inaccesibles */ }
-                }
-            });
+                    proj.Ahead = ahead;
+                    proj.Behind = behind;
+                });
+            })).ToList();
+
+            await Task.WhenAll(tasks);
         }
         #endregion
+
+        private bool ValidateProject()
+        {
+            if (string.IsNullOrEmpty(projectDirectory) || !Directory.Exists(projectDirectory))
+            {
+                DialogService.ShowTrayNotification("Error", "Por favor selecciona un proyecto primero.");
+                return false;
+            }
+            return true;
+        }
 
         #region âœ… TrayIcon and XAML Event Handlers
         public void SwitchToProject(string path)
         {
             if (string.IsNullOrEmpty(path)) return;
-            projectDirectory = path;
-            ProjectsComboBox.SelectedItem = ProjectsComboBox.Items.OfType<ProjectViewModel>().FirstOrDefault(p => p.FullPath == path);
+            var project = ProjectsComboBox.Items.OfType<ProjectViewModel>().FirstOrDefault(p => p.FullPath == path);
+            if (project != null)
+            {
+                ProjectsComboBox.SelectedItem = project;
+                if (!IsVisible) Show();
+                Activate();
+            }
         }
 
         public void SelectProjectMenu_Click(object sender, RoutedEventArgs e) => SelectProject();
 
-        public void CreateNewTemplate()
+        private void btnAddProject_Click(object sender, RoutedEventArgs e)
         {
-            // Placeholder para crear nuevo template
-            Msg.Assistant("Funcionalidad de crear template en desarrollo.");
+            if (sender is not System.Windows.Controls.Button btn) return;
+
+            var contextMenu = new ContextMenu();
+
+            var cloneItem = new MenuItem
+            {
+                Header = "Clonar Nuevo Repositorio...",
+                Icon = new MaterialDesignThemes.Wpf.PackIcon { Kind = MaterialDesignThemes.Wpf.PackIconKind.Add }
+            };
+            cloneItem.Click += (s, ev) => ShowCloneDialog();
+
+            var addItem = new MenuItem
+            {
+                Header = "Agregar Repositorio Existente...",
+                Icon = new MaterialDesignThemes.Wpf.PackIcon { Kind = MaterialDesignThemes.Wpf.PackIconKind.FolderAdd }
+            };
+            addItem.Click += (s, ev) => SelectProject();
+
+            contextMenu.Items.Add(cloneItem);
+            contextMenu.Items.Add(addItem);
+
+            contextMenu.PlacementTarget = btn;
+            contextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            contextMenu.IsOpen = true;
         }
 
-        public void GenerateModuleMenu_Click()
+        public async void CreateNewTemplate()
         {
-            // Placeholder para generar modulo
-            Msg.Assistant("Funcionalidad de generar modulo en desarrollo.");
+            try
+            {
+                var (success, projectName) = await DialogService.ShowInputDialog("Nuevo Proyecto", "Ingrese nombre del proyecto:");
+                if (!success || string.IsNullOrWhiteSpace(projectName)) return;
+
+                using var folderDialog = new FolderBrowserDialog();
+                if (folderDialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+
+                var parentDir = folderDialog.SelectedPath;
+
+                var associateGit = await DialogService.ShowConfirmDialog("¿Deseas asociar un repositorio remoto ahora?", "Asociar Git");
+                string remoteUrl = null;
+                if (associateGit)
+                {
+                    var (remoteSuccess, remoteUrlText) = await DialogService.ShowInputDialog("Repositorio Git", "Ingrese la URL del repositorio remoto:");
+                    if (remoteSuccess) remoteUrl = remoteUrlText;
+                }
+
+                await RunWithLoading(async () =>
+                {
+                    var createProjectUseCase = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Projects.CreateProjectUseCase>();
+                    var request = new Chapi.Application.UseCases.Projects.CreateProjectRequest(
+                        projectName,
+                        parentDir,
+                        repoUrl, // repoUrl definido en MainWindow (el de la plantilla base)
+                        remoteUrl
+                    );
+
+                    var result = await createProjectUseCase.ExecuteAsync(request, progress => Msg.Assistant(progress));
+
+                    if (result.IsSuccess)
+                    {
+                        Msg.Assistant($"✅ Proyecto '{projectName}' creado exitosamente.");
+                        LoadProjects();
+                        // Seleccionar el nuevo proyecto
+                        SwitchToProject(result.Data);
+                        Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager.ClearAllRollbacks();
+                    }
+                    else
+                    {
+                        await DialogService.ShowConfirmDialog("Error", $"No se pudo crear el proyecto: {result.Error}", DialogVariant.Error, DialogType.Info);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Msg.Assistant($"❌ Error: {ex.Message}");
+            }
         }
 
-        public void AsociateGitMenu_Click()
+        public async void GenerateModuleMenu_Click()
         {
-            // Placeholder para asociar Git
-            Msg.Assistant("Funcionalidad de asociar Git en desarrollo.");
+            if (!ValidateProject()) return;
+
+            var (okModules, modules) = await DialogService.ShowInputDialog("Crear Módulo", "Ingrese los nombres de los módulos separados por ';':");
+            if (!okModules || string.IsNullOrWhiteSpace(modules)) return;
+
+            var (okDb, dbChoice) = await DialogService.ShowInputDialog("Seleccionar Base de Datos", "Ingrese 'S' para Sybase o 'P' para Postgres:");
+            if (!okDb || string.IsNullOrWhiteSpace(dbChoice)) return;
+
+            await RunWithLoading(async () =>
+            {
+                var useCase = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.CodeGeneration.GenerateModuleUseCase>();
+                var result = await useCase.ExecuteAsync(projectDirectory, modules, dbChoice);
+
+                if (result.IsSuccess)
+                {
+                    Msg.Assistant("✅ Módulo(s) generado(s) correctamente.");
+                }
+                else
+                {
+                    await DialogService.ShowConfirmDialog("Error", result.Error, DialogVariant.Error, DialogType.Info);
+                }
+            });
+        }
+
+        public async void AsociateGitMenu_Click()
+        {
+            if (!ValidateProject()) return;
+
+            var (success, remoteUrl) = await DialogService.ShowInputDialog("Asociar Git", "Ingrese la URL del repositorio remoto:");
+            if (!success || string.IsNullOrWhiteSpace(remoteUrl)) return;
+
+            await RunWithLoading(async () =>
+            {
+                var associateGitUseCase = App.ServiceProvider.GetRequiredService<UseCases.AssociateGitUseCase>();
+                var result = await associateGitUseCase.ExecuteAsync(projectDirectory, remoteUrl);
+
+                if (result.IsSuccess)
+                {
+                    Msg.Assistant("✅ Repositorio remoto asociado correctamente.");
+                    await DoFetchAsync(isSilent: true);
+                }
+                else
+                {
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo asociar el repositorio: {result.Error}", DialogVariant.Error, DialogType.Info);
+                }
+            });
         }
 
         public void AddMethod_Click()
         {
-            // Placeholder para agregar metodo
-            Msg.Assistant("Funcionalidad de agregar metodo en desarrollo.");
+            if (!ValidateProject()) return;
+            if (!IsVisible) Show();
+            Activate();
+
+            var am = new Chapi.Presentation.Views.Agent.AddMethodView(projectDirectory);
+            am.Owner = this;
+            am.ShowDialog();
         }
 
-        public void RollbackSelectModule()
+        public async void RollbackSelectModule()
         {
-            // Placeholder para rollback
-            Msg.Assistant("Funcionalidad de rollback en desarrollo.");
+            if (!IsVisible) Show();
+            Activate();
+
+            // En Chapi, RollbackManager se encarga de listar rollbacks
+            var rollbacks = Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager.GetAvailableRollbacks();
+
+            if (!rollbacks.Any())
+            {
+                await DialogService.ShowConfirmDialog("Información", "No hay rollbacks disponibles.", DialogVariant.Info, DialogType.Info);
+                return;
+            }
+
+            var rollbackView = new Chapi.Presentation.Views.Agent.RollbackSelectorView();
+            rollbackView.Owner = this;
+            var result = rollbackView.ShowDialog();
+
+            if (result == true)
+            {
+                Msg.Assistant("✅ Rollback ejecutado correctamente.");
+            }
         }
 
         public void AddClassLog_Click()
         {
-            // Placeholder para log
-            Msg.Assistant("Funcionalidad de log en desarrollo.");
+            if (!IsVisible) Show();
+            Activate();
+            GitTabs.SelectedItem = AssistantTab;
         }
 
         private void GitTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
