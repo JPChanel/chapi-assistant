@@ -446,10 +446,51 @@ namespace Chapi
                 {
                     proj.Ahead = ahead;
                     proj.Behind = behind;
+                    
+                    if (proj.FullPath == projectDirectory)
+                    {
+                        UpdateGitActionButton();
+                    }
                 });
             })).ToList();
 
             await Task.WhenAll(tasks);
+        }
+
+        private void UpdateGitActionButton()
+        {
+            if (ProjectsComboBox.SelectedItem is not ProjectViewModel currentProject) return;
+
+            // Accedemos al ComboBoxItem por defecto (índice 0) que usamos como botón dinámico
+            if (GitActionsComboBox.Items[0] is ComboBoxItem defaultItem && 
+                defaultItem.Content is StackPanel sp &&
+                sp.Children.Count >= 2)
+            {
+                var icon = sp.Children[0] as MaterialDesignThemes.Wpf.PackIcon;
+                var textBlock = sp.Children[1] as TextBlock;
+
+                if (currentProject.Behind > 0)
+                {
+                    _currentGitAction = GitActionState.Pull;
+                    if (icon != null) icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudDownloadOutline;
+                    if (textBlock != null) textBlock.Text = $"Pull Origin ({currentProject.Behind} ↓)";
+                }
+                else if (currentProject.Ahead > 0)
+                {
+                    _currentGitAction = GitActionState.Push;
+                    if (icon != null) icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudUploadOutline;
+                    if (textBlock != null) textBlock.Text = $"Push Origin ({currentProject.Ahead} ↑)";
+                }
+                else
+                {
+                    _currentGitAction = GitActionState.Fetch;
+                    if (icon != null) icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.Refresh;
+                    if (textBlock != null) textBlock.Text = "Fetch Origin";
+                }
+                
+                // Aseguramos que se muestre el item dinamico
+                GitActionsComboBox.SelectedIndex = 0;
+            }
         }
         #endregion
 
@@ -764,16 +805,65 @@ namespace Chapi
         private enum GitActionState { Pull, Push, Fetch }
         private GitActionState _currentGitAction = GitActionState.Fetch;
 
+        private bool _isExecutingGitAction = false;
+        
         private async void GitActionsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (!_isWindowInitialized || GitActionsComboBox.SelectedItem == null) return;
-            // Placeholder para acciones Git
+            if (!_isWindowInitialized || _isExecutingGitAction || GitActionsComboBox.SelectedItem is not ComboBoxItem selectedItem) return;
+
+            GitActionState? action = null;
+            
+            if (selectedItem.Name == "PullGitActionItem") action = GitActionState.Pull;
+            else if (selectedItem.Name == "PushGitActionItem") action = GitActionState.Push;
+            else if (selectedItem.Name == "FetchGitActionItem") action = GitActionState.Fetch;
+
+            if (action.HasValue)
+            {
+                // Ejecutar acción
+                // Primero restauramos la selección visual para que no se quede marcada la accion transitoria
+                _isExecutingGitAction = true;
+                GitActionsComboBox.SelectedIndex = 0;
+                _isExecutingGitAction = false;
+
+                await ExecuteGitAction(action.Value);
+            }
         }
 
-        private async void GitActionsComboBox_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private async Task ExecuteGitAction(GitActionState action)
         {
-            if (!_isWindowInitialized) return;
-            // Placeholder para acciones Git
+            if (!ValidateProject()) return;
+
+            await RunWithLoading(async () =>
+            {
+                Chapi.Domain.Common.Result result = Chapi.Domain.Common.Result.Success();
+                switch (action)
+                {
+                    case GitActionState.Fetch:
+                        var fetchUC = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Git.FetchChangesUseCase>();
+                        result = await fetchUC.ExecuteAsync(projectDirectory, isSilent: false);
+                        break;
+                    
+                    case GitActionState.Pull:
+                        var pullUC = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Git.PullChangesUseCase>();
+                        result = await pullUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch);
+                        break;
+                    
+                    case GitActionState.Push:
+                        var pushUC = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Git.PushChangesUseCase>();
+                        result = await pushUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch);
+                        break;
+                }
+
+                // Las notificaciones de exito/error ya son manejadas por los Casos de Uso
+
+                // Actualizar todo
+                _ = DoFetchAsync(isSilent: true);
+            });
+        }
+
+        private void GitActionsComboBox_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // Permitir comportamiento normal
         }
         #endregion
 

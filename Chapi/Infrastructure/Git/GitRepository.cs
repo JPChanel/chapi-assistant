@@ -86,13 +86,21 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            var result = await _executor.ExecuteAsync($"log origin/{branch}..{branch} --pretty=format:%H", projectPath);
+            // Intentar usar el upstream configurado para la rama especifica: branch@{u}
+            var cmd = $"log \"{branch}@{{u}}..{branch}\" --pretty=format:%H";
+            var result = await _executor.ExecuteAsync(cmd, projectPath);
+
+            if (!result.IsSuccess)
+            {
+                // Fallback: intentar con origin/branch clÃ¡sico si no hay upstream configurado
+                result = await _executor.ExecuteAsync($"log origin/{branch}..{branch} --pretty=format:%H", projectPath);
+            }
 
             if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Output))
                 return new HashSet<string>();
 
             return result.Output
-                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(h => h.Trim())
                 .ToHashSet();
         }
@@ -306,17 +314,25 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            var currentBranch = await GetCurrentBranchAsync(projectPath);
-            if (string.IsNullOrEmpty(currentBranch))
-                return (0, 0);
+            // Usamos '@{u}' entre comillas para evitar problemas de interpretacion en shells como powershell
+            // @{u} referencia al upstream configurado de la rama actual.
+            var result = await _executor.ExecuteAsync("rev-list --left-right --count \"@{u}...HEAD\"", projectPath);
 
-            var result = await _executor.ExecuteAsync($"rev-list --left-right --count origin/{currentBranch}...{currentBranch}", projectPath);
+            if (!result.IsSuccess)
+            {
+                // Si falla (ej: no hay upstream), intentamos fallback a origin
+                var currentBranch = await GetCurrentBranchAsync(projectPath);
+                if (!string.IsNullOrEmpty(currentBranch))
+                {
+                    result = await _executor.ExecuteAsync($"rev-list --left-right --count origin/{currentBranch}...{currentBranch}", projectPath);
+                }
+            }
 
             if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Output))
                 return (0, 0);
 
-            var parts = result.Output.Trim().Split('\t');
-            if (parts.Length == 2 && int.TryParse(parts[0], out int behind) && int.TryParse(parts[1], out int ahead))
+            var parts = result.Output.Trim().Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2 && int.TryParse(parts[0], out int behind) && int.TryParse(parts[1], out int ahead))
             {
                 return (ahead, behind);
             }
