@@ -47,7 +47,7 @@ public class AIClient
 
                 text = text.Trim();
 
-                // Eliminar backticks de código si vienen en la respuesta
+  
                 if (text.StartsWith("```"))
                 {
                     int start = text.IndexOf("{");
@@ -60,7 +60,7 @@ public class AIClient
             }
             catch (Exception ex)
             {
-                // Si hay error con este modelo, pasa al siguiente
+                
                 msg = ex.Message;
             }
         }
