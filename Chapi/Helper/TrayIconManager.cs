@@ -19,17 +19,21 @@ namespace Chapi
             taskbarIcon = new TaskbarIcon
             {
                 Icon = new System.Drawing.Icon("Image/icon.ico"),
-                ToolTipText = "Chapi Asistente 🚀",
+                ToolTip = "Chapi Asistente 🚀",
                 ContextMenu = CreateContextMenu()
             };
 
             // Evento doble clic
-            taskbarIcon.TrayMouseDoubleClick += (s, e) =>
-            {
-                mainWindow.Show();
-                mainWindow.WindowState = WindowState.Normal;
-                mainWindow.Activate();
-            };
+            taskbarIcon.TrayMouseDoubleClick += (s, e) => RestoreWindow();
+            // Evento un solo clic
+            taskbarIcon.TrayLeftMouseUp += (s, e) => RestoreWindow();
+        }
+
+        private void RestoreWindow()
+        {
+            mainWindow.Show();
+            mainWindow.WindowState = WindowState.Normal;
+            mainWindow.Activate();
         }
 
         private ContextMenu CreateContextMenu()

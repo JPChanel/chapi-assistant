@@ -28,8 +28,11 @@ namespace Chapi
 {
 
 
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, System.ComponentModel.INotifyPropertyChanged
     {
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+
         private bool _isWindowInitialized = false;
         private string projectDirectory;
         private List<string> createdPaths = new List<string>();
@@ -54,6 +57,22 @@ namespace Chapi
         private bool _isReloadingChanges = false;
 
         private bool _isGitInstalled = false;
+        private System.Threading.CancellationTokenSource _diffCts;
+
+        private int _currentHistoryLimit = 50;
+        private const int HistoryPageSize = 50;
+        private System.Windows.Threading.DispatcherTimer _fetchTimer;
+
+        public string AppVersion { get; private set; }
+        public string ServiceStatusText => "Activo"; // Lógica simplificada basada en UpdateView
+        public Brush ServiceStatusBrush => Brushes.Lime;
+
+        private int _totalAdditions;
+        public int TotalAdditions { get => _totalAdditions; set { _totalAdditions = value; OnPropertyChanged(nameof(TotalAdditions)); } }
+        
+        private int _totalDeletions;
+        public int TotalDeletions { get => _totalDeletions; set { _totalDeletions = value; OnPropertyChanged(nameof(TotalDeletions)); } }
+
         public MainWindow()
         {
             InitializeComponent();
@@ -74,6 +93,27 @@ namespace Chapi
                 Timeout.Infinite,
                 Timeout.Infinite);
             Task.Run(CheckForUpdates);
+            LoadVersion();
+
+            // Configurar Timer para Fetch en segundo plano (cada 10 minutos)
+            _fetchTimer = new System.Windows.Threading.DispatcherTimer();
+            _fetchTimer.Interval = TimeSpan.FromMinutes(10);
+            _fetchTimer.Tick += async (s, ev) => await DoFetchAsync(isSilent: true);
+            _fetchTimer.Start();
+
+            // Fetch inicial de todos los proyectos para llenar los indicadores
+            _ = Task.Run(async () => await PreFetchAllProjectsAsync());
+        }
+
+        private void LoadVersion()
+        {
+            var assembly = System.Reflection.Assembly.GetEntryAssembly();
+            if (assembly != null)
+            {
+                var fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
+                AppVersion = $"v{fvi.ProductVersion?.Split('+')[0]}";
+                OnPropertyChanged(nameof(AppVersion));
+            }
         }
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
@@ -115,6 +155,37 @@ namespace Chapi
             var updateView = new Chapi.Views.UpdateView(projectDirectory);
             updateView.Owner = this;
             updateView.ShowDialog();
+        }
+
+        private async Task PreFetchAllProjectsAsync()
+        {
+            // Acceder a la lista de proyectos en el hilo de la UI
+            List<ProjectViewModel> projects = null;
+            Dispatcher.Invoke(() => {
+                projects = (ProjectsComboBox.ItemsSource as IEnumerable<ProjectViewModel>)?.ToList();
+            });
+
+            if (projects == null) return;
+
+            foreach (var project in projects)
+            {
+                try
+                {
+                    // Fetch silencioso solo para actualizar el contador
+                    await Git.EjecutarGit("fetch", project.FullPath);
+                    var counts = await Git.GetAheadBehindCount(project.FullPath);
+                    
+                    Dispatcher.Invoke(() => {
+                        project.Ahead = counts.Ahead;
+                        project.Behind = counts.Behind;
+                    });
+                }
+                catch (Exception ex) 
+                { 
+                    // Log silencioso para no molestar al usuario en pre-fetch
+                    System.Diagnostics.Debug.WriteLine($"Error en pre-fetch para {project.Name}: {ex.Message}");
+                }
+            }
         }
         private void LoadProjects()
         {
@@ -246,6 +317,7 @@ namespace Chapi
             var selectedProject = ProjectsComboBox.SelectedItem as ProjectViewModel;
             if (selectedProject == null) return;
             projectDirectory = selectedProject.FullPath;
+            _currentHistoryLimit = HistoryPageSize; // Reset limit on project change
             InitializeFileSystemWatcher(projectDirectory);
             if (!_isGitInstalled)
             { var msg = "Seleccionaste un proyecto, pero Git sigue sin detectarse\nChapi necesita Git para rastrear cambios, ver el historial y gestionar commits. Parece que no está instalado o no se agregó al PATH del sistema.";
@@ -255,7 +327,9 @@ namespace Chapi
             }
             string projectName = new DirectoryInfo(projectDirectory).Name;
             App.TrayIconManager.UpdateProjectMenuItem(projectName, false);
-            await RunWithLoading(async () =>
+
+            // Cargamos todo lo local SIN el overlay de carga (RunWithLoading)
+            try
             {
                 if (projectDirectory != null)
                 {
@@ -295,8 +369,24 @@ namespace Chapi
                     await LoadChangesAsync();
                     await LoadHistoryAsync();
                     await LoadTagsAsync();
+
+                    // Lanzar fetch en segundo plano SIN bloquear el overlay
+                    _ = Task.Run(async () => {
+                        try 
+                        {
+                            await DoFetchAsync(isSilent: true);
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error en fetch de fondo: {ex.Message}");
+                        }
+                    });
                 }
-            });
+            }
+            catch (Exception ex)
+            {
+                Msg.Assistant($"❌ Error al cargar el proyecto: {ex.Message}");
+            }
         }
 
         private async void BranchesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -403,6 +493,8 @@ namespace Chapi
             if (string.IsNullOrWhiteSpace(statusOutput))
             {
                 ChangesListView.ItemsSource = changes; // Lista vacía
+                TotalAdditions = 0;
+                TotalDeletions = 0;
                 UpdateChangesCount();
                 return;
             }
@@ -428,46 +520,55 @@ namespace Chapi
                     {
                         case "M":
                             item.Status = "Modificado";
+                            item.ShortStatus = "M";
                             item.Icon = PackIconKind.FileEdit;
                             item.Color = Brushes.Orange;
                             break;
                         case "A":
                             item.Status = "Añadido";
+                            item.ShortStatus = "A";
                             item.Icon = PackIconKind.FilePlus;
                             item.Color = Brushes.Green;
                             break;
                         case "D":
                             item.Status = "Eliminado";
+                            item.ShortStatus = "D";
                             item.Icon = PackIconKind.FileRemove;
                             item.Color = Brushes.Red;
                             break;
                         case "R":
                             item.Status = "Renombrado";
+                            item.ShortStatus = "R";
                             item.Icon = PackIconKind.FileMove;
                             item.Color = Brushes.Blue;
                             break;
                         case "??":
                             item.Status = "Sin seguimiento";
+                            item.ShortStatus = "?";
                             item.Icon = PackIconKind.FileQuestion;
                             item.Color = Brushes.Green;
                             break;
                         case "UU":
                             item.Status = "Conflicto";
+                            item.ShortStatus = "U";
                             item.Icon = PackIconKind.AlertOctagon;
                             item.Color = Brushes.Red;
                             break;
                         case "AU":
                             item.Status = "Conflicto (Añadido por ti)";
+                            item.ShortStatus = "U";
                             item.Icon = PackIconKind.Alert;
                             item.Color = Brushes.Red;
                             break;
                         case "UA":
                             item.Status = "Conflicto (Añadido por ellos)";
+                            item.ShortStatus = "U";
                             item.Icon = PackIconKind.Alert;
                             item.Color = Brushes.Red;
                             break;
                         default:
                             item.Status = "Desconocido";
+                            item.ShortStatus = status.Trim().Substring(0, 1);
                             item.Icon = PackIconKind.FileQuestion;
                             item.Color = Brushes.Gray;
                             break;
@@ -475,10 +576,46 @@ namespace Chapi
                     changes.Add(item);
                 }
             }
+
+            // --- NUEVA LÓGICA: Agregar estadísticas de líneas ---
+            var lineStats = await Git.GetNumStat(projectDirectory);
+            int totalAdd = 0;
+            int totalDel = 0;
+            foreach (var change in changes)
+            {
+                if (lineStats.TryGetValue(change.FilePath, out var stats))
+                {
+                    change.Additions = stats.Additions;
+                    change.Deletions = stats.Deletions;
+                    totalAdd += stats.Additions;
+                    totalDel += stats.Deletions;
+                }
+            }
+            TotalAdditions = totalAdd;
+            TotalDeletions = totalDel;
+            // ----------------------------------------------------
+
             var sortedChanges = changes.OrderBy(c => c.FilePath).ToList();
             ChangesListView.ItemsSource = sortedChanges;
             SelectAllCheckBox.IsChecked = sortedChanges.Any() && sortedChanges.All(c => c.IsSelected);
             UpdateChangesCount();
+            
+            // Reset Diff View
+            DiffLinesItemsControl.ItemsSource = null;
+            if (DiffEmptyStateView != null) DiffEmptyStateView.Visibility = Visibility.Visible;
+            if (DiffContentBorder != null) DiffContentBorder.Visibility = Visibility.Collapsed;
+        }
+
+        private async void btnReloadChanges_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateProject()) return;
+            
+            await RunWithLoading(async () =>
+            {
+                Msg.Assistant("🔄 Recargando cambios...");
+                await LoadChangesAsync();
+                Msg.Assistant("✅ Cambios recargados.");
+            });
         }
         private async Task LoadHistoryAsync()
         {
@@ -502,8 +639,9 @@ namespace Chapi
             const string fieldSeparator = "\x1f";
             const string recordSeparator = "\x1e";
 
-            string logFormat = $"%h{fieldSeparator}%an{fieldSeparator}%ar{fieldSeparator}%s{fieldSeparator}%b{recordSeparator}";
-            var logOutput = await Git.EjecutarGit($"log --pretty=format:\"{logFormat}\" -n 50", projectDirectory);
+            // %H: hash completo para links, %h: hash corto, %an: autor, %ar: fecha relativa, %s: mensaje, %b: cuerpo
+            string logFormat = $"%H{fieldSeparator}%an{fieldSeparator}%ar{fieldSeparator}%s{fieldSeparator}%b{recordSeparator}";
+            var logOutput = await Git.EjecutarGit($"log --pretty=format:\"{logFormat}\" -n {_currentHistoryLimit}", projectDirectory);
             var commits = new List<GitLogItem>();
 
             if (string.IsNullOrWhiteSpace(logOutput))
@@ -516,19 +654,19 @@ namespace Chapi
             foreach (var line in commitRecords)
             {
                 var parts = line.Trim().Trim('"').Split(new[] { fieldSeparator }, StringSplitOptions.None);
-                if (parts.Length == 5)
+                if (parts.Length >= 4)
                 {
                     var hash = parts[0];
                     var commit = new GitLogItem
                     {
                         Hash = hash,
                         Author = parts[1],
-                        Date = parts[2],
+                        RelativeDate = parts[2],
                         Message = parts[3],
-                        Description = parts[4].Trim(),
+                        Description = parts.Length > 4 ? parts[4].Trim() : string.Empty,
                         IsUnpushed = unpushedHashes.Contains(hash)
                     };
-                    var tagEntry = tagMap.Keys.FirstOrDefault(k => k.StartsWith(hash));
+                    var tagEntry = tagMap.Keys.FirstOrDefault(k => k.StartsWith(hash.Substring(0, 7)));
                     if (tagEntry != null)
                     {
                         commit.Tags = tagMap[tagEntry];
@@ -538,6 +676,17 @@ namespace Chapi
             }
 
             HistoryListView.ItemsSource = commits;
+        }
+
+        private async void btnLoadMoreHistory_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateProject()) return;
+
+            _currentHistoryLimit += HistoryPageSize;
+            await RunWithLoading(async () =>
+            {
+                await LoadHistoryAsync();
+            });
         }
 
         #region ✅ UI Helpers (Loading + DialogHost)
@@ -664,6 +813,35 @@ namespace Chapi
                 FileHelper.DeleteRollbackFiles();
                 await Task.Delay(100);
             });
+        }
+
+        private void btnAddProject_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button == null) return;
+
+            var contextMenu = new System.Windows.Controls.ContextMenu();
+            
+            var cloneMenuItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Clonar Nuevo Repositorio...",
+                Icon = new PackIcon { Kind = PackIconKind.Add }
+            };
+            cloneMenuItem.Click += CloneProject_Click;
+            
+            var addMenuItem = new System.Windows.Controls.MenuItem
+            {
+                Header = "Agregar Repositorio Existente...",
+                Icon = new PackIcon { Kind = PackIconKind.FolderAdd }
+            };
+            addMenuItem.Click += SelectProjectMenu_Click;
+            
+            contextMenu.Items.Add(cloneMenuItem);
+            contextMenu.Items.Add(addMenuItem);
+            
+            contextMenu.PlacementTarget = button;
+            contextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            contextMenu.IsOpen = true;
         }
         #endregion
         #region ✅ Git - Asociar y Commit Asistido
@@ -1005,30 +1183,33 @@ namespace Chapi
 
 
 
-        private async Task DoFetchAsync()
+        private async Task DoFetchAsync(bool isSilent = false)
         {
             if (!ValidateProject()) return;
 
-            await RunWithLoading(async () =>
+            Func<Task> fetchLogic = async () =>
             {
-                Msg.Assistant("Realizando fetch de los cambios remotos...");
+                if (!isSilent) Msg.Assistant("Realizando fetch de los cambios remotos...");
                 var result = await Git.EjecutarGit("fetch", projectDirectory);
 
                 if (result.Contains("error") || result.Contains("fatal"))
                 {
-                    Msg.Assistant($"❌ Error al realizar fetch: {result}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de fetch.\n\n{result}", DialogVariant.Error, DialogType.Info);
+                    if (!isSilent)
+                    {
+                        Msg.Assistant($"❌ Error al realizar fetch: {result}");
+                        await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de fetch.\n\n{result}", DialogVariant.Error, DialogType.Info);
+                    }
                 }
                 else
                 {
-                    Msg.Assistant("✅ Fetch completado exitosamente.");
+                    if (!isSilent) Msg.Assistant("✅ Fetch completado exitosamente.");
 
                     // 1. Obtener tus cambios locales (con rutas Git '/')
                     var statusOutput = await Git.EjecutarGit("status --porcelain -uall", projectDirectory);
                     var localChanges = new HashSet<string>();
                     if (!string.IsNullOrWhiteSpace(statusOutput))
                     {
-                        var regex = new Regex(@"^(?<status>[A-Z\?]{1,2})\s+(?<file>.+)$");
+                        var regex = new Regex(@"^(?<status>[\w\? ]{1,2})\s+(?<file>.+)$");
                         var lines = statusOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
                         foreach (var line in lines)
                         {
@@ -1053,8 +1234,8 @@ namespace Chapi
                     // 3. Encontrar la intersección (archivos modificados en AMBOS lados)
                     var conflictingFiles = localChanges.Intersect(remoteChanges).ToList();
 
-                    // 4. ¡Mostrar la advertencia!
-                    if (conflictingFiles.Any())
+                    // 4. ¡Mostrar la advertencia! (Solo si no es silencioso o si hay conflicto real)
+                    if (conflictingFiles.Any() && !isSilent)
                     {
                         string fileList = string.Join("\n- ", conflictingFiles);
                         await DialogService.ShowConfirmDialog(
@@ -1064,7 +1245,7 @@ namespace Chapi
                             DialogVariant.Warning, DialogType.Info);
                     }
 
-                    // (El resto de tu código para actualizar ramas no cambia)
+                    // Actualizar indicadores del Model
                     var branches = Git.GetBranches(projectDirectory);
                     var currentBranch = BranchesComboBox.SelectedItem as string;
                     BranchesComboBox.ItemsSource = branches;
@@ -1072,10 +1253,35 @@ namespace Chapi
                     {
                         BranchesComboBox.SelectedItem = currentBranch;
                     }
+
+                    // --- NUEVO: Actualizar el ProjectViewModel actual ---
+                    ProjectViewModel currentProject = null;
+                    Dispatcher.Invoke(() => {
+                        currentProject = ProjectsComboBox.SelectedItem as ProjectViewModel;
+                    });
+
+                    if (currentProject != null)
+                    {
+                        var counts = await Git.GetAheadBehindCount(projectDirectory);
+                        Dispatcher.Invoke(() => {
+                            currentProject.Ahead = counts.Ahead;
+                            currentProject.Behind = counts.Behind;
+                        });
+                    }
                 }
+                // Recargar UI
                 await LoadChangesAsync();
-                await LoadHistoryAsync(); // Esto actualizará los indicadores
-            });
+                await LoadHistoryAsync(); 
+            };
+
+            if (isSilent)
+            {
+                await fetchLogic();
+            }
+            else
+            {
+                await RunWithLoading(fetchLogic);
+            }
         }
         private async Task DoPushAsync()
         {
@@ -1153,27 +1359,72 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
-                Msg.Assistant("Realizando pull de los cambios remotos...");
-                var result = await Git.EjecutarGit("pull", projectDirectory);
-                if (result.Contains("Automatic merge failed") || result.Contains("CONFLICT"))
+                Msg.Assistant("Preparando Pull...");
+
+                // 1. Verificar si hay cambios locales
+                var statusOutput = await Git.EjecutarGit("status --porcelain", projectDirectory);
+                bool hasLocalChanges = !string.IsNullOrWhiteSpace(statusOutput);
+
+                bool usedStash = false;
+                if (hasLocalChanges)
                 {
-                    Msg.Assistant("❌ ¡Conflicto! Se detectaron conflictos de merge.");
+                    bool confirmStash = await DialogService.ShowConfirmDialog(
+                        "Cambios Locales Detectados",
+                        "Tienes cambios locales que podrían causar conflictos con el Pull.\n\n" +
+                        "¿Deseas que Chapi guarde tus cambios (Stash) temporalmente, realice el Pull y luego los restaure automáticamente?",
+                        DialogVariant.Warning, DialogType.Confirm);
+
+                    if (confirmStash)
+                    {
+                        Msg.Assistant("Guardando cambios locales (Stash)...");
+                        var stashRes = await Git.EjecutarGit("stash save \"Auto-stash antes de Pull (Chapi)\"", projectDirectory);
+                        if (stashRes.Contains("Saved working directory"))
+                        {
+                            usedStash = true;
+                        }
+                        else
+                        {
+                            Msg.Assistant("⚠️ No se pudo realizar Stash. Intentando pull directamente...");
+                        }
+                    }
+                }
+
+                Msg.Assistant("Realizando pull de los cambios remotos...");
+                var pullResult = await Git.EjecutarGit("pull", projectDirectory);
+
+                if (pullResult.Contains("Automatic merge failed") || pullResult.Contains("CONFLICT"))
+                {
+                    Msg.Assistant("❌ ¡Conflicto! Se detectaron conflictos durante el pull.");
                     await DialogService.ShowConfirmDialog("Conflicto de Merge",
-                        "No se pudo completar el pull automáticamente. Tienes conflictos:\n\n" + result,
+                        "No se pudo completar el pull automáticamente. Tienes conflictos:\n\n" + pullResult,
                         DialogVariant.Error, DialogType.Info);
                 }
-                else if (result.Contains("error") || result.Contains("fatal"))
+                else if (pullResult.Contains("error") || pullResult.Contains("fatal"))
                 {
-                    Msg.Assistant($"❌ Error al realizar pull: {result}");
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de pull.\n\n{result}", DialogVariant.Error, DialogType.Info);
-                }
-                else if (result.Contains("Already up to date"))
-                {
-                    Msg.Assistant("✅ El repositorio ya está actualizado.");
+                    Msg.Assistant($"❌ Error al realizar pull: {pullResult}");
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo completar la operación de pull.\n\n{pullResult}", DialogVariant.Error, DialogType.Info);
                 }
                 else
                 {
                     Msg.Assistant("✅ Pull completado exitosamente.");
+                }
+
+                // 3. Si usamos stash, intentar restaurarlo
+                if (usedStash)
+                {
+                    Msg.Assistant("Restaurando tus cambios locales (Stash Pop)...");
+                    var popRes = await Git.EjecutarGit("stash pop", projectDirectory);
+                    if (popRes.Contains("CONFLICT"))
+                    {
+                        Msg.Assistant("⚠️ Tus cambios locales tienen conflictos con lo que bajó el servidor.");
+                        await DialogService.ShowConfirmDialog("Conflicto en Stash Pop",
+                            "Tus cambios locales fueron restaurados pero tienen conflictos. Deberás resolverlos manualmente.",
+                            DialogVariant.Warning, DialogType.Info);
+                    }
+                    else
+                    {
+                        Msg.Assistant("✅ Cambios locales restaurados correctamente.");
+                    }
                 }
 
                 await LoadChangesAsync();
@@ -1208,15 +1459,27 @@ namespace Chapi
 
         private async void ChangesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Limpiar el visor antes de empezar
+            // Cancelar cualquier proceso de diff anterior
+            _diffCts?.Cancel();
+            _diffCts = new System.Threading.CancellationTokenSource();
+            var token = _diffCts.Token;
+
+            // Limpiar el visor inmediatamente para dar feedback visual
             DiffLinesItemsControl.ItemsSource = null;
 
             var selectedItem = e.AddedItems.OfType<GitStatusItem>().FirstOrDefault();
 
             if (selectedItem == null)
             {
+                // Mostrar "Sin Archivo Seleccionado"
+                if (DiffEmptyStateView != null) DiffEmptyStateView.Visibility = Visibility.Visible;
+                if (DiffContentBorder != null) DiffContentBorder.Visibility = Visibility.Collapsed;
                 return;
             }
+
+            // Ocultar "Sin Archivo" y mostrar Diff
+            if (DiffEmptyStateView != null) DiffEmptyStateView.Visibility = Visibility.Collapsed;
+            if (DiffContentBorder != null) DiffContentBorder.Visibility = Visibility.Visible;
 
             if (!ValidateProject())
             {
@@ -1225,57 +1488,79 @@ namespace Chapi
 
             try
             {
-                string oldText = await Git.GetFileContentAtCommitish(selectedItem.FilePath, "HEAD", projectDirectory);
-                string fullPath = Path.Combine(projectDirectory, selectedItem.FilePath);
-                string newText = string.Empty;
-
-                if (File.Exists(fullPath) && selectedItem.Status != "Eliminado")
+                // Envolvemos toda la lógica pesada en Task.Run para no bloquear el hilo de la UI
+                var result = await Task.Run(async () =>
                 {
-                    newText = await File.ReadAllTextAsync(fullPath);
-                }
+                    string oldText = await Git.GetFileContentAtCommitish(selectedItem.FilePath, "HEAD", projectDirectory);
+                    string fullPath = Path.Combine(projectDirectory, selectedItem.FilePath);
+                    string newText = string.Empty;
 
-                var diffBuilder = new InlineDiffBuilder(new DiffPlex.Differ());
-                var diff = diffBuilder.BuildDiffModel(oldText, newText);
-
-                // (Lógica de Hunks)
-                var filteredLines = new List<DiffPiece>();
-                const int contextLines = 3;
-
-                for (int i = 0; i < diff.Lines.Count; i++)
-                {
-                    var line = diff.Lines[i];
-                    if (line.Type == ChangeType.Unchanged)
+                    if (File.Exists(fullPath) && selectedItem.Status != "Eliminado")
                     {
-                        bool isContext = false;
-                        for (int j = 1; j <= contextLines; j++)
+                        newText = await File.ReadAllTextAsync(fullPath);
+                    }
+
+                    token.ThrowIfCancellationRequested();
+
+                    var diffBuilder = new InlineDiffBuilder(new DiffPlex.Differ());
+                    var diff = diffBuilder.BuildDiffModel(oldText, newText);
+
+                    token.ThrowIfCancellationRequested();
+
+                    var filteredLines = new List<DiffPiece>();
+                    const int contextLines = 3;
+
+                    for (int i = 0; i < diff.Lines.Count; i++)
+                    {
+                        if (token.IsCancellationRequested) break;
+
+                        var line = diff.Lines[i];
+                        if (line.Type == ChangeType.Unchanged)
                         {
-                            if (i - j >= 0 && diff.Lines[i - j].Type != ChangeType.Unchanged) { isContext = true; break; }
-                        }
-                        if (!isContext)
-                        {
+                            bool isContext = false;
                             for (int j = 1; j <= contextLines; j++)
                             {
-                                if (i + j < diff.Lines.Count && diff.Lines[i + j].Type != ChangeType.Unchanged) { isContext = true; break; }
+                                if (i - j >= 0 && diff.Lines[i - j].Type != ChangeType.Unchanged) { isContext = true; break; }
+                            }
+                            if (!isContext)
+                            {
+                                for (int j = 1; j <= contextLines; j++)
+                                {
+                                    if (i + j < diff.Lines.Count && diff.Lines[i + j].Type != ChangeType.Unchanged) { isContext = true; break; }
+                                }
+                            }
+                            if (isContext) { filteredLines.Add(line); }
+                            else if (filteredLines.Count > 0 && filteredLines.Last().Type != ChangeType.Imaginary)
+                            {
+                                filteredLines.Add(new DiffPiece("...", ChangeType.Imaginary, null));
                             }
                         }
-                        if (isContext) { filteredLines.Add(line); }
-                        else if (filteredLines.Count > 0 && filteredLines.Last().Type != ChangeType.Imaginary)
-                        {
-                            filteredLines.Add(new DiffPiece("...", ChangeType.Imaginary, null));
-                        }
+                        else { filteredLines.Add(line); }
                     }
-                    else { filteredLines.Add(line); }
-                }
 
-                DiffLinesItemsControl.ItemsSource = filteredLines;
+                    return filteredLines;
+                }, token);
+
+                // Si no se canceló durante el proceso, asignamos los resultados a la UI
+                if (!token.IsCancellationRequested)
+                {
+                    DiffLinesItemsControl.ItemsSource = result;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // El proceso fue cancelado porque el usuario seleccionó otro archivo rápido
             }
             catch (Exception ex)
             {
-                Msg.Assistant($"--- !!! CATCH BLOCK ERROR: {ex.Message} ---");
-                DiffLinesItemsControl.ItemsSource = new List<DiffPiece>
+                if (!token.IsCancellationRequested)
                 {
-                    new DiffPiece($"ERROR AL CARGAR DIFF: {ex.Message}", ChangeType.Deleted)
-                };
+                    Msg.Assistant($"--- !!! ERROR AL CARGAR DIFF: {ex.Message} ---");
+                    DiffLinesItemsControl.ItemsSource = new List<DiffPiece>
+                    {
+                        new DiffPiece($"ERROR AL CARGAR DIFF: {ex.Message}", ChangeType.Deleted)
+                    };
+                }
             }
         }
         // --- NUEVO: Lógica para el botón de Commit Manual ---
@@ -1395,12 +1680,23 @@ namespace Chapi
         {
             if (!ValidateProject())
             {
-                TagsListView.ItemsSource = null;
+                ReleasesListView.ItemsSource = null;
                 return;
             }
 
             var tags = await Git.GetTags(projectDirectory);
-            TagsListView.ItemsSource = tags;
+            if (tags.Count > 0)
+            {
+                // El primer tag en la lista (ordenada por fecha desc) es el Latest
+                tags[0].IsLatest = true;
+            }
+            
+            ReleasesListView.ItemsSource = tags;
+            
+            // Si no hay tags, asegurar que el estado vacío se vea
+            ReleasesEmptyState.Visibility = tags.Count == 0 ? Visibility.Visible : Visibility.Visible; // Se mantiene visible hasta elegir uno
+            ReleaseDetailContainer.Visibility = Visibility.Collapsed;
+            ReleaseStatsContainer.Visibility = Visibility.Collapsed;
         }
 
         private async void btnCrearTag_Click(object sender, RoutedEventArgs e)
@@ -1455,6 +1751,105 @@ namespace Chapi
         }
 
 
+        private async void ReleasesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var selectedTag = ReleasesListView.SelectedItem as GitTagItem;
+            if (selectedTag == null)
+            {
+                ReleasesEmptyState.Visibility = Visibility.Visible;
+                ReleaseDetailContainer.Visibility = Visibility.Collapsed;
+                ReleaseStatsContainer.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            ReleasesEmptyState.Visibility = Visibility.Collapsed;
+            ReleaseDetailContainer.Visibility = Visibility.Visible;
+            ReleaseStatsContainer.Visibility = Visibility.Visible;
+
+            // Poblar Panel 2 (Detalle)
+            txtReleaseTitle.Text = selectedTag.TagName;
+            txtReleaseHash.Text = $"# {selectedTag.ShortHash}";
+            txtReleaseAuthor.Text = selectedTag.AuthorName ?? "Autor Desconocido";
+
+            // Notas de versión
+            var notes = new List<string>();
+            if (!string.IsNullOrWhiteSpace(selectedTag.TagMessage))
+                notes.Add(selectedTag.TagMessage);
+            else if (!string.IsNullOrWhiteSpace(selectedTag.CommitMessage))
+                notes.Add(selectedTag.CommitMessage);
+            else
+                notes.Add("Sin descripción disponible para esta versión.");
+
+            ReleaseNotesItemsControl.ItemsSource = notes;
+
+            // Detalle del Commit
+            if (!string.IsNullOrWhiteSpace(selectedTag.CommitDescription))
+                txtCommitFullMessage.Text = selectedTag.CommitDescription;
+            else if (!string.IsNullOrWhiteSpace(selectedTag.CommitMessage))
+                txtCommitFullMessage.Text = selectedTag.CommitMessage;
+            else
+                txtCommitFullMessage.Text = "Sin detalles adicionales.";
+
+            // Poblar Panel 3 (Estadísticas)
+            await RunWithLoading(async () =>
+            {
+                var stats = await Git.GetCommitNumStat(selectedTag.CommitHash, projectDirectory);
+                
+                int totalAdded = stats.Values.Sum(s => s.Additions);
+                int totalDeleted = stats.Values.Sum(s => s.Deletions);
+                int totalFiles = stats.Count;
+
+                txtFilesCount.Text = totalFiles.ToString();
+                txtAdditionsCount.Text = $"+{totalAdded}";
+                txtDeletionsCount.Text = $"-{totalDeleted}";
+
+                ReleaseFilesListView.ItemsSource = stats.Keys.ToList();
+            });
+        }
+
+        private async void DeleteTag_Click(object sender, RoutedEventArgs e)
+        {
+            var tag = ReleasesListView.SelectedItem as GitTagItem;
+            if (tag == null) return;
+
+            var confirm = await DialogService.ShowConfirmDialog("Eliminar Tag", 
+                $"¿Está seguro de que desea eliminar el tag '{tag.TagName}'?\nEsta acción no se puede deshacer.",
+                DialogVariant.Error, DialogType.Confirm);
+
+            if (!confirm) return;
+
+            await RunWithLoading(async () =>
+            {
+                Msg.Assistant($"Eliminando tag {tag.TagName}...");
+                var res = await Git.DeleteTagLocal(tag.TagName, projectDirectory);
+
+                if (res.Success)
+                {
+                    Msg.Assistant($"Tag {tag.TagName} eliminado localmente.");
+                    
+                    var remote = await DialogService.ShowConfirmDialog("Eliminar Remoto",
+                        $"El tag local fue eliminado.\n\n¿Desea intentar eliminarlo también del servidor remoto (origin)?",
+                        DialogVariant.Warning, DialogType.Confirm);
+
+                    if (remote)
+                    {
+                        var resRem = await Git.DeleteTagRemote(tag.TagName, projectDirectory);
+                        if (resRem.Success)
+                            Msg.Assistant($"Tag {tag.TagName} eliminado del remoto.");
+                        else
+                             Msg.Assistant($"No se pudo eliminar el remoto: {resRem.Output}");
+                    }
+
+                    await LoadTagsAsync();
+                }
+                else
+                {
+                    Msg.Assistant($"Error al eliminar tag: {res.Output}");
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo eliminar el tag:\n{res.Output}", DialogVariant.Error, DialogType.Info);
+                }
+            });
+        }
+
         private async void HistoryListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             // Limpiar las listas de abajo
@@ -1464,23 +1859,22 @@ namespace Chapi
             var selectedCommit = e.AddedItems.OfType<GitLogItem>().FirstOrDefault();
             if (selectedCommit == null)
             {
-                CommitSummaryHeader.Visibility = Visibility.Collapsed;
+                CommitSummaryMessage.Text = "SIN INFORMACIÓN";
+                CommitSummaryDescription.Text = "Selecciona un commit del historial para ver sus detalles.";
+                CommitSummaryInfo.Text = "";
+                HistoryFilesListView.ItemsSource = null;
+                CommitDetailContainer.Visibility = Visibility.Visible;
                 return;
             }
 
-            // Poblar los campos
+            // Poblar los campos según el nuevo diseño estructurado
             CommitSummaryMessage.Text = selectedCommit.Message;
-            CommitSummaryInfo.Text = $"{selectedCommit.Author} cometió {selectedCommit.Hash} ({selectedCommit.Date})";
+            CommitSummaryInfo.Text = $"{selectedCommit.Author} cometió {selectedCommit.ShortHash} ({selectedCommit.RelativeDate})";
             CommitSummaryDescription.Text = selectedCommit.Description;
 
+            CommitDetailContainer.Visibility = Visibility.Visible;
 
-            CommitSummaryHeader.Visibility = Visibility.Visible;
-
-
-            if (!ValidateProject())
-            {
-                return;
-            }
+            if (!ValidateProject()) return;
 
             try
             {
@@ -1500,12 +1894,28 @@ namespace Chapi
             HistoryDiffLinesItemsControl.ItemsSource = null;
 
             var selectedFile = e.AddedItems.OfType<string>().FirstOrDefault();
-            var selectedCommit = HistoryListView.SelectedItem as GitLogItem; // Obtener el commit seleccionado
+            var selectedCommit = HistoryListView.SelectedItem as GitLogItem; 
 
-            if (selectedFile == null || selectedCommit == null || !ValidateProject())
+            if (selectedFile == null)
+            {
+                // Mostrar "Sin Archivo Seleccionado"
+                if (DiffViewerPlaceholder != null) DiffViewerPlaceholder.Visibility = Visibility.Visible;
+                if (DiffViewerContent != null) DiffViewerContent.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            // Ocultar placeholder, mostrar contenido
+            if (DiffViewerPlaceholder != null) DiffViewerPlaceholder.Visibility = Visibility.Collapsed;
+            if (DiffViewerContent != null) DiffViewerContent.Visibility = Visibility.Visible;
+
+
+            if (selectedCommit == null || !ValidateProject())
             {
                 return;
             }
+
+            HistoryDiffFileName.Text = selectedFile.ToUpper();
+            _activeDiffFile = selectedFile; // Guardar para "Abrir en Web"
 
             try
             {
@@ -1742,11 +2152,56 @@ namespace Chapi
         /// </summary>
         private string GetPathFromMenuItem(object sender)
         {
-            if (sender is MenuItem menuItem && menuItem.CommandParameter is string path)
+            if (sender is MenuItem menuItem)
             {
-                return path;
+                // Si el parámetro ya es una ruta completa (string)
+                if (menuItem.CommandParameter is string path)
+                {
+                    // Si la ruta es absoluta, devolverla tal cual
+                    if (Path.IsPathRooted(path) || path.StartsWith(@"\\wsl$") || path.StartsWith(@"\\wsl.localhost"))
+                    {
+                        return path;
+                    }
+
+                    // Si es una ruta relativa (típico del historial), combinarla con el proyecto
+                    if (!string.IsNullOrEmpty(projectDirectory))
+                    {
+                        return Path.Combine(projectDirectory, path);
+                    }
+
+                    return path;
+                }
+                
+                // Si el parámetro es un GitStatusItem (de la lista de cambios)
+                if (menuItem.CommandParameter is GitStatusItem statusItem)
+                {
+                    // Combinar con el directorio del proyecto actual
+                    if (!string.IsNullOrEmpty(projectDirectory))
+                    {
+                        return Path.Combine(projectDirectory, statusItem.FilePath);
+                    }
+                }
             }
             return null; // No se pudo obtener la ruta
+        }
+
+        private void HistoryFiles_CopyPath_Click(object sender, RoutedEventArgs e)
+        {
+            string path = GetPathFromMenuItem(sender);
+            if (!string.IsNullOrEmpty(path))
+            {
+                System.Windows.Clipboard.SetText(path);
+                DialogService.ShowTrayNotification("Copiado", "Ruta completa copiada al portapapeles");
+            }
+        }
+
+        private void HistoryFiles_CopyRelativePath_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.CommandParameter is string relativePath)
+            {
+                System.Windows.Clipboard.SetText(relativePath);
+                DialogService.ShowTrayNotification("Copiado", "Ruta relativa copiada al portapapeles");
+            }
         }
 
         private async void ProjectMenuItem_OpenVisualStudio_Click(object sender, RoutedEventArgs e)
@@ -1757,7 +2212,14 @@ namespace Chapi
             // Reutilizamos la lógica de 'btnAbrirSln' pero con el path específico
             try
             {
-                var slnFile = Directory.GetFiles(path, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                string searchDir = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
+                var slnFile = Directory.GetFiles(searchDir, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+
+                // Si no hay SLN en la carpeta actual, buscamos en la carpeta raíz del proyecto
+                if (slnFile == null && !string.IsNullOrEmpty(projectDirectory))
+                {
+                    slnFile = Directory.GetFiles(projectDirectory, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                }
 
                 if (slnFile != null)
                 {
@@ -1820,15 +2282,14 @@ namespace Chapi
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = "wsl",
-                        Arguments = "code .", // Ejecuta el 'code' de Linux
-                        WorkingDirectory = path, // wsl.exe entiende esta ruta UNC
-                        UseShellExecute = false, // ¡Importante para que WorkingDirectory funcione!
+                        Arguments = "code .", 
+                        WorkingDirectory = path, 
+                        UseShellExecute = false, 
                         CreateNoWindow = true
                     });
                 }
                 else
                 {
-                    // --- Caso Windows (Normal) ---
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = "code",
@@ -1853,14 +2314,14 @@ namespace Chapi
             {
                 if (isWslPath)
                 {
-                     DialogService.ShowConfirmDialog("Advertencia", "Antygravity aun no soporta abrir proyectos en WSL, se recomienda abrir con Visual Studio Code", DialogVariant.Warning, DialogType.Info);
+                    DialogService.ShowConfirmDialog("Advertencia", "Antygravity aun no soporta abrir proyectos en WSL, se recomienda abrir con Visual Studio Code", DialogVariant.Warning, DialogType.Info);
                 }
                 else
                 {
-                    // --- Caso Windows (Normal) ---
+           
                     Process.Start(new ProcessStartInfo
                     {
-                        FileName = "antigravity", // Ejecuta 'antigravity' en Windows
+                        FileName = "antigravity", 
                         Arguments = $"\"{path}\"",
                         UseShellExecute = true,
                         CreateNoWindow = true
@@ -1880,16 +2341,108 @@ namespace Chapi
 
             try
             {
+                string arguments = "";
+                if (File.Exists(path))
+                {
+                    // Si es un archivo, abrir la carpeta y SELECCIONAR el archivo
+                    arguments = $"/select,\"{path}\"";
+                }
+                else if (Directory.Exists(path))
+                {
+                    // Si es una carpeta, abrirla directamente
+                    arguments = $"\"{path}\"";
+                }
+                else
+                {
+                    // Si no existe (ej. fue borrado), intentar abrir la carpeta contenedora si existe
+                    string parent = Path.GetDirectoryName(path);
+                    if (Directory.Exists(parent))
+                        arguments = $"\"{parent}\"";
+                    else
+                        return;
+                }
+
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = "explorer.exe",
-                    Arguments = $"\"{path}\"", // Abrir la carpeta en el explorador
+                    Arguments = arguments,
                     UseShellExecute = true
                 });
             }
             catch (Exception ex)
             {
                 DialogService.ShowTrayNotification("Error", $"No se pudo abrir el explorador: {ex.Message}");
+            }
+        }
+
+        private async void ProjectMenuItem_OpenGitHub_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(projectDirectory)) return;
+
+            string relativePath = null;
+            if (sender is MenuItem menuItem)
+            {
+                if (menuItem.CommandParameter is string rel)
+                {
+                    relativePath = rel;
+                }
+                else if (menuItem.CommandParameter is GitStatusItem statusItem)
+                {
+                    relativePath = statusItem.FilePath;
+                }
+            }
+
+            if (string.IsNullOrEmpty(relativePath)) return;
+
+            // Para el historial usamos el commit seleccionado, para cambios usamos HEAD
+            var selectedCommit = HistoryListView.SelectedItem as GitLogItem;
+            string commitHash = selectedCommit?.Hash ?? "HEAD";
+
+            try
+            {
+                string remoteUrl = await Git.GetRemoteUrl(projectDirectory);
+                if (string.IsNullOrEmpty(remoteUrl))
+                {
+                    DialogService.ShowTrayNotification("Información", "Este proyecto no tiene un repositorio remoto configurado.");
+                    return;
+                }
+
+                bool isGitLab = remoteUrl.Contains("gitlab.com") || remoteUrl.Contains("gitlab.");
+                string webUrl;
+
+                if (commitHash != "HEAD" && !isGitLab)
+                {
+                    // En el historial de GitHub, es mejor ir al commit con el anchor del archivo
+                    string pathHash = GetGitHubPathHash(relativePath);
+                    webUrl = $"{remoteUrl}/commit/{commitHash}#{pathHash}";
+                }
+                else
+                {
+                    // En Cambios actuales o GitLab, usamos la vista de blob tradicional
+                    string branchPart = isGitLab ? "-/blob" : "blob";
+                    webUrl = $"{remoteUrl}/{branchPart}/{commitHash}/{relativePath.Replace("\\", "/")}";
+                }
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = webUrl,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                DialogService.ShowTrayNotification("Error", $"No se pudo abrir la URL: {ex.Message}");
+            }
+        }
+
+        private string GetGitHubPathHash(string path)
+        {
+            // GitHub usa SHA-256 del path (con barras hacia adelante) para el anchor del diff
+            string normalizedPath = path.Replace("\\", "/");
+            using (var sha256 = System.Security.Cryptography.SHA256.Create())
+            {
+                byte[] hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(normalizedPath));
+                return "diff-" + BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
             }
         }
 
@@ -1926,9 +2479,7 @@ namespace Chapi
             if (!confirm) return;
 
             ProjectSettings.RemoveProject(pathToRemove);
-            LoadProjects(); // Recargar la lista
-
-            // Si el proyecto eliminado era el activo, limpiar la UI
+            LoadProjects(); 
             if (projectDirectory == pathToRemove)
             {
                 projectDirectory = null;
@@ -1936,7 +2487,7 @@ namespace Chapi
                 BranchesComboBox.ItemsSource = null;
                 ChangesListView.ItemsSource = null;
                 HistoryListView.ItemsSource = null;
-                TagsListView.ItemsSource = null;
+                ReleasesListView.ItemsSource = null;
             }
 
             DialogService.ShowTrayNotification("Proyecto Removido", "El proyecto se quitó de la lista.");
@@ -2387,7 +2938,7 @@ namespace Chapi
             }
             else if (selectedItem == FetchGitActionItem)
             {
-                await DoFetchAsync();
+                await DoFetchAsync(isSilent: false);
             }
 
             // 4. Reseteo (sin cambios)
@@ -2422,7 +2973,7 @@ namespace Chapi
                     await DoPushAsync();
                     break;
                 case GitActionState.Fetch:
-                    await DoFetchAsync();
+                    await DoFetchAsync(isSilent: false);
                     break;
             }
         }
@@ -2448,7 +2999,7 @@ namespace Chapi
                     await DoPushAsync();
                     break;
                 case GitActionState.Fetch:
-                    await DoFetchAsync();
+                    await DoFetchAsync(isSilent: false);
                     break;
             }
         }
@@ -2467,7 +3018,7 @@ namespace Chapi
         // 3. El handler para el item "Fetch" DENTRO del menú
         private async void FetchMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            await DoFetchAsync();
+            await DoFetchAsync(isSilent: false);
         }
         /// <summary>
         /// Actualiza el texto de la pestaña "Cambios" y el botón "Commit"
@@ -2478,7 +3029,8 @@ namespace Chapi
             if (ChangesListView.ItemsSource == null)
             {
                 ChangesTabHeader.Text = "Cambios";
-                btnCommit.Content = "Commit";
+                ChangesCountBadge.Visibility = Visibility.Collapsed;
+                btnCommit.Content = "CONFIRMAR COMMIT";
                 btnCommit.IsEnabled = false;
                 return;
             }
@@ -2488,18 +3040,21 @@ namespace Chapi
             int selectedCount = allChanges.Count(i => i.IsSelected);
             string branchName = _currentlySelectedBranch ?? "main";
 
-            // 1. Actualizar la Pestaña (muestra el total)
-            ChangesTabHeader.Text = totalCount > 0 ? $"Cambios ({totalCount})" : "Cambios";
+            // 1. Actualizar la Pestaña (muestra el total en el badge)
+            ChangesTabHeader.Text = "Cambios";
+            txtChangesCount.Text = totalCount.ToString();
+            txtChangesCountSide.Text = totalCount.ToString(); // Actualizar también el contador lateral
+            ChangesCountBadge.Visibility = totalCount > 0 ? Visibility.Visible : Visibility.Collapsed;
 
             // 2. Actualizar el Botón de Commit (muestra los seleccionados)
             if (selectedCount > 0)
             {
-                btnCommit.Content = $"Commit {selectedCount} files to {branchName}";
+                btnCommit.Content = $"CONFIRMAR COMMIT ({selectedCount})";
                 btnCommit.IsEnabled = true;
             }
             else
             {
-                btnCommit.Content = "Commit";
+                btnCommit.Content = "CONFIRMAR COMMIT";
                 btnCommit.IsEnabled = false;
             }
         }
@@ -2517,7 +3072,6 @@ namespace Chapi
             if (firstItem == null) return;
 
             // 3. Busca el MenuItem por su nombre
-            // --- ✅ CORRECCIÓN: Usamos grid.ContextMenu ---
             var contextMenu = grid.ContextMenu;
             var resetMenuItem = contextMenu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Name == "ResetSoftMenuItem");
             if (resetMenuItem == null) return;
@@ -2714,61 +3268,7 @@ namespace Chapi
                 }
             });
         }
-        private async void DeleteTag_Click(object sender, RoutedEventArgs e)
-        {
-            // 1. Obtener el nombre del tag
-            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not GitTagItem tag)
-            {
-                return;
-            }
-            string tagName = tag.TagName;
-            // --- FIN DEL CAMBIO ---
 
-            if (!ValidateProject()) return;
-            // 2. Confirmar con el usuario
-            var confirm = await DialogService.ShowConfirmDialog(
-                "Confirmar Eliminación de Tag",
-                $"¿Estás seguro de que deseas eliminar el tag '{tagName}'?\n\n" +
-                "Esto intentará eliminarlo tanto de tu repositorio LOCAL como del REMOTO (origin/GitLab).",
-                DialogVariant.Warning,
-                DialogType.Confirm
-            );
-
-            if (!confirm)
-            {
-                Msg.Assistant("Operación de eliminación de tag cancelada.");
-                return;
-            }
-
-            // 3. Ejecutar los comandos de Git
-            await RunWithLoading(async () =>
-            {
-                Msg.Assistant($"Eliminando tag '{tagName}' localmente...");
-                var localResult = await Git.DeleteTagLocal(tagName, projectDirectory);
-
-                if (!localResult.Success)
-                {
-                    Msg.Assistant($"⚠️ No se pudo eliminar el tag local: {localResult.Output}");
-                    // (Continuamos para intentar eliminar el remoto de todos modos)
-                }
-
-                Msg.Assistant($"Eliminando tag '{tagName}' del remoto (origin)...");
-                var remoteResult = await Git.DeleteTagRemote(tagName, projectDirectory);
-
-                if (!remoteResult.Success)
-                {
-                    Msg.Assistant($"⚠️ No se pudo eliminar el tag remoto: {remoteResult.Output}");
-                    await DialogService.ShowConfirmDialog("Aviso", $"El tag se eliminó localmente, pero no se pudo eliminar del remoto (quizás ya no existía allí).\n\n{remoteResult.Output}", DialogVariant.Info, DialogType.Info);
-                }
-                else
-                {
-                    Msg.Assistant($"✅ Tag '{tagName}' eliminado de local y remoto.");
-                }
-
-                // 4. Refrescar la lista de tags
-                await LoadTagsAsync();
-            });
-        }
         private async void Branch_Create_Click(object sender, RoutedEventArgs e)
         {
             // 1. Obtener la rama base desde donde se crea

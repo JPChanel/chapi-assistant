@@ -320,7 +320,9 @@ public static class Git
             "%(if)%(*objectname)%(then)%(*objectname:short)%(else)%(objectname:short)%(end)|" +
             "%(if)%(*subject)%(then)%(*subject)%(else)%(subject)%(end)|" +
             "%(committerdate:relative)|" +
-            "%(contents:subject)\"";
+            "%(contents:subject)|" +
+            "%(if)%(*authorname)%(then)%(*authorname)%(else)%(authorname)%(end)|" +
+            "%(if)%(*contents:body)%(then)%(*contents:body)%(else)%(contents:body)%(end)\"";
 
         var output = await EjecutarGit(args, workingDirectory);
 
@@ -331,7 +333,7 @@ public static class Git
         foreach (var line in lines)
         {
             var parts = line.Trim().Split('|');
-            if (parts.Length == 5)
+            if (parts.Length >= 5)
             {
                 tags.Add(new GitTagItem
                 {
@@ -339,7 +341,9 @@ public static class Git
                     CommitHash = parts[1],
                     CommitMessage = parts[2],
                     RelativeDate = parts[3],
-                    TagMessage = parts[4]
+                    TagMessage = parts[4],
+                    AuthorName = parts.Length > 5 ? parts[5] : "Desconocido",
+                    CommitDescription = parts.Length > 6 ? parts[6] : ""
                 });
             }
         }
@@ -447,7 +451,7 @@ public static class Git
         try
         {
             string remoteBranch = $"origin/{branchName}";
-            string args = $"log {remoteBranch}..{branchName} --pretty=format:\"%h\"";
+            string args = $"log {remoteBranch}..{branchName} --pretty=format:\"%H\"";
 
             var output = await EjecutarGit(args, workingDirectory);
 
@@ -730,5 +734,101 @@ public static class Git
         var output = await EjecutarGit(args, workingDirectory);
         bool success = !output.Contains("fatal:") && !output.Contains("error:");
         return new GitResult(success, output);
+    }
+
+    /// <summary>
+    /// Obtiene las estadísticas de líneas (adiciones y eliminaciones) de los cambios actuales.
+    /// </summary>
+    public static async Task<Dictionary<string, (int Additions, int Deletions)>> GetNumStat(string workingDirectory)
+    {
+        var stats = new Dictionary<string, (int Additions, int Deletions)>();
+        
+        // Obtenemos numstat de cambios indexados y no indexados
+        string stagedOutput = await EjecutarGit("diff --cached --numstat", workingDirectory);
+        string unstagedOutput = await EjecutarGit("diff --numstat", workingDirectory);
+        
+        void ParseOutput(string output)
+        {
+            if (string.IsNullOrWhiteSpace(output)) return;
+            var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 3)
+                {
+                    if (int.TryParse(parts[0], out int added) && int.TryParse(parts[1], out int deleted))
+                    {
+                        string path = parts[2].Trim().Replace('/', Path.DirectorySeparatorChar);
+                        if (stats.ContainsKey(path))
+                        {
+                            var current = stats[path];
+                            stats[path] = (current.Additions + added, current.Deletions + deleted);
+                        }
+                        else
+                        {
+                            stats[path] = (added, deleted);
+                        }
+                    }
+                }
+            }
+        }
+
+        ParseOutput(stagedOutput);
+        ParseOutput(unstagedOutput);
+        
+        return stats;
+    }
+
+    /// <summary>
+    /// Obtiene las estadísticas de líneas (adiciones y eliminaciones) de un commit específico.
+    /// </summary>
+    public static async Task<Dictionary<string, (int Additions, int Deletions)>> GetCommitNumStat(string commitHash, string workingDirectory)
+    {
+        var stats = new Dictionary<string, (int Additions, int Deletions)>();
+
+        // Comparamos el commit con su padre
+        string output = await EjecutarGit($"show --numstat --pretty=format:\"\" {commitHash}", workingDirectory);
+
+        if (string.IsNullOrWhiteSpace(output)) return stats;
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 3)
+            {
+                if (int.TryParse(parts[0], out int added) && int.TryParse(parts[1], out int deleted))
+                {
+                    string path = parts[2].Trim().Replace('/', Path.DirectorySeparatorChar);
+                    stats[path] = (added, deleted);
+                }
+            }
+        }
+
+        return stats;
+    }
+
+    /// <summary>
+    /// Obtiene la URL del repositorio remoto (origin) y la limpia para su uso en web.
+    /// </summary>
+    public static async Task<string> GetRemoteUrl(string workingDirectory)
+    {
+        string url = await EjecutarGit("remote get-url origin", workingDirectory);
+        if (string.IsNullOrWhiteSpace(url) || url.Contains("fatal:")) return string.Empty;
+
+        // Limpieza básica para GitHub
+        // SSH: git@github.com:user/repo.git -> https://github.com/user/repo
+        if (url.StartsWith("git@"))
+        {
+            url = url.Replace(":", "/").Replace("git@", "https://");
+        }
+
+        // Eliminar .git al final
+        if (url.EndsWith(".git"))
+        {
+            url = url.Substring(0, url.Length - 4);
+        }
+
+        return url.Trim();
     }
 }
