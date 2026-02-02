@@ -1,6 +1,7 @@
 ﻿using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
 using Chapi.Domain.Interfaces;
+using Chapi.Domain.Models;
 using System.IO;
 using System.Diagnostics;
 using System.ComponentModel;
@@ -393,7 +394,9 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            var result = await _executor.ExecuteAsync($"show --name-only --pretty=format: {hash}", projectPath);
+            // Usamos ^{} para asegurar que si es un Tag Anotado, se resuelva al commit al que apunta
+            // Esto evita que git show devuelva la info del tag (Tagger, Date...) como si fueran archivos
+            var result = await _executor.ExecuteAsync($"show --name-only --pretty=format: \"{hash}^{{}}\"", projectPath);
             if (!result.IsSuccess)
                 return Enumerable.Empty<string>();
 
@@ -407,6 +410,18 @@ public class GitRepository : IGitRepository
             return Enumerable.Empty<string>();
         }
     }
+
+    public async Task<Dictionary<string, (int Additions, int Deletions)>> GetCommitNumStatAsync(string projectPath, string hash)
+    {
+        // Comparamos el commit con su padre
+        // Usamos ^{} por si acaso pasamos un tag, aunque el backend ya deberia usar hashes reales.
+        var result = await _executor.ExecuteAsync($"show --numstat --pretty=format:\"\" \"{hash}^{{}}\"", projectPath);
+        
+        if (!result.IsSuccess) return new Dictionary<string, (int Additions, int Deletions)>();
+
+        return _parser.ParseNumStatOutput(result.Output);
+    }
+    
 
     public async Task<string> GetFileContentAtCommitAsync(string projectPath, string file, string hash)
     {
@@ -569,6 +584,50 @@ public class GitRepository : IGitRepository
     {
         var result = await _executor.ExecuteAsync($"tag -d \"{tagName}\"", projectPath);
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+    }
+
+    public async Task<IEnumerable<GitTagItem>> GetTagsAsync(string projectPath)
+    {
+        try
+        {
+            const string fieldSeparator = "\x1f";
+            const string recordSeparator = "\x1e";
+
+            // Formato: tag name, object hash, creator name, creator relative date, subject, body
+            // Formato: tag name | commit hash (peeled) | author | date | commit subject | tag message | commit body
+            string format = $"%(refname:short){fieldSeparator}" +
+                            $"%(if)%(*objectname)%(then)%(*objectname)%(else)%(objectname)%(end){fieldSeparator}" +
+                            $"%(if)%(*authorname)%(then)%(*authorname)%(else)%(authorname)%(end){fieldSeparator}" +
+                            $"%(committerdate:relative){fieldSeparator}" +
+                            $"%(if)%(*subject)%(then)%(*subject)%(else)%(subject)%(end){fieldSeparator}" +
+                            $"%(contents:subject){fieldSeparator}" +
+                            $"%(if)%(*body)%(then)%(*body)%(else)%(body)%(end){recordSeparator}";
+
+            var result = await _executor.ExecuteAsync($"for-each-ref --format=\"{format}\" --sort=-taggerdate refs/tags", projectPath);
+
+            if (!result.IsSuccess)
+            {
+                // Fallback: si no hay tags anotados con tagger, intentar tags simples
+                string simpleFormat = $"%(refname:short){fieldSeparator}%(objectname){fieldSeparator}%(authorname){fieldSeparator}%(authordate:relative){fieldSeparator}%(subject){fieldSeparator}%(contents:body){recordSeparator}";
+                result = await _executor.ExecuteAsync($"for-each-ref --format=\"{simpleFormat}\" --sort=-creatordate refs/tags", projectPath);
+            }
+
+            if (!result.IsSuccess)
+                return Enumerable.Empty<GitTagItem>();
+
+            var tags = _parser.ParseTagsOutput(result.Output).ToList();
+
+            if (tags.Any())
+            {
+                tags.First().IsLatest = true;
+            }
+
+            return tags;
+        }
+        catch
+        {
+            return Enumerable.Empty<GitTagItem>();
+        }
     }
     #endregion
 

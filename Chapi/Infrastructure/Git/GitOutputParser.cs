@@ -1,4 +1,5 @@
 using Chapi.Domain.Entities;
+using Chapi.Domain.Models;
 using System.IO;
 using System.Text.RegularExpressions;
 
@@ -178,5 +179,34 @@ public class GitOutputParser
             }
         }
         return stashes;
+    }
+
+    public IEnumerable<GitTagItem> ParseTagsOutput(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+            return Enumerable.Empty<GitTagItem>();
+
+        var tags = new List<GitTagItem>();
+        var records = output.Split(new[] { RecordSeparator }, StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var record in records)
+        {
+            var parts = record.Trim().Trim('"').Split(new[] { FieldSeparator }, StringSplitOptions.None);
+
+            if (parts.Length < 6) continue;
+
+            tags.Add(new GitTagItem
+            {
+                TagName = parts[0],
+                CommitHash = parts[1],
+                AuthorName = parts[2],
+                RelativeDate = parts[3],
+                CommitMessage = parts[4],
+                TagMessage = parts[5].Trim(),
+                CommitDescription = parts.Length > 6 ? parts[6].Trim() : string.Empty
+            });
+        }
+
+        return tags;
     }
 }

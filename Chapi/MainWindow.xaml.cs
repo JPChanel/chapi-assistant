@@ -58,6 +58,7 @@ namespace Chapi
 
         private Presentation.ViewModels.ChangesViewModel? _changesViewModel;
         private Presentation.ViewModels.HistoryViewModel? _historyViewModel;
+        private Presentation.ViewModels.ReleasesViewModel? _releasesViewModel;
         private readonly IGitRepository _gitRepository;
 
         public MainWindow()
@@ -69,9 +70,11 @@ namespace Chapi
             _gitRepository = App.ServiceProvider.GetRequiredService<IGitRepository>();
             _changesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ChangesViewModel)) as Presentation.ViewModels.ChangesViewModel;
             _historyViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.HistoryViewModel)) as Presentation.ViewModels.HistoryViewModel;
+            _releasesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ReleasesViewModel)) as Presentation.ViewModels.ReleasesViewModel;
             
             ChangesTab.DataContext = _changesViewModel;
             HistoryTab.DataContext = _historyViewModel;
+            TagsTab.DataContext = _releasesViewModel;
 
             Msg.Assistant("👋 ¡Hey! Soy Chapi 🤖 Tu dev buddy para arquitectura.");
 
@@ -225,6 +228,7 @@ namespace Chapi
                      await Task.Delay(50); 
                      await Dispatcher.InvokeAsync(async () => await LoadHistoryAsync());
                      await Task.Delay(50);
+                     await Dispatcher.InvokeAsync(async () => await LoadReleasesAsync());
                      await Dispatcher.InvokeAsync(async () => await CheckBranchStatusAsync());
                      await Dispatcher.InvokeAsync(async () => await DoFetchAsync(isSilent: true));
                  }
@@ -281,6 +285,13 @@ namespace Chapi
             if (string.IsNullOrEmpty(projectDirectory) || _changesViewModel == null) return;
             _changesViewModel.ProjectPath = projectDirectory;
             await _changesViewModel.LoadChangesAsync();
+        }
+
+        private async Task LoadReleasesAsync()
+        {
+            if (string.IsNullOrEmpty(projectDirectory) || _releasesViewModel == null) return;
+            _releasesViewModel.ProjectPath = projectDirectory;
+            await _releasesViewModel.LoadReleasesAsync();
         }
 
         private async Task LoadHistoryAsync()
@@ -762,9 +773,15 @@ namespace Chapi
             GitTabs.SelectedItem = AssistantTab;
         }
 
-        private void GitTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void GitTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Placeholder para cambio de pestana Git
+            // Evitar que eventos de selección internos (como del ListView de Releases) disparen la recarga
+            if (e.OriginalSource is not System.Windows.Controls.TabControl) return;
+
+            if (GitTabs.SelectedItem == TagsTab)
+            {
+                await LoadReleasesAsync();
+            }
         }
 
         private void ModoAgenteComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -801,10 +818,7 @@ namespace Chapi
             sqlView.ShowDialog();
         }
 
-        private void ReleasesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            // Placeholder para cambio de release
-        }
+
         #endregion
 
         #region âœ… Git Operations Event Handlers
@@ -854,47 +868,9 @@ namespace Chapi
             });
         }
 
-        private async void btnCrearTag_Click(object sender, RoutedEventArgs e)
-        {
-            if (!ValidateProject()) return;
 
-            var (okTag, tagName) = await DialogService.ShowInputDialog("Crear Tag", "Ingrese el nombre del tag (ej: v1.0.0):");
-            if (!okTag || string.IsNullOrWhiteSpace(tagName)) return;
 
-            var (okMsg, tagMessage) = await DialogService.ShowInputDialog("Mensaje del Tag", "Ingrese un mensaje para el tag:", $"Release {tagName}");
-            if (!okMsg || string.IsNullOrWhiteSpace(tagMessage)) return;
 
-            await RunWithLoading(async () =>
-            {
-                var result = await _gitRepository.CreateTagAsync(projectDirectory, tagName, tagMessage);
-                if (result.IsSuccess)
-                {
-                    Msg.Assistant($"âœ… Tag '{tagName}' creado correctamente.");
-                }
-                else
-                {
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo crear el tag:\n{result.Error}", DialogVariant.Error, DialogType.Info);
-                }
-            });
-        }
-
-        private async void DeleteTag_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string tagName) return;
-            if (!ValidateProject()) return;
-
-            var confirm = await DialogService.ShowConfirmDialog("Eliminar Tag", $"Â¿Estas seguro de eliminar el tag '{tagName}'?", DialogVariant.Warning, DialogType.Confirm);
-            if (!confirm) return;
-
-            await RunWithLoading(async () =>
-            {
-                var result = await _gitRepository.DeleteTagLocalAsync(projectDirectory, tagName);
-                if (result.IsSuccess)
-                {
-                    Msg.Assistant($"âœ… Tag '{tagName}' eliminado.");
-                }
-            });
-        }
 
         private async void btnReloadChanges_Click(object sender, RoutedEventArgs e)
         {

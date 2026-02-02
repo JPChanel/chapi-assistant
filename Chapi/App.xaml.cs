@@ -69,6 +69,7 @@ namespace Chapi
             services.AddTransient<UseCases.CommitChangesUseCase>();
             services.AddTransient<UseCases.LoadChangesUseCase>();
             services.AddTransient<UseCases.LoadHistoryUseCase>();
+            services.AddTransient<UseCases.LoadReleasesUseCase>();
             services.AddTransient<UseCases.PushChangesUseCase>();
             services.AddTransient<UseCases.PullChangesUseCase>();
             services.AddTransient<UseCases.FetchChangesUseCase>();
@@ -85,6 +86,8 @@ namespace Chapi
             services.AddTransient<UseCases.GetFilesChangedInCommitUseCase>();
             services.AddTransient<UseCases.GetFileDiffUseCase>();
             services.AddTransient<UseCases.AssociateGitUseCase>();
+            services.AddTransient<UseCases.DeleteTagUseCase>();
+            services.AddTransient<UseCases.GetCommitStatsUseCase>();
 
             // Application - Project Use Cases
             services.AddTransient<Chapi.Application.UseCases.Projects.AddProjectUseCase>();
@@ -110,9 +113,10 @@ namespace Chapi
             services.AddSingleton<IProjectRepository, Chapi.Infrastructure.Persistence.Settings.ProjectSettingsRepository>();
 
             // Presentation - ViewModels
-            services.AddTransient<Presentation.ViewModels.ChangesViewModel>();
-            services.AddTransient<Presentation.ViewModels.HistoryViewModel>();
-            services.AddTransient<Presentation.ViewModels.AssistantViewModel>();
+            services.AddSingleton<Presentation.ViewModels.ChangesViewModel>();
+            services.AddSingleton<Presentation.ViewModels.HistoryViewModel>();
+            services.AddSingleton<Presentation.ViewModels.AssistantViewModel>();
+            services.AddSingleton<Presentation.ViewModels.ReleasesViewModel>();
 
             ServiceProvider = services.BuildServiceProvider();
         }

@@ -1,5 +1,6 @@
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
+using Chapi.Domain.Models;
 
 namespace Chapi.Domain.Interfaces;
 
@@ -33,6 +34,7 @@ public interface IGitRepository
     Task<IEnumerable<string>> GetFilesChangedInCommitAsync(string projectPath, string hash);
     Task<string> GetFileContentAtCommitAsync(string projectPath, string file, string hash);
     Task<string> GetCommitParentHashAsync(string projectPath, string hash);
+    Task<Dictionary<string, (int Additions, int Deletions)>> GetCommitNumStatAsync(string projectPath, string hash);
 
     // Lifecycle
     Task<Result> CloneAsync(string url, string destinationPath);
@@ -49,6 +51,7 @@ public interface IGitRepository
     // Tags
     Task<Result> CreateTagAsync(string projectPath, string tagName, string message, string commitHash = null);
     Task<Result> DeleteTagLocalAsync(string projectPath, string tagName);
+    Task<IEnumerable<GitTagItem>> GetTagsAsync(string projectPath);
 
     // Misc
     bool IsGitInstalled();
