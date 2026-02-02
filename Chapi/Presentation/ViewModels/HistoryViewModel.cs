@@ -21,15 +21,17 @@ public class HistoryViewModel : ViewModelBase
     private readonly GetFileDiffUseCase _getFileDiffUseCase;
     private readonly CreateBranchUseCase _createBranchUseCase;
     private readonly CreateTagUseCase _createTagUseCase;
+    private readonly Domain.Interfaces.IGitRepository _gitRepository;
     
     private string _projectPath = string.Empty;
     private bool _isLoading;
     private CommitItemViewModel? _selectedCommit;
     private string? _selectedFile;
     private string _commitDetailsInfo = string.Empty;
+    private int _currentLimit = 100;
+    private const int PageSize = 100;
 
-    private int _currentLimit = 50;
-    private const int PageSize = 50;
+    // ...
 
     public event EventHandler? ResetCompleted;
 
@@ -38,13 +40,15 @@ public class HistoryViewModel : ViewModelBase
         GetFilesChangedInCommitUseCase getFilesUseCase,
         GetFileDiffUseCase getFileDiffUseCase,
         CreateBranchUseCase createBranchUseCase,
-        CreateTagUseCase createTagUseCase)
+        CreateTagUseCase createTagUseCase,
+        Domain.Interfaces.IGitRepository gitRepository)
     {
         _loadHistoryUseCase = loadHistoryUseCase;
         _getFilesUseCase = getFilesUseCase;
         _getFileDiffUseCase = getFileDiffUseCase;
         _createBranchUseCase = createBranchUseCase;
         _createTagUseCase = createTagUseCase;
+        _gitRepository = gitRepository;
         
         Commits = new ObservableCollection<CommitItemViewModel>();
         FilesChanged = new ObservableCollection<string>();
@@ -184,7 +188,7 @@ public class HistoryViewModel : ViewModelBase
             return;
         }
 
-        CommitDetailsInfo = $"{SelectedCommit.Author} cometio {SelectedCommit.ShortHash} ({SelectedCommit.RelativeDate})";
+        CommitDetailsInfo = $"{SelectedCommit.Author} comitio {SelectedCommit.ShortHash} ({SelectedCommit.RelativeDate})";
     }
 
     private async Task LoadCommitFilesAsync()
@@ -293,7 +297,7 @@ public class HistoryViewModel : ViewModelBase
         if (!confirm) return;
 
         // Ejecutar reset soft
-        var result = await Git.EjecutarGit($"reset --soft {commit.Hash}^", ProjectPath);
+        var result = await _gitRepository.ExecuteGitCommandAsync(ProjectPath, $"reset --soft {commit.Hash}^");
         
         if (!result.Contains("fatal:") && !result.Contains("error:"))
         {
@@ -334,8 +338,8 @@ public class HistoryViewModel : ViewModelBase
         if (string.IsNullOrEmpty(ProjectPath) || string.IsNullOrEmpty(commitHash)) return;
 
         // Verificar si la rama esta publicada (requerimiento del usuario)
-        string currentBranch = await Git.GetCurrentBranch(ProjectPath);
-        bool isPublished = await Git.HasUpstream(currentBranch, ProjectPath);
+        string currentBranch = await _gitRepository.GetCurrentBranchAsync(ProjectPath);
+        bool isPublished = await _gitRepository.HasUpstreamAsync(ProjectPath, currentBranch);
         
         if (!isPublished)
         {

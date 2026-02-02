@@ -2,6 +2,9 @@
 using Chapi.Domain.Entities;
 using Chapi.Domain.Interfaces;
 using System.IO;
+using System.Diagnostics;
+using System.ComponentModel;
+using System.Text.RegularExpressions;
 
 namespace Chapi.Infrastructure.Git;
 
@@ -97,7 +100,21 @@ public class GitRepository : IGitRepository
             }
 
             if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Output))
+            {
+                 if (result.Error.Contains("not a valid object name") || result.Error.Contains("ambiguous argument") || result.Error.Contains("no upstream"))
+                {
+                     // Si la referencia remota no existe, devolvemos TODOS los commits locales
+                     var allCommitsResult = await _executor.ExecuteAsync($"log {branch} --pretty=format:%H", projectPath);
+                     if (allCommitsResult.IsSuccess && !string.IsNullOrWhiteSpace(allCommitsResult.Output))
+                     {
+                         return allCommitsResult.Output
+                             .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                             .Select(h => h.Trim())
+                             .ToHashSet();
+                     }
+                }
                 return new HashSet<string>();
+            }
 
             return result.Output
                 .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
@@ -206,12 +223,35 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            var result = await _executor.ExecuteAsync("branch", projectPath);
+            // 1. Obtener ramas locales
+            var localResult = await _executor.ExecuteAsync("branch --format=\"%(refname:short)\"", projectPath);
+            var locals = localResult.IsSuccess
+                ? localResult.Output.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).ToHashSet()
+                : new HashSet<string>();
 
-            if (!result.IsSuccess)
-                return Enumerable.Empty<string>();
+            // 2. Obtener ramas remotas
+            var remoteResult = await _executor.ExecuteAsync("branch -r --format=\"%(refname:short)\"", projectPath);
+            
+            if (remoteResult.IsSuccess && !string.IsNullOrWhiteSpace(remoteResult.Output))
+            {
+                var lines = remoteResult.Output.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    var remoteBranch = line.Trim();
+                    if (remoteBranch.EndsWith("/HEAD")) continue;
 
-            return _parser.ParseBranchOutput(result.Output);
+                    // Remover el nombre del remoto (ej: origin/master -> master)
+                    var parts = remoteBranch.Split(new[] { '/' }, 2);
+                    var simpleName = parts.Length > 1 ? parts[1] : remoteBranch;
+
+                    if (!locals.Contains(simpleName))
+                    {
+                        locals.Add(simpleName);
+                    }
+                }
+            }
+
+            return locals.OrderBy(x => x).ToList();
         }
         catch
         {
@@ -443,6 +483,139 @@ public class GitRepository : IGitRepository
             return Result.Fail($"Error al agregar remoto: {ex.Message}");
         }
     }
+
+    
+    #region Stash
+
+    public async Task<IEnumerable<GitStash>> ListStashesAsync(string projectPath)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync("stash list --pretty=format:\"%gD|%gd|%gs\"", projectPath);
+            
+            if (!result.IsSuccess)
+            {
+                 // Si hay un error fatal, en el código legacy lanzaba excepción. aquí devolvemos lista vacía por seguridad
+                 return Enumerable.Empty<GitStash>();
+            }
+
+            var stashes = _parser.ParseStashListOutput(result.Output).ToList();
+
+            // Populate FileCount (N+1 query, preserving legacy behavior)
+            var populatedStashes = new List<GitStash>();
+            foreach (var stash in stashes)
+            {
+                int count = 0;
+                try 
+                {
+                    var filesResult = await _executor.ExecuteAsync($"stash show --name-only {stash.Name}", projectPath);
+                    if (filesResult.IsSuccess && !string.IsNullOrWhiteSpace(filesResult.Output))
+                    {
+                        count = filesResult.Output.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                    }
+                }
+                catch { }
+                populatedStashes.Add(stash with { FileCount = count });
+            }
+
+            return populatedStashes;
+        }
+        catch
+        {
+             return Enumerable.Empty<GitStash>();
+        }
+    }
+
+    public async Task<Dictionary<string, char>> GetFileStatusesForStashAsync(string projectPath, string stashName)
+    {
+        var statuses = new Dictionary<string, char>();
+        try
+        {
+            var result = await _executor.ExecuteAsync($"stash show --name-status {stashName}", projectPath);
+             if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Output))
+                return statuses;
+
+            var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                var parts = line.Split('\t');
+                if (parts.Length == 2)
+                {
+                    char status = parts[0][0]; 
+                    string path = parts[1].Trim().Replace('/', Path.DirectorySeparatorChar);
+                    if (!statuses.ContainsKey(path))
+                        statuses.Add(path, status);
+                }
+            }
+        }
+        catch { }
+        return statuses;
+    }
+    #endregion
+
+    #region Tags
+    public async Task<Result> CreateTagAsync(string projectPath, string tagName, string message, string commitHash = null)
+    {
+        // Validar que el mensaje no tenga comillas que rompan el comando
+        message = message.Replace("\"", "'");
+        string hashTarget = string.IsNullOrEmpty(commitHash) ? "" : $" {commitHash}";
+        string args = $"tag -a \"{tagName}\" -m \"{message}\"{hashTarget}";
+
+        var result = await _executor.ExecuteAsync(args, projectPath);
+        return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+    }
+
+    public async Task<Result> DeleteTagLocalAsync(string projectPath, string tagName)
+    {
+        var result = await _executor.ExecuteAsync($"tag -d \"{tagName}\"", projectPath);
+        return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+    }
+    #endregion
+
+    #region Misc
+    public bool IsGitInstalled()
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = "--version",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using (var process = Process.Start(psi))
+            {
+                if (process == null) return false;
+                process.WaitForExit(2000); 
+                return process.ExitCode == 0;
+            }
+        }
+        catch (Win32Exception)
+        {
+            return false;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> HasUpstreamAsync(string projectPath, string branchName)
+    {
+        var result = await _executor.ExecuteAsync($"rev-parse --abbrev-ref \"{branchName}@{{u}}\"", projectPath);
+        return result.IsSuccess && !string.IsNullOrWhiteSpace(result.Output);
+    }
+
+    public async Task<string> GetFileContentAsync(string projectPath, string revision, string filePath)
+    {
+        string normalizedPath = filePath.Replace("\\", "/");
+        var result = await _executor.ExecuteAsync($"show {revision}:\"{normalizedPath}\"", projectPath);
+        return result.IsSuccess ? result.Output : string.Empty;
+    }
+    #endregion
 
     #endregion
 

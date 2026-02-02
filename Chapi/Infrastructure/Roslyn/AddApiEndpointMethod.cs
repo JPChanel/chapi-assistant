@@ -7,6 +7,8 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 using Chapi.Infrastructure.Persistence.Rollbacks;
 using Chapi.Infrastructure.Services;
+using static Chapi.Infrastructure.Roslyn.GenerationStandards;
+
 namespace Chapi.Infrastructure.Roslyn;
 
 public static class AddApiEndpointMethod
@@ -14,7 +16,7 @@ public static class AddApiEndpointMethod
     public static RollbackEntry Add(string apiPath, string moduleName, string operation, string methodName, RollbackEntry rollbackEntry = null, bool includeAppLayer = false)
     {
         // 1. Obtener Configuracion
-        if (!GenerationStandards.OperationConfigs.TryGetValue(operation.ToLower(), out var config))
+        if (!OperationConfigs.TryGetValue(operation.ToLower(), out var config))
         {
             Msg.Assistant($"âš ï¸ Operacion no soportada: {operation}");
             return rollbackEntry;
@@ -83,7 +85,7 @@ public static class AddApiEndpointMethod
         return rollbackEntry;
     }
 
-    private static string GenerateEndpointClass(string moduleName, string className, string operation, string methodName, GenerationStandards.OperationConfig config, bool includeAppLayer)
+    private static string GenerateEndpointClass(string moduleName, string className, string operation, string methodName, OperationConfig config, bool includeAppLayer)
     {
         // Normalizar modulo para namespace (cambiar \ por .)
         string cleanModule = moduleName.Replace(Path.DirectorySeparatorChar, '.').Replace(Path.AltDirectorySeparatorChar, '.');
@@ -137,9 +139,6 @@ using Domain.Shared.Entities.Responses;
 using Domain.Shared.Interface.Base;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
-using Chapi.Infrastructure.Persistence.Rollbacks;
-using Chapi.Infrastructure.Services;
 namespace Http.Endpoints.{cleanModule};
 
 [Route(""{route}"")]
@@ -184,12 +183,6 @@ public class {className}({decimalsInterface} {variableName}) : EndpointBaseAsync
         return "req";
     }
 
-    private static string FormatPattern(string pattern, string value)
-    {
-        if (string.IsNullOrEmpty(pattern)) return string.Empty;
-        var tempPattern = pattern.Replace("{0:lower}", value.ToLower());
-        return string.Format(tempPattern, value);
-    }
 }
 
 

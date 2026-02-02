@@ -25,6 +25,9 @@ public static class GenerationStandards
         // --- NUEVAS PROPIEDADES PARA ARDALIS ENDPOINTS ---
         public string EndpointFileName { get; init; } // Nombre del archivo/clase del Endpoint (ej: Search, Execute)
         public string EndpointRequestClassPattern { get; init; } // El DTO de Request que viene de Domain (ej: Search{0}Request)
+
+        public string RepositoryClassNamePattern { get; init; }
+        public string RepositoryNamespaceTag { get; init; }
     }
 
     // EL DICCIONARIO AHORA ES PÚBLICO Y ESTÁTICO EN ESTA CLASE
@@ -50,7 +53,10 @@ public static class GenerationStandards
             
             // --- ENDPOINT ---
             EndpointFileName = "Search",
-            EndpointRequestClassPattern = "Search{0}Request"
+            EndpointRequestClassPattern = "Search{0}Request",
+
+            RepositoryClassNamePattern = "Search{0}Repository",
+            RepositoryNamespaceTag = "Search"
         },
         ["post"] = new OperationConfig
         {
@@ -72,7 +78,10 @@ public static class GenerationStandards
             
             // --- ENDPOINT ---
             EndpointFileName = "Execute", 
-            EndpointRequestClassPattern = "{0}Request"
+            EndpointRequestClassPattern = "{0}Request",
+
+            RepositoryClassNamePattern = "{0}Repository",
+            RepositoryNamespaceTag = "Execute"
         },
         ["getbyid"] = new OperationConfig
         {
@@ -94,10 +103,18 @@ public static class GenerationStandards
             
             // --- ENDPOINT ---
             EndpointFileName = "GetById",
-            EndpointRequestClassPattern = "int" // Ojo: EndpointBase requiere clase, int no sirve.
-            // Para GetById, usualmente no hay Request DTO complejo, pero Ardalis fuerza uno o usa int?
-            // Si usamos .WithRequest<int>, funciona.
+            EndpointRequestClassPattern = "int", // Ojo: EndpointBase requiere clase, int no sirve.
+            
+            RepositoryClassNamePattern = "Find{0}Repository",
+            RepositoryNamespaceTag = "Find"
         }
     };
+
+    public static string FormatPattern(string pattern, string value)
+    {
+        if (string.IsNullOrEmpty(pattern)) return string.Empty;
+        var tempPattern = pattern.Replace("{0:lower}", value.ToLower());
+        return string.Format(tempPattern, value);
+    }
 }
 

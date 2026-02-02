@@ -5,6 +5,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.IO;
 using static Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager;
 using Chapi.Infrastructure.Persistence.Rollbacks;
+using static Chapi.Infrastructure.Roslyn.GenerationStandards;
+
 namespace Chapi.Infrastructure.Roslyn;
 
 public static class AddApplicationMethod
@@ -120,12 +122,10 @@ public static class AddApplicationMethod
         return $@"using Domain.Shared;
 using Domain.Shared.Interface.Base;
 using Domain.{cleanModule}.Entities;
-using Chapi.Infrastructure.Persistence.Rollbacks;
 {importInterfaces}
 using Domain.Shared.Entities.Responses;
 using System.Threading.Tasks;
 
-using Chapi.Infrastructure.Persistence.Rollbacks;
 namespace {namespaceName};
 
 public class {className}({repositoryInterface} {repositoryVar}) 
@@ -176,13 +176,6 @@ public class {className}({repositoryInterface} {repositoryVar})
     }
 
 
-    // Función de ayuda para formatear (puedes moverla a la clase GenerationStandards)
-    private static string FormatPattern(string pattern, string value)
-    {
-        if (string.IsNullOrEmpty(pattern)) return string.Empty;
-        var tempPattern = pattern.Replace("{0:lower}", value.ToLower());
-        return string.Format(tempPattern, value);
-    }
 }
 
 

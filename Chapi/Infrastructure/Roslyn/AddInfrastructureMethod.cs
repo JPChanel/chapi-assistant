@@ -8,6 +8,8 @@ using static Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager;
 
 using Chapi.Infrastructure.Persistence.Rollbacks;
 using Chapi.Infrastructure.Services;
+using static Chapi.Infrastructure.Roslyn.GenerationStandards;
+
 namespace Chapi.Infrastructure.Roslyn;
 
 public class AddInfrastructureMethod
@@ -20,7 +22,7 @@ public class AddInfrastructureMethod
         string methodName,
         RollbackEntry? rollbackEntry = null,
         SPAnalysisResult? aiResult = null,
-        bool useGenericInterface = false)
+        bool isArdalisStyle = false)
     {
         // Sanitizar nombres
         string cleanModule = moduleName.Replace(Path.DirectorySeparatorChar, '.').Replace(Path.AltDirectorySeparatorChar, '.');
@@ -30,15 +32,10 @@ public class AddInfrastructureMethod
         var cleanMethodName = methodName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
         if (cleanMethodName != methodName) methodName = cleanMethodName;
 
-        var className = operation switch
-        {
-            "Get" => $"Search{methodName}Repository",
-            "GetById" => $"Find{methodName}Repository",
-            "Post" => $"{methodName}Repository",
-            "Put" => $"Update{methodName}Repository",
-            "Delete" => $"Delete{methodName}Repository",
-            _ => throw new ArgumentException("Método no soportado")
-        };
+        if (!OperationConfigs.TryGetValue(operation.ToLower(), out var config))
+            throw new ArgumentException($"Operación {operation} no soportada.");
+
+        var className = FormatPattern(config.RepositoryClassNamePattern, methodName);
 
         if (!Directory.Exists(projectPath))
             Directory.CreateDirectory(projectPath);
@@ -66,12 +63,12 @@ public class AddInfrastructureMethod
 
         if (!fileExisted)
         {
-            await GenerateInfrastructureFile(filePath, cleanModule, lastModuleSegment, methodName, dbName, operation, aiResult, useGenericInterface);
+            await GenerateInfrastructureFile(filePath, config, cleanModule, lastModuleSegment, methodName, dbName, operation, aiResult, isArdalisStyle);
             Msg.Assistant($"?? Creado Infrastructure.{cleanModule}.{className}");
         }
         else
         {
-            await AddMethodToExistingClass(filePath, operation, cleanModule, methodName, aiResult, useGenericInterface);
+            await AddMethodToExistingClass(filePath, config, operation, cleanModule, lastModuleSegment, methodName, aiResult, isArdalisStyle);
         }
 
         return rollbackEntry!;
@@ -80,11 +77,13 @@ public class AddInfrastructureMethod
     // ?? Agregar método nuevo si la clase ya existe
     private static async Task AddMethodToExistingClass(
         string filePath,
+        GenerationStandards.OperationConfig config,
         string operation,
         string moduleName,
+        string lastModuleSegment,
         string methodName,
         SPAnalysisResult? aiResult,
-        bool useGenericInterface)
+        bool isArdalisStyle)
     {
         var code = await File.ReadAllTextAsync(filePath);
         var syntaxTree = CSharpSyntaxTree.ParseText(code);
@@ -97,9 +96,9 @@ public class AddInfrastructureMethod
         if (classNode == null)
             return;
 
-        string entityName = moduleName.Split('.').Last(); // Logic for entity naming
+        string entityName = lastModuleSegment; 
 
-        var methodCode = GenerateMethodCode(operation, moduleName, entityName, methodName, aiResult, useGenericInterface);
+        var methodCode = GenerateMethodCode(config, moduleName, entityName, methodName, aiResult, isArdalisStyle);
         var newMethod = SyntaxFactory.ParseMemberDeclaration(methodCode)!;
         var newClass = classNode.AddMembers(newMethod);
         var newRoot = root.ReplaceNode(classNode, newClass);
@@ -111,50 +110,27 @@ public class AddInfrastructureMethod
     // ??? Generar archivo completo de infraestructura
     private static async Task GenerateInfrastructureFile(
         string filePath,
+        OperationConfig config,
         string moduleName, 
         string entityName, 
         string methodName, 
         string dbName,
         string operation,
         SPAnalysisResult? aiResult = null,
-        bool useGenericInterface = false)
+        bool isArdalisStyle = false)
     {
-        var className = operation switch
-        {
-            "Get" => $"Search{methodName}Repository",
-            "GetById" => $"Find{methodName}Repository",
-            "Post" => $"{methodName}Repository",
-            "Put" => $"Update{methodName}Repository",
-            "Delete" => $"Delete{methodName}Repository",
-            _ => throw new ArgumentException("Método no soportado")
-        };
+        var className = Path.GetFileNameWithoutExtension(filePath);
 
         // Determine Interface and Method implementation strategy
         string interfaceToImplement;
-        if (useGenericInterface)
+        if (isArdalisStyle)
         {
-             interfaceToImplement = operation switch
-            {
-                "Get" => $"ISearchRepository<Search{methodName}Request>", 
-                "GetById" => "IFindRepository<int>", 
-                "Post" => $"IRepository<{methodName}Request>", 
-                "Put" => $"IRepository<Update{methodName}Request>", 
-                "Delete" => "IRepository<int>", 
-                _ => throw new ArgumentException("Método no soportado")
-            };
+             interfaceToImplement = FormatPattern(config.GenericRepositoryInterfacePattern, methodName);
         }
         else
         {
             // Legacy Interface Names
-             interfaceToImplement = operation switch
-            {
-                "Get" => $"ISearch{methodName}Repository",
-                "GetById" => $"IFind{methodName}Repository",
-                "Post" => $"I{methodName}Repository",
-                "Put" => $"IUpdate{methodName}Repository",
-                "Delete" => $"IDelete{methodName}Repository",
-                _ => throw new ArgumentException("Método no soportado")
-            };
+             interfaceToImplement = FormatPattern(config.ApplicationInterfaceNamePattern, methodName);
         }
 
         var sb = new StringBuilder($@"
@@ -162,7 +138,7 @@ public class AddInfrastructureMethod
             using Domain.Shared.Interface.Base; 
             using Domain.{moduleName}.Entities;
             using Domain.Shared.Entities.Responses;
-            {(!useGenericInterface ? $"using Domain.{moduleName}.Interfaces;" : "")}
+            {(!isArdalisStyle ? $"using Domain.{moduleName}.Interfaces;" : "")}
             using {dbName}.Connections;
             using {dbName}.Repositories.Shared.Parser;
             using {dbName}.Repositories.{moduleName}.Dto;
@@ -173,13 +149,13 @@ public class AddInfrastructureMethod
             {{
             ");
 
-        sb.AppendLine(GenerateMethodCode(operation, moduleName, entityName, methodName, aiResult, useGenericInterface));
+        sb.AppendLine(GenerateMethodCode(config, moduleName, entityName, methodName, aiResult, isArdalisStyle));
         sb.AppendLine("}");
 
         await File.WriteAllTextAsync(filePath, sb.ToString());
     }
 
-    private static string GenerateMethodCode(string operation, string moduleName, string entityName, string methodName, SPAnalysisResult? aiResult, bool useGenericInterface)
+    private static string GenerateMethodCode(GenerationStandards.OperationConfig config, string moduleName, string entityName, string methodName, SPAnalysisResult? aiResult, bool isArdalisStyle)
     {
         var spName = aiResult?.StoredProcedureName ?? "";
         var hasParams = aiResult?.Parameters?.Any() == true;
@@ -195,13 +171,13 @@ public class AddInfrastructureMethod
         spName = "\"" + spName + "\"";
         
         
-        string implMethodName = "";
-        
-        return operation switch
+        string implMethodName = isArdalisStyle ? config.GenericRepositoryMethodNamePattern : FormatPattern(config.RepositoryMethodNamePattern, methodName);
+        string requestType = FormatPattern(config.EndpointRequestClassPattern, methodName);
+
+        if (config.RepositoryNamespaceTag == "Search") // GET
         {
-            // ?? GET
-            "Get" => $@"
-    public async Task<{(useGenericInterface ? "IEnumerable<object>" : "object")}> {(useGenericInterface ? "Search" : $"Search{methodName}")}(Search{methodName}Request request)
+             return $@"
+    public async Task<{(isArdalisStyle ? "IEnumerable<object>" : "object")}> {implMethodName}({requestType} request)
     {{
         using var cn = Connection();
         var parameters = new {{
@@ -211,62 +187,39 @@ public class AddInfrastructureMethod
         return GenericListMapper.ParseCollection(response, dto => new {{
                     {mapperBlock}
         }});
-    }}",
-
-            // ?? GET BY ID 
-            "GetById" => $@"
-    public async Task<{(useGenericInterface ? "object?" : "object")}> {(useGenericInterface ? "Find" : $"Find{methodName}")}(int code)
+    }}";
+        }
+        
+        if (config.RepositoryNamespaceTag == "Find") // GET BY ID
+        {
+             return $@"
+    public async Task<{(isArdalisStyle ? "object?" : "object")}> {implMethodName}(int code)
     {{
         using var cn = Connection();
         var parameters = new {{
                 {paramBlock ?? "Code = code"}  
         }};
         var response = await cn.QueryFirstOrDefaultAsync<{entityName}Dto>({spName}, parameters, commandType: System.Data.CommandType.StoredProcedure);
-        {(useGenericInterface ? "if (response == null) return null;" : "if (response == null) return null;")} 
+        if (response == null) return null;
         return GenericListMapper.Parse(response, dto => new {{
                {mapperBlock}
         }});
-    }}",
+    }}";
+        }
 
-            // ?? POST 
-            "Post" => $@"
-    public async Task<Response> {(useGenericInterface ? "Execute" : $"{methodName}")}({methodName}Request request)
+        // POST / PUT / DELETE (Response based)
+        return $@"
+    public async Task<Response> {implMethodName}({(requestType == "int" ? "int code" : $"{requestType} request")})
     {{
         using var cn = Connection();
         var parameters = new {{
-                {paramBlock}
+                {(requestType == "int" ? (paramBlock ?? "Code = code") : paramBlock)}
         }};
         var response = await cn.QueryFirstOrDefaultAsync<ResponseDto>({spName}, parameters, commandType: System.Data.CommandType.StoredProcedure);
         return ResponseParser.Make(response);
-    }}",
-
-            // ??? PUT
-            "Put" => $@"
-    public async Task<{(useGenericInterface ? "object" : "Response")}> {(useGenericInterface ? "Execute" : $"Update{methodName}")}(Update{methodName}Request request)
-    {{
-        using var cn = Connection();
-        var parameters = new {{
-                {paramBlock}
-        }};
-        var response = await cn.QueryFirstOrDefaultAsync<ResponseDto>({spName}, parameters, commandType: System.Data.CommandType.StoredProcedure);
-        return ResponseParser.Make(response);
-    }}",
-
-            // ? DELETE 
-            "Delete" => $@"
-    public async Task<Response> {(useGenericInterface ? "Execute" : $"Delete{methodName}")}(int code)
-    {{
-        using var cn = Connection();
-        var parameters = new {{
-                {paramBlock ?? "Code = code"}  
-        }};
-        var response = await cn.QueryFirstOrDefaultAsync<ResponseDto>({spName}, parameters, commandType: System.Data.CommandType.StoredProcedure);
-        return ResponseParser.Make(response);
-    }}",
-
-            _ => throw new ArgumentException($"Operación '{operation}' no soportada en GenerateMethodCode()")
-        };
+    }}";
     }
+
 
     // ?? Generar clase DTO
     private static void GenerateOrUpdateDto(string dtoPath, string dbName, string moduleNamespace, string entityName, SPAnalysisResult? aiResult)
@@ -278,8 +231,6 @@ public class AddInfrastructureMethod
         {
             var content = $@"
 using System;
-
-using Chapi.Infrastructure.Persistence.Rollbacks;
 using Chapi.Infrastructure.Services;
 namespace {dbName}.Repositories.{moduleNamespace}.Dto;
 

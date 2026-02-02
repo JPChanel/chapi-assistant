@@ -10,9 +10,11 @@ public class NetworkWatcherService
     public static event Action OnProxyConfigChanged;
     // El dominio de tu oficina
     private string _corporateDomain = "pjudicial.pj.gob.pe";
+    private readonly Chapi.Domain.Interfaces.IGitRepository _gitRepository;
 
-    public NetworkWatcherService()
+    public NetworkWatcherService(Chapi.Domain.Interfaces.IGitRepository gitRepository)
     {
+        _gitRepository = gitRepository;
         NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
         Task.Run(CheckNetworkAndApplyProxy);
     }
@@ -41,7 +43,7 @@ public class NetworkWatcherService
             // 1. Lee las PREFERENCIAS guardadas por el usuario.
             // ==========================================================
             var settings = UserSettingsService.LoadSettings();
-            string currentGitProxy = await Chapi.Infrastructure.Git.Git.EjecutarGit("config --global http.proxy", "");
+            string currentGitProxy = await _gitRepository.ExecuteGitCommandAsync("", "config --global http.proxy");
 
             bool isWifiActive = false;
             foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
@@ -62,8 +64,8 @@ public class NetworkWatcherService
             {
                 if (!string.IsNullOrEmpty(currentGitProxy))
                 {
-                    await Chapi.Infrastructure.Git.Git.EjecutarGit("config --global --unset http.proxy", "");
-                    await Chapi.Infrastructure.Git.Git.EjecutarGit("config --global --unset https.proxy", "");
+                    await _gitRepository.ExecuteGitCommandAsync("", "config --global --unset http.proxy");
+                    await _gitRepository.ExecuteGitCommandAsync("", "config --global --unset https.proxy");
                     configChanged = true;
                 }
             }
@@ -79,8 +81,8 @@ public class NetworkWatcherService
                 string proxyUrlToApply = BuildProxyUrl(settings);
                 if (currentGitProxy != proxyUrlToApply)
                 {
-                    await Chapi.Infrastructure.Git.Git.EjecutarGit($"config --global http.proxy {proxyUrlToApply}", "");
-                    await Chapi.Infrastructure.Git.Git.EjecutarGit($"config --global https.proxy {proxyUrlToApply}", "");
+                    await _gitRepository.ExecuteGitCommandAsync("", $"config --global http.proxy {proxyUrlToApply}");
+                    await _gitRepository.ExecuteGitCommandAsync("", $"config --global https.proxy {proxyUrlToApply}");
                     configChanged = true;
                 }
             }
@@ -89,8 +91,8 @@ public class NetworkWatcherService
             {
                 if (!string.IsNullOrEmpty(currentGitProxy))
                 {
-                    await Chapi.Infrastructure.Git.Git.EjecutarGit("config --global --unset http.proxy", "");
-                    await Chapi.Infrastructure.Git.Git.EjecutarGit("config --global --unset https.proxy", "");
+                    await _gitRepository.ExecuteGitCommandAsync("", "config --global --unset http.proxy");
+                    await _gitRepository.ExecuteGitCommandAsync("", "config --global --unset https.proxy");
                     configChanged = true;
                 }
             }

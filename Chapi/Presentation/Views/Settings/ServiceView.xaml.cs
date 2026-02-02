@@ -1,4 +1,5 @@
 ﻿using Chapi.Infrastructure.Git;
+using Chapi.Domain.Interfaces;
 using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Views.Dialogs;
@@ -488,7 +489,8 @@ namespace Chapi.Presentation.Views.Settings
         /// </summary>
         private async void LoadProxySettings()
         {
-            var proxyUrl = await Git.EjecutarGit("config --global http.proxy", "");
+            var repo = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<IGitRepository>(App.ServiceProvider);
+            var proxyUrl = await repo.ExecuteGitCommandAsync("", "config --global http.proxy");
 
             if (!string.IsNullOrWhiteSpace(proxyUrl))
             {

@@ -71,7 +71,7 @@ public partial class ChangesView : UserControl
 
     private void StashListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (StashListView.SelectedItem is Git.StashEntry stash && _viewModel != null)
+        if (StashListView.SelectedItem is GitStash stash && _viewModel != null)
         {
             _viewModel.SelectedStash = stash;
             _viewModel.IsStashViewVisible = true;
@@ -81,7 +81,7 @@ public partial class ChangesView : UserControl
 
     private void RestoreStashItemButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button btn && btn.CommandParameter is Git.StashEntry stash)
+        if (sender is Button btn && btn.CommandParameter is GitStash stash)
         {
             _viewModel?.PopStashCommand.Execute(stash);
         }
@@ -89,7 +89,7 @@ public partial class ChangesView : UserControl
 
     private void DiscardStashItemButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button btn && btn.CommandParameter is Git.StashEntry stash)
+        if (sender is Button btn && btn.CommandParameter is GitStash stash)
         {
             _viewModel?.DropStashCommand.Execute(stash);
         }
@@ -159,7 +159,7 @@ public partial class ChangesView : UserControl
 
     private void StashView_RestoreButton_Click(object sender, RoutedEventArgs e) 
     {
-        if (_viewModel?.SelectedStash is Git.StashEntry stash)
+        if (_viewModel?.SelectedStash is GitStash stash)
         {
             _viewModel.PopStashCommand.Execute(stash);
             _viewModel.IsStashViewVisible = false;
@@ -168,7 +168,7 @@ public partial class ChangesView : UserControl
 
     private async void StashView_DiscardButton_Click(object sender, RoutedEventArgs e) 
     {
-        if (_viewModel?.SelectedStash is Git.StashEntry stash)
+        if (_viewModel?.SelectedStash is GitStash stash)
         {
             var result = MessageBox.Show($"Â¿Estas seguro de que deseas eliminar el stash '{stash.Message}'?", "Confirmar", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (result == MessageBoxResult.Yes)

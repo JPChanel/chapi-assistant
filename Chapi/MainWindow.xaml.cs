@@ -1,5 +1,6 @@
 using Chapi.Infrastructure.AI;
 using Chapi.Domain.Entities;
+using Chapi.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Chapi.Infrastructure.Git;
 using Chapi.Infrastructure.Roslyn;
@@ -57,6 +58,7 @@ namespace Chapi
 
         private Presentation.ViewModels.ChangesViewModel? _changesViewModel;
         private Presentation.ViewModels.HistoryViewModel? _historyViewModel;
+        private readonly IGitRepository _gitRepository;
 
         public MainWindow()
         {
@@ -64,6 +66,7 @@ namespace Chapi
             Instance = this;
             DataContext = MessageHelper.Instance;
             
+            _gitRepository = App.ServiceProvider.GetRequiredService<IGitRepository>();
             _changesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ChangesViewModel)) as Presentation.ViewModels.ChangesViewModel;
             _historyViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.HistoryViewModel)) as Presentation.ViewModels.HistoryViewModel;
             
@@ -199,23 +202,27 @@ namespace Chapi
 
             var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
             var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
+
+            string activeBranch = await _gitRepository.GetCurrentBranchAsync(projectDirectory);
+            
+            if (!string.IsNullOrEmpty(activeBranch) && !branches.Contains(activeBranch))
+            {
+                branches.Add(activeBranch);
+            }
+
             BranchesComboBox.ItemsSource = branches;
 
-            string activeBranch = await Git.GetCurrentBranch(projectDirectory);
             if (!string.IsNullOrEmpty(activeBranch))
             {
                 _currentlySelectedBranch = activeBranch;
                 BranchesComboBox.SelectedItem = activeBranch;
             }
-
-            // Ejecutar cargas en paralelo sin bloquear UI (Pseudo-plano)
              _ = Task.Run(async () =>
              {
-                 // Secuencial en background para evitar bloqueos de git (index.lock)
                  try
                  {
                      await Dispatcher.InvokeAsync(async () => await LoadChangesAsync());
-                     await Task.Delay(50); // Breve pausa para liberar recursos
+                     await Task.Delay(50); 
                      await Dispatcher.InvokeAsync(async () => await LoadHistoryAsync());
                      await Task.Delay(50);
                      await Dispatcher.InvokeAsync(async () => await CheckBranchStatusAsync());
@@ -232,7 +239,7 @@ namespace Chapi
             await RunWithLoading(async () =>
             {
                 // Verificar si hay cambios pendientes
-                var statusOutput = await Git.EjecutarGit("status --porcelain", projectDirectory);
+                var statusOutput = await _gitRepository.ExecuteGitCommandAsync(projectDirectory, "status --porcelain");
                 bool hasChanges = !string.IsNullOrWhiteSpace(statusOutput);
 
                 bool stashChanges = false;
@@ -291,7 +298,7 @@ namespace Chapi
                 return;
             }
 
-            NeedsPublish = !await Git.HasUpstream(_currentlySelectedBranch, projectDirectory);
+            NeedsPublish = !await _gitRepository.HasUpstreamAsync(projectDirectory, _currentlySelectedBranch);
         }
 
         private async void PublishBranch_Click(object sender, RoutedEventArgs e)
@@ -300,7 +307,7 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
-                var result = await Git.EjecutarGit($"push -u origin {_currentlySelectedBranch}", projectDirectory);
+                var result = await _gitRepository.ExecuteGitCommandAsync(projectDirectory, $"push -u origin {_currentlySelectedBranch}");
                 if (!result.Contains("fatal:") && !result.Contains("error:"))
                 {
                     Msg.Assistant($"âœ… Rama '{_currentlySelectedBranch}' publicada en origin.");
@@ -438,7 +445,7 @@ namespace Chapi
 
         private async Task CheckGitInstallationAsync()
         {
-            _isGitInstalled = Git.IsGitInstalled();
+            _isGitInstalled = _gitRepository.IsGitInstalled();
             if (_isGitInstalled)
             {
                 // Estrategia "PreFetch" original: Actualizar todos los proyectos al inicio
@@ -811,10 +818,10 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
-                var result = await Git.EjecutarGit($"branch {newBranchName} {sourceBranch}", projectDirectory);
+                var result = await _gitRepository.ExecuteGitCommandAsync(projectDirectory, $"branch {newBranchName} {sourceBranch}");
                 if (!result.Contains("fatal:") && !result.Contains("error:"))
                 {
-                    var branches = Git.GetBranches(projectDirectory);
+                    var branches = await _gitRepository.GetBranchesAsync(projectDirectory);
                     BranchesComboBox.ItemsSource = branches;
                     Msg.Assistant($"âœ… Rama '{newBranchName}' creada correctamente.");
                 }
@@ -837,10 +844,10 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
-                var result = await Git.EjecutarGit($"branch -d \"{branchName}\"", projectDirectory);
+                var result = await _gitRepository.ExecuteGitCommandAsync(projectDirectory, $"branch -d \"{branchName}\"");
                 if (!result.Contains("fatal:") && !result.Contains("error:"))
                 {
-                    var branches = Git.GetBranches(projectDirectory);
+                    var branches = await _gitRepository.GetBranchesAsync(projectDirectory);
                     BranchesComboBox.ItemsSource = branches;
                     Msg.Assistant($"âœ… Rama '{branchName}' eliminada.");
                 }
@@ -859,14 +866,14 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
-                var result = await Git.CreateTag(tagName, tagMessage, projectDirectory);
-                if (result.Success)
+                var result = await _gitRepository.CreateTagAsync(projectDirectory, tagName, tagMessage);
+                if (result.IsSuccess)
                 {
                     Msg.Assistant($"âœ… Tag '{tagName}' creado correctamente.");
                 }
                 else
                 {
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo crear el tag:\n{result.Output}", DialogVariant.Error, DialogType.Info);
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo crear el tag:\n{result.Error}", DialogVariant.Error, DialogType.Info);
                 }
             });
         }
@@ -881,8 +888,8 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
-                var result = await Git.DeleteTagLocal(tagName, projectDirectory);
-                if (result.Success)
+                var result = await _gitRepository.DeleteTagLocalAsync(projectDirectory, tagName);
+                if (result.IsSuccess)
                 {
                     Msg.Assistant($"âœ… Tag '{tagName}' eliminado.");
                 }
@@ -894,7 +901,7 @@ namespace Chapi
             await LoadChangesAsync();
         }
 
-        private Git.AheadBehindResult _currentGitStatus = new(0, 0);
+
         private enum GitActionState { Pull, Push, Fetch }
         private GitActionState _currentGitAction = GitActionState.Fetch;
 

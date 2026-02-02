@@ -61,7 +61,13 @@ public class CommitItemViewModel : ViewModelBase
     public bool IsSynced
     {
         get => _isSynced;
-        set => SetProperty(ref _isSynced, value);
+        set 
+        {
+            if (SetProperty(ref _isSynced, value))
+            {
+                OnPropertyChanged(nameof(IsUnpushed));
+            }
+        }
     }
 
     // Propiedad conveniente para bindings que esperan "IsUnpushed"

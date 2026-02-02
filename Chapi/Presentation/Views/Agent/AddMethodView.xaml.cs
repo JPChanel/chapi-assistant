@@ -294,21 +294,21 @@ namespace Chapi.Presentation.Views.Agent
                         }
 
                         // 🤖 SI HAY RESULTADO DE IA, USAR GENERACI “N AVANZADA
-                         bool useGenericInterface = useEndpoints; // Endpoint = Generic Interface. Controller = Specific Interface.
+                         bool isArdalisStyle = useEndpoints; // Endpoint = Generic Interface. Controller = Specific Interface.
 
                         if (aiResult != null)
                         {
-                            rollbackEntry = await AddDomainMethod.Add(domainPath, modulo, metodo, nombreMetodo, rollbackEntry, aiResult, useGenericInterface);
+                            rollbackEntry = await AddDomainMethod.Add(domainPath, modulo, metodo, nombreMetodo, rollbackEntry, aiResult, isArdalisStyle);
 
                             rollbackEntry = await AddInfrastructureMethod.Add(
-                                infraPath, modulo, bd, metodo, nombreMetodo, rollbackEntry, aiResult, useGenericInterface);
+                                infraPath, modulo, bd, metodo, nombreMetodo, rollbackEntry, aiResult, isArdalisStyle);
                         }
                         else
                         {
-                            rollbackEntry = await AddDomainMethod.Add(domainPath, modulo, metodo, nombreMetodo, rollbackEntry, aiResult: null, useGenericInterface);
+                            rollbackEntry = await AddDomainMethod.Add(domainPath, modulo, metodo, nombreMetodo, rollbackEntry, aiResult: null, isArdalisStyle);
 
                             rollbackEntry = await AddInfrastructureMethod.Add(
-                                infraPath, modulo, bd, metodo, nombreMetodo, rollbackEntry, aiResult: null, useGenericInterface);
+                                infraPath, modulo, bd, metodo, nombreMetodo, rollbackEntry, aiResult: null, isArdalisStyle);
                         }
 
                         // Dependency Injection

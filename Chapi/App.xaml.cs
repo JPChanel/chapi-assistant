@@ -113,7 +113,6 @@ namespace Chapi
         private static void Main(string[] args)
         {
             VelopackApp.Build().Run();
-            NetworkWatcher = new NetworkWatcherService();
             App app = new();
             app.InitializeComponent();
             app.Run();
@@ -157,6 +156,10 @@ namespace Chapi
             
             // Configurar Dependency Injection
             ConfigureServices();
+
+            // Init NetworkWatcher with DI
+            var gitRepo = ServiceProvider.GetRequiredService<IGitRepository>();
+            NetworkWatcher = new NetworkWatcherService(gitRepo);
             
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             MainWindow = new MainWindow();

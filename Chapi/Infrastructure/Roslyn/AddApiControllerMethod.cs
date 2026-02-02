@@ -7,13 +7,15 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 using Chapi.Infrastructure.Persistence.Rollbacks;
 using Chapi.Infrastructure.Services;
+using static Chapi.Infrastructure.Roslyn.GenerationStandards;
+
 namespace Chapi.Infrastructure.Roslyn;
 
 public static class AddApiControllerMethod
 {
     public static RollbackEntry Add(string apiPath, string moduleName, string operation, string methodName, RollbackEntry rollbackEntry = null)
     {
-        if (!GenerationStandards.OperationConfigs.TryGetValue(operation.ToLower(), out var config))
+        if (!OperationConfigs.TryGetValue(operation.ToLower(), out var config))
         {
             Msg.Assistant($"?? Operación no soportada: {operation}");
             return rollbackEntry;
@@ -82,7 +84,7 @@ public static class AddApiControllerMethod
         string operation,
         string moduleName)
     {
-        if (!GenerationStandards.OperationConfigs.TryGetValue(operation.ToLower(), out var config) ||
+        if (!OperationConfigs.TryGetValue(operation.ToLower(), out var config) ||
             string.IsNullOrEmpty(config.DependencyTypePattern))
             return classNode;
 
@@ -109,7 +111,7 @@ public static class AddApiControllerMethod
 
     private static MethodDeclarationSyntax GenerateControllerMethod(string operation, string methodName)
     {
-        if (!GenerationStandards.OperationConfigs.TryGetValue(operation.ToLower(), out var config))
+        if (!OperationConfigs.TryGetValue(operation.ToLower(), out var config))
         {
             throw new NotImplementedException($"Operación no implementada: {operation}");
         }
@@ -176,13 +178,6 @@ public static class AddApiControllerMethod
         }
 
         return ParameterList(SingletonSeparatedList(parameter));
-    }
-
-    private static string FormatPattern(string pattern, string value)
-    {
-        if (string.IsNullOrEmpty(pattern)) return string.Empty;
-        var tempPattern = pattern.Replace("{0:lower}", value.ToLower());
-        return string.Format(tempPattern, value);
     }
 
     // ? MEJORAR: Generar controller base completo con using statements y namespaces necesarios

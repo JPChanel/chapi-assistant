@@ -7,24 +7,33 @@ using System.IO;
 using static Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager;
 
 using Chapi.Infrastructure.Persistence.Rollbacks;
+using static Chapi.Infrastructure.Roslyn.GenerationStandards;
+
 namespace Chapi.Infrastructure.Roslyn;
 
 public class AddDomainMethod
 {
-    public static async Task<RollbackEntry> Add(string modulePath, string moduleName, string operation, string methodName, RollbackEntry rollbackEntry = null, SPAnalysisResult? aiResult = null, bool useGenericInterface = false)
+    public static async Task<RollbackEntry> Add(string modulePath, string moduleName, string operation, string methodName, RollbackEntry rollbackEntry = null, SPAnalysisResult? aiResult = null, bool isArdalisStyle = false)
     {
 
         string entitiesPath = Path.Combine(modulePath, "Entities");
         string interfacesPath = Path.Combine(modulePath, "Interfaces");
 
         Directory.CreateDirectory(entitiesPath);
-        if (!useGenericInterface) Directory.CreateDirectory(interfacesPath);
+        if (!isArdalisStyle) Directory.CreateDirectory(interfacesPath);
+
+        string entityName = moduleName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
+        string entityPath = Path.Combine(entitiesPath, $"{entityName}.cs");
+        string ns = $"Domain.{moduleName.Replace(Path.DirectorySeparatorChar, '.').Replace(Path.AltDirectorySeparatorChar, '.')}";
+
+        if (aiResult != null)
+        {
+            await GenerateOrUpdateEntity(entityPath, ns, entityName, aiResult, rollbackEntry);
+        }
         
         operation = operation == "Get" ? "Search" : operation == "GetById" ? "Find" : operation;
 
         Msg.Assistant($"?? Agregando '{operation}' en Domain.{methodName}...");
-
-        string ns = $"Domain.{moduleName.Replace(Path.DirectorySeparatorChar, '.').Replace(Path.AltDirectorySeparatorChar, '.')}";
 
         // Asegurar que methodName no tenga rutas si viene sucio
         var cleanMethodName = methodName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
@@ -41,44 +50,26 @@ public class AddDomainMethod
         string requestClass = "";
         string requestPath = "";
 
-        switch (operation.ToLower())
+        if (!OperationConfigs.TryGetValue(operation.ToLower(), out var config))
         {
-            case "search":
-                interfaceName = $"ISearch{methodName}Repository";
-                requestClass = $"Search{methodName}Request";
-                methodSignature = $"Task<object> Search{methodName}({requestClass} request);";
-                requestPath = Path.Combine(entitiesPath, $"{requestClass}.cs");
-                break;
-
-            case "post":
-                interfaceName = $"I{methodName}Repository";
-                requestClass = $"{methodName}Request";
-                methodSignature = $"Task<Response> {methodName}({requestClass} request);";
-                requestPath = Path.Combine(entitiesPath, $"{requestClass}.cs");
-                break;
-
-            case "find":
-                interfaceName = $"IFind{methodName}Repository";
-                methodSignature = $"Task<object> Find{methodName}(int code);";
-                break;
-
-            case "put":
-                interfaceName = $"IUpdate{methodName}Repository";
-                requestClass = $"Update{methodName}Request";
-                methodSignature = $"Task<Response> Update{methodName}({requestClass} request);";
-                requestPath = Path.Combine(entitiesPath, $"{requestClass}.cs");
-                break;
-
-            case "delete":
-                interfaceName = $"IDelete{methodName}Repository";
-                methodSignature = $"Task<Response> Delete{methodName}(int code);";
-                break;
-
-            default:
-                Msg.Assistant($"? Funcionalidad '{operation}' no soportada.");
-                DialogService.ShowTrayNotification("Error", $"? Funcionalidad '{operation}' no soportada.");
-                return rollbackEntry;
+             Msg.Assistant($"? Operación '{operation}' no soportada.");
+             return rollbackEntry;
         }
+
+        string repoMethodName = isArdalisStyle ? config.GenericRepositoryMethodNamePattern : FormatPattern(config.RepositoryMethodNamePattern, methodName);
+        requestClass = FormatPattern(config.EndpointRequestClassPattern, methodName);
+        interfaceName = isArdalisStyle ? FormatPattern(config.GenericRepositoryInterfacePattern, methodName) : FormatPattern(config.ApplicationInterfaceNamePattern, methodName);
+        
+        string resultType = operation.ToLower().Contains("get") ? "object" : "Response";
+        methodSignature = $"Task<{resultType}> {repoMethodName}({requestClass} request);";
+        
+        if (operation.ToLower() == "getbyid" || operation.ToLower() == "delete")
+        {
+             // Overwrite for simple types if not using complex request
+             if (requestClass == "int") methodSignature = $"Task<{resultType}> {repoMethodName}(int code);";
+        }
+
+        requestPath = Path.Combine(entitiesPath, $"{requestClass}.cs");
 
         if (!string.IsNullOrEmpty(requestPath) && !File.Exists(requestPath))
         {
@@ -92,7 +83,7 @@ public class AddDomainMethod
             }
         }
 
-        if (useGenericInterface) 
+        if (isArdalisStyle) 
         {
             return rollbackEntry; // Si usamos genéricos, no creamos interfaces específicas
         }
@@ -154,6 +145,52 @@ public class AddDomainMethod
         var newRoot = root.ReplaceNode(interfaceNode, updatedInterface);
 
         await File.WriteAllTextAsync(filePath, newRoot.NormalizeWhitespace().ToFullString());
+    }
+
+    private static async Task GenerateOrUpdateEntity(string filePath, string @namespace, string entityName, SPAnalysisResult aiResult, RollbackEntry rollbackEntry)
+    {
+        var fields = aiResult.DTOFields ?? new List<string>();
+        if (!File.Exists(filePath))
+        {
+            var content = $@"namespace {@namespace}.Entities;
+
+public class {entityName}
+{{
+    {string.Join("\n    ", fields)}
+}}";
+            File.WriteAllText(filePath, content);
+            Msg.Assistant($"? Entidad de dominio '{entityName}' creada.");
+            if (rollbackEntry != null) RollbackManager.RecordFileCreation(rollbackEntry, filePath);
+            return;
+        }
+
+        // Si existe, actualizar con nuevos campos
+        var existingCode = await File.ReadAllTextAsync(filePath);
+        if (rollbackEntry != null) RollbackManager.RecordFileModification(rollbackEntry, filePath, existingCode);
+
+        var tree = CSharpSyntaxTree.ParseText(existingCode);
+        var root = await tree.GetRootAsync();
+        var classNode = root.DescendantNodes().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+
+        if (classNode == null) return;
+
+        var existingProps = classNode.Members
+            .OfType<PropertyDeclarationSyntax>()
+            .Select(p => p.Identifier.Text)
+            .ToHashSet();
+
+        var newMembers = fields
+            .Select(f => SyntaxFactory.ParseMemberDeclaration(f))
+            .Where(m => m is PropertyDeclarationSyntax prop && !existingProps.Contains(prop.Identifier.Text))
+            .ToArray();
+
+        if (newMembers.Any())
+        {
+            var updatedClass = classNode.AddMembers(newMembers);
+            var newRoot = root.ReplaceNode(classNode, updatedClass);
+            await File.WriteAllTextAsync(filePath, newRoot.NormalizeWhitespace().ToFullString());
+            Msg.Assistant($"? Entidad '{entityName}' actualizada con {newMembers.Length} campos nuevos.");
+        }
     }
 }
 

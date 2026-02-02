@@ -41,4 +41,17 @@ public interface IGitRepository
 
     // Generic command execution
     Task<string> ExecuteGitCommandAsync(string projectPath, string command);
+
+    // Stash
+    Task<IEnumerable<GitStash>> ListStashesAsync(string projectPath);
+    Task<Dictionary<string, char>> GetFileStatusesForStashAsync(string projectPath, string stashName);
+
+    // Tags
+    Task<Result> CreateTagAsync(string projectPath, string tagName, string message, string commitHash = null);
+    Task<Result> DeleteTagLocalAsync(string projectPath, string tagName);
+
+    // Misc
+    bool IsGitInstalled();
+    Task<bool> HasUpstreamAsync(string projectPath, string branchName);
+    Task<string> GetFileContentAsync(string projectPath, string revision, string filePath);
 }

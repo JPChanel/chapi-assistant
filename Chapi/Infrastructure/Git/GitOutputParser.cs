@@ -147,4 +147,36 @@ public class GitOutputParser
 
         return stats;
     }
+    /// <summary>
+    /// Parsea la salida de 'git stash list' con formato '%gD|%gd|%gs'.
+    /// </summary>
+    public IEnumerable<GitStash> ParseStashListOutput(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+            return Enumerable.Empty<GitStash>();
+
+        var stashes = new List<GitStash>();
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var line in lines)
+        {
+            var parts = line.Trim().Split('|');
+            if (parts.Length == 3)
+            {
+                string name = parts[0].Trim();
+                string message = parts[2].Trim();
+                string branch = "Unknown";
+                
+                // Intentar extraer la rama del mensaje
+                var match = Regex.Match(message, @"^(?:WIP on|On|Auto-stash de) ([^:]+):");
+                if (match.Success)
+                {
+                    branch = match.Groups[1].Value.Trim();
+                }
+
+                stashes.Add(new GitStash(name, branch, message, 0));
+            }
+        }
+        return stashes;
+    }
 }
