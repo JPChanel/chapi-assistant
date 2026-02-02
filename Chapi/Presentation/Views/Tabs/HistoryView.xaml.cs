@@ -15,13 +15,37 @@ public partial class HistoryView : UserControl
         InitializeComponent();
     }
 
-    private void History_ContextMenu_Opening(object sender, ContextMenuEventArgs e) { }
+    private void History_ContextMenu_Opening(object sender, ContextMenuEventArgs e) 
+    {
+        if (sender is FrameworkElement fe && fe.DataContext is CommitItemViewModel commit)
+        {
+            if (fe.ContextMenu != null)
+            {
+                var undoItem = fe.ContextMenu.Items[0] as MenuItem; // Asumimos que es el primero por diseño
+                if (undoItem != null && undoItem.Name == "ResetSoftMenuItem")
+                {
+                    // Solo permitir Undo si el commit NO está sincronizado (es local)
+                    // Y es el último commit (index 0) - simplificación para evitar conflictos
+                    undoItem.Visibility = (!commit.IsSynced) ? Visibility.Visible : Visibility.Collapsed;
+                }
+            }
+        }
+    }
     
     private void History_ResetSoft_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuItem menuItem && menuItem.CommandParameter is CommitItemViewModel commit)
         {
+            if (commit.IsSynced)
+            {
+                MessageBox.Show("No se puede deshacer un commit que ya ha sido subido al servidor.", "Acción no permitida", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             _viewModel?.ResetSoftCommand.Execute(commit);
+            
+            // Actualizar estado global (flechitas y botón push)
+            MainWindow.Instance?.Dispatcher.InvokeAsync(async () => await MainWindow.Instance.UpdateProjectStatusesAsync());
         }
     }
 

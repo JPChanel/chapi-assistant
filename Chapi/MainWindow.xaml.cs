@@ -451,7 +451,7 @@ namespace Chapi
             }
         }
 
-        private async Task UpdateProjectStatusesAsync(List<ProjectViewModel>? projects = null)
+        public async Task UpdateProjectStatusesAsync(List<ProjectViewModel>? projects = null)
         {
             if (projects == null)
             {
