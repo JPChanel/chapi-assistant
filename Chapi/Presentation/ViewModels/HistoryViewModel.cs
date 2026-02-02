@@ -279,7 +279,8 @@ public class HistoryViewModel : ViewModelBase
             Author = commit.Author,
             Date = commit.Date,
             RelativeDate = commit.RelativeDate,
-            IsSynced = !commit.IsUnpushed
+            IsSynced = !commit.IsUnpushed,
+            Tags = new ObservableCollection<string>(commit.Tags)
         };
     }
 

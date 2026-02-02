@@ -42,7 +42,7 @@ public class GitOutputParser
         if (parts.Length < 4)
             return null;
 
-        return new GitCommit
+        var commit = new GitCommit
         {
             Hash = parts[0],
             Author = parts[1],
@@ -50,6 +50,21 @@ public class GitOutputParser
             Message = parts[3],
             Description = parts.Length > 4 ? parts[4].Trim() : string.Empty
         };
+
+        if (parts.Length > 5 && !string.IsNullOrWhiteSpace(parts[5]))
+        {
+            // Parse refs like "HEAD -> master, tag: v1.0.2, origin/master"
+            var refs = parts[5].Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var r in refs)
+            {
+                if (r.Contains("tag: "))
+                {
+                    commit.Tags.Add(r.Replace("tag: ", "").Trim());
+                }
+            }
+        }
+
+        return commit;
     }
 
     /// <summary>

@@ -74,4 +74,19 @@ public class CommitItemViewModel : ViewModelBase
     public bool IsUnpushed => !IsSynced;
 
     public string Summary => _message?.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
+
+    // Tags
+    private System.Collections.ObjectModel.ObservableCollection<string> _tags = new();
+    public System.Collections.ObjectModel.ObservableCollection<string> Tags
+    {
+        get => _tags;
+        set 
+        {
+            if (SetProperty(ref _tags, value))
+            {
+                OnPropertyChanged(nameof(HasTags));
+            }
+        }
+    }
+    public bool HasTags => Tags != null && Tags.Any();
 }

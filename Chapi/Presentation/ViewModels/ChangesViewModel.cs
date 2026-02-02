@@ -103,6 +103,9 @@ public class ChangesViewModel : ViewModelBase
         {
             if (SetProperty(ref _projectPath, value))
             {
+                CommitSummary = string.Empty;
+                CommitDescription = string.Empty;
+                
                 _ = LoadChangesAsync();
                 _ = LoadStashesAsync();
             }

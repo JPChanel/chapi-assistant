@@ -14,6 +14,7 @@ public class GitCommit
     public bool IsUnpushed { get; set; }
     public List<string> Tags { get; set; } = new();
 
+    public bool HasTags => Tags != null && Tags.Any();
     public string ShortHash => Hash.Length >= 7 ? Hash.Substring(0, 7) : Hash;
     public bool IsValid() => !string.IsNullOrWhiteSpace(Hash) && !string.IsNullOrWhiteSpace(Message);
 }

@@ -69,19 +69,38 @@ public class GitRepository : IGitRepository
     {
         try
         {
+            var tagMap = await GetTagCommitMapAsync(projectPath);
+
             const string fieldSeparator = "\x1f";
             const string recordSeparator = "\x1e";
 
-            string logFormat = $"%H{fieldSeparator}%an{fieldSeparator}%ar{fieldSeparator}%s{fieldSeparator}%b{recordSeparator}";
+            // %D = Ref names (HEAD -> master, v1.0, etc) - lo mantenemos por si acaso, pero usaremos el mapa para tags seguros
+            string logFormat = $"%H{fieldSeparator}%an{fieldSeparator}%ar{fieldSeparator}%s{fieldSeparator}%b{fieldSeparator}%D{recordSeparator}";
             var result = await _executor.ExecuteAsync($"log --pretty=format:\"{logFormat}\" -n {limit}", projectPath);
 
             if (!result.IsSuccess)
                 return Enumerable.Empty<GitCommit>();
 
-            return _parser.ParseLogOutput(result.Output);
+            var commits = _parser.ParseLogOutput(result.Output).ToList();
+            
+            // Enrich with tags from the map (more reliable than log %D for peeled tags)
+            foreach (var commit in commits)
+            {
+                // Try full hash or short hash (7 chars)
+                if (tagMap.TryGetValue(commit.Hash, out var tags) || 
+                   (commit.Hash.Length >= 7 && tagMap.TryGetValue(commit.Hash.Substring(0, 7), out tags)))
+                {
+                    foreach(var tag in tags)
+                    {
+                       if (!commit.Tags.Contains(tag)) commit.Tags.Add(tag);
+                    }
+                }
+            }
+            return commits;
         }
-        catch
+        catch (Exception ex)
         {
+            // Loggin error if needed
             return Enumerable.Empty<GitCommit>();
         }
     }
@@ -90,13 +109,11 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            // Intentar usar el upstream configurado para la rama especifica: branch@{u}
             var cmd = $"log \"{branch}@{{u}}..{branch}\" --pretty=format:%H";
             var result = await _executor.ExecuteAsync(cmd, projectPath);
 
             if (!result.IsSuccess)
             {
-                // Fallback: intentar con origin/branch clÃ¡sico si no hay upstream configurado
                 result = await _executor.ExecuteAsync($"log origin/{branch}..{branch} --pretty=format:%H", projectPath);
             }
 
@@ -104,7 +121,6 @@ public class GitRepository : IGitRepository
             {
                  if (result.Error.Contains("not a valid object name") || result.Error.Contains("ambiguous argument") || result.Error.Contains("no upstream"))
                 {
-                     // Si la referencia remota no existe, devolvemos TODOS los commits locales
                      var allCommitsResult = await _executor.ExecuteAsync($"log {branch} --pretty=format:%H", projectPath);
                      if (allCommitsResult.IsSuccess && !string.IsNullOrWhiteSpace(allCommitsResult.Output))
                      {
@@ -154,11 +170,8 @@ public class GitRepository : IGitRepository
                 var stats = _parser.ParseNumStatOutput(statsResult.Output);
                 foreach (var change in changes)
                 {
-                    // Intentar normalizar paths para el match
                     var normalizedPath = change.FilePath.Replace(Path.DirectorySeparatorChar, '/');
                     
-                    // Buscar en el diccionario (que use claves normalizadas o probar ambas)
-                    // El parser de numstat ya normaliza a DirectorySeparatorChar, asi que usamos change.FilePath
                     if (stats.TryGetValue(change.FilePath, out var stat))
                     {
                         change.Additions = stat.Additions;
@@ -224,13 +237,10 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            // 1. Obtener ramas locales
             var localResult = await _executor.ExecuteAsync("branch --format=\"%(refname:short)\"", projectPath);
             var locals = localResult.IsSuccess
                 ? localResult.Output.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).ToHashSet()
                 : new HashSet<string>();
-
-            // 2. Obtener ramas remotas
             var remoteResult = await _executor.ExecuteAsync("branch -r --format=\"%(refname:short)\"", projectPath);
             
             if (remoteResult.IsSuccess && !string.IsNullOrWhiteSpace(remoteResult.Output))
@@ -240,8 +250,7 @@ public class GitRepository : IGitRepository
                 {
                     var remoteBranch = line.Trim();
                     if (remoteBranch.EndsWith("/HEAD")) continue;
-
-                    // Remover el nombre del remoto (ej: origin/master -> master)
+                    if (!remoteBranch.Contains('/')) continue; 
                     var parts = remoteBranch.Split(new[] { '/' }, 2);
                     var simpleName = parts.Length > 1 ? parts[1] : remoteBranch;
 
@@ -260,6 +269,36 @@ public class GitRepository : IGitRepository
         }
     }
 
+    public async Task<Dictionary<string, List<string>>> GetTagCommitMapAsync(string projectPath)
+    {
+        var map = new Dictionary<string, List<string>>();
+        // Ensure we get exactly: [CommitHash] [TagName]
+        // If annotated (*objectname exists), print peeled hash. Else print objectname.
+        string args = "for-each-ref refs/tags --format=\"%(if)%(*objectname)%(then)%(*objectname)%(else)%(objectname)%(end) %(refname:short)\"";
+
+        var result = await _executor.ExecuteAsync(args, projectPath);
+
+        if (!result.IsSuccess)
+            return map;
+
+        var lines = result.Output.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries); 
+            
+            if (parts.Length >= 2)
+            {
+                string hash = parts[0];
+                string tagName = parts[1];
+
+                if (!map.ContainsKey(hash))
+                    map[hash] = new List<string>();
+
+                map[hash].Add(tagName);
+            }
+        }
+        return map;
+    }
     public async Task<string> GetCurrentBranchAsync(string projectPath)
     {
         try
@@ -355,13 +394,11 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            // Usamos '@{u}' entre comillas para evitar problemas de interpretacion en shells como powershell
-            // @{u} referencia al upstream configurado de la rama actual.
+
             var result = await _executor.ExecuteAsync("rev-list --left-right --count \"@{u}...HEAD\"", projectPath);
 
             if (!result.IsSuccess)
             {
-                // Si falla (ej: no hay upstream), intentamos fallback a origin
                 var currentBranch = await GetCurrentBranchAsync(projectPath);
                 if (!string.IsNullOrEmpty(currentBranch))
                 {
@@ -394,8 +431,6 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            // Usamos ^{} para asegurar que si es un Tag Anotado, se resuelva al commit al que apunta
-            // Esto evita que git show devuelva la info del tag (Tagger, Date...) como si fueran archivos
             var result = await _executor.ExecuteAsync($"show --name-only --pretty=format: \"{hash}^{{}}\"", projectPath);
             if (!result.IsSuccess)
                 return Enumerable.Empty<string>();
@@ -413,8 +448,6 @@ public class GitRepository : IGitRepository
 
     public async Task<Dictionary<string, (int Additions, int Deletions)>> GetCommitNumStatAsync(string projectPath, string hash)
     {
-        // Comparamos el commit con su padre
-        // Usamos ^{} por si acaso pasamos un tag, aunque el backend ya deberia usar hashes reales.
         var result = await _executor.ExecuteAsync($"show --numstat --pretty=format:\"\" \"{hash}^{{}}\"", projectPath);
         
         if (!result.IsSuccess) return new Dictionary<string, (int Additions, int Deletions)>();
@@ -427,7 +460,6 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            // Normalizar separators para Git
             var normalizedFile = file.Replace("\\", "/");
             var result = await _executor.ExecuteAsync($"show \"{hash}:{normalizedFile}\"", projectPath);
             return result.IsSuccess ? result.Output : string.Empty;
@@ -447,7 +479,6 @@ public class GitRepository : IGitRepository
         }
         catch
         {
-            // Si es el primer commit, no tiene padre
             return string.Empty;
         }
     }
@@ -460,7 +491,6 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            // Para clonar, el projectPath es el directorio padre
             var parentDir = Path.GetDirectoryName(destinationPath);
             if (!Directory.Exists(parentDir)) Directory.CreateDirectory(parentDir);
 
@@ -499,7 +529,6 @@ public class GitRepository : IGitRepository
         }
     }
 
-    
     #region Stash
 
     public async Task<IEnumerable<GitStash>> ListStashesAsync(string projectPath)
@@ -510,13 +539,11 @@ public class GitRepository : IGitRepository
             
             if (!result.IsSuccess)
             {
-                 // Si hay un error fatal, en el código legacy lanzaba excepción. aquí devolvemos lista vacía por seguridad
                  return Enumerable.Empty<GitStash>();
             }
 
             var stashes = _parser.ParseStashListOutput(result.Output).ToList();
 
-            // Populate FileCount (N+1 query, preserving legacy behavior)
             var populatedStashes = new List<GitStash>();
             foreach (var stash in stashes)
             {
@@ -571,7 +598,6 @@ public class GitRepository : IGitRepository
     #region Tags
     public async Task<Result> CreateTagAsync(string projectPath, string tagName, string message, string commitHash = null)
     {
-        // Validar que el mensaje no tenga comillas que rompan el comando
         message = message.Replace("\"", "'");
         string hashTarget = string.IsNullOrEmpty(commitHash) ? "" : $" {commitHash}";
         string args = $"tag -a \"{tagName}\" -m \"{message}\"{hashTarget}";
@@ -607,7 +633,6 @@ public class GitRepository : IGitRepository
 
             if (!result.IsSuccess)
             {
-                // Fallback: si no hay tags anotados con tagger, intentar tags simples
                 string simpleFormat = $"%(refname:short){fieldSeparator}%(objectname){fieldSeparator}%(authorname){fieldSeparator}%(authordate:relative){fieldSeparator}%(subject){fieldSeparator}%(contents:body){recordSeparator}";
                 result = await _executor.ExecuteAsync($"for-each-ref --format=\"{simpleFormat}\" --sort=-creatordate refs/tags", projectPath);
             }
