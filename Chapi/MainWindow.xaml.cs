@@ -103,7 +103,11 @@ namespace Chapi
 
             if (_changesViewModel != null)
             {
-                _changesViewModel.CommitCompleted += async (s, e) => await LoadHistoryAsync();
+                _changesViewModel.CommitCompleted += async (s, e) => 
+                {
+                    await LoadHistoryAsync();
+                    await UpdateProjectStatusesAsync();
+                };
             }
             if (_historyViewModel != null)
             {
