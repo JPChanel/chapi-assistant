@@ -42,11 +42,13 @@ SizeToContent="Height" MaxHeight="800"
 
             <!-- Titulos -->
             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                <TextBlock Text="ðŸš€ Agregar Metodo"
-                   FontSize="28"
-                   FontWeight="SemiBold"
-              
-                   Margin="0,0,0,2"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <materialDesign:PackIcon Kind="RocketLaunch" Width="28" Height="28" Margin="0,0,10,0" Foreground="{DynamicResource PrimaryHueMidBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="Agregar Metodo"
+                               FontSize="28"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
                 <TextBlock Text="Genera metodos automaticamente con o sin asistencia de IA"
                    Foreground="#8899AA"
                    FontSize="13"
@@ -69,9 +71,12 @@ SizeToContent="Height" MaxHeight="800"
                       Unchecked="chkUseIA_Unchecked">
                         <CheckBox.Content>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="ðŸ¤–"
-                                   FontSize="16"
-                                   Margin="0,0,6,0"/>
+                                <materialDesign:PackIcon Kind="Robot" 
+                                                         Width="20" 
+                                                         Height="20" 
+                                                         Margin="0,0,8,0" 
+                                                         Foreground="#2E8BFF" 
+                                                         VerticalAlignment="Center"/>
                                 <TextBlock Text="Modo Avanzado (IA)"
                                    FontSize="14"
                                    FontWeight="SemiBold"
@@ -109,9 +114,14 @@ SizeToContent="Height" MaxHeight="800"
                         <!-- Configuracion Basica -->
                         <StackPanel Grid.Column="0">
                              <!-- Estilo de API -->
-                             <GroupBox Header="ðŸ—ï¸ Estilo de API"
-                                       Margin="0,0,0,15"
+                             <GroupBox Margin="0,0,0,15"
                                        Style="{StaticResource MaterialDesignCardGroupBox}">
+                                 <GroupBox.Header>
+                                     <StackPanel Orientation="Horizontal">
+                                         <materialDesign:PackIcon Kind="Api" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                         <TextBlock Text="Estilo de API" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                     </StackPanel>
+                                 </GroupBox.Header>
                                  <StackPanel Margin="10">
                                      <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                                          <RadioButton x:Name="rbController"
@@ -131,8 +141,13 @@ SizeToContent="Height" MaxHeight="800"
                                  </StackPanel>
                              </GroupBox>
 
-                            <GroupBox Header="ðŸ“‹ Configuracion Basica"
-                                      Style="{StaticResource MaterialDesignCardGroupBox}">
+                            <GroupBox Style="{StaticResource MaterialDesignCardGroupBox}">
+                                <GroupBox.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="ClipboardTextOutline" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Configuracion Basica" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                </GroupBox.Header>
                                 <StackPanel Margin="15">
                                     <ComboBox x:Name="cboModulo"
                                           materialDesign:HintAssist.Hint="Seleccione o Escriba Modulo"
@@ -155,9 +170,14 @@ SizeToContent="Height" MaxHeight="800"
                         </StackPanel>
 
                         <!-- Operaciones HTTP -->
-                        <GroupBox Header="ðŸŒ Operaciones HTTP"
-                                  Grid.Column="2"
+                        <GroupBox Grid.Column="2"
                                   Style="{StaticResource MaterialDesignCardGroupBox}" VerticalAlignment="Top">
+                            <GroupBox.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Web" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Operaciones HTTP" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </GroupBox.Header>
                             <StackPanel Margin="10">
                                 <CheckBox x:Name="checkPost"
                                           Content="POST - Crear/Ejecutar"
@@ -188,10 +208,13 @@ SizeToContent="Height" MaxHeight="800"
                                 CornerRadius="5"
                                 Margin="10">
                             <StackPanel>
-                                <TextBlock Text="ðŸ’¡ Â¿Como funciona?"
-                                           FontWeight="Bold"
-                                           FontSize="14"
-                                           Margin="0,0,0,5"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                    <materialDesign:PackIcon Kind="LightbulbOnOutline" Width="18" Height="18" Foreground="Orange" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="¿Como funciona?"
+                                               FontWeight="Bold"
+                                               FontSize="14"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
                                 <TextBlock Text="Pega el correo con el detalle del procedimiento almacenado y deja que la IA analice los parametros y genere automaticamente las capas necesarias."
                                            TextWrapping="Wrap"
                                            FontSize="12"
@@ -206,8 +229,13 @@ SizeToContent="Height" MaxHeight="800"
                             <Grid x:Name="panelInput" Visibility="Visible">
                               
                                     <StackPanel Margin="20" >
-                                        <GroupBox Header="ðŸ“§ Correo Tecnico"
-                                                  Style="{StaticResource MaterialDesignCardGroupBox}">
+                                        <GroupBox Style="{StaticResource MaterialDesignCardGroupBox}">
+                                            <GroupBox.Header>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="EmailOutline" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Correo Tecnico" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                </StackPanel>
+                                            </GroupBox.Header>
                                             <StackPanel Margin="15">
                                                 <TextBlock Text="Pegue aqui el correo con la definicion del SP:"
                                                            Margin="0,0,0,10"
@@ -221,11 +249,16 @@ SizeToContent="Height" MaxHeight="800"
                                                          FontSize="12"
                                                          materialDesign:HintAssist.Hint="Ejemplo: El SP se llama sp_buscar_productos, recibe @codigo int, @nombre varchar(50)..."/>
                                                 <Button x:Name="btnAnalyze"
-                                                        Content="ðŸ” Analizar con IA"
                                                         Margin="0,15,0,0"
                                                         Click="btnAnalyze_Click"
+                                                        ToolTip="Analizar con Inteligencia Artificial"
                                                         Style="{StaticResource MaterialDesignRaisedButton}"
-                                                        Height="40"/>
+                                                        Height="40">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="AutoFix" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Analizar con IA" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Button>
                                             </StackPanel>
                                         </GroupBox>
                                     </StackPanel>
@@ -239,10 +272,12 @@ SizeToContent="Height" MaxHeight="800"
                                                  IsIndeterminate="True"
                                                  Width="60"
                                                  Height="60"/>
-                                    <TextBlock Text="ðŸ¤– Analizando con IA..."
-                                               FontSize="16"
-                                               Margin="0,20,0,0"
-                                               HorizontalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+                                        <materialDesign:PackIcon Kind="Robot" Margin="0,0,10,0" Width="24" Height="24" Foreground="{DynamicResource PrimaryHueMidBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Analizando con IA..."
+                                                   FontSize="16"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                     <TextBlock x:Name="txtAnalyzingStatus"
                                                Text="Extrayendo informacion..."
                                                FontSize="12"
@@ -257,42 +292,80 @@ SizeToContent="Height" MaxHeight="800"
                                           Visibility="Collapsed"
                                           VerticalScrollBarVisibility="Auto">
                                 <StackPanel Margin="20">
-                                    <GroupBox Header="ðŸ“¦ Resultado del Analisis"
-                                              Style="{StaticResource MaterialDesignCardGroupBox}">
+                                    <GroupBox Style="{StaticResource MaterialDesignCardGroupBox}">
+                                        <GroupBox.Header>
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Jsfiddle" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Resultado del Analisis" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                        </GroupBox.Header>
 
                                         <StackPanel Margin="10">
-                                            <TextBlock Text="âœ… Analisis Completado" Foreground="White" FontSize="16" FontWeight="Bold"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="CheckCircle" Foreground="#2ECC71" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Analisis Completado" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                            </StackPanel>
                                             <TextBlock Text="Revise y edite los campos generados antes de confirmar" Foreground="White" FontSize="12" Margin="0,5,0,0"/>
                                             <!-- Seccion 1: Stored Procedure -->
-                                            <Expander Header="ðŸ—„ï¸ Stored Procedure" IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                            <Expander IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                                <Expander.Header>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="DatabaseSearch" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Stored Procedure" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                    </StackPanel>
+                                                </Expander.Header>
                                                 <StackPanel Margin="15">
                                                     <TextBox x:Name="txtSPName" materialDesign:HintAssist.Hint="Nombre del SP" Margin="0,0,0,10" FontFamily="Consolas"/>
                                                     <TextBlock Text="Ejemplo: sp_buscar_productos, pr_listar_clientes" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
                                                 </StackPanel>
                                             </Expander>
                                             <!-- Seccion 2: Request (Parametros de entrada) -->
-                                            <Expander Header="ðŸ“¥ Request - Parametros de Entrada" IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                            <Expander IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                                <Expander.Header>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="Import" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Request - Parametros de Entrada" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                    </StackPanel>
+                                                </Expander.Header>
                                                 <StackPanel Margin="15">
                                                     <TextBlock Text="Formato: tipo nombre (uno por linea)" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
                                                     <TextBox x:Name="txtRequestParams" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="120" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo:&#x0a;int Codigo&#x0a;string Nombre&#x0a;DateTime? FechaInicio"/>
                                                 </StackPanel>
                                             </Expander>
                                             <!-- Seccion 3: Parameters (Parametros de entrada) -->
-                                            <Expander Header="ðŸ“¥ Parseo Parametros de Entrada" IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                            <Expander IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                                <Expander.Header>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="CodeBraces" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Parseo Parametros de Entrada" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                    </StackPanel>
+                                                </Expander.Header>
                                                 <StackPanel Margin="15">
                                                     <TextBlock Text="Formato: tipo nombre (uno por linea)" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
                                                     <TextBox x:Name="txtParameters" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="120" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo:&#x0a;int Codigo&#x0a;string Nombre&#x0a;DateTime? FechaInicio"/>
                                                 </StackPanel>
                                             </Expander>
                                             <!-- Seccion 4: DTO (Estructura de base de datos) -->
-                                            <Expander Header="ðŸ’¾ DTO - Campos del SP" IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                            <Expander IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                                <Expander.Header>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="Table" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="DTO - Campos del SP" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                    </StackPanel>
+                                                </Expander.Header>
                                                 <StackPanel Margin="15">
                                                     <TextBlock Text="Campos que retorna la base de datos" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
                                                     <TextBox x:Name="txtDTOFields" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo:&#x0a;int pro_codigo&#x0a;string pro_nombre&#x0a;decimal pro_precio"/>
                                                 </StackPanel>
                                             </Expander>
                                             <!-- Seccion 4: Response Mapper -->
-                                            <Expander Header="ðŸ“¤ Response - Mapeo de Salida" IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                            <Expander IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
+                                                <Expander.Header>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="Export" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="Response - Mapeo de Salida" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                    </StackPanel>
+                                                </Expander.Header>
                                                 <StackPanel Margin="15">
                                                     <TextBlock Text="Mapeo: campoDTO â†’ propiedadAPI (formato JSON)" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
                                                     <TextBox x:Name="txtResponseMapper" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo (objeto anonimo):&#x0a;codigo = dto.pro_codigo,&#x0a;nombre = dto.pro_nombre,&#x0a;precio = dto.pro_precio"/>
@@ -321,10 +394,15 @@ SizeToContent="Height" MaxHeight="800"
                     Margin="0,0,10,0"
                     Click="btnCancelar_Click"
                     Style="{StaticResource MaterialDesignFlatButton}"/>
-            <Button x:Name="btnVolverAnalizar" Content="â†©ï¸ Volver a Analizar" 
+            <Button x:Name="btnVolverAnalizar" 
                     Click="btnBackToInput_Click" 
                     Style="{StaticResource MaterialDesignFlatButton}" 
-                    Margin="0,0,10,0" Visibility="Collapsed"/>
+                    Margin="0,0,10,0" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Undo" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Volver a Analizar" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
 
             <Button x:Name="btnCrear"
                     Content="Crear Metodo"

@@ -95,11 +95,12 @@ namespace Chapi
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            await Task.Delay(300);
+
             _isWindowInitialized = true;
-            LoadProjects();
-            await RunWithLoading(CheckGitInstallationAsync);
-            
-            // Suscribir eventos entre ViewModels
+            LoadProjects();            
+            _ = Task.Run(async () => await CheckGitInstallationAsync());
+
             if (_changesViewModel != null)
             {
                 _changesViewModel.CommitCompleted += async (s, e) => await LoadHistoryAsync();
@@ -117,7 +118,7 @@ namespace Chapi
                 var mgr = new UpdateManager(new GithubSource(updateUrl, null, false));
                 var info = await mgr.CheckForUpdatesAsync();
                 if (info == null) return;
-                Msg.Assistant($"ðŸ“¢ Nueva version v{info.TargetFullRelease.Version} disponible.");
+                Dispatcher.Invoke(() => Msg.Assistant($"📢 Nueva version v{info.TargetFullRelease.Version} disponible."));
             }
             catch { }
         }
@@ -144,7 +145,13 @@ namespace Chapi
 
             ProjectsComboBox.ItemsSource = projectVMs;
             App.TrayIconManager?.UpdateProjectList(projectVMs);
-            _ = UpdateProjectStatusesAsync(projectVMs);
+
+            // Ejecutar la actualizacion de estados con retardo para no competir por CPU/Disco al inicio
+            _ = Task.Run(async () => 
+            {
+                await Task.Delay(1500); // Dar prioridad a la UI inicial
+                await UpdateProjectStatusesAsync(projectVMs);
+            });
         }
 
         private void OnDebounceTimerElapsed(object state)
@@ -197,10 +204,21 @@ namespace Chapi
                 BranchesComboBox.SelectedItem = activeBranch;
             }
 
-            await LoadChangesAsync();
-            await LoadHistoryAsync();
-            await CheckBranchStatusAsync();
-            _ = DoFetchAsync(isSilent: true);
+            // Ejecutar cargas en paralelo sin bloquear UI (Pseudo-plano)
+             _ = Task.Run(async () =>
+             {
+                 // Secuencial en background para evitar bloqueos de git (index.lock)
+                 try
+                 {
+                     await Dispatcher.InvokeAsync(async () => await LoadChangesAsync());
+                     await Task.Delay(50); // Breve pausa para liberar recursos
+                     await Dispatcher.InvokeAsync(async () => await LoadHistoryAsync());
+                     await Task.Delay(50);
+                     await Dispatcher.InvokeAsync(async () => await CheckBranchStatusAsync());
+                     await Dispatcher.InvokeAsync(async () => await DoFetchAsync(isSilent: true));
+                 }
+                 catch { }
+             });
         }
 
         private async void BranchesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -698,7 +716,36 @@ namespace Chapi
 
         private void ModoAgenteComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Placeholder para cambio de modo agente
+            if (!_isWindowInitialized || ModoAgenteComboBox.SelectedItem is not ComboBoxItem selectedItem) return;
+
+            // Evitar bucles al resetear al indice 0
+            if (ModoAgenteComboBox.SelectedIndex == 0) return;
+
+            if (selectedItem.Name == "AddMethodItem")
+            {
+                AddMethod_Click();
+            }
+            else if (selectedItem.Name == "RollbackItem")
+            {
+                RollbackSelectModule();
+            }
+            else if (selectedItem.Name == "SqlGeneratorItem")
+            {
+                SqlGenerator_Click();
+            }
+
+            // Resetear seleccion visualmente
+            Dispatcher.BeginInvoke(new Action(() => ModoAgenteComboBox.SelectedIndex = 0));
+        }
+
+        private void SqlGenerator_Click()
+        {
+            if (!IsVisible) Show();
+            Activate();
+
+            var sqlView = new Chapi.Presentation.Views.Agent.SqlGeneratorView();
+            sqlView.Owner = this;
+            sqlView.ShowDialog();
         }
 
         private void ReleasesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)

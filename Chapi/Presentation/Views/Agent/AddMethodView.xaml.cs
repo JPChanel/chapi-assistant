@@ -95,7 +95,7 @@ namespace Chapi.Presentation.Views.Agent
                     Dialogs.DialogVariant.Warning, Dialogs.DialogType.Info);
                 return;
             }
-            // ðŸ“¦ Recolectar metodos seleccionados
+            // 📦 Recolectar metodos seleccionados
             var metodos = new List<string>();
             if (checkPost.IsChecked == true) metodos.Add("Post");
             if (checkGet.IsChecked == true) metodos.Add("Get");
@@ -107,7 +107,7 @@ namespace Chapi.Presentation.Views.Agent
                     Dialogs.DialogVariant.Warning, Dialogs.DialogType.Info);
                 return;
             }
-            // ðŸ§© Si el modo IA esta activo
+            // 🧩 Si el modo IA esta activo
             if (isGenerateByIA)
             {
                 // Actualiza los valores editados manualmente por el usuario
@@ -133,15 +133,15 @@ namespace Chapi.Presentation.Views.Agent
                     .Select(l => l.Trim())
                     .ToList();
 
-                // âš™ï¸ Ejecutar generacion por IA
+                // ⚙️ Ejecutar generacion por IA
                 await ExecuteMethodGeneration(modulo, metodo, bd, metodos, _aiResult);
                 return;
             }
-            // âš™ï¸ Ejecutar generacion manual
+            // ⚙️ Ejecutar generacion manual
             await ExecuteMethodGeneration(modulo, metodo, bd, metodos, null);
         }
 
-        #region ðŸ¤– Modo Avanzado con IA
+        #region 🤖 Modo Avanzado con IA
 
         private async void btnAnalyze_Click(object sender, RoutedEventArgs e)
         {
@@ -246,7 +246,7 @@ namespace Chapi.Presentation.Views.Agent
 
 
         #endregion
-        #region ðŸ”§ Generacion de Metodos (Comun)
+        #region 🔧 Generacion de Metodos (Comun)
 
         private async Task ExecuteMethodGeneration(
             string modulo,
@@ -293,7 +293,7 @@ namespace Chapi.Presentation.Views.Agent
                             rollbackEntry = AddApplicationMethod.Add(appPath, modulo, metodo, nombreMetodo, rollbackEntry, useGenericRepo);
                         }
 
-                        // ðŸ¤– SI HAY RESULTADO DE IA, USAR GENERACI “N AVANZADA
+                        // 🤖 SI HAY RESULTADO DE IA, USAR GENERACI “N AVANZADA
                          bool useGenericInterface = useEndpoints; // Endpoint = Generic Interface. Controller = Specific Interface.
 
                         if (aiResult != null)
@@ -332,7 +332,7 @@ namespace Chapi.Presentation.Views.Agent
                     }
                     catch (Exception ex)
                     {
-                        Msg.Assistant($"âŒ Error al agregar metodo {metodo}: {ex.Message}");
+                        Msg.Assistant($"❌ Error al agregar metodo {metodo}: {ex.Message}");
                         var tempPath = RollbackManager.GetRollbackFilePathForEntry(rollbackEntry);
                         RollbackManager.CommitTransaction(rollbackEntry);
                         // TODO: Fix ExecuteRollback call - needs RollbackEntry, not string
@@ -341,10 +341,10 @@ namespace Chapi.Presentation.Views.Agent
                     }
                 }
 
-                Msg.Assistant($"âœ… Metodo {nombreMetodo} Agregado Correctamente en Modulo {modulo}");
+                Msg.Assistant($"✅ Metodo {nombreMetodo} Agregado Correctamente en Modulo {modulo}");
                 await DialogService.ShowConfirmDialog(
                     "Confirmacion",
-                    $"âœ… Metodo generado exitosamente\n\nModulo: {modulo}\nMetodo: {nombreMetodo}",
+                    $"✅ Metodo generado exitosamente\n\nModulo: {modulo}\nMetodo: {nombreMetodo}",
                     Dialogs.DialogVariant.Success,
                     Dialogs.DialogType.Info
                 );
@@ -363,7 +363,7 @@ namespace Chapi.Presentation.Views.Agent
         }
 
         #endregion
-        #region ðŸ§  IA Integration
+        #region 🧠 IA Integration
         private async Task<SPAnalysisResult> AnalyzeEmailWithAI(
             string emailContent,
             string moduleName,
@@ -393,7 +393,7 @@ namespace Chapi.Presentation.Views.Agent
             }
             catch (Exception ex)
             {
-                Msg.Assistant($"âŒ Error en analisis IA: {ex.Message}");
+                Msg.Assistant($"❌ Error en analisis IA: {ex.Message}");
                 throw new Exception($"No se pudo analizar el correo: {ex.Message}");
             }
         }
