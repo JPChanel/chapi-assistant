@@ -265,7 +265,8 @@ namespace Chapi
 
             await LoadChangesAsync();
             await LoadHistoryAsync();
-            await CheckBranchStatusAsync();
+            await CheckBranchStatusAsync();    
+            await UpdateProjectStatusesAsync();
         }
 
         private async Task LoadChangesAsync()
