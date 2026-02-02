@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:local="clr-namespace:Chapi.Presentation.Views"
+             xmlns:local="clr-namespace:Chapi.Presentation.Views.Tabs"
+             xmlns:entities="clr-namespace:Chapi.Domain.Entities"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:Chapi.Presentation.Converters"
              mc:Ignorable="d" 
@@ -196,10 +197,10 @@
                         <ListView x:Name="StashListView"
                                   ItemsSource="{Binding Stashes}"
                                   MaxHeight="150"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  ScrollViewer.VerticalScrollBarVisibility="Hidden"
                                   SelectionChanged="StashListView_SelectionChanged">
                             <ListView.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate DataType="{x:Type entities:GitStash}">
                                     <Grid Margin="5" HorizontalAlignment="Stretch">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -392,19 +393,9 @@
                                     Foreground="Red"
                                     BorderBrush="Red"
                                     Margin="10,0,0,0"/>
-
-                            <TextBlock x:Name="StashView_Header"
-                                       Grid.Column="2"
-                                       VerticalAlignment="Center"
-                                       HorizontalAlignment="Center"
-                                       FontWeight="Bold">
-                                <Run Text="{Binding SelectedStash.Message, StringFormat='Stash: {0}'}"/>
-                                <Run Text="{Binding SelectedStash.FileCount, StringFormat=' ({0} archivos)'}" FontSize="11" Foreground="Gray"/>
-                            </TextBlock>
-
                             <Button x:Name="StashView_BackButton"
                                     Grid.Column="3"
-                                    Content="â† Volver"
+                                    Content="Volver"
                                     Click="StashView_BackButton_Click"
                                     Style="{StaticResource MaterialDesignFlatButton}"
                                     HorizontalAlignment="Right"/>

@@ -63,7 +63,7 @@ namespace Chapi
 
             // Infrastructure - Services
             services.AddSingleton<INotificationService, MessageNotificationService>();
-            services.AddSingleton<ModuleGeneratorService>();
+            services.AddSingleton<IModuleGeneratorService, ModuleGeneratorService>();
 
             // Application - Use Cases
             services.AddTransient<UseCases.CommitChangesUseCase>();
@@ -94,7 +94,16 @@ namespace Chapi
             services.AddTransient<Chapi.Application.UseCases.Projects.CreateProjectUseCase>();
             services.AddTransient<Chapi.Application.UseCases.Projects.UpdateProjectIndicatorsUseCase>();
             services.AddTransient<Chapi.Application.UseCases.Projects.CloneProjectUseCase>();
+
+            // Application - Code Generation Use Cases
             services.AddTransient<Chapi.Application.UseCases.CodeGeneration.GenerateModuleUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.GenerateModuleStructureUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddApiControllerUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddApiEndpointUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddApplicationMethodUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddDependencyInjectionUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddDomainMethodUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddInfrastructureMethodUseCase>();
 
             // Infrastructure - Template Service
             services.AddSingleton<ITemplateService, ProjectTemplateService>();

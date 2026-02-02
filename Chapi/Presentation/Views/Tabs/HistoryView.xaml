@@ -267,7 +267,7 @@
                                                         </MenuItem.Icon>
                                                     </MenuItem>
                                                     <Separator />
-                                                    <MenuItem Header="View on Web" Click="ProjectMenuItem_OpenGitHub_Click" CommandParameter="{Binding}">
+                                                    <MenuItem Header="View on Web" Click="ProjectMenuItem_OpenGitHub_Click" CommandParameter="{Binding}" IsEnabled="{Binding DataContext.SelectedCommit.IsSynced, RelativeSource={RelativeSource AncestorType=UserControl}}">
                                                         <MenuItem.Icon>
                                                             <materialDesign:PackIcon Kind="Web" />
                                                         </MenuItem.Icon>

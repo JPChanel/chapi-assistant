@@ -52,7 +52,6 @@ public class AddInfrastructureMethod
         bool fileExisted = File.Exists(filePath);
         string? originalContent = fileExisted ? await File.ReadAllTextAsync(filePath) : null;
 
-        // ?? Registrar rollback
         if (rollbackEntry != null)
         {
             if (fileExisted)
@@ -64,7 +63,7 @@ public class AddInfrastructureMethod
         if (!fileExisted)
         {
             await GenerateInfrastructureFile(filePath, config, cleanModule, lastModuleSegment, methodName, dbName, operation, aiResult, isArdalisStyle);
-            Msg.Assistant($"?? Creado Infrastructure.{cleanModule}.{className}");
+            Msg.Assistant($"Creado Infrastructure.{cleanModule}.{className}");
         }
         else
         {
@@ -74,8 +73,7 @@ public class AddInfrastructureMethod
         return rollbackEntry!;
     }
 
-    // ?? Agregar método nuevo si la clase ya existe
-    private static async Task AddMethodToExistingClass(
+private static async Task AddMethodToExistingClass(
         string filePath,
         GenerationStandards.OperationConfig config,
         string operation,
@@ -104,10 +102,10 @@ public class AddInfrastructureMethod
         var newRoot = root.ReplaceNode(classNode, newClass);
 
         await File.WriteAllTextAsync(filePath, newRoot.NormalizeWhitespace().ToFullString());
-        Msg.Assistant($"? Método agregado: {methodName} en {Path.GetFileName(filePath)}");
+        Msg.Assistant($"Método agregado: {methodName} en {Path.GetFileName(filePath)}");
     }
 
-    // ??? Generar archivo completo de infraestructura
+// Generar archivo completo de infraestructura
     private static async Task GenerateInfrastructureFile(
         string filePath,
         OperationConfig config,
@@ -135,10 +133,9 @@ public class AddInfrastructureMethod
 
         var sb = new StringBuilder($@"
             using Dapper;
-            using Domain.Shared.Interface.Base; 
             using Domain.{moduleName}.Entities;
-            using Domain.Shared.Entities.Responses;
-            {(!isArdalisStyle ? $"using Domain.{moduleName}.Interfaces;" : "")}
+            {(!isArdalisStyle ? $"" : "using Domain.Shared.Entities.Responses;")} 
+            {(!isArdalisStyle ? $"using Domain.{moduleName}.Interfaces;" : "using Domain.Shared.Interface.Base;")}
             using {dbName}.Connections;
             using {dbName}.Repositories.Shared.Parser;
             using {dbName}.Repositories.{moduleName}.Dto;
@@ -221,12 +218,10 @@ public class AddInfrastructureMethod
     }
 
 
-    // ?? Generar clase DTO
     private static void GenerateOrUpdateDto(string dtoPath, string dbName, string moduleNamespace, string entityName, SPAnalysisResult? aiResult)
     {
         var className = $"{entityName}Dto";
         var dtoFields = aiResult.DTOFields ?? new();
-        // Si no existe, se crea completo
         if (!File.Exists(dtoPath))
         {
             var content = $@"

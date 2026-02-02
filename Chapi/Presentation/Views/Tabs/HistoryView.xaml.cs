@@ -1,8 +1,12 @@
 ﻿using System;
+using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using Microsoft.Extensions.DependencyInjection;
 using Chapi.Presentation.ViewModels;
+using Chapi.Infrastructure.Services;
 
 namespace Chapi.Presentation.Views.Tabs;
 
@@ -69,7 +73,37 @@ public partial class HistoryView : UserControl
     {
         string path = GetPathFromMenuItem(sender);
         if (string.IsNullOrEmpty(path)) return;
-        System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\"");
+        
+        try 
+        { 
+            // Normalizar ruta para Windows
+            path = path.Replace('/', '\\');
+
+            if (File.Exists(path))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{path}\"",
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                // Si el archivo no existe (ej. fue borrado en commits posteriores), 
+                // intentar abrir la carpeta contenedora
+                string dir = Path.GetDirectoryName(path);
+                if (Directory.Exists(dir))
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = dir,
+                        UseShellExecute = true
+                    });
+                }
+            }
+        }
+        catch { }
     }
 
     private void ProjectMenuItem_OpenVSCode_Click(object sender, RoutedEventArgs e)
@@ -88,7 +122,32 @@ public partial class HistoryView : UserControl
     {
         string path = GetPathFromMenuItem(sender);
         if (string.IsNullOrEmpty(path)) return;
-        // Logica similar a ChangesView
+
+        try
+        {
+            // Buscar .sln en la carpeta del archivo o hacia arriba
+            string searchDir = Directory.Exists(path) ? path : System.IO.Path.GetDirectoryName(path);
+            var slnFile = Directory.GetFiles(searchDir, "*.sln", System.IO.SearchOption.TopDirectoryOnly).FirstOrDefault();
+
+            if (slnFile != null)
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = slnFile,
+                    UseShellExecute = true
+                });
+            }
+            else if (searchDir != null && !string.IsNullOrEmpty(_viewModel?.ProjectPath))
+            {
+                // Reintentar en la raiz del proyecto si no se encontro en la subcarpeta
+                slnFile = Directory.GetFiles(_viewModel.ProjectPath, "*.sln", System.IO.SearchOption.TopDirectoryOnly).FirstOrDefault();
+                if (slnFile != null)
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = slnFile, UseShellExecute = true });
+                }
+            }
+        }
+        catch { }
     }
 
     private void HistoryFiles_CopyPath_Click(object sender, RoutedEventArgs e)
@@ -102,9 +161,50 @@ public partial class HistoryView : UserControl
         if (sender is MenuItem mi && mi.CommandParameter is string rel) Clipboard.SetText(rel);
     }
 
-    private void ProjectMenuItem_OpenGitHub_Click(object sender, RoutedEventArgs e)
+    private async void ProjectMenuItem_OpenGitHub_Click(object sender, RoutedEventArgs e)
     {
-        // Logica de apertura en web
+        if (_viewModel == null || _viewModel.SelectedCommit == null) return;
+        if (sender is MenuItem mi && mi.CommandParameter is string relativePath)
+        {
+            try
+            {
+                var gitRepo = App.ServiceProvider.GetRequiredService<Chapi.Domain.Interfaces.IGitRepository>();
+                var remoteUrl = await gitRepo.ExecuteGitCommandAsync(_viewModel.ProjectPath, "remote get-url origin");
+                
+                if (string.IsNullOrEmpty(remoteUrl) || remoteUrl.Contains("fatal")) return;
+                
+                remoteUrl = remoteUrl.Trim().Replace(".git", "");
+                if (remoteUrl.StartsWith("git@"))
+                {
+                    remoteUrl = remoteUrl.Replace(":", "/");
+                    remoteUrl = remoteUrl.Replace("git@", "https://");
+                }
+
+                string url;
+                string hash = _viewModel.SelectedCommit.Hash;
+
+                if (remoteUrl.Contains("github.com"))
+                {
+                    url = $"{remoteUrl}/blob/{hash}/{relativePath.Replace("\\", "/")}";
+                }
+                else if (remoteUrl.Contains("gitlab.com"))
+                {
+                    url = $"{remoteUrl}/-/blob/{hash}/{relativePath.Replace("\\", "/")}";
+                }
+                else
+                {
+                    // Fallback genérico para otros servidores git
+                    url = $"{remoteUrl}/commit/{hash}";
+                }
+
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+            catch { }
+        }
     }
 
     private string GetPathFromMenuItem(object sender)

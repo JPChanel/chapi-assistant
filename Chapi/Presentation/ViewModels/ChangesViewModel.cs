@@ -83,6 +83,7 @@ public class ChangesViewModel : ViewModelBase
         ClearStashesCommand = new AsyncRelayCommand(async _ => await ClearStashesAsync());
         RestoreFileFromStashCommand = new AsyncRelayCommand(async param => await RestoreFileFromStashAsync(param as ChangeItemViewModel));
         GenerateCommitMessageCommand = new AsyncRelayCommand(async _ => await GenerateCommitMessageAsync());
+        DiscardAllCommand = new AsyncRelayCommand(async _ => await DiscardAllAsync());
     }
 
     #region Properties
@@ -270,6 +271,7 @@ public class ChangesViewModel : ViewModelBase
     public AsyncRelayCommand ClearStashesCommand { get; }
     public AsyncRelayCommand RestoreFileFromStashCommand { get; }
     public AsyncRelayCommand GenerateCommitMessageCommand { get; }
+    public AsyncRelayCommand DiscardAllCommand { get; }
 
     #endregion
 
@@ -571,6 +573,18 @@ public class ChangesViewModel : ViewModelBase
         if (item == null || string.IsNullOrEmpty(ProjectPath)) return;
         
         var result = await _discardChangesUseCase.ExecuteAsync(ProjectPath, new[] { item.FilePath });
+        if (result.IsSuccess)
+        {
+            await LoadChangesAsync();
+        }
+    }
+
+    private async Task DiscardAllAsync()
+    {
+        if (string.IsNullOrEmpty(ProjectPath) || !Changes.Any()) return;
+        
+        var allFiles = Changes.Select(c => c.FilePath).ToArray();
+        var result = await _discardChangesUseCase.ExecuteAsync(ProjectPath, allFiles);
         if (result.IsSuccess)
         {
             await LoadChangesAsync();

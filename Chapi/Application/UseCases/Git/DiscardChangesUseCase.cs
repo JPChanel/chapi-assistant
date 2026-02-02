@@ -37,42 +37,37 @@ public class DiscardChangesUseCase
 
             if (isAll)
             {
-                // Descartar todos los cambios
                 await _gitRepo.ExecuteGitCommandAsync(projectPath, "checkout -- .");
-                await _gitRepo.ExecuteGitCommandAsync(projectPath, "clean -fd");
-            }
-            else
-            {
-                // Descartar archivos especificos
+ 
                 foreach (var file in files!)
                 {
                     var gitPath = file.Replace("\\", "/");
                     
                     try
                     {
-                        // Intentar checkout primero
+              
                         await _gitRepo.ExecuteGitCommandAsync(projectPath, $"checkout -- \"{gitPath}\"");
                         
-                        // Si es untracked, hacer clean
+              
                         await _gitRepo.ExecuteGitCommandAsync(projectPath, $"clean -fd -- \"{gitPath}\"");
                     }
                     catch
                     {
-                        // Si falla checkout, solo hacer clean (archivo untracked)
+     
                         await _gitRepo.ExecuteGitCommandAsync(projectPath, $"clean -fd -- \"{gitPath}\"");
                     }
                 }
             }
 
             _notificationService.ShowSuccess(isAll 
-                ? "âœ… Todos los cambios han sido descartados" 
-                : $"âœ… Cambios descartados en {files!.Count()} archivo(s)");
+                ? "Todos los cambios han sido descartados" 
+                : $"Cambios descartados en {files!.Count()} archivo(s)");
             
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"âŒ Error al descartar cambios: {ex.Message}");
+            _notificationService.ShowError($"Error al descartar cambios: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }

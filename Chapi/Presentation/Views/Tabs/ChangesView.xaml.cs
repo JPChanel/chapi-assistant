@@ -12,6 +12,8 @@ using Chapi.Domain.Entities;
 
 using Chapi.Infrastructure.Git;
 using Chapi.Application.UseCases;
+using Chapi.Infrastructure.Services;
+using Chapi.Presentation.Views.Dialogs;
 
 namespace Chapi.Presentation.Views.Tabs;
 
@@ -59,9 +61,17 @@ public partial class ChangesView : UserControl
         }
     }
 
-    private void DiscardAllChangesMenuItem_Click(object sender, RoutedEventArgs e)
+    private async void DiscardAllChangesMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        // Esto podria ser un comando nuevo en el VM
+        var result = await DialogService.ShowConfirmDialog(
+            "Confirmar Descarte", 
+            "¿Estás seguro de que deseas descartar TODOS los cambios? Esta acción no se puede deshacer.", 
+            DialogVariant.Warning);
+                                   
+        if (result && _viewModel != null)
+        {
+            await _viewModel.DiscardAllCommand.ExecuteAsync(null);
+        }
     }
 
     private void DiscardAllStashesButton_Click(object sender, RoutedEventArgs e)
@@ -170,8 +180,12 @@ public partial class ChangesView : UserControl
     {
         if (_viewModel?.SelectedStash is GitStash stash)
         {
-            var result = MessageBox.Show($"Â¿Estas seguro de que deseas eliminar el stash '{stash.Message}'?", "Confirmar", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (result == MessageBoxResult.Yes)
+            var result = await DialogService.ShowConfirmDialog(
+                "Confirmar Eliminación", 
+                $"¿Estás seguro de que deseas eliminar el stash '{stash.Message}'?", 
+                DialogVariant.Warning);
+
+            if (result)
             {
                 await _viewModel.DropStashCommand.ExecuteAsync(stash);
                 _viewModel.IsStashViewVisible = false;

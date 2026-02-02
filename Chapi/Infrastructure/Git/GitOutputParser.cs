@@ -163,7 +163,7 @@ public class GitOutputParser
             var parts = line.Trim().Split('|');
             if (parts.Length == 3)
             {
-                string name = parts[0].Trim();
+                string name = parts[1].Trim(); // Usar gd (stash@{n}) en lugar de gD
                 string message = parts[2].Trim();
                 string branch = "Unknown";
                 

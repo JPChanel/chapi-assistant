@@ -508,7 +508,7 @@ public class GitRepository : IGitRepository
                 int count = 0;
                 try 
                 {
-                    var filesResult = await _executor.ExecuteAsync($"stash show --name-only {stash.Name}", projectPath);
+                    var filesResult = await _executor.ExecuteAsync($"stash show --name-only \"{stash.Name}\"", projectPath);
                     if (filesResult.IsSuccess && !string.IsNullOrWhiteSpace(filesResult.Output))
                     {
                         count = filesResult.Output.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length;

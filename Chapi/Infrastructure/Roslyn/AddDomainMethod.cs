@@ -31,17 +31,13 @@ public class AddDomainMethod
             await GenerateOrUpdateEntity(entityPath, ns, entityName, aiResult, rollbackEntry);
         }
         
-        operation = operation == "Get" ? "Search" : operation == "GetById" ? "Find" : operation;
+        Msg.Assistant($"Agregando '{operation}' en Domain.{methodName}...");
 
-        Msg.Assistant($"?? Agregando '{operation}' en Domain.{methodName}...");
-
-        // Asegurar que methodName no tenga rutas si viene sucio
         var cleanMethodName = methodName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
         if (cleanMethodName != methodName) 
         {
-             // Si el metodo venia con ruta, usamos solo el nombre final
              methodName = cleanMethodName; 
-             Msg.Assistant($"?? Nombre de método saneado a: {methodName}");
+             Msg.Assistant($"Nombre de método saneado a: {methodName}");
         }
 
         // Preparar nombres
@@ -52,7 +48,7 @@ public class AddDomainMethod
 
         if (!OperationConfigs.TryGetValue(operation.ToLower(), out var config))
         {
-             Msg.Assistant($"? Operación '{operation}' no soportada.");
+             Msg.Assistant($"Operación '{operation}' no soportada.");
              return rollbackEntry;
         }
 
@@ -76,7 +72,7 @@ public class AddDomainMethod
             var requestDataType = aiResult?.RequestParameters ?? new();
             File.WriteAllText(requestPath, $@"namespace {ns}.Entities;
             public class {requestClass} {{  {string.Join("\n    ", requestDataType)} }}");
-            Msg.Assistant($"? Clase de entidad '{requestClass}' creada.");
+            Msg.Assistant($"Clase de entidad '{requestClass}' creada.");
             if (rollbackEntry != null)
             {
                 RollbackManager.RecordFileCreation(rollbackEntry, requestPath);
@@ -89,24 +85,20 @@ public class AddDomainMethod
         }
         
         string interfacePath = Path.Combine(interfacesPath, $"{interfaceName}.cs");
-        // ?? REGISTRAR CAMBIOS EN INTERFAZ
         bool interfaceExisted = File.Exists(interfacePath);
         string originalContent = interfaceExisted ? await File.ReadAllTextAsync(interfacePath) : null;
 
-
         await EnsureInterfaceAsync(interfacePath, interfaceName, methodSignature, ns);
+        
         if (rollbackEntry != null)
         {
             if (!interfaceExisted)
-            {
                 RollbackManager.RecordFileCreation(rollbackEntry, interfacePath);
-            }
             else if (originalContent != null)
-            {
                 RollbackManager.RecordFileModification(rollbackEntry, interfacePath, originalContent);
-            }
         }
-        Msg.Assistant($"? Método '{methodSignature.Trim()}' asegurado en {interfaceName}");
+
+        Msg.Assistant($"Método '{methodSignature.Trim()}' asegurado en {interfaceName}");
         return rollbackEntry;
     }
     public static async Task EnsureInterfaceAsync(string filePath, string interfaceName, string methodSignature, string @namespace)
@@ -159,7 +151,7 @@ public class {entityName}
     {string.Join("\n    ", fields)}
 }}";
             File.WriteAllText(filePath, content);
-            Msg.Assistant($"? Entidad de dominio '{entityName}' creada.");
+            Msg.Assistant($"Entidad de dominio '{entityName}' creada.");
             if (rollbackEntry != null) RollbackManager.RecordFileCreation(rollbackEntry, filePath);
             return;
         }
@@ -189,7 +181,7 @@ public class {entityName}
             var updatedClass = classNode.AddMembers(newMembers);
             var newRoot = root.ReplaceNode(classNode, updatedClass);
             await File.WriteAllTextAsync(filePath, newRoot.NormalizeWhitespace().ToFullString());
-            Msg.Assistant($"? Entidad '{entityName}' actualizada con {newMembers.Length} campos nuevos.");
+            Msg.Assistant($"Entidad '{entityName}' actualizada con {newMembers.Length} campos nuevos.");
         }
     }
 }

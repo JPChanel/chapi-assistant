@@ -13,26 +13,19 @@ public static class AddApplicationMethod
 {
     public static RollbackEntry Add(string appPath, string moduleName, string operation, string mName, RollbackEntry rollbackEntry = null, bool useGenericRepository = false)
     {
-        Msg.Assistant("?? Procesando Application...");
+        Msg.Assistant("Procesando Application...");
 
-        // 1. OBTENER CONFIGURACIÓN
-        if (!GenerationStandards.OperationConfigs.TryGetValue(operation.ToLower(), out var config))
+        if (!OperationConfigs.TryGetValue(operation.ToLower(), out var config))
         {
-            Msg.Assistant($"?? Operación no soportada en Application: {operation}");
+            Msg.Assistant($"Operación no soportada en Application: {operation}");
             return rollbackEntry;
         }
 
-        // 2. GENERAR NOMBRES
-        // Calcular segmento limpio del módulo para usar en namespace
         string cleanModule = moduleName.Replace(Path.DirectorySeparatorChar, '.').Replace(Path.AltDirectorySeparatorChar, '.');
         string lastModuleSegment = cleanModule.Split('.').Last();
 
         // Limpiar mName (MethodName)
         string cleanMethodName = mName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
-
-        // Si usa repositorio genérico (EndPoints Modernos), agregamos sufijo "Service"
-        // Usamos el nombre del MÉTODO (Subject) para la clase, para permitir múltiples servicios en un módulo
-        // Ejemplo: Config="Search{0}" -> {0}=Cargo -> SearchCargoService
         string classNameBase = FormatPattern(config.ApplicationClassNamePattern, cleanMethodName);
         if (useGenericRepository) classNameBase += "Service"; 
         
@@ -42,7 +35,6 @@ public static class AddApplicationMethod
         if (!Directory.Exists(appPath))
             Directory.CreateDirectory(appPath);
 
-        // 3. SI EL ARCHIVO NO EXISTE
         bool fileExisted = File.Exists(filePath);
         string originalContent = fileExisted ? File.ReadAllText(filePath) : null;
 
@@ -50,7 +42,7 @@ public static class AddApplicationMethod
         {
             var fileContent = GenerateNewAppClass(config, mName, cleanModule, operation, useGenericRepository);
             File.WriteAllText(filePath, fileContent);
-            Msg.Assistant($"? Clase de aplicación creada: {fileName}");
+            Msg.Assistant($"Clase de aplicación creada: {fileName}");
 
             if (rollbackEntry != null)
                 RollbackManager.RecordFileCreation(rollbackEntry, filePath);
@@ -71,7 +63,7 @@ public static class AddApplicationMethod
         var targetMethodName = FormatPattern(config.ApplicationMethodNamePattern, mName);
         if (classNode.Members.OfType<MethodDeclarationSyntax>().Any(m => m.Identifier.Text == targetMethodName))
         {
-            Msg.Assistant($"?? Ya existe el método '{targetMethodName}' en {fileName}");
+            Msg.Assistant($"Ya existe el método '{targetMethodName}' en {fileName}");
             return rollbackEntry;
         }
 
@@ -80,7 +72,7 @@ public static class AddApplicationMethod
         
         var newRoot = root.ReplaceNode(classNode, newClass);
         File.WriteAllText(filePath, newRoot.NormalizeWhitespace().ToFullString());
-        Msg.Assistant($"? Método '{targetMethodName}' agregado en {fileName}");
+        Msg.Assistant($"Método '{targetMethodName}' agregado en {fileName}");
         return rollbackEntry;
     }
 
@@ -103,16 +95,12 @@ public static class AddApplicationMethod
 
         if (useGenericRepository)
         {
-            // NEW STYLE: IRepository<TReq, TRes>
-            // Debe formatearse para incluir el nombre del DTO, ej: ISearchRepository<SearchUsuariosRequest, object>
+
              repositoryInterface = FormatPattern(config.GenericRepositoryInterfacePattern, cleanMethodName);
-             
-             // Si usamos genéricos, NO necesitamos la interfase específica del dominio viejo
-             importInterfaces = ""; // Clean import
+             importInterfaces = ""; 
         }
         else
         {
-            // LEGACY STYLE: INameRepository
             repositoryInterface = FormatPattern(config.ApplicationInterfaceNamePattern, name);
         }
 
@@ -120,10 +108,8 @@ public static class AddApplicationMethod
         string methodCode = GenerateAppMethodString(config, cleanMethodName, useGenericRepository);
 
         return $@"using Domain.Shared;
-using Domain.Shared.Interface.Base;
 using Domain.{cleanModule}.Entities;
 {importInterfaces}
-using Domain.Shared.Entities.Responses;
 using System.Threading.Tasks;
 
 namespace {namespaceName};
@@ -139,8 +125,6 @@ public class {className}({repositoryInterface} {repositoryVar})
     {
         string cleanMethodName = name.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
         string methodCode = GenerateAppMethodString(config, cleanMethodName, useGenericRepository);
-        // Parse the string into a MethodDeclarationSyntax
-        // This helper simplifies mixing string templates with Roslyn nodes
         var tree = CSharpSyntaxTree.ParseText($"class C {{ {methodCode} }}");
         return tree.GetCompilationUnitRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
     }
@@ -150,15 +134,9 @@ public class {className}({repositoryInterface} {repositoryVar})
         var methodName = FormatPattern(config.ApplicationMethodNamePattern, cleanMethodName);
         var requestName = FormatPattern(config.RequestDtoNamePattern, cleanMethodName); 
         
-        // For Generic Repo (Endpoints), we use Domain DTO directly usually, or maintain legacy DTO pattern?
-        // User said "use existing Domain models".
-        // If legacy DTO pattern name is empty or complex, we might default to Object or dynamic.
-        // Let's assume for Service layer we still pass 'request'.
-        
         string repoCall;
         if (useGenericRepository)
         {
-            // repo.Search(request)
             string genericMethod = config.GenericRepositoryMethodNamePattern;
             repoCall = $"repository.{genericMethod}(request)";
         }
@@ -169,11 +147,11 @@ public class {className}({repositoryInterface} {repositoryVar})
         }
 
         return $@"
-    public async Task<object> {methodName}({requestName} request)
-    {{
-        return await {repoCall};
-    }}";
-    }
+                public async Task<object> {methodName}({requestName} request)
+                {{
+                    return await {repoCall};
+                }}";
+                }
 
 
 }

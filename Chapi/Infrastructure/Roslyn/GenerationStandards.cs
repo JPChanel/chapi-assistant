@@ -18,13 +18,13 @@ public static class GenerationStandards
         public string ApplicationMethodNamePattern { get; init; }
         public string ApplicationInterfaceNamePattern { get; init; } // Legacy: ISearch{0}Repository
         public string GenericRepositoryInterfacePattern { get; init; } // Modern: ISearchRepository<Req, Res>
-        public string RepositoryMethodNamePattern { get; init; } // Legacy: Search{0}
-        public string GenericRepositoryMethodNamePattern { get; init; } // Modern: Search
+        public string RepositoryMethodNamePattern { get; init; } 
+        public string GenericRepositoryMethodNamePattern { get; init; } 
         public string RequestDtoNamePattern { get; init; }
         
         // --- NUEVAS PROPIEDADES PARA ARDALIS ENDPOINTS ---
-        public string EndpointFileName { get; init; } // Nombre del archivo/clase del Endpoint (ej: Search, Execute)
-        public string EndpointRequestClassPattern { get; init; } // El DTO de Request que viene de Domain (ej: Search{0}Request)
+        public string EndpointFileName { get; init; } 
+        public string EndpointRequestClassPattern { get; init; } 
 
         public string RepositoryClassNamePattern { get; init; }
         public string RepositoryNamespaceTag { get; init; }
@@ -42,16 +42,14 @@ public static class GenerationStandards
             AppServiceMethodPattern = "search{0}",
             RequestBody = "var response = await search{0}.search{0}(request); return Results.Ok(new {{ data = response }});",
 
-            // --- REGLAS PARA LA CAPA DE APLICACIÓN ---
             ApplicationClassNamePattern = "Search{0}",
-            ApplicationMethodNamePattern = "Search{0}",
-            ApplicationInterfaceNamePattern = "ISearch{0}Repository", // Legacy
-            GenericRepositoryInterfacePattern = "ISearchRepository<Search{0}Request>", // Modern
-            RepositoryMethodNamePattern = "Search{0}", // Legacy
-            GenericRepositoryMethodNamePattern = "Search", // Modern
+            ApplicationMethodNamePattern = "search{0}",
+            ApplicationInterfaceNamePattern = "ISearch{0}Repository",
+            GenericRepositoryInterfacePattern = "ISearchRepository<Search{0}Request>", 
+            RepositoryMethodNamePattern = "Search{0}", 
+            GenericRepositoryMethodNamePattern = "Search", 
             RequestDtoNamePattern = "Search{0}Request",
             
-            // --- ENDPOINT ---
             EndpointFileName = "Search",
             EndpointRequestClassPattern = "Search{0}Request",
 
@@ -67,7 +65,6 @@ public static class GenerationStandards
             AppServiceMethodPattern = "{0:lower}",
             RequestBody = "var response = await {0:lower}.{0:lower}(request); return Results.Ok(new {{ data = response }});",
 
-            // --- REGLAS PARA LA CAPA DE APLICACIÓN ---
             ApplicationClassNamePattern = "{0}",
             ApplicationMethodNamePattern = "{0}",
             ApplicationInterfaceNamePattern = "I{0}Repository", // Legacy
@@ -76,7 +73,7 @@ public static class GenerationStandards
             GenericRepositoryMethodNamePattern = "Execute", // Modern
             RequestDtoNamePattern = "{0}Request",
             
-            // --- ENDPOINT ---
+
             EndpointFileName = "Execute", 
             EndpointRequestClassPattern = "{0}Request",
 
@@ -92,7 +89,6 @@ public static class GenerationStandards
             AppServiceMethodPattern = "Find{0}ById",
             RequestBody = "var response = await find{0}.Find{0}ById(code); return Results.Ok(new {{ data = response }});",
 
-            // --- REGLAS PARA LA CAPA DE APLICACIÓN ---
             ApplicationClassNamePattern = "Find{0}",
             ApplicationMethodNamePattern = "Find{0}ById",
             ApplicationInterfaceNamePattern = "IFind{0}Repository", // Legacy
@@ -101,10 +97,9 @@ public static class GenerationStandards
             GenericRepositoryMethodNamePattern = "Find", // Modern
             RequestDtoNamePattern = "int",
             
-            // --- ENDPOINT ---
+    
             EndpointFileName = "GetById",
-            EndpointRequestClassPattern = "int", // Ojo: EndpointBase requiere clase, int no sirve.
-            
+            EndpointRequestClassPattern = "int", 
             RepositoryClassNamePattern = "Find{0}Repository",
             RepositoryNamespaceTag = "Find"
         }

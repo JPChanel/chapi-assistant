@@ -17,7 +17,7 @@ public static class AddApiControllerMethod
     {
         if (!OperationConfigs.TryGetValue(operation.ToLower(), out var config))
         {
-            Msg.Assistant($"?? Operación no soportada: {operation}");
+            Msg.Assistant($"Operación no soportada: {operation}");
             return rollbackEntry;
         }
 
@@ -35,7 +35,6 @@ public static class AddApiControllerMethod
                 moduleName,
                 @namespace: "Http.Controllers"
             );
-            // ?? REGISTRAR CREACIÓN DE ARCHIVO
             if (rollbackEntry != null)
             {
                 RollbackManager.RecordFileCreation(rollbackEntry, filePath);
@@ -43,7 +42,6 @@ public static class AddApiControllerMethod
         }
         else if (rollbackEntry != null)
         {
-            // ?? REGISTRAR MODIFICACIÓN DE ARCHIVO
             RollbackManager.RecordFileModification(rollbackEntry, filePath, originalContent);
         }
 
@@ -61,7 +59,7 @@ public static class AddApiControllerMethod
 
         if (classNode.Members.OfType<MethodDeclarationSyntax>().Any(m => m.Identifier.Text == newMethodName))
         {
-            Msg.Assistant($"?? Ya existe el método '{newMethodName}' en {fileName}");
+            Msg.Assistant($"Ya existe el método '{newMethodName}' en {fileName}");
             return rollbackEntry;
         }
 
@@ -75,7 +73,7 @@ public static class AddApiControllerMethod
 
         var newRoot = root.ReplaceNode(classNode, finalClassNode);
         File.WriteAllText(filePath, newRoot.NormalizeWhitespace().ToFullString());
-        Msg.Assistant($"? Método '{newMethodName}' agregado a {fileName}");
+        Msg.Assistant($"Método '{newMethodName}' agregado a {fileName}");
         return rollbackEntry;
     }
 
@@ -180,7 +178,6 @@ public static class AddApiControllerMethod
         return ParameterList(SingletonSeparatedList(parameter));
     }
 
-    // ? MEJORAR: Generar controller base completo con using statements y namespaces necesarios
     public static void GenerateBaseController(
         string controllerDirectory,
         string fileName,
@@ -190,7 +187,6 @@ public static class AddApiControllerMethod
         Directory.CreateDirectory(controllerDirectory);
         var className = Path.GetFileNameWithoutExtension(fileName);
 
-        // ? AGREGAR TODOS LOS USING NECESARIOS
         var usings = new[]
         {
             UsingDirective(ParseName("Microsoft.AspNetCore.Mvc")),
@@ -254,7 +250,7 @@ public static class AddApiControllerMethod
         var filePath = Path.Combine(controllerDirectory, fileName);
         File.WriteAllText(filePath, code);
 
-        Msg.Assistant($"? Controller base creado: {fileName}");
+        Msg.Assistant($"Controller base creado: {fileName}");
     }
 }
 
