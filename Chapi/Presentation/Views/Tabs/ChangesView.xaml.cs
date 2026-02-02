@@ -14,6 +14,7 @@ using Chapi.Infrastructure.Git;
 using Chapi.Application.UseCases;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Views.Dialogs;
+using DiffPlex.DiffBuilder.Model;
 
 namespace Chapi.Presentation.Views.Tabs;
 
@@ -212,7 +213,38 @@ public partial class ChangesView : UserControl
     }
 
     private void DiffLine_ContextMenuOpening(object sender, ContextMenuEventArgs e) { }
-    private void DiffLineMenu_OpenFile_Click(object sender, RoutedEventArgs e) { }
+    private void DiffLineMenu_OpenFile_Click(object sender, RoutedEventArgs e) 
+    {
+        if (sender is MenuItem mi && mi.DataContext is DiffPiece line && _viewModel?.SelectedChange != null)
+        {
+            try
+            {
+                string projectPath = _viewModel.ProjectPath;
+                string filePath = _viewModel.SelectedChange.FilePath;
+                string fullPath = Path.Combine(projectPath, filePath);
+                
+                // En DiffPlex, Position es la linea en el archivo nuevo (si es Inserted o Unchanged)
+                // Si es Deleted, Position es la linea en el archivo viejo.
+                // Para abrir el archivo actual, necesitamos la posicion en el archivo nuevo.
+                int? lineNum = line.Position;
+
+                if (lineNum.HasValue)
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "code",
+                        Arguments = $"--goto \"{fullPath}:{lineNum}\"",
+                        UseShellExecute = true,
+                        CreateNoWindow = true
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"No se pudo abrir VS Code en la linea: {ex.Message}");
+            }
+        }
+    }
 
     private void ToggleStashView_Click(object sender, RoutedEventArgs e)
     {
