@@ -237,7 +237,8 @@
                                                 BorderBrush="{TemplateBinding BorderBrush}" 
                                                 BorderThickness="{TemplateBinding BorderThickness}" 
                                                 CornerRadius="6"
-                                                SnapsToDevicePixels="True">
+                                                SnapsToDevicePixels="True"
+                                                Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
                                             <Border.ContextMenu>
                                                 <ContextMenu>
                                                     <MenuItem Header="Show in Explorer" Click="ProjectMenuItem_OpenExplorer_Click" CommandParameter="{Binding}">
@@ -267,7 +268,7 @@
                                                         </MenuItem.Icon>
                                                     </MenuItem>
                                                     <Separator />
-                                                    <MenuItem Header="View on Web" Click="ProjectMenuItem_OpenGitHub_Click" CommandParameter="{Binding}" IsEnabled="{Binding DataContext.SelectedCommit.IsSynced, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                                    <MenuItem Header="View on Web" Click="ProjectMenuItem_OpenGitHub_Click" CommandParameter="{Binding}" IsEnabled="{Binding PlacementTarget.Tag.SelectedCommit.IsSynced, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                                         <MenuItem.Icon>
                                                             <materialDesign:PackIcon Kind="Web" />
                                                         </MenuItem.Icon>
