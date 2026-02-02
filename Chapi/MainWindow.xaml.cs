@@ -490,20 +490,44 @@ namespace Chapi
                 if (currentProject.Behind > 0)
                 {
                     _currentGitAction = GitActionState.Pull;
-                    if (icon != null) icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudDownloadOutline;
-                    if (textBlock != null) textBlock.Text = $"Pull Origin ({currentProject.Behind} ↓)";
+                    if (icon != null) 
+                    {
+                        icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudDownloadOutline;
+                        icon.Foreground = Brushes.DeepSkyBlue;
+                    }
+                    if (textBlock != null) 
+                    {
+                        textBlock.Text = $"Pull Origin ({currentProject.Behind} ↓)";
+                        textBlock.Foreground = Brushes.DeepSkyBlue;
+                    }
                 }
                 else if (currentProject.Ahead > 0)
                 {
                     _currentGitAction = GitActionState.Push;
-                    if (icon != null) icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudUploadOutline;
-                    if (textBlock != null) textBlock.Text = $"Push Origin ({currentProject.Ahead} ↑)";
+                    if (icon != null) 
+                    {
+                        icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudUploadOutline;
+                        icon.Foreground = Brushes.Orange;
+                    }
+                    if (textBlock != null) 
+                    {
+                        textBlock.Text = $"Push Origin ({currentProject.Ahead} ↑)";
+                        textBlock.Foreground = Brushes.Orange;
+                    }
                 }
                 else
                 {
                     _currentGitAction = GitActionState.Fetch;
-                    if (icon != null) icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.Refresh;
-                    if (textBlock != null) textBlock.Text = "Fetch Origin";
+                    if (icon != null) 
+                    {
+                        icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.Refresh;
+                        icon.ClearValue(System.Windows.Controls.Control.ForegroundProperty);
+                    } 
+                    if (textBlock != null) 
+                    {
+                        textBlock.Text = "Fetch Origin";
+                        textBlock.ClearValue(TextBlock.ForegroundProperty);
+                    }
                 }
                 
                 // Aseguramos que se muestre el item dinamico

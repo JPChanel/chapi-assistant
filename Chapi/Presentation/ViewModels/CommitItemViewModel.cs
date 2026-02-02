@@ -64,5 +64,8 @@ public class CommitItemViewModel : ViewModelBase
         set => SetProperty(ref _isSynced, value);
     }
 
+    // Propiedad conveniente para bindings que esperan "IsUnpushed"
+    public bool IsUnpushed => !IsSynced;
+
     public string Summary => _message?.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
 }

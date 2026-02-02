@@ -199,7 +199,6 @@
                     <!-- Commit Detail Header -->
                     <Border Grid.Row="0" x:Name="CommitDetailContainer" Padding="25,30,25,20" Visibility="Visible">
                         <StackPanel>
-                            <TextBlock x:Name="CommitSummaryMessage" Text="{Binding SelectedCommit.Message, FallbackValue='SIN INFORMACI “N'}" FontSize="22" FontWeight="Black" Foreground="White" TextWrapping="Wrap" LineHeight="28"/>
                             
                             <Border Margin="0,20,0,0" Padding="0" Background="Transparent">
                                 <StackPanel Orientation="Horizontal">
