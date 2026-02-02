@@ -312,7 +312,8 @@
                               materialDesign:TextFieldAssist.HasClearButton="False"
                               Style="{StaticResource MaterialDesignOutlinedComboBox}"
                               SelectionChanged="GitActionsComboBox_SelectionChanged"
-                              PreviewMouseLeftButtonDown="GitActionsComboBox_PreviewMouseLeftButtonDown">
+                              PreviewMouseLeftButtonDown="GitActionsComboBox_PreviewMouseLeftButtonDown"
+                              PreviewMouseRightButtonDown="GitActionsComboBox_PreviewMouseRightButtonDown">
                         <ComboBox.Visibility>
                             <Binding Path="NeedsPublish" RelativeSource="{RelativeSource AncestorType=Window}" 
                                      Converter="{StaticResource InverseBooleanToVisibilityConverter}"/>

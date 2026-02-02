@@ -33,7 +33,7 @@
                           BorderThickness="0" 
                           Padding="5,4"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                          ScrollViewer.VerticalScrollBarVisibility="Hidden">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
                             <Setter Property="Padding" Value="0"/>
@@ -188,7 +188,7 @@
         </Border>
 
         <Border Grid.Column="1" Background="Transparent" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ScrollViewer VerticalScrollBarVisibility="Hidden">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -374,7 +374,7 @@
                             <TextBlock x:Name="HistoryDiffFileName" Text="{Binding SelectedFile, TargetNullValue='VISOR DE C “DIGO'}" FontSize="10" FontWeight="Bold" Foreground="#8A7BB1" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Auto">
                         <ItemsControl x:Name="HistoryDiffLinesItemsControl" 
                                       ItemsSource="{Binding DiffLines}"
                                       FontFamily="Consolas" 

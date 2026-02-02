@@ -312,7 +312,7 @@ namespace Chapi
             });
         }
 
-        #region âœ… UI Helpers
+        #region  UI Helpers
         private void ShowLoading() => LoadingOverlay.Visibility = Visibility.Visible;
         private void HideLoading() => LoadingOverlay.Visibility = Visibility.Collapsed;
 
@@ -323,7 +323,7 @@ namespace Chapi
         }
         #endregion
 
-        #region âœ… Project Context Menu Handlers
+        #region Project Context Menu Handlers
         private string GetPathFromMenuItem(object sender)
         {
             if (sender is MenuItem menuItem && menuItem.CommandParameter is string path)
@@ -385,7 +385,7 @@ namespace Chapi
         }
         #endregion
 
-        #region âœ… Project Management
+        #region Project Management
 
         private async void ShowCloneDialog()
         {
@@ -494,6 +494,7 @@ namespace Chapi
                 if (currentProject.Behind > 0)
                 {
                     _currentGitAction = GitActionState.Pull;
+                    GitActionsComboBox.BorderBrush = Brushes.DeepSkyBlue;
                     if (icon != null) 
                     {
                         icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudDownloadOutline;
@@ -508,6 +509,7 @@ namespace Chapi
                 else if (currentProject.Ahead > 0)
                 {
                     _currentGitAction = GitActionState.Push;
+                    GitActionsComboBox.BorderBrush = Brushes.Orange;
                     if (icon != null) 
                     {
                         icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudUploadOutline;
@@ -522,6 +524,7 @@ namespace Chapi
                 else
                 {
                     _currentGitAction = GitActionState.Fetch;
+                    GitActionsComboBox.ClearValue(System.Windows.Controls.Control.BorderBrushProperty);
                     if (icon != null) 
                     {
                         icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.Refresh;
@@ -932,13 +935,25 @@ namespace Chapi
                 // Las notificaciones de exito/error ya son manejadas por los Casos de Uso
 
                 // Actualizar todo
+                await LoadHistoryAsync();
                 _ = DoFetchAsync(isSilent: true);
             });
         }
 
-        private void GitActionsComboBox_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private async void GitActionsComboBox_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            // Permitir comportamiento normal
+            // Comportamiento "Split Button" solicitado:
+            // Click Izquierdo: Ejecuta la acción actual (Fetch/Pull/Push) y BLOQUEA el dropdown
+            e.Handled = true; // Importante: Evita que el ComboBox procese el evento y abra el popup
+
+            await ExecuteGitAction(_currentGitAction);
+        }
+
+        private void GitActionsComboBox_PreviewMouseRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // Click Derecho: Abre el dropdown para ver mas opciones
+            e.Handled = true;
+            GitActionsComboBox.IsDropDownOpen = true;
         }
         #endregion
 
