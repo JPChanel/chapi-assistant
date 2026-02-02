@@ -221,28 +221,88 @@ public partial class ChangesView : UserControl
             {
                 string projectPath = _viewModel.ProjectPath;
                 string filePath = _viewModel.SelectedChange.FilePath;
-                string fullPath = Path.Combine(projectPath, filePath);
-                
-                // En DiffPlex, Position es la linea en el archivo nuevo (si es Inserted o Unchanged)
-                // Si es Deleted, Position es la linea en el archivo viejo.
-                // Para abrir el archivo actual, necesitamos la posicion en el archivo nuevo.
                 int? lineNum = line.Position;
 
-                if (lineNum.HasValue)
-                {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = "code",
-                        Arguments = $"--goto \"{fullPath}:{lineNum}\"",
-                        UseShellExecute = true,
-                        CreateNoWindow = true
-                    });
-                }
+                if (!lineNum.HasValue) return;
+
+                SmartOpenFileInEditor(projectPath, filePath, lineNum.Value);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"No se pudo abrir VS Code en la linea: {ex.Message}");
+                MessageBox.Show($"No se pudo abrir el editor: {ex.Message}");
             }
+        }
+    }
+
+    private void SmartOpenFileInEditor(string projectPath, string filePath, int lineNum)
+    {
+        string projectName = new DirectoryInfo(projectPath).Name;
+        var processes = System.Diagnostics.Process.GetProcesses();
+        
+        // 1. Buscar el editor que tiene este proyecto abierto (Detección por Título)
+        var activeEditor = processes
+            .Where(p => (p.ProcessName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) || 
+                         p.ProcessName.Equals("Code", StringComparison.OrdinalIgnoreCase) || 
+                         p.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase)) &&
+                        p.MainWindowTitle.Contains(projectName, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(p => p.ProcessName.Contains("Antigravity") ? 0 : (p.ProcessName.Equals("Code") ? 1 : 2))
+            .FirstOrDefault();
+
+        // 2. Determinar si es WSL
+        bool isWsl = projectPath.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) || 
+                     projectPath.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase);
+
+        // 3. Obtener Paths
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var agyExePath = Path.Combine(localAppData, "Programs", "Antigravity", "Antigravity.exe");
+        string fullPath = Path.Combine(projectPath, filePath);
+
+        // 4. Lógica de lanzamiento según el editor detectado o disponible
+        if (activeEditor != null && activeEditor.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase))
+        {
+            // Caso: Visual Studio
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "devenv.exe",
+                Arguments = $"/Edit \"{fullPath}\" /Command \"Edit.GoTo {lineNum}\"",
+                UseShellExecute = true
+            });
+        }
+        else
+        {
+            // Caso: Antigravity o VS Code (ambos usan parámetros similares)
+            string editorExe = "code"; // Default
+            if (activeEditor?.ProcessName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) == true || 
+                (activeEditor == null && File.Exists(agyExePath)))
+            {
+                editorExe = agyExePath;
+            }
+
+            string arguments = "";
+            if (isWsl)
+            {
+                var parts = projectPath.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 2)
+                {
+                    string distro = parts[1];
+                    string linuxPath = "/" + string.Join("/", parts.Skip(2)).Replace("\\", "/");
+                    string fileLinuxPath = (linuxPath.TrimEnd('/') + "/" + filePath.Replace("\\", "/")).Replace("//", "/");
+                    string remoteUri = $"vscode-remote://wsl+{distro}{fileLinuxPath}";
+                    arguments = $"--reuse-window --goto \"{remoteUri}:{lineNum}\"";
+                }
+            }
+            else
+            {
+                arguments = $"--reuse-window --goto \"{fullPath}:{lineNum}\"";
+            }
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = editorExe,
+                Arguments = arguments,
+                UseShellExecute = true,
+                CreateNoWindow = true
+            });
         }
     }
 
