@@ -360,7 +360,10 @@ namespace Chapi
             if (string.IsNullOrEmpty(path)) return;
             try
             {
-                string sln = Directory.GetFiles(path, "*.sln").FirstOrDefault();
+                var sln = Directory.EnumerateFiles(path)
+                   .FirstOrDefault(f =>
+                       f.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) ||
+                       f.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase));
                 if (sln != null) Process.Start(new ProcessStartInfo { FileName = sln, UseShellExecute = true });
             }
             catch (Exception ex) { Msg.Assistant($"Error al abrir Visual Studio: {ex.Message}"); }
@@ -378,8 +381,33 @@ namespace Chapi
         {
             string path = GetPathFromMenuItem(sender);
             if (string.IsNullOrEmpty(path)) return;
-            try { Process.Start(new ProcessStartInfo { FileName = "antigravity", Arguments = $"\"{path}\"", UseShellExecute = true }); }
-            catch { Msg.Assistant("Antigravity no detectado."); }
+            
+            try 
+            { 
+                if (path.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) || path.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase))
+                {
+                     var parts = path.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+                     if (parts.Length > 2)
+                     {
+                         string distro = parts[1];
+                         string linuxPath = "/" + string.Join("/", parts.Skip(2));
+
+                         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                         var agyExePath = System.IO.Path.Combine(localAppData, "Programs", "Antigravity", "Antigravity.exe");
+                         string remoteUri = $"vscode-remote://wsl+{distro}{linuxPath}";
+                         Process.Start(new ProcessStartInfo
+                         {
+                             FileName = agyExePath,
+                             Arguments = $"--folder-uri \"{remoteUri}\"",
+                             UseShellExecute = true
+                         });
+                        return;
+                     }
+                }
+
+                Process.Start(new ProcessStartInfo { FileName = "antigravity", Arguments = $"\"{path}\"", UseShellExecute = true }); 
+            }
+            catch { Msg.Assistant("Antigravity no detectado o error al abrir."); }
         }
 
         private void ProjectMenuItem_OpenCmd_Click(object sender, RoutedEventArgs e)
