@@ -435,7 +435,16 @@ namespace Chapi
             });
         }
 
-        private async Task CheckGitInstallationAsync() => _isGitInstalled = Git.IsGitInstalled();
+        private async Task CheckGitInstallationAsync()
+        {
+            _isGitInstalled = Git.IsGitInstalled();
+            if (_isGitInstalled)
+            {
+                // Estrategia "PreFetch" original: Actualizar todos los proyectos al inicio
+                // para que cuando el usuario despliegue el combo, ya vea los numeritos.
+                await UpdateProjectStatusesAsync();
+            }
+        }
 
         private async Task DoFetchAsync(bool isSilent = false)
         {
@@ -453,6 +462,12 @@ namespace Chapi
 
         public async Task UpdateProjectStatusesAsync(List<ProjectViewModel>? projects = null)
         {
+            if (!Dispatcher.CheckAccess())
+            {
+                await Dispatcher.InvokeAsync(async () => await UpdateProjectStatusesAsync(projects));
+                return;
+            }
+
             if (projects == null)
             {
                 if (ProjectsComboBox.ItemsSource is List<ProjectViewModel> list) projects = list;
@@ -461,15 +476,14 @@ namespace Chapi
 
             var useCase = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Projects.UpdateProjectIndicatorsUseCase>();
 
-            // Ejecutar actualizaciones en paralelo
             var tasks = projects.Select(proj => useCase.ExecuteAsync(proj.FullPath, (ahead, behind) =>
             {
                 Dispatcher.Invoke(() =>
                 {
+                    bool changed = proj.Ahead != ahead || proj.Behind != behind;
                     proj.Ahead = ahead;
-                    proj.Behind = behind;
-                    
-                    if (proj.FullPath == projectDirectory)
+                    proj.Behind = behind;                
+                    if (changed && proj.FullPath == projectDirectory && !ProjectsComboBox.IsDropDownOpen)
                     {
                         UpdateGitActionButton();
                     }

@@ -26,7 +26,8 @@ public partial class HistoryView : UserControl
                 {
                     // Solo permitir Undo si el commit NO está sincronizado (es local)
                     // Y es el último commit (index 0) - simplificación para evitar conflictos
-                    undoItem.Visibility = (!commit.IsSynced) ? Visibility.Visible : Visibility.Collapsed;
+                    undoItem.IsEnabled = !commit.IsSynced;
+                    undoItem.ToolTip = undoItem.IsEnabled ? "Deshacer este commit manteniendo cambios" : "No se puede deshacer un commit ya subido al servidor";
                 }
             }
         }
