@@ -113,11 +113,19 @@ public partial class ChangesView : UserControl
         }
     }
 
-    private void DiscardChangesMenuItem_Click(object sender, RoutedEventArgs e)
+    private async void DiscardChangesMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuItem mi && mi.CommandParameter is ChangeItemViewModel item)
         {
-            _viewModel?.DiscardCommand.Execute(item);
+            var result = await DialogService.ShowConfirmDialog(
+                "Confirmar Descarte",
+                $"¿Estás seguro de que deseas descartar los cambios en '{item.FileName}'?\n\nEsta acción no se puede deshacer.",
+                DialogVariant.Warning);
+
+            if (result)
+            {
+                await _viewModel?.DiscardCommand.ExecuteAsync(item);
+            }
         }
     }
 
