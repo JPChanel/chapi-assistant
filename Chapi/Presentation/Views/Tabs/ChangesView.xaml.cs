@@ -237,41 +237,117 @@ public partial class ChangesView : UserControl
     private void SmartOpenFileInEditor(string projectPath, string filePath, int lineNum)
     {
         string projectName = new DirectoryInfo(projectPath).Name;
-        var processes = System.Diagnostics.Process.GetProcesses();
+        string fullPath = Path.Combine(projectPath, filePath);
         
-        // 1. Buscar el editor que tiene este proyecto abierto (Detección por Título)
+        bool isDotNet = IsDotNetProject(projectPath, filePath);
+
+        if (isDotNet)
+        {
+            try
+            {
+                var slnFile = Directory.EnumerateFiles(projectPath, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                if (slnFile != null)
+                {
+                    projectName = Path.GetFileNameWithoutExtension(slnFile);
+                }
+            }
+            catch { /* Fallback al nombre del directorio */ }
+        }
+
+        var processes = System.Diagnostics.Process.GetProcesses();
+
         var activeEditor = processes
-            .Where(p => (p.ProcessName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) || 
-                         p.ProcessName.Equals("Code", StringComparison.OrdinalIgnoreCase) || 
-                         p.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase)) &&
-                        p.MainWindowTitle.Contains(projectName, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(p => p.ProcessName.Contains("Antigravity") ? 0 : (p.ProcessName.Equals("Code") ? 1 : 2))
+            .Where(p => 
+            {
+                try
+                {
+                    bool isMajorEditor = p.ProcessName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) || 
+                                         p.ProcessName.Equals("Code", StringComparison.OrdinalIgnoreCase) || 
+                                         p.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase);
+                    
+                    if (!isMajorEditor || string.IsNullOrEmpty(p.MainWindowTitle)) return false;
+
+                    if (p.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return p.MainWindowTitle.Contains(projectName, StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    return p.MainWindowTitle.Contains(projectName, StringComparison.OrdinalIgnoreCase);
+                }
+                catch { return false; }
+            })
+            .OrderBy(p => 
+            {
+                if (isDotNet)
+                {
+                    if (p.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase)) return 0;
+                    if (p.ProcessName.Contains("Antigravity")) return 1;
+                    return 2; // Code
+                }
+                else
+                {
+                    if (p.ProcessName.Contains("Antigravity")) return 0;
+                    if (p.ProcessName.Equals("Code", StringComparison.OrdinalIgnoreCase)) return 1;
+                    return 2; 
+                }
+            })
             .FirstOrDefault();
 
-        // 2. Determinar si es WSL
         bool isWsl = projectPath.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) || 
                      projectPath.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase);
 
-        // 3. Obtener Paths
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var agyExePath = Path.Combine(localAppData, "Programs", "Antigravity", "Antigravity.exe");
-        string fullPath = Path.Combine(projectPath, filePath);
 
-        // 4. Lógica de lanzamiento según el editor detectado o disponible
+        if (isDotNet && (activeEditor == null || activeEditor.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase)))
+        {
+            try
+            {
+                string? slnFile = null;
+                string? currentDir = Path.GetDirectoryName(fullPath);
+                
+                while (!string.IsNullOrEmpty(currentDir) && currentDir.StartsWith(projectPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    slnFile = Directory.EnumerateFiles(currentDir, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                    if (slnFile != null) break;
+                    currentDir = Path.GetDirectoryName(currentDir);
+                }
+
+                if (slnFile == null)
+                    slnFile = Directory.EnumerateFiles(projectPath, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+
+                if (slnFile == null)
+                    slnFile = Directory.EnumerateFiles(projectPath, "*.sln", SearchOption.AllDirectories).FirstOrDefault();
+                
+                if (slnFile != null)
+                {
+                    string devenvPath = GetVisualStudioPath(activeEditor);
+
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = devenvPath,
+                        Arguments = $"/Edit \"{fullPath}\" /Command \"Edit.GoTo {lineNum}\"",
+                        UseShellExecute = true
+                    });
+                    return;
+                }
+            }
+            catch { }
+        }
+
         if (activeEditor != null && activeEditor.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase))
         {
-            // Caso: Visual Studio
+            string devenvPath = GetVisualStudioPath(activeEditor);
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "devenv.exe",
+                FileName = devenvPath,
                 Arguments = $"/Edit \"{fullPath}\" /Command \"Edit.GoTo {lineNum}\"",
                 UseShellExecute = true
             });
         }
         else
         {
-            // Caso: Antigravity o VS Code (ambos usan parámetros similares)
-            string editorExe = "code"; // Default
+            string editorExe = "code";
             if (activeEditor?.ProcessName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) == true || 
                 (activeEditor == null && File.Exists(agyExePath)))
             {
@@ -279,7 +355,9 @@ public partial class ChangesView : UserControl
             }
 
             string arguments = "";
-            if (isWsl)
+            bool isCodeEditor = editorExe.Equals("code", StringComparison.OrdinalIgnoreCase);
+
+            if (isWsl && isCodeEditor)
             {
                 var parts = projectPath.Split('\\', StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length >= 2)
@@ -304,6 +382,49 @@ public partial class ChangesView : UserControl
                 CreateNoWindow = true
             });
         }
+    }
+
+    private bool IsDotNetProject(string projectPath, string filePath)
+    {
+        if (!string.IsNullOrEmpty(filePath))
+        {
+            string ext = Path.GetExtension(filePath).ToLower();
+            string[] dotNetExtensions = { ".cs", ".csproj", ".sln", ".vb", ".vbproj", ".xaml", ".axaml", ".razor", ".resx", ".config" };
+            if (dotNetExtensions.Contains(ext)) return true;
+        }
+        if (string.IsNullOrEmpty(projectPath) || !Directory.Exists(projectPath)) return false;
+        if (Directory.EnumerateFiles(projectPath, "*.sln", SearchOption.TopDirectoryOnly).Any() ||
+            Directory.EnumerateFiles(projectPath, "*.csproj", SearchOption.TopDirectoryOnly).Any()) return true;
+        try
+        {
+            return Directory.EnumerateFiles(projectPath, "*.csproj", SearchOption.AllDirectories).Any() ||
+                   Directory.EnumerateFiles(projectPath, "*.sln", SearchOption.AllDirectories).Any();
+        }
+        catch { return false; }
+    }
+
+    private string GetVisualStudioPath(System.Diagnostics.Process? activeEditor)
+    {
+        if (activeEditor != null && activeEditor.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                string? exePath = activeEditor.MainModule?.FileName;
+                if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath)) return exePath;
+            }
+            catch { }
+        }
+
+        string[] commonPaths = {
+            @"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\devenv.exe",
+            @"C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\devenv.exe",
+            @"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\devenv.exe",
+            @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\IDE\devenv.exe",
+            @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\Common7\IDE\devenv.exe",
+            @"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\devenv.exe"
+        };
+        foreach (var path in commonPaths) { if (File.Exists(path)) return path; }
+        return "devenv.exe";
     }
 
     private void ToggleStashView_Click(object sender, RoutedEventArgs e)
