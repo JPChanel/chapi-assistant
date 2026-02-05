@@ -273,11 +273,18 @@ public class ChangesViewModel : ViewModelBase
     private string _authenticatedUserName;
     private Chapi.Domain.Enums.GitProvider _authenticatedProvider;
     private bool _isAuthenticated;
+    private string _gitUserEmail = string.Empty;
 
     public string AuthenticatedUserName
     {
         get => _authenticatedUserName;
-        set => SetProperty(ref _authenticatedUserName, value);
+        set
+        {
+            if (SetProperty(ref _authenticatedUserName, value))
+            {
+                OnPropertyChanged(nameof(DisplayUserName));
+            }
+        }
     }
 
     public Chapi.Domain.Enums.GitProvider AuthenticatedProvider
@@ -306,7 +313,8 @@ public class ChangesViewModel : ViewModelBase
         set 
         { 
             SetProperty(ref _isUserLoggedIn, value); 
-            OnPropertyChanged(nameof(ProviderColor)); 
+            OnPropertyChanged(nameof(ProviderColor));
+            OnPropertyChanged(nameof(DisplayUserName));
         }
     }
 
@@ -323,6 +331,34 @@ public class ChangesViewModel : ViewModelBase
         Chapi.Domain.Enums.GitProvider.GitLab => System.Windows.Media.Brushes.Orange,
         _ => System.Windows.Media.Brushes.Gray
     }) : System.Windows.Media.Brushes.Gray;
+
+    public string GitUserEmail
+    {
+        get => _gitUserEmail;
+        set => SetProperty(ref _gitUserEmail, value);
+    }
+
+    private string _gitUserName = string.Empty;
+    public string GitUserName
+    {
+        get => _gitUserName;
+        set
+        {
+            if (SetProperty(ref _gitUserName, value))
+            {
+                OnPropertyChanged(nameof(DisplayUserName));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Retorna el username para mostrar en el avatar
+    /// Prioridad: AuthenticatedUserName (si está logueado) > GitUserName (config local)
+    /// </summary>
+    public string DisplayUserName => 
+        !string.IsNullOrWhiteSpace(AuthenticatedUserName) && IsUserLoggedIn 
+            ? AuthenticatedUserName 
+            : GitUserName;
 
     public ICommand ConnectAccountCommand => new AsyncRelayCommand(async _ => await ConnectAccountAsync());
     
@@ -435,6 +471,9 @@ public class ChangesViewModel : ViewModelBase
         
         // Verificar estado de autenticacion
         await LoadAuthStatusAsync();
+        
+        // Cargar email del usuario de Git
+        await LoadGitUserEmailAsync();
     }
 
     private async Task LoadAuthStatusAsync()
@@ -511,6 +550,45 @@ public class ChangesViewModel : ViewModelBase
         finally
         {
             IsLoading = false;
+        }
+    }
+
+    private async Task LoadGitUserEmailAsync()
+    {
+        if (string.IsNullOrEmpty(ProjectPath)) return;
+
+        try
+        {
+            // Obtener el email y nombre del usuario de Git configurado globalmente
+            var email = await _gitRepository.GetConfigAsync("user.email", global: true);
+            var name = await _gitRepository.GetConfigAsync("user.name", global: true);
+            
+            GitUserEmail = email ?? string.Empty;
+            GitUserName = name ?? string.Empty;
+            
+            if (string.IsNullOrWhiteSpace(GitUserEmail))
+            {
+                System.Diagnostics.Debug.WriteLine($"⚠️ Email de Git no configurado. Ejecuta: git config --global user.email \"tu@email.com\"");
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"✅ Email de Git cargado: {GitUserEmail}");
+            }
+            
+            if (string.IsNullOrWhiteSpace(GitUserName))
+            {
+                System.Diagnostics.Debug.WriteLine($"⚠️ Nombre de Git no configurado. Ejecuta: git config --global user.name \"Tu Nombre\"");
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"✅ Nombre de Git cargado: {GitUserName}");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ Error obteniendo config de Git: {ex.Message}");
+            GitUserEmail = string.Empty;
+            GitUserName = string.Empty;
         }
     }
 

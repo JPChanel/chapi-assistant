@@ -13,6 +13,8 @@
     <UserControl.Resources>
         <converters:IntegerToVisibilityConverter x:Key="IntegerToVisibilityConverter"/>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:EmailToGravatarConverter x:Key="EmailToGravatarConverter"/>
+        <converters:GitHubAvatarConverter x:Key="GitHubAvatarConverter"/>
     </UserControl.Resources>
 
     <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Background="#1A132D">
@@ -161,11 +163,41 @@
                                 </Button>
                             </Grid>
 
-                            <TextBox x:Name="txtCommitSummary"
-                                     materialDesign:HintAssist.Hint="Resumen del commit"
-                                     Margin="0,0,0,10"
-                                     Text="{Binding CommitSummary, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <!-- Avatar de GitHub -->
+                                <Border Grid.Column="0" 
+                                        Width="40" 
+                                        Height="40" 
+                                        CornerRadius="20" 
+                                        Margin="0,0,10,0"
+                                        VerticalAlignment="Top"
+                                        BorderBrush="#5C6BC0"
+                                        BorderThickness="0"
+                                        ToolTip="{Binding DisplayUserName, StringFormat='@{0}'}">
+                                    <Border.Clip>
+                                        <EllipseGeometry Center="20,20" RadiusX="20" RadiusY="20"/>
+                                    </Border.Clip>
+                                    <Image Stretch="UniformToFill">
+                                        <Image.Source>
+                                            <Binding Path="DisplayUserName" 
+                                                     Converter="{StaticResource GitHubAvatarConverter}"
+                                                     ConverterParameter="80"/>
+                                        </Image.Source>
+                                    </Image>
+                                </Border>
+                                
+                                <!-- Campo de mensaje -->
+                                <TextBox x:Name="txtCommitSummary"
+                                         Grid.Column="1"
+                                         materialDesign:HintAssist.Hint="Resumen del commit"
+                                         Text="{Binding CommitSummary, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                            </Grid>
 
                             <TextBox x:Name="txtCommitDescription"
                                      materialDesign:HintAssist.Hint="Descripcion (opcional)"

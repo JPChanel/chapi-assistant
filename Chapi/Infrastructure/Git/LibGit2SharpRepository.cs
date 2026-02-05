@@ -499,13 +499,31 @@ public class LibGit2SharpRepository : IGitRepository
         {
             try
             {
-                // Intentar cargar la configuración global desde la ruta estándar si el método estático no está disponible
-                string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
-                using var config = global ? global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath) : null;
-                if (config == null) return string.Empty;
-                return config.Get<string>(key)?.Value ?? string.Empty;
+                if (global)
+                {
+                    // Configuración global desde .gitconfig
+                    string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
+                    if (!File.Exists(globalConfigPath)) return string.Empty;
+                    
+                    using var config = global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath);
+                    return config.Get<string>(key)?.Value ?? string.Empty;
+                }
+                else
+                {
+                    // Configuración local del repositorio (necesita projectPath)
+                    // Como no tenemos projectPath aquí, intentamos global
+                    string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
+                    if (!File.Exists(globalConfigPath)) return string.Empty;
+                    
+                    using var config = global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath);
+                    return config.Get<string>(key)?.Value ?? string.Empty;
+                }
             }
-            catch { return string.Empty; }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error en GetConfigAsync: {ex.Message}");
+                return string.Empty;
+            }
         });
     }
 
