@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,9 +10,7 @@ namespace Chapi.Infrastructure.Persistence.Settings;
 
 public static class UserSettingsService
 {
-    // Usa la misma carpeta base
     private static readonly string AppDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Chapi");
-    // Pero un archivo DIFERENTE
     private static readonly string SettingsFilePath = Path.Combine(AppDataPath, "user.api.settings.json");
 
     static UserSettingsService()
@@ -20,14 +18,11 @@ public static class UserSettingsService
         Directory.CreateDirectory(AppDataPath);
     }
 
-    /// <summary>
-    /// Carga las configuraciones de API del usuario.
-    /// </summary>
     public static UserApiSettings LoadSettings()
     {
         if (!File.Exists(SettingsFilePath))
         {
-            return new UserApiSettings(); // Devuelve uno vacío si no existe
+            return new UserApiSettings();
         }
 
         try
@@ -37,26 +32,29 @@ public static class UserSettingsService
         }
         catch (Exception)
         {
-            return new UserApiSettings(); // Devuelve uno vacío si hay error
+            return new UserApiSettings();
         }
     }
 
-    /// <summary>
-    /// Guarda las configuraciones de API del usuario.
-    /// </summary>
     public static void SaveSettings(UserApiSettings settings)
     {
         var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(SettingsFilePath, json);
     }
 }
+
 public class UserApiSettings
 {
-    public string GeminiApiKey { get; set; }
+    public string GeminiApiKey { get; set; } = string.Empty;
 
     public bool ProxyEnabled { get; set; } = false;
-    public string ProxyUrl { get; set; }
-    public string ProxyUser { get; set; }
-    public string ProxyPass { get; set; }
+    public string ProxyUrl { get; set; } = string.Empty;
+    public string ProxyUser { get; set; } = string.Empty;
+    public string ProxyPass { get; set; } = string.Empty;
 
+    // GitHub Auth
+    public string GitHubToken { get; set; } = string.Empty;
+    public string GitHubUserLogin { get; set; } = string.Empty;
+    public string GitHubUserName { get; set; } = string.Empty;
+    public string GitHubUserAvatar { get; set; } = string.Empty;
 }

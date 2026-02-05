@@ -59,11 +59,22 @@ namespace Chapi
             // Infrastructure - Git
             services.AddSingleton<GitCommandExecutor>();
             services.AddSingleton<GitOutputParser>();
-            services.AddSingleton<IGitRepository, GitRepository>();
+            services.AddSingleton<IGitRepository, Chapi.Infrastructure.Git.LibGit2SharpRepository>();
+
+            // Configuración Auth
+            services.Configure<Chapi.Infrastructure.Configuration.GitAuthConfig>(Configuration.GetSection("GitAuth"));
+
+            // Infrastructure - Auth Services
+            services.AddSingleton<ICredentialStorageService, WindowsCredentialStorageService>();
+            services.AddSingleton<System.Net.Http.HttpClient>();
+            services.AddSingleton<Chapi.Infrastructure.Services.Auth.GitHubOAuthProvider>();
+            services.AddSingleton<Chapi.Infrastructure.Services.Auth.GitLabOAuthProvider>();
+            services.AddSingleton<IGitAuthProviderFactory, Chapi.Infrastructure.Services.Auth.GitAuthProviderFactory>();
 
             // Infrastructure - Services
             services.AddSingleton<INotificationService, MessageNotificationService>();
             services.AddSingleton<IModuleGeneratorService, ModuleGeneratorService>();
+            services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
 
             // Application - Use Cases
             services.AddTransient<UseCases.CommitChangesUseCase>();
@@ -108,6 +119,9 @@ namespace Chapi
             services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddDomainMethodUseCase>();
             services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddInfrastructureMethodUseCase>();
 
+            // Application - Auth
+            services.AddTransient<Chapi.Application.UseCases.Auth.LoginGitHubUseCase>();
+
             // Infrastructure - Template Service
             services.AddSingleton<ITemplateService, ProjectTemplateService>();
             services.AddSingleton<IProjectRepository, Chapi.Infrastructure.Persistence.Settings.ProjectSettingsRepository>();
@@ -117,6 +131,8 @@ namespace Chapi
             services.AddSingleton<Presentation.ViewModels.HistoryViewModel>();
             services.AddSingleton<Presentation.ViewModels.AssistantViewModel>();
             services.AddSingleton<Presentation.ViewModels.ReleasesViewModel>();
+            services.AddTransient<Presentation.ViewModels.LoginGitHubViewModel>();
+            services.AddTransient<Presentation.ViewModels.GitProviderSelectionViewModel>();
 
             ServiceProvider = services.BuildServiceProvider();
         }

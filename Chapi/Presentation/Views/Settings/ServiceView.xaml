@@ -106,8 +106,18 @@
                                  Style="{StaticResource NavButtonStyle}"
                                  Click="NavButton_Click">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="RouterNetwork" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="Configuración Red"/>
+                            <materialDesign:PackIcon Kind="Web" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Configuración de Red"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="NavButtonGitHub"
+                                 GroupName="Navigation"
+                                 Style="{StaticResource NavButtonStyle}"
+                                 Click="NavButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Github" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Cuentas Git"/>
                         </StackPanel>
                     </RadioButton>
 
@@ -233,6 +243,44 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
+
+            <StackPanel x:Name="ViewConfiguracionGitHub" Visibility="Collapsed">
+                <Border Background="White" CornerRadius="8" Padding="24" BorderBrush="#e5e7eb" BorderThickness="1" Margin="0,20,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Cuentas Conectadas" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10"/>
+                        <TextBlock Text="Gestiona tus cuentas para realizar operaciones Git de forma integrada." 
+                                   Foreground="Gray" Margin="0,0,0,20" TextWrapping="Wrap"/>
+
+                        <!-- GitHub -->
+                        <Border BorderBrush="#e5e7eb" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,16">
+                            <DockPanel>
+                                <materialDesign:PackIcon Kind="Github" Width="40" Height="40" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,16,0" Foreground="#24292f"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock x:Name="txtGitHubUser" Text="No conectado" FontWeight="Bold" FontSize="15"/>
+                                    <TextBlock x:Name="txtGitHubStatus" Text="GitHub" Foreground="Gray" FontSize="12"/>
+                                </StackPanel>
+                                <Button x:Name="btnGitHubLogin" Content="Conectar" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                                        Style="{StaticResource MaterialDesignRaisedButton}" Click="btnGitHubLogin_Click"
+                                        Background="#24292f" BorderBrush="#24292f" Foreground="White"/>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- GitLab -->
+                        <Border BorderBrush="#e5e7eb" BorderThickness="1" CornerRadius="8" Padding="16">
+                            <DockPanel>
+                                <materialDesign:PackIcon Kind="Gitlab" Width="40" Height="40" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,16,0" Foreground="#FC6D26"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock x:Name="txtGitLabUser" Text="No conectado" FontWeight="Bold" FontSize="15"/>
+                                    <TextBlock x:Name="txtGitLabStatus" Text="GitLab" Foreground="Gray" FontSize="12"/>
+                                </StackPanel>
+                                <Button x:Name="btnGitLabLogin" Content="Conectar" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                                        Style="{StaticResource MaterialDesignRaisedButton}" Click="btnGitLabLogin_Click"
+                                        Background="#FC6D26" BorderBrush="#FC6D26" Foreground="White"/>
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
 
                     <StackPanel x:Name="ViewOptimizadorWebP" Visibility="Collapsed">
                         <!-- Sección de Selección -->

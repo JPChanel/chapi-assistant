@@ -30,6 +30,8 @@ public class ChangesViewModel : ViewModelBase
     private readonly StashClearUseCase _stashClearUseCase;
     private readonly Domain.Interfaces.IGitRepository _gitRepository;
     private readonly GetFileDiffUseCase _getFileDiffUseCase;
+    private readonly Domain.Interfaces.IGitAuthProviderFactory _authFactory;
+    private readonly Domain.Interfaces.ICredentialStorageService _credentialStorage;
 
     private string _projectPath = string.Empty;
     private int _totalAdditions;
@@ -54,7 +56,9 @@ public class ChangesViewModel : ViewModelBase
         StashDropUseCase stashDropUseCase,
         StashClearUseCase stashClearUseCase,
         GetFileDiffUseCase getFileDiffUseCase,
-        Domain.Interfaces.IGitRepository gitRepository)
+        Domain.Interfaces.IGitRepository gitRepository,
+        Domain.Interfaces.IGitAuthProviderFactory authFactory,
+        Domain.Interfaces.ICredentialStorageService credentialStorage)
     {
         _loadChangesUseCase = loadChangesUseCase;
         _commitChangesUseCase = commitChangesUseCase;
@@ -65,6 +69,8 @@ public class ChangesViewModel : ViewModelBase
         _stashClearUseCase = stashClearUseCase;
         _getFileDiffUseCase = getFileDiffUseCase;
         _gitRepository = gitRepository;
+        _authFactory = authFactory;
+        _credentialStorage = credentialStorage;
         
         Changes = new ObservableCollection<ChangeItemViewModel>();
         Stashes = new ObservableCollection<GitStash>();
@@ -259,6 +265,43 @@ public class ChangesViewModel : ViewModelBase
         set => SetProperty(ref _isGenerating, value);
     }
 
+    // Auth Properties
+    private string _authenticatedUserName;
+    private Chapi.Domain.Enums.GitProvider _authenticatedProvider;
+    private bool _isAuthenticated;
+
+    public string AuthenticatedUserName
+    {
+        get => _authenticatedUserName;
+        set => SetProperty(ref _authenticatedUserName, value);
+    }
+
+    public Chapi.Domain.Enums.GitProvider AuthenticatedProvider
+    {
+        get => _authenticatedProvider;
+        set => SetProperty(ref _authenticatedProvider, value);
+    }
+
+    public bool IsAuthenticated
+    {
+        get => _isAuthenticated;
+        set => SetProperty(ref _isAuthenticated, value);
+    }
+
+    public MaterialDesignThemes.Wpf.PackIconKind ProviderIcon => AuthenticatedProvider switch
+    {
+        Chapi.Domain.Enums.GitProvider.GitHub => MaterialDesignThemes.Wpf.PackIconKind.Github,
+        Chapi.Domain.Enums.GitProvider.GitLab => MaterialDesignThemes.Wpf.PackIconKind.Gitlab,
+        _ => MaterialDesignThemes.Wpf.PackIconKind.AccountCircle
+    };
+
+    public System.Windows.Media.Brush ProviderColor => AuthenticatedProvider switch
+    {
+        Chapi.Domain.Enums.GitProvider.GitHub => System.Windows.Media.Brushes.White,
+        Chapi.Domain.Enums.GitProvider.GitLab => System.Windows.Media.Brushes.Orange,
+        _ => System.Windows.Media.Brushes.Gray
+    };
+
     #endregion
 
     #region Commands
@@ -323,6 +366,45 @@ public class ChangesViewModel : ViewModelBase
 
         // Cargar stashes tambien
         await LoadStashesAsync();
+        
+        // Verificar estado de autenticacion
+        await LoadAuthStatusAsync();
+    }
+
+    private async Task LoadAuthStatusAsync()
+    {
+        IsAuthenticated = false;
+        AuthenticatedUserName = string.Empty;
+        AuthenticatedProvider = Chapi.Domain.Enums.GitProvider.Unknown;
+
+        if (string.IsNullOrEmpty(ProjectPath)) return;
+
+        try 
+        {
+            var githubCred = await _credentialStorage.GetCredentialAsync(Chapi.Domain.Enums.GitProvider.GitHub.ToString());
+            var gitlabCred = await _credentialStorage.GetCredentialAsync(Chapi.Domain.Enums.GitProvider.GitLab.ToString());
+            
+            if (gitlabCred.HasValue)
+            {
+                 IsAuthenticated = true;
+                 AuthenticatedUserName = gitlabCred.Value.username;
+                 AuthenticatedProvider = Chapi.Domain.Enums.GitProvider.GitLab;
+            }
+            
+            if (githubCred.HasValue) 
+            {
+                 IsAuthenticated = true;
+                 AuthenticatedUserName = githubCred.Value.username;
+                 AuthenticatedProvider = Chapi.Domain.Enums.GitProvider.GitHub;
+            }
+            
+            OnPropertyChanged(nameof(ProviderIcon));
+            OnPropertyChanged(nameof(ProviderColor));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error checking auth status: {ex.Message}");
+        }
     }
 
     /// <summary>

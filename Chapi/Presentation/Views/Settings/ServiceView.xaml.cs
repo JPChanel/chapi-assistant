@@ -12,6 +12,8 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Chapi.Presentation.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media; 
@@ -23,7 +25,7 @@ namespace Chapi.Presentation.Views.Settings
     /// <summary>
     /// Lógica de interacción para UpdateView.xaml
     /// </summary>
-    public partial class UpdateView : Window, INotifyPropertyChanged 
+    public partial class UpdateView : Window, INotifyPropertyChanged
     {
         private UpdateManager _mgr;
         private UpdateInfo _updateInfo;
@@ -71,7 +73,7 @@ namespace Chapi.Presentation.Views.Settings
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-       
+
         protected void OnPropertyChanged(string name)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
@@ -84,10 +86,12 @@ namespace Chapi.Presentation.Views.Settings
             _mgr = new UpdateManager(new GithubSource(updateUrl, null, false));
             _selectedProjectPath = selectedProjectPath;
             LoadCurrentInfo();
+            LoadCurrentInfo();
+            LoadGitAccountsInfo();
             LoadApiKey();
             IsServiceActive = true;
 
-        
+
 
             NetworkWatcherService.OnProxyConfigChanged += NetworkWatcher_OnProxyConfigChanged;
             this.Closing += UpdateView_Closing;
@@ -120,6 +124,7 @@ namespace Chapi.Presentation.Views.Settings
             ViewEstadoComponente.Visibility = Visibility.Collapsed;
             ViewConfiguracionIA.Visibility = Visibility.Collapsed;
             ViewConfiguracionRed.Visibility = Visibility.Collapsed;
+            ViewConfiguracionGitHub.Visibility = Visibility.Collapsed;
             ViewOptimizadorWebP.Visibility = Visibility.Collapsed;
 
             // Mostrar la vista seleccionada
@@ -129,6 +134,8 @@ namespace Chapi.Presentation.Views.Settings
                 ViewConfiguracionIA.Visibility = Visibility.Visible;
             else if (sender == NavButtonRed)
                 ViewConfiguracionRed.Visibility = Visibility.Visible;
+            else if (sender == NavButtonGitHub)
+                ViewConfiguracionGitHub.Visibility = Visibility.Visible;
             else if (sender == NavButtonImageConverter)
                 ViewOptimizadorWebP.Visibility = Visibility.Visible;
         }
@@ -138,12 +145,12 @@ namespace Chapi.Presentation.Views.Settings
         private void LoadCurrentInfo()
         {
             string versionString;
- 
+
             if (_mgr.IsInstalled)
             {
                 versionString = _mgr.CurrentVersion.ToString();
             }
-            else 
+            else
             {
                 var assembly = Assembly.GetEntryAssembly();
                 var fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
@@ -153,13 +160,14 @@ namespace Chapi.Presentation.Views.Settings
 
             txtCurrentVersion.Text = $"v{versionString}";
             txtMachineId.Text = Environment.MachineName;
-            if (_selectedProjectPath is not null) {
+            if (_selectedProjectPath is not null)
+            {
                 if (Path.GetFileNameWithoutExtension(_selectedProjectPath).IndexOf("chapi", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     btnDeveloperPublish.Visibility = Visibility.Visible;
                 }
             }
-            
+
 
         }
 
@@ -185,7 +193,7 @@ namespace Chapi.Presentation.Views.Settings
                 }
                 else
                 {
-                   
+
                     txtStatus.Text = $"¡Nueva versión v{_updateInfo.TargetFullRelease.Version} encontrada!";
                     btnCheckUpdate.Content = "Descargar e Instalar Ahora";
                     btnCheckUpdate.IsEnabled = true;
@@ -219,18 +227,18 @@ namespace Chapi.Presentation.Views.Settings
 
                 txtStatus.Text = "Descarga completa. Preparando instalación...";
                 btnCheckUpdate.Content = "Instalando...";
-                
+
                 // Dar tiempo a que se complete la descarga
                 await Task.Delay(1000);
 
                 txtStatus.Text = "La app se cerrará para completar la actualización.";
-                
+
                 // Esperar un momento antes de aplicar
                 await Task.Delay(500);
-                
+
                 // Aplicar y salir (más confiable que restart)
                 _mgr.ApplyUpdatesAndExit(_updateInfo);
-                
+
                 // Si llegamos aquí, algo falló - forzar cierre
                 System.Windows.Application.Current.Shutdown();
             }
@@ -251,8 +259,8 @@ namespace Chapi.Presentation.Views.Settings
 
             try
             {
-          
-                var projectPath = Path.Combine(_selectedProjectPath, "Chapi", "Chapi.csproj"); 
+
+                var projectPath = Path.Combine(_selectedProjectPath, "Chapi", "Chapi.csproj");
                 var publishOutput = Path.Combine(_selectedProjectPath, "publish-output");
                 var publicDir = Path.Combine(_selectedProjectPath, "public");
 
@@ -400,14 +408,14 @@ namespace Chapi.Presentation.Views.Settings
             string exePath = Environment.ProcessPath;
             Process.Start(exePath);
             System.Windows.Application.Current.Shutdown();
-    
+
         }
 
         private void btnCerrarServicio_Click(object sender, RoutedEventArgs e)
         {
 
             IsServiceActive = false;
-             System.Windows.Application.Current.Shutdown();
+            System.Windows.Application.Current.Shutdown();
         }
 
 
@@ -450,7 +458,7 @@ namespace Chapi.Presentation.Views.Settings
                 }
                 settings.GeminiApiKey = txtApiKey.Password;
                 UserSettingsService.SaveSettings(settings);
-                HasApiKey = !string.IsNullOrEmpty(settings.GeminiApiKey); 
+                HasApiKey = !string.IsNullOrEmpty(settings.GeminiApiKey);
 
                 txtStatus.Text = "¡API Key guardada! Reinicia Chapi para usarla.";
                 await DialogService.ShowConfirmDialog("Confirmación", "¡API Key guardada! Reinicia Chapi para usarla.", DialogVariant.Info, DialogType.Info);
@@ -480,7 +488,7 @@ namespace Chapi.Presentation.Views.Settings
             txtApiKey.Password = txtApiKey_Visible.Text;
             txtApiKey_Visible.Visibility = Visibility.Collapsed;
             txtApiKey.Visibility = Visibility.Visible;
-            
+
         }
 
 
@@ -560,7 +568,7 @@ namespace Chapi.Presentation.Views.Settings
                     settings.ProxyEnabled = false;
                 }
 
-                UserSettingsService.SaveSettings(settings); 
+                UserSettingsService.SaveSettings(settings);
 
                 // 3. Fuerza al vigilante a comprobar la red AHORA
                 await App.NetworkWatcher.CheckNetworkAndApplyProxy();
@@ -571,7 +579,7 @@ namespace Chapi.Presentation.Views.Settings
             {
                 await DialogService.ShowConfirmDialog("Error", $"Error al guardar proxy: {ex.Message}", DialogVariant.Error, DialogType.Info);
             }
-           
+
         }
 
         #region Conversor de Imágenes WebP
@@ -761,6 +769,92 @@ namespace Chapi.Presentation.Views.Settings
             {
                 Process.Start("explorer.exe", _imageOutputFolder);
             }
+        }
+
+        #endregion
+
+        #region Git Auth Methods
+
+        private async void LoadGitAccountsInfo()
+        {
+            try
+            {
+                var storage = App.ServiceProvider.GetRequiredService<ICredentialStorageService>();
+
+                // GitHub
+                var githubCred = await storage.GetCredentialAsync(Chapi.Domain.Enums.GitProvider.GitHub.ToString());
+                if (githubCred.HasValue)
+                {
+                    txtGitHubUser.Text = githubCred.Value.username;
+                    btnGitHubLogin.Content = "Desconectar"; // O Cambiar
+                }
+                else
+                {
+                    txtGitHubUser.Text = "No conectado";
+                    btnGitHubLogin.Content = "Conectar";
+                }
+
+                // GitLab
+                var gitlabCred = await storage.GetCredentialAsync(Chapi.Domain.Enums.GitProvider.GitLab.ToString());
+                if (gitlabCred.HasValue)
+                {
+                    txtGitLabUser.Text = gitlabCred.Value.username;
+                    btnGitLabLogin.Content = "Desconectar";
+                }
+                else
+                {
+                    txtGitLabUser.Text = "No conectado";
+                    btnGitLabLogin.Content = "Conectar";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading git accounts: {ex.Message}");
+            }
+        }
+
+        private async void btnGitHubLogin_Click(object sender, RoutedEventArgs e)
+        {
+            var btn = sender as Button;
+            if (btn?.Content.ToString() == "Desconectar")
+            {
+                var confirm = await DialogService.ShowConfirmDialog("Desconectar", "¿Deseas cerrar sesión de GitHub?", DialogVariant.Warning, DialogType.Confirm);
+                if (confirm)
+                {
+                    var storage = App.ServiceProvider.GetRequiredService<ICredentialStorageService>();
+                    await storage.DeleteCredentialAsync(Chapi.Domain.Enums.GitProvider.GitHub.ToString());
+                    LoadGitAccountsInfo();
+                }
+                return;
+            }
+
+            var viewModel = App.ServiceProvider.GetRequiredService<LoginGitHubViewModel>();
+            if (viewModel == null) return;
+
+            var dialog = new LoginGitHubDialog(viewModel);
+            await DialogHost.Show(dialog, App.GlobalDialogIdentifier);
+
+            // Recargar info después del dialogo
+            LoadGitAccountsInfo();
+        }
+
+        private async void btnGitLabLogin_Click(object sender, RoutedEventArgs e)
+        {
+            var btn = sender as Button;
+            if (btn?.Content.ToString() == "Desconectar")
+            {
+                var confirm = await DialogService.ShowConfirmDialog("Desconectar", "¿Deseas cerrar sesión de GitLab?", DialogVariant.Warning, DialogType.Confirm);
+                if (confirm)
+                {
+                    var storage = App.ServiceProvider.GetRequiredService<ICredentialStorageService>();
+                    await storage.DeleteCredentialAsync(Chapi.Domain.Enums.GitProvider.GitLab.ToString());
+                    LoadGitAccountsInfo();
+                }
+                return;
+            }
+
+            // Por ahora, mostrar mensaje ya que no tenemos vista de login dedicada para GitLab aun
+            await DialogService.ShowConfirmDialog("GitLab", "La autenticación de GitLab está configurada internamente pero la UI de login aún no está disponible.", DialogVariant.Info, DialogType.Info);
         }
 
         #endregion
