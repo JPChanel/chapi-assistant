@@ -23,12 +23,13 @@ public class AssociateGitUseCase
                 return Result.Fail("La URL del repositorio remoto no puede estar vacía");
 
             // Verificar si ya tiene un remoto origin
-            var currentRemoteResult = await _gitRepository.ExecuteGitCommandAsync(projectPath, "remote get-url origin");
+            var currentRemote = await _gitRepository.GetRemoteUrlAsync(projectPath, "origin");
             
-            if (!string.IsNullOrEmpty(currentRemoteResult) && !currentRemoteResult.Contains("fatal:"))
+            if (!string.IsNullOrEmpty(currentRemote))
             {
                 // Ya existe, lo actualizamos
-                await _gitRepository.ExecuteGitCommandAsync(projectPath, $"remote set-url origin {remoteUrl}");
+                var result = await _gitRepository.SetRemoteUrlAsync(projectPath, "origin", remoteUrl);
+                if (!result.IsSuccess) return result;
             }
             else
             {

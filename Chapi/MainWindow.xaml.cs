@@ -237,8 +237,8 @@ namespace Chapi
             await RunWithLoading(async () =>
             {
                 // Verificar si hay cambios pendientes
-                var statusOutput = await _gitRepository.ExecuteGitCommandAsync(projectDirectory, "status --porcelain");
-                bool hasChanges = !string.IsNullOrWhiteSpace(statusOutput);
+                var changes = await _gitRepository.GetChangesAsync(projectDirectory);
+                bool hasChanges = changes.Any();
 
                 bool stashChanges = false;
 
@@ -312,15 +312,15 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
-                var result = await _gitRepository.ExecuteGitCommandAsync(projectDirectory, $"push -u origin {_currentlySelectedBranch}");
-                if (!result.Contains("fatal:") && !result.Contains("error:"))
+                var result = await _gitRepository.PushAsync(projectDirectory, _currentlySelectedBranch);
+                if (result.IsSuccess)
                 {
-                    Msg.Assistant($"âœ… Rama '{_currentlySelectedBranch}' publicada en origin.");
+                    Msg.Assistant($"✅ Rama '{_currentlySelectedBranch}' publicada en origin.");
                     await CheckBranchStatusAsync();
                 }
                 else
                 {
-                    await DialogService.ShowConfirmDialog("Error al publicar", $"No se pudo publicar la rama: {result}", DialogVariant.Error, DialogType.Info);
+                    await DialogService.ShowConfirmDialog("Error al publicar", $"No se pudo publicar la rama: {result.Error}", DialogVariant.Error, DialogType.Info);
                 }
             });
         }
@@ -854,12 +854,16 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
-                var result = await _gitRepository.ExecuteGitCommandAsync(projectDirectory, $"branch {newBranchName} {sourceBranch}");
-                if (!result.Contains("fatal:") && !result.Contains("error:"))
+                var result = await _gitRepository.CreateBranchAsync(projectDirectory, newBranchName, sourceBranch);
+                if (result.IsSuccess)
                 {
                     var branches = await _gitRepository.GetBranchesAsync(projectDirectory);
                     BranchesComboBox.ItemsSource = branches;
-                    Msg.Assistant($"âœ… Rama '{newBranchName}' creada correctamente.");
+                    Msg.Assistant($"✅ Rama '{newBranchName}' creada correctamente.");
+                }
+                else
+                {
+                    await DialogService.ShowConfirmDialog("Error al crear rama", result.Error, DialogVariant.Error, DialogType.Info);
                 }
             });
         }
@@ -880,12 +884,16 @@ namespace Chapi
 
             await RunWithLoading(async () =>
             {
-                var result = await _gitRepository.ExecuteGitCommandAsync(projectDirectory, $"branch -d \"{branchName}\"");
-                if (!result.Contains("fatal:") && !result.Contains("error:"))
+                var result = await _gitRepository.DeleteBranchAsync(projectDirectory, branchName);
+                if (result.IsSuccess)
                 {
                     var branches = await _gitRepository.GetBranchesAsync(projectDirectory);
                     BranchesComboBox.ItemsSource = branches;
-                    Msg.Assistant($"âœ… Rama '{branchName}' eliminada.");
+                    Msg.Assistant($"✅ Rama '{branchName}' eliminada.");
+                }
+                else
+                {
+                    await DialogService.ShowConfirmDialog("Error al eliminar rama", result.Error, DialogVariant.Error, DialogType.Info);
                 }
             });
         }

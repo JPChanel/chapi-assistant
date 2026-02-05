@@ -35,40 +35,9 @@ public class DiscardChangesUseCase
                 ? "Descartando todos los cambios..." 
                 : $"Descartando cambios en {files!.Count()} archivo(s)...");
 
-            if (isAll)
-            {
-                // Descartar TODOS los cambios
-                await _gitRepo.ExecuteGitCommandAsync(projectPath, "checkout -- .");
-                await _gitRepo.ExecuteGitCommandAsync(projectPath, "clean -fd");
-            }
-            else
-            {
-                // Descartar archivos ESPECÍFICOS
-                foreach (var file in files!)
-                {
-                    var gitPath = file.Replace("\\", "/");
-                    
-                    try
-                    {
-                        // Intentar descartar cambios tracked
-                        await _gitRepo.ExecuteGitCommandAsync(projectPath, $"checkout -- \"{gitPath}\"");
-                    }
-                    catch
-                    {
-                        // Si falla (archivo untracked), intentar limpiar
-                    }
-                    
-                    try
-                    {
-                        // Limpiar archivos untracked
-                        await _gitRepo.ExecuteGitCommandAsync(projectPath, $"clean -fd -- \"{gitPath}\"");
-                    }
-                    catch
-                    {
-                        // Ignorar si no hay nada que limpiar
-                    }
-                }
-            }
+            var result = await _gitRepo.DiscardChangesAsync(projectPath, files);
+            if (!result.IsSuccess)
+                return result;
 
             _notificationService.ShowSuccess(isAll 
                 ? "Todos los cambios han sido descartados" 

@@ -31,15 +31,13 @@ public class StashDropUseCase
         {
             _notificationService.ShowInfo($"Eliminando stash@{stashIndex}...");
 
-            var result = await _gitRepo.ExecuteGitCommandAsync(projectPath, $"stash drop stash@{{{stashIndex}}}");
+            var result = await _gitRepo.StashDropAsync(projectPath, stashIndex);
 
-            if (result.Contains("Dropped"))
-            {
-                _notificationService.ShowSuccess($"âœ… Stash@{stashIndex} eliminado correctamente");
-                return Result.Success();
-            }
+            if (!result.IsSuccess)
+                return result;
 
-            return Result.Fail($"Error al eliminar stash: {result}");
+            _notificationService.ShowSuccess($"✅ Stash@{stashIndex} eliminado correctamente");
+            return Result.Success();
         }
         catch (Exception ex)
         {

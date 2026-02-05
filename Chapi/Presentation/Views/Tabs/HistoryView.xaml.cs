@@ -169,11 +169,11 @@ public partial class HistoryView : UserControl
             try
             {
                 var gitRepo = App.ServiceProvider.GetRequiredService<Chapi.Domain.Interfaces.IGitRepository>();
-                var remoteUrl = await gitRepo.ExecuteGitCommandAsync(_viewModel.ProjectPath, "remote get-url origin");
+                var remoteUrl = await gitRepo.GetRemoteUrlAsync(_viewModel.ProjectPath, "origin");
                 
-                if (string.IsNullOrEmpty(remoteUrl) || remoteUrl.Contains("fatal")) return;
+                if (string.IsNullOrEmpty(remoteUrl)) return;
                 
-                remoteUrl = remoteUrl.Trim().Replace(".git", "");
+                remoteUrl = remoteUrl.Replace(".git", "");
                 if (remoteUrl.StartsWith("git@"))
                 {
                     remoteUrl = remoteUrl.Replace(":", "/");

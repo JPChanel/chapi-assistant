@@ -31,25 +31,20 @@ public class StashPopUseCase
         {
             _notificationService.ShowInfo("Aplicando cambios del stash...");
 
-            string command = stashIndex.HasValue
-                ? $"stash pop stash@{{{stashIndex.Value}}}"
-                : "stash pop";
-
-            var result = await _gitRepo.ExecuteGitCommandAsync(projectPath, command);
-
-            if (result.Contains("CONFLICT"))
+            var result = await _gitRepo.StashPopAsync(projectPath, stashIndex);
+            
+            if (!result.IsSuccess)
             {
-                _notificationService.ShowWarning("âš ï¸ Conflictos detectados al aplicar stash");
-                return Result.Fail("Conflictos detectados. Resuelve los conflictos manualmente.");
+                if (result.Error.Contains("conflict", StringComparison.OrdinalIgnoreCase))
+                {
+                    _notificationService.ShowWarning("⚠️ Conflictos detectados al aplicar stash");
+                    return Result.Fail("Conflictos detectados. Resuelve los conflictos manualmente.");
+                }
+                return result;
             }
 
-            if (result.Contains("Dropped") || result.Contains("Applied"))
-            {
-                _notificationService.ShowSuccess("âœ… Stash aplicado correctamente");
-                return Result.Success();
-            }
-
-            return Result.Fail($"Error al aplicar stash: {result}");
+            _notificationService.ShowSuccess("✅ Stash aplicado correctamente");
+            return Result.Success();
         }
         catch (Exception ex)
         {

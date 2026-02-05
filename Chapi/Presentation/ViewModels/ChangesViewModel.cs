@@ -523,17 +523,11 @@ public class ChangesViewModel : ViewModelBase
 
         try
         {
-            var currentBranch = await _gitRepository.GetCurrentBranchAsync(ProjectPath);
             var stashes = await _gitRepository.ListStashesAsync(ProjectPath);
             Stashes.Clear();
             foreach (var stash in stashes)
             {
-                // Filtrar: mostrar si pertenece a la rama actual O si no se pudo determinar la rama ("Unknown")
-                // Esto previene ocultar stashes antiguos sin formato "On branch", pero oculta los de otras ramas conocidas.
-                if (stash.Branch == "Unknown" || stash.Branch == currentBranch)
-                {
-                    Stashes.Add(stash);
-                }
+                Stashes.Add(stash);
             }
         }
         catch (Exception ex)
@@ -763,6 +757,13 @@ public class ChangesViewModel : ViewModelBase
     private async Task DiscardAsync(ChangeItemViewModel? item)
     {
         if (item == null || string.IsNullOrEmpty(ProjectPath)) return;
+
+        var confirmed = await DialogService.ShowConfirmDialog(
+            "Descartar Cambios",
+            $"¿Estás seguro de que deseas descartar los cambios en '{item.FileName}'? Esta acción no se puede deshacer.",
+            DialogVariant.Warning);
+
+        if (!confirmed) return;
         
         var result = await _discardChangesUseCase.ExecuteAsync(ProjectPath, new[] { item.FilePath });
         if (result.IsSuccess)
@@ -774,6 +775,13 @@ public class ChangesViewModel : ViewModelBase
     private async Task DiscardAllAsync()
     {
         if (string.IsNullOrEmpty(ProjectPath) || !Changes.Any()) return;
+
+        var confirmed = await DialogService.ShowConfirmDialog(
+            "Descartar TODOS los Cambios",
+            "¿Estás seguro de que deseas descartar TODOS los cambios locales? Esta acción eliminará permanentemente tus modificaciones.",
+            DialogVariant.Warning);
+
+        if (!confirmed) return;
         
         var allFiles = Changes.Select(c => c.FilePath).ToArray();
         var result = await _discardChangesUseCase.ExecuteAsync(ProjectPath, allFiles);
@@ -802,6 +810,15 @@ public class ChangesViewModel : ViewModelBase
         }
 
         if (!filesToStash.Any()) return;
+
+        var confirmed = await DialogService.ShowConfirmDialog(
+            "Guardar en Stash",
+            filesToStash.Count == 1 
+                ? $"¿Deseas guardar '{System.IO.Path.GetFileName(filesToStash[0])}' en el stash?"
+                : $"¿Deseas guardar estos {filesToStash.Count} archivos en el stash?",
+            DialogVariant.Info);
+
+        if (!confirmed) return;
 
         var result = await _stashChangesUseCase.ExecuteAsync(ProjectPath, message, filesToStash);
         if (result.IsSuccess)
@@ -840,7 +857,14 @@ public class ChangesViewModel : ViewModelBase
         {
             // git checkout stash@{n} -- <filepath>
             // git checkout stash@{n} -- <filepath>
-            await _gitRepository.ExecuteGitCommandAsync(ProjectPath, $"checkout {SelectedStash.Name} -- \"{item.FilePath}\"");
+            var result = await _gitRepository.RestoreFileFromStashAsync(ProjectPath, SelectedStash.Name, item.FilePath);
+            if (!result.IsSuccess)
+            {
+                await DialogService.ShowConfirmDialog("Error al restaurar archivo", 
+                    $"No se pudo restaurar el archivo '{item.FileName}': {result.Error}", 
+                    DialogVariant.Error, DialogType.Info);
+                return;
+            }
             
             await LoadChangesAsync();
             IsStashViewVisible = false;
@@ -908,7 +932,7 @@ public class ChangesViewModel : ViewModelBase
             var diffBuilder = new System.Text.StringBuilder();
             foreach (var file in selectedFiles)
             {
-                var diff = await _gitRepository.ExecuteGitCommandAsync(ProjectPath, $"diff HEAD -- \"{file}\"");
+                var diff = await _gitRepository.GetDiffAsync(ProjectPath, file);
                 diffBuilder.AppendLine(diff);
             }
 

@@ -35,22 +35,12 @@ public class StashChangesUseCase
         {
             _notificationService.ShowInfo($"Guardando cambios en stash: {message}");
 
-            // Normalizar rutas a formato Unix
-            var normalizedFiles = files?.Select(f => f.Replace("\\", "/")).ToList();
+            var result = await _gitRepo.StashChangesAsync(projectPath, message, files);
+            if (!result.IsSuccess)
+                return result;
 
-            string command = normalizedFiles != null && normalizedFiles.Any()
-                ? $"stash push --include-untracked -m \"{message}\" -- {string.Join(" ", normalizedFiles.Select(f => $"\"{f}\""))}"
-                : $"stash push --include-untracked -m \"{message}\"";
-
-            var result = await _gitRepo.ExecuteGitCommandAsync(projectPath, command);
-
-            if (result.Contains("Saved working directory") || result.Contains("No local changes"))
-            {
-                _notificationService.ShowSuccess("âœ… Cambios guardados en stash");
-                return Result.Success();
-            }
-
-            return Result.Fail($"Error al guardar en stash: {result}");
+            _notificationService.ShowSuccess("✅ Cambios guardados en stash");
+            return Result.Success();
         }
         catch (Exception ex)
         {

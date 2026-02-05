@@ -36,29 +36,21 @@ public class CreateTagUseCase
         {
             _notificationService.ShowInfo($"Creando etiqueta '{tagName}'...");
 
-            // Limpiar mensaje de comillas
-            string safeMessage = message.Replace("\"", "'");
-            
-            string command = string.IsNullOrWhiteSpace(commitHash)
-                ? $"tag -a \"{tagName}\" -m \"{safeMessage}\""
-                : $"tag -a \"{tagName}\" -m \"{safeMessage}\" {commitHash}";
+            var result = await _gitRepo.CreateTagAsync(projectPath, tagName, message, commitHash);
 
-            var result = await _gitRepo.ExecuteGitCommandAsync(projectPath, command);
-
-            if (result.Contains("already exists"))
+            if (!result.IsSuccess)
             {
-                _notificationService.ShowWarning($"âš ï¸ La etiqueta '{tagName}' ya existe");
-                return Result.Fail($"La etiqueta '{tagName}' ya existe");
+                _notificationService.ShowError($"❌ Error al crear etiqueta: {result.Error}");
+                return result;
             }
 
-            _notificationService.ShowSuccess($"âœ… Etiqueta '{tagName}' creada correctamente");
+            _notificationService.ShowSuccess($"✅ Etiqueta '{tagName}' creada correctamente");
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"âŒ Error al crear etiqueta: {ex.Message}");
+            _notificationService.ShowError($"❌ Error al crear etiqueta: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }
 }
-

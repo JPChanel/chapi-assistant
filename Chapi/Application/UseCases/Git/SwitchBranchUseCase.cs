@@ -33,11 +33,11 @@ public class SwitchBranchUseCase
             string currentBranch = "unknown";
             try { currentBranch = await _gitRepo.GetCurrentBranchAsync(projectPath); } catch {}
 
-            var stashCommand = await _gitRepo.ExecuteGitCommandAsync(projectPath, $"stash push -m \"Auto-stash de {currentBranch}: Cambio a {branchName}\"");
-            if (string.IsNullOrEmpty(stashCommand) || stashCommand.Contains("fatal:"))
+            var stashResult = await _gitRepo.StashChangesAsync(projectPath, $"Auto-stash de {currentBranch}: Cambio a {branchName}");
+            if (!stashResult.IsSuccess)
             {
-                _notifications.ShowWarning("No se pudo crear el stash");
-                return Result.Fail("Error al crear stash");
+                _notifications.ShowWarning("No se pudo crear el stash: " + stashResult.Error);
+                return stashResult;
             }
         }
 
@@ -45,15 +45,13 @@ public class SwitchBranchUseCase
 
         if (result.IsSuccess)
         {
-            _notifications.ShowSuccess($"âœ… Cambiado a rama: {branchName}");
+            _notifications.ShowSuccess($"✅ Cambiado a rama: {branchName}");
         }
         else
         {
-            _notifications.ShowError($"âŒ Error al cambiar de rama: {result.Error}");
+            _notifications.ShowError($"❌ Error al cambiar de rama: {result.Error}");
         }
 
         return result;
     }
 }
-
-

@@ -4,6 +4,7 @@ using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
 using LibGit2Sharp;
+using System.IO;
 using System.Linq;
 
 namespace Chapi.Infrastructure.Git;
@@ -162,9 +163,20 @@ public class LibGit2SharpRepository : IGitRepository
                 using var repo = new Repository(projectPath);
                 var changes = new List<FileChange>();
 
-                foreach (var item in repo.RetrieveStatus(new StatusOptions { IncludeIgnored = false }))
+                // 1. Obtener estados básicos (untracked, etc.)
+                var statusOptions = new StatusOptions { IncludeIgnored = false };
+                var repoStatus = repo.RetrieveStatus(statusOptions);
+
+                // 2. Obtener diff para additions/deletions (HEAD vs WorkingDirectory)
+                Patch diff = null;
+                if (!repo.Info.IsHeadUnborn)
                 {
-                    ChangeStatus status = ChangeStatus.Modified; // Default
+                    diff = repo.Diff.Compare<Patch>(repo.Head.Tip.Tree, DiffTargets.WorkingDirectory);
+                }
+
+                foreach (var item in repoStatus)
+                {
+                    ChangeStatus status = ChangeStatus.Modified;
                     bool isKnown = false;
 
                     // Mapeo manual de estados de LibGit2Sharp a nuestro dominio
@@ -191,11 +203,24 @@ public class LibGit2SharpRepository : IGitRepository
 
                     if (isKnown && !item.State.HasFlag(LibGit2Sharp.FileStatus.Ignored))
                     {
-                        changes.Add(new FileChange
+                        var change = new FileChange
                         {
-                            FilePath = item.FilePath,
+                            FilePath = item.FilePath.Replace('/', Path.DirectorySeparatorChar),
                             Status = status,
-                        });
+                        };
+
+                        // Buscar estadísticas en el diff
+                        if (diff != null)
+                        {
+                            var patchEntry = diff[item.FilePath];
+                            if (patchEntry != null)
+                            {
+                                change.Additions = patchEntry.LinesAdded;
+                                change.Deletions = patchEntry.LinesDeleted;
+                            }
+                        }
+
+                        changes.Add(change);
                     }
                 }
 
@@ -238,6 +263,55 @@ public class LibGit2SharpRepository : IGitRepository
             catch (Exception ex)
             {
                 return Result.Fail($"Error unstaging: {ex.Message}");
+            }
+        });
+    }
+
+    public async Task<Result> DiscardChangesAsync(string projectPath, IEnumerable<string>? files = null)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.Force };
+
+                if (files == null || !files.Any())
+                {
+                    // Descartar cambios en archivos rastreados
+                    repo.CheckoutPaths("HEAD", new[] { "*" }, options);
+
+                    // Limpiar archivos no rastreados (Manualmente ya que LibGit2Sharp no tiene Clean)
+                    var status = repo.RetrieveStatus(new StatusOptions { IncludeIgnored = false });
+                    foreach (var entry in status.Where(s => s.State == LibGit2Sharp.FileStatus.NewInWorkdir))
+                    {
+                        var fullPath = Path.Combine(projectPath, entry.FilePath);
+                        if (File.Exists(fullPath)) File.Delete(fullPath);
+                        else if (Directory.Exists(fullPath)) Directory.Delete(fullPath, true);
+                    }
+                }
+                else
+                {
+                    // Descartar cambios en archivos específicos
+                    repo.CheckoutPaths("HEAD", files, options);
+
+                    // Eliminar archivos específicos si son nuevos (untracked)
+                    foreach (var file in files)
+                    {
+                        var state = repo.RetrieveStatus(file);
+                        if (state == LibGit2Sharp.FileStatus.NewInWorkdir)
+                        {
+                            var fullPath = Path.Combine(projectPath, file);
+                            if (File.Exists(fullPath)) File.Delete(fullPath);
+                            else if (Directory.Exists(fullPath)) Directory.Delete(fullPath, true);
+                        }
+                    }
+                }
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Result.Fail($"Error al descartar cambios: {ex.Message}");
             }
         });
     }
@@ -296,6 +370,174 @@ public class LibGit2SharpRepository : IGitRepository
             {
                 return Result.Fail($"Error cambiando rama: {ex.Message}");
             }
+        });
+    }
+
+    public async Task<Result> CreateBranchAsync(string projectPath, string branchName, string? fromCommitOrBranch = null)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var target = string.IsNullOrEmpty(fromCommitOrBranch) 
+                    ? repo.Head.Tip 
+                    : (repo.Branches[fromCommitOrBranch]?.Tip ?? repo.Lookup<Commit>(fromCommitOrBranch));
+                
+                if (target == null) return Result.Fail("Origen de rama no encontrado");
+
+                repo.Branches.Add(branchName, target);
+                return Result.Success();
+            }
+            catch (Exception ex) { return Result.Fail(ex.Message); }
+        });
+    }
+
+    public async Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var branch = repo.Branches[branchName];
+                if (branch == null) return Result.Fail("Rama no encontrada");
+                
+                repo.Branches.Remove(branch);
+                return Result.Success();
+            }
+            catch (Exception ex) { return Result.Fail(ex.Message); }
+        });
+    }
+
+    public async Task<Result> ResetAsync(string projectPath, string target, Chapi.Domain.Enums.ResetMode mode)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var commit = repo.Lookup<Commit>(target);
+                
+                // Si el target termina en "^", buscamos el padre
+                if (target.EndsWith("^") && commit == null)
+                {
+                    var baseHash = target.TrimEnd('^');
+                    var baseCommit = repo.Lookup<Commit>(baseHash);
+                    commit = baseCommit?.Parents.FirstOrDefault();
+                }
+
+                if (commit == null) return Result.Fail("Commit no encontrado: " + target);
+
+                LibGit2Sharp.ResetMode libMode = mode switch {
+                    Chapi.Domain.Enums.ResetMode.Soft => LibGit2Sharp.ResetMode.Soft,
+                    Chapi.Domain.Enums.ResetMode.Mixed => LibGit2Sharp.ResetMode.Mixed,
+                    Chapi.Domain.Enums.ResetMode.Hard => LibGit2Sharp.ResetMode.Hard,
+                    _ => LibGit2Sharp.ResetMode.Soft
+                };
+
+                repo.Reset(libMode, commit);
+                return Result.Success();
+            }
+            catch (Exception ex) { return Result.Fail(ex.Message); }
+        });
+    }
+
+    public async Task<Result> RestoreFileFromStashAsync(string projectPath, string stashName, string filePath)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var match = System.Text.RegularExpressions.Regex.Match(stashName, @"\{(\d+)\}");
+                if (!match.Success) return Result.Fail("Nombre de stash inválido");
+                int index = int.Parse(match.Groups[1].Value);
+
+                var stash = repo.Stashes.ElementAtOrDefault(index);
+                if (stash == null) return Result.Fail("Stash no encontrado");
+
+                var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.Force };
+                repo.CheckoutPaths(stash.WorkTree.Sha, new[] { filePath.Replace(Path.DirectorySeparatorChar, '/') }, options);
+                return Result.Success();
+            }
+            catch (Exception ex) { return Result.Fail(ex.Message); }
+        });
+    }
+
+    public async Task<string> GetDiffAsync(string projectPath, string file, string? revision = null)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var path = file.Replace(Path.DirectorySeparatorChar, '/');
+                Patch diff;
+                
+                if (string.IsNullOrEmpty(revision) || revision == "HEAD")
+                {
+                    diff = repo.Diff.Compare<Patch>(repo.Head.Tip.Tree, DiffTargets.WorkingDirectory, new[] { path });
+                }
+                else
+                {
+                    var commit = repo.Lookup<Commit>(revision);
+                    var parent = commit?.Parents.FirstOrDefault();
+                    if (parent == null) return string.Empty;
+                    diff = repo.Diff.Compare<Patch>(parent.Tree, commit.Tree, new[] { path });
+                }
+                
+                return diff.Content;
+            }
+            catch { return string.Empty; }
+        });
+    }
+
+    public async Task<string> GetConfigAsync(string key, bool global = false)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                // Intentar cargar la configuración global desde la ruta estándar si el método estático no está disponible
+                string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
+                using var config = global ? global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath) : null;
+                if (config == null) return string.Empty;
+                return config.Get<string>(key)?.Value ?? string.Empty;
+            }
+            catch { return string.Empty; }
+        });
+    }
+
+    public async Task<Result> SetConfigAsync(string key, string value, bool global = false)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
+                using var config = global ? global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath) : null;
+                if (config == null) return Result.Fail("Configuración no disponible");
+                config.Set(key, value);
+                return Result.Success();
+            }
+            catch (Exception ex) { return Result.Fail(ex.Message); }
+        });
+    }
+
+    public async Task<Result> UnsetConfigAsync(string key, bool global = false)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
+                using var config = global ? global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath) : null;
+                if (config == null) return Result.Fail("Configuración no disponible");
+                config.Unset(key);
+                return Result.Success();
+            }
+            catch (Exception ex) { return Result.Fail(ex.Message); }
         });
     }
 
@@ -473,6 +715,23 @@ public class LibGit2SharpRepository : IGitRepository
         });
     }
 
+    public async Task<Result> SetRemoteUrlAsync(string projectPath, string remoteName, string url)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                repo.Network.Remotes.Update(remoteName, r => r.Url = url);
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Result.Fail($"Error al actualizar remoto: {ex.Message}");
+            }
+        });
+    }
+
     #endregion
 
     #region Lifecycle
@@ -568,28 +827,382 @@ public class LibGit2SharpRepository : IGitRepository
         });
     }
 
-    public async Task<string> ExecuteGitCommandAsync(string projectPath, string command)
+
+
+    // Stash
+    public async Task<Result> StashChangesAsync(string projectPath, string message, IEnumerable<string>? files = null)
     {
-        // No podemos ejecutar comandos arbitrarios de texto con LibGit2Sharp
-        // Esta función debe ser removida o adaptada para usar métodos específicos
-        // Por ahora lanzamos error indicando que se requieren métodos nativos
-        return await Task.FromResult("Error: LibGit2Sharp no soporta ejecución de comandos de texto arbitrarios. Usa métodos específicos.");
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                if (signature == null)
+                    return Result.Fail("No se ha configurado usuario ni correo en git config");
+
+                // Nota: LibGit2Sharp no soporta nativamente stashear archivos individuales en Stashes.Add
+                // Se stashea todo el directorio de trabajo (comportamiento estándar de GUI).
+                repo.Stashes.Add(signature, message, StashModifiers.IncludeUntracked);
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Result.Fail($"Error stash: {ex.Message}");
+            }
+        });
     }
 
-    // Stashes y Tags requieren implementación específica con LibGit2
-    public Task<IEnumerable<GitStash>> ListStashesAsync(string projectPath) => Task.FromResult(Enumerable.Empty<GitStash>());
-    public Task<Dictionary<string, char>> GetFileStatusesForStashAsync(string projectPath, string stashName) => Task.FromResult(new Dictionary<string, char>());
-    public Task<Result> CreateTagAsync(string projectPath, string tagName, string message, string commitHash = null) => Task.FromResult(Result.Success());
-    public Task<Result> DeleteTagLocalAsync(string projectPath, string tagName) => Task.FromResult(Result.Success());
-    public Task<IEnumerable<GitTagItem>> GetTagsAsync(string projectPath) => Task.FromResult(Enumerable.Empty<GitTagItem>());
-    public Task<Dictionary<string, List<string>>> GetTagCommitMapAsync(string projectPath) => Task.FromResult(new Dictionary<string, List<string>>());
+    public async Task<IEnumerable<GitStash>> ListStashesAsync(string projectPath)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var result = new List<GitStash>();
+                int index = 0;
+                foreach (var stash in repo.Stashes)
+                {
+                    // Intentar extraer la rama del mensaje (ej: "WIP on main: ...")
+                    string branch = "Unknown";
+                    var match = System.Text.RegularExpressions.Regex.Match(stash.Message, @"on ([^:]+):");
+                    if (match.Success) 
+                        branch = match.Groups[1].Value;
+
+                    // Calcular cantidad de archivos (Diff entre stash commit y su primer padre)
+                    int fileCount = 0;
+                    try
+                    {
+                        var stashCommit = stash.WorkTree;
+                        var parent = stashCommit.Parents.FirstOrDefault();
+                        if (parent != null)
+                        {
+                            var diff = repo.Diff.Compare<TreeChanges>(parent.Tree, stashCommit.Tree);
+                            fileCount = diff.Count();
+                        }
+                    }
+                    catch { }
+
+                    result.Add(new GitStash(
+                        Name: $"stash@{{{index}}}",
+                        Branch: branch,
+                        Message: stash.Message,
+                        FileCount: fileCount
+                    ));
+                    index++;
+                }
+                return result;
+            }
+            catch
+            {
+                return Enumerable.Empty<GitStash>();
+            }
+        });
+    }
+
+    public async Task<Dictionary<string, char>> GetFileStatusesForStashAsync(string projectPath, string stashName)
+    {
+        return await Task.Run(() =>
+        {
+            var statuses = new Dictionary<string, char>();
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var match = System.Text.RegularExpressions.Regex.Match(stashName, @"\{(\d+)\}");
+                if (!match.Success) return statuses;
+                int index = int.Parse(match.Groups[1].Value);
+                
+                var stash = repo.Stashes.ElementAtOrDefault(index);
+                if (stash == null) return statuses;
+
+                var stashCommit = stash.WorkTree;
+                var parent = stashCommit.Parents.FirstOrDefault();
+                if (parent != null)
+                {
+                    var diff = repo.Diff.Compare<TreeChanges>(parent.Tree, stashCommit.Tree);
+                    foreach (var change in diff)
+                    {
+                        char status = 'M'; // Default modified
+                        switch (change.Status)
+                        {
+                            case ChangeKind.Added: status = 'A'; break;
+                            case ChangeKind.Deleted: status = 'D'; break;
+                            case ChangeKind.Renamed: status = 'R'; break;
+                        }
+                        statuses[change.Path.Replace('/', Path.DirectorySeparatorChar)] = status;
+                    }
+                }
+            }
+            catch { }
+            return statuses;
+        });
+    }
+
+    public async Task<Result> StashPopAsync(string projectPath, int? index = null)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                int idx = index ?? 0;
+                
+                var options = new StashApplyOptions
+                {
+                    ApplyModifiers = StashApplyModifiers.ReinstateIndex
+                };
+
+                repo.Stashes.Apply(idx, options);
+                repo.Stashes.Remove(idx);
+                
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Result.Fail($"Error al aplicar stash: {ex.Message}");
+            }
+        });
+    }
+
+    public async Task<Result> StashDropAsync(string projectPath, int index)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                repo.Stashes.Remove(index);
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Result.Fail($"Error al eliminar stash: {ex.Message}");
+            }
+        });
+    }
+
+    public async Task<Result> StashClearAsync(string projectPath)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                // No hay un Clear nativo en LibGit2Sharp, eliminamos uno a uno
+                int count = repo.Stashes.Count();
+                for (int i = 0; i < count; i++)
+                {
+                    repo.Stashes.Remove(0); // Siempre el 0 mientras haya stashes
+                }
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Result.Fail($"Error al limpiar stashes: {ex.Message}");
+            }
+        });
+    }
+    public async Task<Result> CreateTagAsync(string projectPath, string tagName, string message, string commitHash = null)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var target = string.IsNullOrEmpty(commitHash) ? repo.Head.Tip : repo.Lookup<Commit>(commitHash);
+                if (target == null) return Result.Fail("Commit no encontrado");
+
+                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                if (signature == null) return Result.Fail("Git config: User/Email no configurado");
+
+                repo.Tags.Add(tagName, target, signature, message);
+                return Result.Success();
+            }
+            catch (Exception ex) { return Result.Fail(ex.Message); }
+        });
+    }
+
+    public async Task<Result> DeleteTagLocalAsync(string projectPath, string tagName)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                repo.Tags.Remove(tagName);
+                return Result.Success();
+            }
+            catch (Exception ex) { return Result.Fail(ex.Message); }
+        });
+    }
+
+    public async Task<IEnumerable<GitTagItem>> GetTagsAsync(string projectPath)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var result = new List<GitTagItem>();
+                
+                foreach (var tag in repo.Tags.OrderByDescending(t => (t.Annotation?.Tagger.When ?? (t.Target as Commit)?.Author.When)?.DateTime ?? DateTime.MinValue))
+                {
+                    var commit = tag.PeeledTarget as Commit;
+                    var item = new GitTagItem
+                    {
+                        TagName = tag.FriendlyName,
+                        CommitHash = tag.Target.Sha,
+                        AuthorName = (tag.Annotation?.Tagger.Name) ?? commit?.Author.Name ?? "Unknown",
+                        RelativeDate = (tag.Annotation?.Tagger.When ?? commit?.Author.When)?.DateTime.ToShortDateString() ?? "Unknown",
+                        CommitMessage = commit?.MessageShort ?? "",
+                        TagMessage = tag.Annotation?.Message ?? ""
+                    };
+                    result.Add(item);
+                }
+
+                if (result.Any()) result.First().IsLatest = true;
+                return result;
+            }
+            catch { return Enumerable.Empty<GitTagItem>(); }
+        });
+    }
+
+    public async Task<Dictionary<string, List<string>>> GetTagCommitMapAsync(string projectPath)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var map = new Dictionary<string, List<string>>();
+                foreach (var tag in repo.Tags)
+                {
+                    var sha = tag.Target.Sha;
+                    if (!map.ContainsKey(sha)) map[sha] = new List<string>();
+                    if (!map[sha].Contains(tag.FriendlyName))
+                        map[sha].Add(tag.FriendlyName);
+                    
+                    if (tag.Annotation != null)
+                    {
+                        var peeledSha = tag.PeeledTarget.Sha;
+                        if (!map.ContainsKey(peeledSha)) map[peeledSha] = new List<string>();
+                        if (!map[peeledSha].Contains(tag.FriendlyName))
+                            map[peeledSha].Add(tag.FriendlyName);
+                    }
+                }
+                return map;
+            }
+            catch { return new Dictionary<string, List<string>>(); }
+        });
+    }
     
     // History details
-    public Task<IEnumerable<string>> GetFilesChangedInCommitAsync(string projectPath, string hash) => Task.FromResult(Enumerable.Empty<string>());
-    public Task<string> GetFileContentAtCommitAsync(string projectPath, string file, string hash) => Task.FromResult(string.Empty);
-    public Task<string> GetCommitParentHashAsync(string projectPath, string hash) => Task.FromResult(string.Empty);
-    public Task<Dictionary<string, (int Additions, int Deletions)>> GetCommitNumStatAsync(string projectPath, string hash) => Task.FromResult(new Dictionary<string, (int, int)>());
-    public Task<string> GetFileContentAsync(string projectPath, string revision, string filePath) => Task.FromResult(string.Empty);
+    public async Task<IEnumerable<string>> GetFilesChangedInCommitAsync(string projectPath, string hash)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var commit = repo.Lookup<Commit>(hash);
+                if (commit == null) return Enumerable.Empty<string>();
+                
+                var parent = commit.Parents.FirstOrDefault();
+                if (parent == null) 
+                {
+                    // Primer commit - listar todos los archivos
+                    return commit.Tree.Select(e => e.Path).ToList();
+                }
+
+                var changes = repo.Diff.Compare<TreeChanges>(parent.Tree, commit.Tree);
+                return changes.Select(c => c.Path).ToList();
+            }
+            catch { return Enumerable.Empty<string>(); }
+        });
+    }
+
+    public async Task<string> GetFileContentAtCommitAsync(string projectPath, string file, string hash)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var commit = repo.Lookup<Commit>(hash);
+                if (commit == null) return string.Empty;
+
+                var entry = commit[file.Replace('\\', '/')];
+                if (entry?.Target is Blob blob)
+                {
+                    return blob.GetContentText();
+                }
+                return string.Empty;
+            }
+            catch { return string.Empty; }
+        });
+    }
+
+    public async Task<string> GetCommitParentHashAsync(string projectPath, string hash)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                return repo.Lookup<Commit>(hash)?.Parents.FirstOrDefault()?.Sha ?? string.Empty;
+            }
+            catch { return string.Empty; }
+        });
+    }
+
+    public async Task<Dictionary<string, (int Additions, int Deletions)>> GetCommitNumStatAsync(string projectPath, string hash)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var commit = repo.Lookup<Commit>(hash);
+                if (commit == null) return new Dictionary<string, (int, int)>();
+
+                var parent = commit.Parents.FirstOrDefault();
+                var result = new Dictionary<string, (int, int)>();
+
+                if (parent == null) return result;
+
+                var patch = repo.Diff.Compare<Patch>(parent.Tree, commit.Tree);
+                foreach (var entry in patch)
+                {
+                    result[entry.Path.Replace('/', Path.DirectorySeparatorChar)] = (entry.LinesAdded, entry.LinesDeleted);
+                }
+                return result;
+            }
+            catch { return new Dictionary<string, (int, int)>(); }
+        });
+    }
+
+    public async Task<string> GetFileContentAsync(string projectPath, string revision, string filePath)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                // Lookup<Commit> en LibGit2Sharp realiza el 'peeling' automáticamente desde tags o referencias
+                var commit = repo.Lookup<Commit>(revision);
+                if (commit == null) return string.Empty;
+
+                var entry = commit[filePath.Replace('\\', '/')];
+                if (entry?.Target is Blob blob)
+                {
+                    return blob.GetContentText();
+                }
+                return string.Empty;
+            }
+            catch { return string.Empty; }
+        });
+    }
 
     #endregion
 }

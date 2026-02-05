@@ -8,6 +8,7 @@ using Chapi.Infrastructure.Git;
 
 using Chapi.Infrastructure.Services;
 using Chapi.Infrastructure.Persistence.Settings;
+using Chapi.Domain.Enums;
 namespace Chapi.Presentation.ViewModels;
 
 /// <summary>
@@ -298,11 +299,11 @@ public class HistoryViewModel : ViewModelBase
         if (!confirm) return;
 
         // Ejecutar reset soft
-        var result = await _gitRepository.ExecuteGitCommandAsync(ProjectPath, $"reset --soft {commit.Hash}^");
+        var result = await _gitRepository.ResetAsync(ProjectPath, commit.Hash + "^", Chapi.Domain.Enums.ResetMode.Soft);
         
-        if (!result.Contains("fatal:") && !result.Contains("error:"))
+        if (result.IsSuccess)
         {
-            Msg.Assistant($"âœ… Commit '{commit.ShortHash}' deshecho. Los cambios estan en el area de trabajo.");
+            Msg.Assistant($"✅ Commit '{commit.ShortHash}' deshecho. Los cambios están en el área de trabajo.");
             await ReloadHistoryAsync();
             
             // Notificar que se completo el reset para que los cambios se actualicen
@@ -312,7 +313,7 @@ public class HistoryViewModel : ViewModelBase
         {
             await DialogService.ShowConfirmDialog(
                 "Error",
-                $"No se pudo deshacer el commit:\n{result}",
+                $"No se pudo deshacer el commit:\n{result.Error}",
                 DialogVariant.Error,
                 DialogType.Info);
         }

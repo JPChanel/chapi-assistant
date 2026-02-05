@@ -497,8 +497,8 @@ namespace Chapi.Presentation.Views.Settings
         /// </summary>
         private async void LoadProxySettings()
         {
-            var repo = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<IGitRepository>(App.ServiceProvider);
-            var proxyUrl = await repo.ExecuteGitCommandAsync("", "config --global http.proxy");
+            var repo = App.ServiceProvider.GetRequiredService<IGitRepository>();
+            var proxyUrl = await repo.GetConfigAsync("http.proxy", global: true);
 
             if (!string.IsNullOrWhiteSpace(proxyUrl))
             {

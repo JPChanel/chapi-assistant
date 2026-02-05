@@ -35,21 +35,17 @@ public class CreateBranchUseCase
         {
             _notificationService.ShowInfo($"Creando rama '{branchName}'...");
 
-            string command = string.IsNullOrWhiteSpace(fromCommitOrBranch)
-                ? $"branch {branchName}"
-                : $"branch {branchName} {fromCommitOrBranch}";
-
-            var result = await _gitRepo.ExecuteGitCommandAsync(projectPath, command);
-
-            if (result.Contains("already exists"))
+            var result = await _gitRepo.CreateBranchAsync(projectPath, branchName, fromCommitOrBranch);
+            
+            if (!result.IsSuccess)
             {
-                _notificationService.ShowWarning($"âš ï¸ La rama '{branchName}' ya existe");
-                return Result.Fail($"La rama '{branchName}' ya existe");
+                _notificationService.ShowError($"❌ Error al crear rama: {result.Error}");
+                return result;
             }
 
             string message = string.IsNullOrWhiteSpace(fromCommitOrBranch)
-                ? $"âœ… Rama '{branchName}' creada desde HEAD"
-                : $"âœ… Rama '{branchName}' creada desde '{fromCommitOrBranch}'";
+                ? $"✅ Rama '{branchName}' creada desde HEAD"
+                : $"✅ Rama '{branchName}' creada desde '{fromCommitOrBranch}'";
 
             _notificationService.ShowSuccess(message);
             return Result.Success();

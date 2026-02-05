@@ -43,7 +43,7 @@ public class NetworkWatcherService
             // 1. Lee las PREFERENCIAS guardadas por el usuario.
             // ==========================================================
             var settings = UserSettingsService.LoadSettings();
-            string currentGitProxy = await _gitRepository.ExecuteGitCommandAsync("", "config --global http.proxy");
+            string currentGitProxy = await _gitRepository.GetConfigAsync("http.proxy", global: true);
 
             bool isWifiActive = false;
             foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
@@ -64,8 +64,8 @@ public class NetworkWatcherService
             {
                 if (!string.IsNullOrEmpty(currentGitProxy))
                 {
-                    await _gitRepository.ExecuteGitCommandAsync("", "config --global --unset http.proxy");
-                    await _gitRepository.ExecuteGitCommandAsync("", "config --global --unset https.proxy");
+                    await _gitRepository.UnsetConfigAsync("http.proxy", global: true);
+                    await _gitRepository.UnsetConfigAsync("https.proxy", global: true);
                     configChanged = true;
                 }
             }
@@ -81,8 +81,8 @@ public class NetworkWatcherService
                 string proxyUrlToApply = BuildProxyUrl(settings);
                 if (currentGitProxy != proxyUrlToApply)
                 {
-                    await _gitRepository.ExecuteGitCommandAsync("", $"config --global http.proxy {proxyUrlToApply}");
-                    await _gitRepository.ExecuteGitCommandAsync("", $"config --global https.proxy {proxyUrlToApply}");
+                    await _gitRepository.SetConfigAsync("http.proxy", proxyUrlToApply, global: true);
+                    await _gitRepository.SetConfigAsync("https.proxy", proxyUrlToApply, global: true);
                     configChanged = true;
                 }
             }
@@ -91,8 +91,8 @@ public class NetworkWatcherService
             {
                 if (!string.IsNullOrEmpty(currentGitProxy))
                 {
-                    await _gitRepository.ExecuteGitCommandAsync("", "config --global --unset http.proxy");
-                    await _gitRepository.ExecuteGitCommandAsync("", "config --global --unset https.proxy");
+                    await _gitRepository.UnsetConfigAsync("http.proxy", global: true);
+                    await _gitRepository.UnsetConfigAsync("https.proxy", global: true);
                     configChanged = true;
                 }
             }

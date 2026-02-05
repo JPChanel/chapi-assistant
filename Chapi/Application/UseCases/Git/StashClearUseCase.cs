@@ -29,7 +29,9 @@ public class StashClearUseCase
         {
             _notificationService.ShowInfo("Limpiando todos los stashes...");
 
-            var result = await _gitRepo.ExecuteGitCommandAsync(projectPath, "stash clear");
+            var result = await _gitRepo.StashClearAsync(projectPath);
+            if (!result.IsSuccess)
+                return result;
 
             _notificationService.ShowSuccess("âœ… Todos los stashes han sido eliminados");
             return Result.Success();

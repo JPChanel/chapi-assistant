@@ -1,5 +1,6 @@
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
+using Chapi.Domain.Enums;
 using Chapi.Domain.Models;
 
 namespace Chapi.Domain.Interfaces;
@@ -19,11 +20,16 @@ public interface IGitRepository
     Task<IEnumerable<FileChange>> GetChangesAsync(string projectPath);
     Task<Result> StageFilesAsync(string projectPath, IEnumerable<string> files);
     Task<Result> UnstageFilesAsync(string projectPath, IEnumerable<string> files);
+    Task<Result> DiscardChangesAsync(string projectPath, IEnumerable<string>? files = null);
 
     // Branches
     Task<IEnumerable<string>> GetBranchesAsync(string projectPath);
     Task<string> GetCurrentBranchAsync(string projectPath);
     Task<Result> SwitchBranchAsync(string projectPath, string branchName);
+    Task<Result> CreateBranchAsync(string projectPath, string branchName, string? fromCommitOrBranch = null);
+    Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false);
+    Task<Result> ResetAsync(string projectPath, string target, ResetMode mode);
+    Task<Result> RestoreFileFromStashAsync(string projectPath, string stashName, string filePath);
 
     // Remote
     Task<Result> PushAsync(string projectPath, string branch);
@@ -31,6 +37,7 @@ public interface IGitRepository
     Task<Result> FetchAsync(string projectPath);
     Task<(int Ahead, int Behind)> GetAheadBehindCountAsync(string projectPath);
     Task<string> GetRemoteUrlAsync(string projectPath, string remoteName = "origin");
+    Task<Result> SetRemoteUrlAsync(string projectPath, string remoteName, string url);
     
     Task<IEnumerable<string>> GetFilesChangedInCommitAsync(string projectPath, string hash);
     Task<string> GetFileContentAtCommitAsync(string projectPath, string file, string hash);
@@ -41,13 +48,13 @@ public interface IGitRepository
     Task<Result> CloneAsync(string url, string destinationPath);
     Task<Result> InitAsync(string projectPath);
     Task<Result> AddRemoteAsync(string projectPath, string name, string url);
-
-    // Generic command execution
-    Task<string> ExecuteGitCommandAsync(string projectPath, string command);
-
     // Stash
+    Task<Result> StashChangesAsync(string projectPath, string message, IEnumerable<string>? files = null);
     Task<IEnumerable<GitStash>> ListStashesAsync(string projectPath);
     Task<Dictionary<string, char>> GetFileStatusesForStashAsync(string projectPath, string stashName);
+    Task<Result> StashPopAsync(string projectPath, int? index = null);
+    Task<Result> StashDropAsync(string projectPath, int index);
+    Task<Result> StashClearAsync(string projectPath);
 
     // Tags
     Task<Result> CreateTagAsync(string projectPath, string tagName, string message, string commitHash = null);
@@ -59,4 +66,10 @@ public interface IGitRepository
     bool IsGitInstalled();
     Task<bool> HasUpstreamAsync(string projectPath, string branchName);
     Task<string> GetFileContentAsync(string projectPath, string revision, string filePath);
+    Task<string> GetDiffAsync(string projectPath, string file, string? revision = null);
+
+    // Config
+    Task<string> GetConfigAsync(string key, bool global = false);
+    Task<Result> SetConfigAsync(string key, string value, bool global = false);
+    Task<Result> UnsetConfigAsync(string key, bool global = false);
 }

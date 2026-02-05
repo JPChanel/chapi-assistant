@@ -1,28 +1,8 @@
 ﻿using Chapi.Domain.Common;
+using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
-
-/// <summary>
-/// Modo de reset para el commit.
-/// </summary>
-public enum ResetMode
-{
-    /// <summary>
-    /// Mantiene los cambios en el area de staging (--soft)
-    /// </summary>
-    Soft,
-    
-    /// <summary>
-    /// Mantiene los cambios en el working directory (--mixed)
-    /// </summary>
-    Mixed,
-    
-    /// <summary>
-    /// Descarta todos los cambios (--hard)
-    /// </summary>
-    Hard
-}
 
 /// <summary>
 /// Use Case para deshacer el ultimo commit.
@@ -50,24 +30,17 @@ public class ResetCommitUseCase
 
         try
         {
-            string modeStr = mode switch
-            {
-                ResetMode.Soft => "--soft",
-                ResetMode.Mixed => "--mixed",
-                ResetMode.Hard => "--hard",
-                _ => "--soft"
-            };
-
             _notificationService.ShowInfo($"Deshaciendo ultimo commit ({mode})...");
 
-            var result = await _gitRepo.ExecuteGitCommandAsync(projectPath, $"reset {modeStr} HEAD~1");
+            var result = await _gitRepo.ResetAsync(projectPath, "HEAD~1", mode);
+            if (!result.IsSuccess) return result;
 
             string message = mode switch
             {
-                ResetMode.Soft => "âœ… Commit deshecho. Cambios en staging.",
-                ResetMode.Mixed => "âœ… Commit deshecho. Cambios en working directory.",
-                ResetMode.Hard => "âœ… Commit deshecho. Cambios descartados.",
-                _ => "âœ… Commit deshecho."
+                ResetMode.Soft => "✅ Commit deshecho. Cambios en staging.",
+                ResetMode.Mixed => "✅ Commit deshecho. Cambios en working directory.",
+                ResetMode.Hard => "✅ Commit deshecho. Cambios descartados.",
+                _ => "✅ Commit deshecho."
             };
 
             _notificationService.ShowSuccess(message);
@@ -75,7 +48,7 @@ public class ResetCommitUseCase
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"âŒ Error al deshacer commit: {ex.Message}");
+            _notificationService.ShowError($"❌ Error al deshacer commit: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }

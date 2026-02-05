@@ -1,5 +1,6 @@
 ﻿using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
+using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
 using System.IO;
@@ -228,6 +229,30 @@ public class GitRepository : IGitRepository
             return Result.Fail($"Error al quitar archivos del stage: {ex.Message}");
         }
     }
+    public async Task<Result> DiscardChangesAsync(string projectPath, IEnumerable<string>? files = null)
+    {
+        try
+        {
+            if (files == null || !files.Any())
+            {
+                await _executor.ExecuteAsync("checkout -- .", projectPath);
+                await _executor.ExecuteAsync("clean -fd", projectPath);
+            }
+            else
+            {
+                foreach (var file in files)
+                {
+                    await _executor.ExecuteAsync($"checkout -- \"{file}\"", projectPath);
+                    await _executor.ExecuteAsync($"clean -fd -- \"{file}\"", projectPath);
+                }
+            }
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al descartar cambios: {ex.Message}");
+        }
+    }
 
     #endregion
 
@@ -332,6 +357,110 @@ public class GitRepository : IGitRepository
         }
     }
 
+    public async Task<Result> CreateBranchAsync(string projectPath, string branchName, string? fromCommitOrBranch = null)
+    {
+        try
+        {
+            string command = string.IsNullOrEmpty(fromCommitOrBranch) ? $"branch \"{branchName}\"" : $"branch \"{branchName}\" \"{fromCommitOrBranch}\"";
+            var result = await _executor.ExecuteAsync(command, projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al crear rama: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false)
+    {
+        try
+        {
+            string flag = force ? "-D" : "-d";
+            var result = await _executor.ExecuteAsync($"branch {flag} \"{branchName}\"", projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al eliminar rama: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> ResetAsync(string projectPath, string target, ResetMode mode)
+    {
+        try
+        {
+            string modeStr = mode switch {
+                ResetMode.Soft => "--soft",
+                ResetMode.Mixed => "--mixed",
+                ResetMode.Hard => "--hard",
+                _ => "--soft"
+            };
+            var result = await _executor.ExecuteAsync($"reset {modeStr} {target}", projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al resetear: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> RestoreFileFromStashAsync(string projectPath, string stashName, string filePath)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"checkout \"{stashName}\" -- \"{filePath}\"", projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al restaurar archivo desde stash: {ex.Message}");
+        }
+    }
+
+    public async Task<string> GetDiffAsync(string projectPath, string file, string? revision = null)
+    {
+        try
+        {
+            string rev = string.IsNullOrEmpty(revision) ? "HEAD" : revision;
+            var result = await _executor.ExecuteAsync($"diff {rev} -- \"{file}\"", projectPath);
+            return result.IsSuccess ? result.Output : string.Empty;
+        }
+        catch { return string.Empty; }
+    }
+
+    public async Task<string> GetConfigAsync(string key, bool global = false)
+    {
+        try
+        {
+            string scope = global ? "--global" : "";
+            var result = await _executor.ExecuteAsync($"config {scope} {key}", "");
+            return result.IsSuccess ? result.Output.Trim() : string.Empty;
+        }
+        catch { return string.Empty; }
+    }
+
+    public async Task<Result> SetConfigAsync(string key, string value, bool global = false)
+    {
+        try
+        {
+            string scope = global ? "--global" : "";
+            var result = await _executor.ExecuteAsync($"config {scope} {key} \"{value}\"", "");
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex) { return Result.Fail(ex.Message); }
+    }
+
+    public async Task<Result> UnsetConfigAsync(string key, bool global = false)
+    {
+        try
+        {
+            string scope = global ? "--global" : "";
+            var result = await _executor.ExecuteAsync($"config {scope} --unset {key}", "");
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex) { return Result.Fail(ex.Message); }
+    }
+
     #endregion
 
     #region Remote
@@ -427,6 +556,19 @@ public class GitRepository : IGitRepository
     {
          var result = await _executor.ExecuteAsync($"remote get-url {remoteName}", projectPath);
          return result.IsSuccess ? result.Output.Trim() : string.Empty;
+    }
+
+    public async Task<Result> SetRemoteUrlAsync(string projectPath, string remoteName, string url)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"remote set-url {remoteName} \"{url}\"", projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al actualizar remoto: {ex.Message}");
+        }
     }
 
     #endregion
@@ -537,6 +679,24 @@ public class GitRepository : IGitRepository
 
     #region Stash
 
+    public async Task<Result> StashChangesAsync(string projectPath, string message, IEnumerable<string>? files = null)
+    {
+        try
+        {
+            string escapedMessage = message.Replace("\"", "'");
+            string command = files != null && files.Any()
+                ? $"stash push --include-untracked -m \"{escapedMessage}\" -- {string.Join(" ", files.Select(f => $"\"{f}\""))}"
+                : $"stash push --include-untracked -m \"{escapedMessage}\"";
+
+            var result = await _executor.ExecuteAsync(command, projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error stash: {ex.Message}");
+        }
+    }
+
     public async Task<IEnumerable<GitStash>> ListStashesAsync(string projectPath)
     {
         try
@@ -598,6 +758,45 @@ public class GitRepository : IGitRepository
         }
         catch { }
         return statuses;
+    }
+    public async Task<Result> StashPopAsync(string projectPath, int? index = null)
+    {
+        try
+        {
+            string command = index.HasValue ? $"stash pop stash@{{{index.Value}}}" : "stash pop";
+            var result = await _executor.ExecuteAsync(command, projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error stash pop: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> StashDropAsync(string projectPath, int index)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"stash drop stash@{{{index}}}", projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error stash drop: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> StashClearAsync(string projectPath)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync("stash clear", projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error stash clear: {ex.Message}");
+        }
     }
     #endregion
 
@@ -709,21 +908,5 @@ public class GitRepository : IGitRepository
 
     #endregion
 
-    #region Generic Command Execution
 
-    public async Task<string> ExecuteGitCommandAsync(string projectPath, string command)
-    {
-        try
-        {
-            var result = await _executor.ExecuteAsync(command, projectPath);
-            return result.IsSuccess ? result.Output : throw new Exception(result.Error);
-        }
-        catch (Exception ex)
-        {
-            throw new Exception($"Error ejecutando comando Git: {ex.Message}");
-        }
-    }
-
-    #endregion
 }
-
