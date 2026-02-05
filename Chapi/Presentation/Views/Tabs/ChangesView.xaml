@@ -92,12 +92,12 @@
                             <CheckBox x:Name="SelectAllCheckBox" HorizontalAlignment="Right" Content="Seleccionar" FontSize="10" Foreground="White" Opacity="0.8" IsChecked="{Binding AreAllSelected, Mode=TwoWay}" VerticalAlignment="Center">
                                 <CheckBox.ContextMenu>
                                     <ContextMenu>
-                                        <MenuItem Header="Stash Cambios Seleccionados" Click="StashSelectedMenuItem_Click">
+                                        <MenuItem Header="Stash todos los cambios" Click="StashSelectedMenuItem_Click">
                                             <MenuItem.Icon>
                                                 <materialDesign:PackIcon Kind="ArchiveArrowDownOutline"/>
                                             </MenuItem.Icon>
                                         </MenuItem>
-                                        <MenuItem Header="Descartar Todos" Click="DiscardAllChangesMenuItem_Click" Foreground="Red">
+                                        <MenuItem Header="Descartar Todos los cambios" Click="DiscardAllChangesMenuItem_Click" Foreground="Red">
                                             <MenuItem.Icon>
                                                 <materialDesign:PackIcon Kind="DeleteForever" Foreground="Red"/>
                                             </MenuItem.Icon>
@@ -290,12 +290,6 @@
                                         Margin="4,1">
                                     <Border.ContextMenu>
                                         <ContextMenu>                                                                  
-                                            <MenuItem Header="Stash Este Archivo"
-                                                      Click="StashSelectedMenuItem_Click">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="ArchiveArrowDownOutline"/>
-                                                </MenuItem.Icon>
-                                            </MenuItem>
                                             <MenuItem Header="Descartar Cambios"
                                                       Click="DiscardChangesMenuItem_Click"
                                                       CommandParameter="{Binding}"

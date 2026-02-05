@@ -87,7 +87,7 @@ public class ChangesViewModel : ViewModelBase
         DeselectAllCommand = new RelayCommand(_ => DeselectAll());
         
         DiscardCommand = new AsyncRelayCommand(async param => await DiscardAsync(param as ChangeItemViewModel));
-        StashSelectedCommand = new AsyncRelayCommand(async param => await StashSelectedAsync(param as ChangeItemViewModel));
+        StashSelectedCommand = new AsyncRelayCommand(async _ => await StashSelectedAsync());
         PopStashCommand = new AsyncRelayCommand(async param => await PopStashAsync(param as GitStash));
         DropStashCommand = new AsyncRelayCommand(async param => await DropStashAsync(param as GitStash));
         ClearStashesCommand = new AsyncRelayCommand(async _ => await ClearStashesAsync());
@@ -791,23 +791,15 @@ public class ChangesViewModel : ViewModelBase
         }
     }
 
-    private async Task StashSelectedAsync(ChangeItemViewModel? specificItem = null)
+    private async Task StashSelectedAsync()
     {
         if (string.IsNullOrEmpty(ProjectPath)) return;
 
         List<string> filesToStash;
         string message;
 
-        if (specificItem != null)
-        {
-            filesToStash = new List<string> { specificItem.FilePath };
-            message = $"Stash: {specificItem.FileName}";
-        }
-        else
-        {
-            filesToStash = Changes.Where(c => c.IsSelected).Select(c => c.FilePath).ToList();
-            message = "Stash manual";
-        }
+        filesToStash = Changes.Where(c => c.IsSelected).Select(c => c.FilePath).ToList();
+        message = "Stash manual";
 
         if (!filesToStash.Any()) return;
 

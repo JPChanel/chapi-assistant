@@ -52,14 +52,7 @@ public partial class ChangesView : UserControl
 
     private void StashSelectedMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement fe && fe.DataContext is ChangeItemViewModel item)
-        {
-            _viewModel?.StashSelectedCommand.Execute(item);
-        }
-        else
-        {
-            _viewModel?.StashSelectedCommand.Execute(null);
-        }
+        _viewModel?.StashSelectedCommand.Execute(null);
     }
 
     private async void DiscardAllChangesMenuItem_Click(object sender, RoutedEventArgs e)
