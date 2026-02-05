@@ -36,11 +36,11 @@ public class PushChangesUseCase
 
         if (result.IsSuccess)
         {
-            _notifications.ShowSuccess($"âœ… Push exitoso a {branch}");
+            _notifications.ShowSuccess($"Push exitoso a {branch}");
         }
         else
         {
-            _notifications.ShowError($"âŒ Error al hacer push: {result.Error}");
+            _notifications.ShowError($"Error al hacer push: {result.Error}");
         }
 
         return result;
