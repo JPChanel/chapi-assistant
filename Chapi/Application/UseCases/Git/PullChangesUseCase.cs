@@ -18,7 +18,7 @@ public class PullChangesUseCase
         _notifications = notifications;
     }
 
-    public async Task<Result> ExecuteAsync(string projectPath, string branch)
+    public async Task<Result> ExecuteAsync(string projectPath, string branch, bool stashChanges = false)
     {
         if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
         {
@@ -32,18 +32,39 @@ public class PullChangesUseCase
             return Result.Fail("Nombre de rama invalido");
         }
 
+        // Si se solicita, hacer stash antes del pull
+        if (stashChanges)
+        {
+            var stashResult = await _gitRepo.StashChangesAsync(projectPath, $"Auto-stash antes de pull en {branch}");
+            if (!stashResult.IsSuccess)
+            {
+                _notifications.ShowWarning("No se pudo crear el stash: " + stashResult.Error);
+                return stashResult;
+            }
+        }
+
         var result = await _gitRepo.PullAsync(projectPath, branch);
 
         if (result.IsSuccess)
         {
-            _notifications.ShowSuccess($"âœ… Pull exitoso desde {branch}");
+            _notifications.ShowSuccess($"✅ Pull exitoso desde {branch}");
+            
+            // Si hicimos stash, intentamos recuperarlo
+            if (stashChanges)
+            {
+                _notifications.ShowInfo("Restaurando cambios guardados...");
+                var popResult = await _gitRepo.StashPopAsync(projectPath, 0);
+                if (!popResult.IsSuccess)
+                {
+                    _notifications.ShowWarning("Pull completado, pero hubo conflictos al restaurar tus cambios locales. Por favor revisa los stashes.");
+                }
+            }
         }
         else
         {
-            _notifications.ShowError($"âŒ Error al hacer pull: {result.Error}");
+            _notifications.ShowError($"❌ Error al hacer pull: {result.Error}");
         }
 
         return result;
     }
 }
-

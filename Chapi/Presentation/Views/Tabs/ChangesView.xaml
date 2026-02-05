@@ -108,7 +108,7 @@
                         </Grid>
                     </Border>
 
-                    <!-- SECCI “N DE COMMIT -->
+                    <!-- SECCION DE COMMIT -->
                     <Border x:Name="ChangesFooterPanel" DockPanel.Dock="Bottom" Padding="12,10" Margin="0" Background="{DynamicResource PrimaryHueMidBrush}" BorderBrush="{x:Null}" BorderThickness="0">
                         <StackPanel>
                             <Grid Margin="0,0,0,8">

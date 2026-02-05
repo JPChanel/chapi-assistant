@@ -213,6 +213,14 @@ namespace Chapi
             {
                 _currentlySelectedBranch = activeBranch;
                 BranchesComboBox.SelectedItem = activeBranch;
+                
+                // Actualizar inmediatamente el botón de Git con lo que ya sabemos del proyecto
+                UpdateGitActionButton();
+                
+                if (selectedProject.Ahead > 0)
+                {
+                    Msg.Assistant($"🚀 Tienes {selectedProject.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
+                }
             }
              _ = Task.Run(async () =>
              {
@@ -524,7 +532,7 @@ namespace Chapi
                     bool changed = proj.Ahead != ahead || proj.Behind != behind;
                     proj.Ahead = ahead;
                     proj.Behind = behind;                
-                    if (changed && proj.FullPath == projectDirectory && !ProjectsComboBox.IsDropDownOpen)
+                    if ((changed || proj.FullPath == projectDirectory) && proj.FullPath == projectDirectory && !ProjectsComboBox.IsDropDownOpen)
                     {
                         UpdateGitActionButton();
                     }
@@ -939,6 +947,19 @@ namespace Chapi
         {
             if (!ValidateProject()) return;
 
+            bool stashBeforePull = false;
+            if (action == GitActionState.Pull)
+            {
+                var changes = await _gitRepository.GetChangesAsync(projectDirectory);
+                if (changes.Any())
+                {
+                    stashBeforePull = await DialogService.ShowConfirmDialog(
+                        "Cambios sin confirmar",
+                        "Tienes cambios locales que podrían entrar en conflicto. ¿Deseas guardarlos automáticamente en un Stash antes de hacer Pull?",
+                        DialogVariant.Info);
+                }
+            }
+
             await RunWithLoading(async () =>
             {
                 Chapi.Domain.Common.Result result = Chapi.Domain.Common.Result.Success();
@@ -951,7 +972,7 @@ namespace Chapi
                     
                     case GitActionState.Pull:
                         var pullUC = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Git.PullChangesUseCase>();
-                        result = await pullUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch);
+                        result = await pullUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch, stashBeforePull);
                         break;
                     
                     case GitActionState.Push:
