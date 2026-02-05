@@ -521,8 +521,104 @@ public class ChangesViewModel : ViewModelBase
 
     private async Task ConnectAccountAsync()
     {
-        if (IsUserLoggedIn || AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.Unknown) return;
+        if (AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.Unknown) return;
 
+        // Si ya está logueado, abrir configuración
+        if (IsUserLoggedIn)
+        {
+            // Leer configuración actual de default branch
+            var defaultBranch = await _gitRepository.GetConfigAsync("init.defaultBranch", global: true);
+            if (string.IsNullOrWhiteSpace(defaultBranch))
+            {
+                defaultBranch = "main";
+            }
+
+            // Obtener avatar del usuario
+            var avatarUrl = AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.GitHub
+                ? Chapi.Domain.Services.AvatarCacheService.Instance.GetGitHubAvatarUrl(AuthenticatedUserName)
+                : Chapi.Domain.Services.AvatarCacheService.Instance.GetGitLabAvatarUrl(AuthenticatedUserName);
+
+            System.Windows.Media.Imaging.BitmapImage avatarImage = null;
+            try
+            {
+                avatarImage = new System.Windows.Media.Imaging.BitmapImage();
+                avatarImage.BeginInit();
+                avatarImage.UriSource = new Uri(avatarUrl);
+                avatarImage.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                avatarImage.EndInit();
+            }
+            catch { }
+
+            // Crear y configurar el diálogo
+            var dialog = new Chapi.Presentation.Views.Dialogs.GitConfigDialog
+            {
+                // Git configuration
+                UserName = GitUserName,
+                UserEmail = GitUserEmail,
+                DefaultBranch = defaultBranch,
+                
+                // Account information
+                AccountDisplayName = GitUserName,
+                AccountUserName = AuthenticatedUserName,
+                Provider = AuthenticatedProvider.ToString(),
+                AvatarImage = avatarImage
+            };
+
+            await DialogHost.Show(dialog, "RootDialog");
+
+            // Manejar sign out
+            if (dialog.SignedOut)
+            {
+                // Cerrar sesión
+                await _credentialStorage.DeleteCredentialAsync(AuthenticatedProvider.ToString());
+                
+                // Limpiar caché de avatares del usuario
+                Chapi.Domain.Services.AvatarCacheService.Instance.ClearUserCache(
+                    AuthenticatedProvider.ToString(), 
+                    AuthenticatedUserName
+                );
+                
+                // Recargar estado
+                await LoadAuthStatusAsync();
+                return;
+            }
+
+            // Si el usuario guardó cambios en Git config, actualizar la configuración
+            if (dialog.WasSaved)
+            {
+                try
+                {
+                    // Guardar nombre
+                    if (!string.IsNullOrWhiteSpace(dialog.UserName))
+                    {
+                        await _gitRepository.SetConfigAsync("user.name", dialog.UserName, global: true);
+                    }
+
+                    // Guardar email
+                    if (!string.IsNullOrWhiteSpace(dialog.UserEmail))
+                    {
+                        await _gitRepository.SetConfigAsync("user.email", dialog.UserEmail, global: true);
+                    }
+
+                    // Guardar default branch
+                    if (!string.IsNullOrWhiteSpace(dialog.DefaultBranch))
+                    {
+                        await _gitRepository.SetConfigAsync("init.defaultBranch", dialog.DefaultBranch, global: true);
+                    }
+
+                    // Recargar configuración
+                    await LoadGitUserEmailAsync();
+                }
+                catch (Exception ex)
+                {
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo guardar la configuración: {ex.Message}", DialogVariant.Error, DialogType.Info);
+                }
+            }
+
+            return;
+        }
+
+        // Si no está logueado, iniciar proceso de autenticación
         IsLoading = true;
         try
         {
