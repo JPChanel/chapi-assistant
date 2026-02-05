@@ -30,6 +30,7 @@ public interface IGitRepository
     Task<Result> PullAsync(string projectPath, string branch);
     Task<Result> FetchAsync(string projectPath);
     Task<(int Ahead, int Behind)> GetAheadBehindCountAsync(string projectPath);
+    Task<string> GetRemoteUrlAsync(string projectPath, string remoteName = "origin");
     
     Task<IEnumerable<string>> GetFilesChangedInCommitAsync(string projectPath, string hash);
     Task<string> GetFileContentAtCommitAsync(string projectPath, string file, string hash);

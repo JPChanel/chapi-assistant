@@ -828,14 +828,25 @@ namespace Chapi.Presentation.Views.Settings
                 return;
             }
 
-            var viewModel = App.ServiceProvider.GetRequiredService<LoginGitHubViewModel>();
-            if (viewModel == null) return;
-
-            var dialog = new LoginGitHubDialog(viewModel);
-            await DialogHost.Show(dialog, App.GlobalDialogIdentifier);
-
-            // Recargar info después del dialogo
-            LoadGitAccountsInfo();
+            try
+            {
+                var factory = App.ServiceProvider.GetRequiredService<IGitAuthProviderFactory>();
+                var provider = factory.GetProvider(Chapi.Domain.Enums.GitProvider.GitHub);
+                
+                var result = await provider.AuthenticateAsync();
+                if (result.IsSuccess)
+                {
+                    LoadGitAccountsInfo();
+                }
+                else if (result.Error != "Autenticación cancelada")
+                {
+                    await DialogService.ShowConfirmDialog("Error", result.Error, DialogVariant.Error, DialogType.Info);
+                }
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowConfirmDialog("Error", ex.Message, DialogVariant.Error, DialogType.Info);
+            }
         }
 
         private async void btnGitLabLogin_Click(object sender, RoutedEventArgs e)
@@ -853,8 +864,25 @@ namespace Chapi.Presentation.Views.Settings
                 return;
             }
 
-            // Por ahora, mostrar mensaje ya que no tenemos vista de login dedicada para GitLab aun
-            await DialogService.ShowConfirmDialog("GitLab", "La autenticación de GitLab está configurada internamente pero la UI de login aún no está disponible.", DialogVariant.Info, DialogType.Info);
+            try
+            {
+                var factory = App.ServiceProvider.GetRequiredService<IGitAuthProviderFactory>();
+                var provider = factory.GetProvider(Chapi.Domain.Enums.GitProvider.GitLab);
+                
+                var result = await provider.AuthenticateAsync();
+                if (result.IsSuccess)
+                {
+                    LoadGitAccountsInfo();
+                }
+                else if (result.Error != "Autenticación cancelada")
+                {
+                    await DialogService.ShowConfirmDialog("Error", result.Error, DialogVariant.Error, DialogType.Info);
+                }
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowConfirmDialog("Error", ex.Message, DialogVariant.Error, DialogType.Info);
+            }
         }
 
         #endregion

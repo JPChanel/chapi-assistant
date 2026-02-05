@@ -119,20 +119,32 @@
                                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="MENSAJE DE COMMIT" FontSize="10" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" Margin="0,0,10,0"/>
 
-                                        <Border CornerRadius="8" Background="#25FFFFFF" Padding="6,2" 
-                                                Visibility="{Binding IsAuthenticated, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                            <StackPanel Orientation="Horizontal">
-                                                 <materialDesign:PackIcon Kind="{Binding ProviderIcon}" 
-                                                                            Foreground="{Binding ProviderColor}" 
-                                                                            Width="12" Height="12" 
-                                                                            VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                 <TextBlock Text="{Binding AuthenticatedUserName}" 
-                                                            FontSize="9" 
-                                                            Foreground="White" 
-                                                            VerticalAlignment="Center"
-                                                            FontWeight="SemiBold"/>
-                                            </StackPanel>
-                                        </Border>
+                                        <Button Command="{Binding ConnectAccountCommand}" 
+                                                Style="{StaticResource MaterialDesignFlatButton}"
+                                                Padding="0" Margin="0" Height="Auto" VerticalAlignment="Center"
+                                                Visibility="{Binding IsAuthenticated, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                ToolTip="Click para gestionar cuenta">
+                                            <Border CornerRadius="8" Background="#25FFFFFF" Padding="6,2">
+                                                <StackPanel Orientation="Horizontal">
+                                                     <materialDesign:PackIcon Kind="{Binding ProviderIcon}" 
+                                                                                Foreground="{Binding ProviderColor}" 
+                                                                                Width="12" Height="12" 
+                                                                                VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                     <TextBlock Text="{Binding AuthenticatedUserName}" 
+                                                                FontSize="9" 
+                                                                Foreground="White" 
+                                                                VerticalAlignment="Center"
+                                                                FontWeight="SemiBold"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Button>
+
+                                        <Button Command="{Binding PushCommand}" Style="{StaticResource MaterialDesignFlatButton}"
+                                                Padding="0" Margin="8,0,0,0" Height="24" Width="24" VerticalAlignment="Center"
+                                                Visibility="{Binding IsAuthenticated, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                ToolTip="Hacer Push (Subir cambios)">
+                                             <materialDesign:PackIcon Kind="CloudUpload" Width="16" Height="16" Foreground="{Binding ProviderColor}" />
+                                        </Button>
                                     </StackPanel>
 
                                 <Button x:Name="btnGitCommitIA"

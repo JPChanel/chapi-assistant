@@ -9,22 +9,25 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
+using Chapi.Infrastructure.Configuration;
 
 namespace Chapi.Infrastructure.Services;
 
 public class GitHubAuthService : IGitHubAuthService
 {
     private readonly HttpClient _httpClient;
-    private const string ClientId = "Iv1.xxxxxxxxxxxx"; // TODO: El usuario debe proporcionar su ClientId de GitHub App
+    private readonly string _clientId;
     private const string OAuthUrl = "https://github.com/login/device/code";
     private const string TokenUrl = "https://github.com/login/oauth/access_token";
     private const string UserApiUrl = "https://api.github.com/user";
 
-    public GitHubAuthService()
+    public GitHubAuthService(IOptions<GitAuthConfig> config)
     {
         _httpClient = new HttpClient();
         _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "ChapiAssistant");
+        _clientId = config.Value.GitHub.ClientId;
     }
 
     public async Task<Result<GitHubDeviceCode>> RequestDeviceCodeAsync()
@@ -33,7 +36,7 @@ public class GitHubAuthService : IGitHubAuthService
         {
             var content = new FormUrlEncodedContent(new[]
             {
-                new KeyValuePair<string, string>("client_id", ClientId),
+                new KeyValuePair<string, string>("client_id", _clientId),
                 new KeyValuePair<string, string>("scope", "repo user workflow")
             });
 
@@ -65,7 +68,7 @@ public class GitHubAuthService : IGitHubAuthService
         {
             var content = new FormUrlEncodedContent(new[]
             {
-                new KeyValuePair<string, string>("client_id", ClientId),
+                new KeyValuePair<string, string>("client_id", _clientId),
                 new KeyValuePair<string, string>("device_code", deviceCode),
                 new KeyValuePair<string, string>("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
             });

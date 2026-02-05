@@ -1,4 +1,5 @@
-﻿using Chapi.Application.UseCases.Git;
+﻿using System.Windows.Input;
+using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities;
 using Chapi.Infrastructure.Git;
 using DiffPlex;
@@ -30,6 +31,7 @@ public class ChangesViewModel : ViewModelBase
     private readonly StashClearUseCase _stashClearUseCase;
     private readonly Domain.Interfaces.IGitRepository _gitRepository;
     private readonly GetFileDiffUseCase _getFileDiffUseCase;
+    private readonly PushChangesUseCase _pushChangesUseCase;
     private readonly Domain.Interfaces.IGitAuthProviderFactory _authFactory;
     private readonly Domain.Interfaces.ICredentialStorageService _credentialStorage;
 
@@ -58,7 +60,8 @@ public class ChangesViewModel : ViewModelBase
         GetFileDiffUseCase getFileDiffUseCase,
         Domain.Interfaces.IGitRepository gitRepository,
         Domain.Interfaces.IGitAuthProviderFactory authFactory,
-        Domain.Interfaces.ICredentialStorageService credentialStorage)
+        Domain.Interfaces.ICredentialStorageService credentialStorage,
+        PushChangesUseCase pushChangesUseCase)
     {
         _loadChangesUseCase = loadChangesUseCase;
         _commitChangesUseCase = commitChangesUseCase;
@@ -71,6 +74,7 @@ public class ChangesViewModel : ViewModelBase
         _gitRepository = gitRepository;
         _authFactory = authFactory;
         _credentialStorage = credentialStorage;
+        _pushChangesUseCase = pushChangesUseCase;
         
         Changes = new ObservableCollection<ChangeItemViewModel>();
         Stashes = new ObservableCollection<GitStash>();
@@ -288,6 +292,24 @@ public class ChangesViewModel : ViewModelBase
         set => SetProperty(ref _isAuthenticated, value);
     }
 
+    private bool _isLoading;
+    public bool IsLoading
+    {
+        get => _isLoading;
+        set => SetProperty(ref _isLoading, value);
+    }
+
+    private bool _isUserLoggedIn;
+    public bool IsUserLoggedIn 
+    {
+        get => _isUserLoggedIn;
+        set 
+        { 
+            SetProperty(ref _isUserLoggedIn, value); 
+            OnPropertyChanged(nameof(ProviderColor)); 
+        }
+    }
+
     public MaterialDesignThemes.Wpf.PackIconKind ProviderIcon => AuthenticatedProvider switch
     {
         Chapi.Domain.Enums.GitProvider.GitHub => MaterialDesignThemes.Wpf.PackIconKind.Github,
@@ -295,12 +317,56 @@ public class ChangesViewModel : ViewModelBase
         _ => MaterialDesignThemes.Wpf.PackIconKind.AccountCircle
     };
 
-    public System.Windows.Media.Brush ProviderColor => AuthenticatedProvider switch
+    public System.Windows.Media.Brush ProviderColor => IsUserLoggedIn ? (AuthenticatedProvider switch
     {
         Chapi.Domain.Enums.GitProvider.GitHub => System.Windows.Media.Brushes.White,
         Chapi.Domain.Enums.GitProvider.GitLab => System.Windows.Media.Brushes.Orange,
         _ => System.Windows.Media.Brushes.Gray
-    };
+    }) : System.Windows.Media.Brushes.Gray;
+
+    public ICommand ConnectAccountCommand => new AsyncRelayCommand(async _ => await ConnectAccountAsync());
+    
+    public ICommand PushCommand => new AsyncRelayCommand(async _ => await PushChangesAsync());
+
+    private async Task PushChangesAsync()
+    {
+        if (string.IsNullOrEmpty(ProjectPath)) return;
+
+        // Auto-Check Auth 
+        if (!IsUserLoggedIn) 
+        {
+             await LoadAuthStatusAsync();
+             if (!IsUserLoggedIn)
+             {
+                 await ConnectAccountAsync();
+                 if (!IsUserLoggedIn) return; 
+             }
+        }
+
+        IsLoading = true;
+        try 
+        {
+            var branch = await _gitRepository.GetCurrentBranchAsync(ProjectPath);
+            var result = await _pushChangesUseCase.ExecuteAsync(ProjectPath, branch);
+            
+            if (result.IsSuccess)
+            {
+                await DialogService.ShowConfirmDialog("Exito", "Push completado correctamente.", DialogVariant.Success, DialogType.Info);
+            }
+            else
+            {
+                await DialogService.ShowConfirmDialog("Error Push", result.Error, DialogVariant.Error, DialogType.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+             await DialogService.ShowConfirmDialog("Error", ex.Message, DialogVariant.Error, DialogType.Info);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
 
     #endregion
 
@@ -376,26 +442,36 @@ public class ChangesViewModel : ViewModelBase
         IsAuthenticated = false;
         AuthenticatedUserName = string.Empty;
         AuthenticatedProvider = Chapi.Domain.Enums.GitProvider.Unknown;
+        IsUserLoggedIn = false;
 
         if (string.IsNullOrEmpty(ProjectPath)) return;
 
         try 
         {
-            var githubCred = await _credentialStorage.GetCredentialAsync(Chapi.Domain.Enums.GitProvider.GitHub.ToString());
-            var gitlabCred = await _credentialStorage.GetCredentialAsync(Chapi.Domain.Enums.GitProvider.GitLab.ToString());
+            var remoteUrl = await _gitRepository.GetRemoteUrlAsync(ProjectPath);
+            // Si no detecta remote URL (repos locales sin remote), no hacemos nada
+            if (string.IsNullOrEmpty(remoteUrl)) return;
+
+            Chapi.Domain.Enums.GitProvider provider = Chapi.Domain.Enums.GitProvider.Unknown;
+            if (remoteUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase)) provider = Chapi.Domain.Enums.GitProvider.GitHub;
+            else if (remoteUrl.Contains("gitlab.com", StringComparison.OrdinalIgnoreCase)) provider = Chapi.Domain.Enums.GitProvider.GitLab;
+
+            if (provider == Chapi.Domain.Enums.GitProvider.Unknown) return;
+
+            AuthenticatedProvider = provider;
+            IsAuthenticated = true; 
+
+            var cred = await _credentialStorage.GetCredentialAsync(provider.ToString());
             
-            if (gitlabCred.HasValue)
+            if (cred.HasValue)
             {
-                 IsAuthenticated = true;
-                 AuthenticatedUserName = gitlabCred.Value.username;
-                 AuthenticatedProvider = Chapi.Domain.Enums.GitProvider.GitLab;
+                 AuthenticatedUserName = cred.Value.username;
+                 IsUserLoggedIn = true;
             }
-            
-            if (githubCred.HasValue) 
+            else
             {
-                 IsAuthenticated = true;
-                 AuthenticatedUserName = githubCred.Value.username;
-                 AuthenticatedProvider = Chapi.Domain.Enums.GitProvider.GitHub;
+                 AuthenticatedUserName = "Conectar";
+                 IsUserLoggedIn = false;
             }
             
             OnPropertyChanged(nameof(ProviderIcon));
@@ -404,6 +480,37 @@ public class ChangesViewModel : ViewModelBase
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error checking auth status: {ex.Message}");
+        }
+    }
+
+    private async Task ConnectAccountAsync()
+    {
+        if (IsUserLoggedIn || AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.Unknown) return;
+
+        IsLoading = true;
+        try
+        {
+            // Usamos la factoría de proveedores para obtener el flujo de navegador (GitHub o GitLab)
+            var provider = _authFactory.GetProvider(AuthenticatedProvider);
+            var result = await provider.AuthenticateAsync();
+
+            if (result.IsSuccess)
+            {
+                // Recargar el estado para mostrar el usuario logueado
+                await LoadAuthStatusAsync();
+            }
+            else if (result.Error != "Autenticación cancelada")
+            {
+                await DialogService.ShowConfirmDialog("Error de Conexión", result.Error, DialogVariant.Error, DialogType.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.ShowConfirmDialog("Error", ex.Message, DialogVariant.Error, DialogType.Info);
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
 

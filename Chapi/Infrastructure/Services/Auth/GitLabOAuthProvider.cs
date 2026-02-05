@@ -136,25 +136,127 @@ public class GitLabOAuthProvider : IGitAuthProvider
         listener.Prefixes.Add(_config.RedirectUri + "/");
         listener.Start();
 
-        var context = await listener.GetContextAsync();
-        var query = context.Request.QueryString;
+        while (true)
+        {
+            var context = await listener.GetContextAsync();
+            var query = context.Request.QueryString;
 
-        var code = query["code"];
-        var state = query["state"];
+            // Ignorar peticiones de favicon o similares
+            if (context.Request.Url?.AbsolutePath.EndsWith("favicon.ico") == true)
+            {
+                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                context.Response.Close();
+                continue;
+            }
 
-        // Responder al navegador
-        var response = context.Response;
-        string responseString = state == expectedState
-            ? "<html><body style='font-family:Arial;text-align:center;padding:50px'><h1 style='color:#fc6d26'>✅ Autenticación GitLab exitosa</h1><p>Puedes cerrar esta ventana</p></body></html>"
-            : "<html><body style='font-family:Arial;text-align:center;padding:50px'><h1 style='color:#dc3545'>❌ Error de autenticación</h1></body></html>";
+            var code = query["code"];
+            var state = query["state"];
 
-        var buffer = Encoding.UTF8.GetBytes(responseString);
-        response.ContentLength64 = buffer.Length;
-        await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
-        response.OutputStream.Close();
-        listener.Stop();
+            // Responder al navegador con UI Premium
+            var response = context.Response;
+            response.ContentType = "text/html; charset=utf-8";
+            
+            bool isSuccess = !string.IsNullOrEmpty(code) && state == expectedState;
+            string statusTitle = isSuccess ? "¡Conexión Exitosa!" : "Error de Conexión";
+            string statusIcon = isSuccess ? "✅" : "❌";
+            string statusColor = isSuccess ? "#fc6d26" : "#dc3545";
+            string statusMessage = isSuccess 
+                ? "GitLab se ha vinculado correctamente con Chapi." 
+                : (state != expectedState ? "Error de seguridad: el estado de la sesión no coincide." : "No se pudo verificar la identidad o el usuario canceló el acceso.");
+            string brandColor = isSuccess ? "linear-gradient(135deg, #fc6d26 0%, #e24329 100%)" : "linear-gradient(135deg, #ff4b2b 0%, #ff416c 100%)";
 
-        return state == expectedState ? code : null;
+            string responseString = $@"
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>{statusTitle}</title>
+    <style>
+        body {{
+            background-color: #0f0f12;
+            color: white;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }}
+        .container {{
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 24px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            max-width: 400px;
+            animation: fadeIn 0.8s ease-out;
+        }}
+        @keyframes fadeIn {{
+            from {{ opacity: 0; transform: translateY(20px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
+        }}
+        .icon {{
+            font-size: 64px;
+            margin-bottom: 20px;
+            display: inline-block;
+            filter: drop-shadow(0 0 10px {statusColor}44);
+        }}
+        h1 {{
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            background: {brandColor};
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }}
+        p {{
+            color: rgba(255,255,255,0.7);
+            margin: 15px 0 30px;
+            line-height: 1.5;
+        }}
+        .badge {{
+            background: rgba(255,255,255,0.05);
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 13px;
+            color: {statusColor};
+            display: inline-block;
+            border: 1px solid {statusColor}33;
+        }}
+        .footer {{
+            margin-top: 30px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.3);
+        }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='icon'>{statusIcon}</div>
+        <h1>{statusTitle}</h1>
+        <p>{statusMessage}</p>
+        <div class='badge'>{(isSuccess ? "Ya puedes cerrar esta pestaña y volver a la app" : "Puedes cerrar esta pestaña e intentar de nuevo")}</div>
+        <div class='footer'>Chapi Assistant &bull; Secure Auth</div>
+    </div>
+</body>
+</html>";
+
+            var buffer = Encoding.UTF8.GetBytes(responseString);
+            response.ContentLength64 = buffer.Length;
+            await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
+            response.OutputStream.Close();
+
+            // Salir solo si tenemos el código o si el estado es inválido (error real)
+            if (isSuccess || !string.IsNullOrEmpty(state))
+            {
+                listener.Stop();
+                return isSuccess ? code : null;
+            }
+        }
     }
 
     private async Task<TokenResponse?> ExchangeCodeForTokenAsync(string code)

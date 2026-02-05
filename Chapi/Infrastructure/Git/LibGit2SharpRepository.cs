@@ -456,6 +456,23 @@ public class LibGit2SharpRepository : IGitRepository
         });
     }
 
+    public async Task<string> GetRemoteUrlAsync(string projectPath, string remoteName = "origin")
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var remote = repo.Network.Remotes[remoteName];
+                return remote?.Url ?? string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        });
+    }
+
     #endregion
 
     #region Lifecycle

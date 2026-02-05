@@ -423,6 +423,12 @@ public class GitRepository : IGitRepository
         }
     }
 
+    public async Task<string> GetRemoteUrlAsync(string projectPath, string remoteName = "origin")
+    {
+         var result = await _executor.ExecuteAsync($"remote get-url {remoteName}", projectPath);
+         return result.IsSuccess ? result.Output.Trim() : string.Empty;
+    }
+
     #endregion
 
     #region History Details
