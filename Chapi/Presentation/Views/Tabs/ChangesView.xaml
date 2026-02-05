@@ -15,6 +15,7 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <converters:EmailToGravatarConverter x:Key="EmailToGravatarConverter"/>
         <converters:GitHubAvatarConverter x:Key="GitHubAvatarConverter"/>
+        <converters:GitProviderAvatarConverter x:Key="GitProviderAvatarConverter"/>
     </UserControl.Resources>
 
     <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Background="#1A132D">
@@ -140,13 +141,7 @@
                                                 </StackPanel>
                                             </Border>
                                         </Button>
-
-                                        <Button Command="{Binding PushCommand}" Style="{StaticResource MaterialDesignFlatButton}"
-                                                Padding="0" Margin="8,0,0,0" Height="24" Width="24" VerticalAlignment="Center"
-                                                Visibility="{Binding IsAuthenticated, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                ToolTip="Hacer Push (Subir cambios)">
-                                             <materialDesign:PackIcon Kind="CloudUpload" Width="16" Height="16" Foreground="{Binding ProviderColor}" />
-                                        </Button>
+                                     
                                     </StackPanel>
 
                                 <Button x:Name="btnGitCommitIA"
@@ -169,7 +164,7 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 
-                                <!-- Avatar de GitHub -->
+                                <!-- Avatar de GitHub/GitLab -->
                                 <Border Grid.Column="0" 
                                         Width="40" 
                                         Height="40" 
@@ -184,9 +179,11 @@
                                     </Border.Clip>
                                     <Image Stretch="UniformToFill">
                                         <Image.Source>
-                                            <Binding Path="DisplayUserName" 
-                                                     Converter="{StaticResource GitHubAvatarConverter}"
-                                                     ConverterParameter="80"/>
+                                            <MultiBinding Converter="{StaticResource GitProviderAvatarConverter}" ConverterParameter="80">
+                                                <Binding Path="DisplayUserName"/>
+                                                <Binding Path="AuthenticatedProvider"/>
+                                                <Binding Path="GitUserEmail"/>
+                                            </MultiBinding>
                                         </Image.Source>
                                     </Image>
                                 </Border>

@@ -94,6 +94,16 @@ public class ChangesViewModel : ViewModelBase
         RestoreFileFromStashCommand = new AsyncRelayCommand(async param => await RestoreFileFromStashAsync(param as ChangeItemViewModel));
         GenerateCommitMessageCommand = new AsyncRelayCommand(async _ => await GenerateCommitMessageAsync());
         DiscardAllCommand = new AsyncRelayCommand(async _ => await DiscardAllAsync());
+        
+        // Suscribirse al evento de actualización de avatares
+        Chapi.Domain.Services.AvatarCacheService.Instance.AvatarUpdated += OnAvatarUpdated;
+    }
+
+    private void OnAvatarUpdated(object sender, Chapi.Domain.Services.AvatarUpdatedEventArgs e)
+    {
+        // Forzar actualización del DisplayUserName para que el binding se refresque
+        System.Diagnostics.Debug.WriteLine($"🔄 Avatar actualizado: {e.Provider}/@{e.Username} - Refrescando binding");
+        OnPropertyChanged(nameof(DisplayUserName));
     }
 
     #region Properties
@@ -353,56 +363,33 @@ public class ChangesViewModel : ViewModelBase
 
     /// <summary>
     /// Retorna el username para mostrar en el avatar
-    /// Prioridad: AuthenticatedUserName (si está logueado) > GitUserName (config local)
+    /// Solo retorna username si está autenticado Y el provider coincide con el del proyecto
     /// </summary>
-    public string DisplayUserName => 
-        !string.IsNullOrWhiteSpace(AuthenticatedUserName) && IsUserLoggedIn 
-            ? AuthenticatedUserName 
-            : GitUserName;
-
-    public ICommand ConnectAccountCommand => new AsyncRelayCommand(async _ => await ConnectAccountAsync());
-    
-    public ICommand PushCommand => new AsyncRelayCommand(async _ => await PushChangesAsync());
-
-    private async Task PushChangesAsync()
+    public string DisplayUserName
     {
-        if (string.IsNullOrEmpty(ProjectPath)) return;
-
-        // Auto-Check Auth 
-        if (!IsUserLoggedIn) 
+        get
         {
-             await LoadAuthStatusAsync();
-             if (!IsUserLoggedIn)
-             {
-                 await ConnectAccountAsync();
-                 if (!IsUserLoggedIn) return; 
-             }
-        }
-
-        IsLoading = true;
-        try 
-        {
-            var branch = await _gitRepository.GetCurrentBranchAsync(ProjectPath);
-            var result = await _pushChangesUseCase.ExecuteAsync(ProjectPath, branch);
+            // Solo mostrar username si:
+            // 1. Está logueado
+            // 2. El provider del proyecto coincide con el provider autenticado
+            // 3. Tiene un username válido
             
-            if (result.IsSuccess)
+            if (!IsUserLoggedIn || 
+                AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.Unknown ||
+                string.IsNullOrWhiteSpace(AuthenticatedUserName))
             {
-                await DialogService.ShowConfirmDialog("Exito", "Push completado correctamente.", DialogVariant.Success, DialogType.Info);
+                // No está logueado o no hay provider válido
+                // Para GitHub, podemos usar GitUserName como fallback
+                // Para GitLab, NO usamos fallback (requiere username real sin espacios)
+                return string.Empty;
             }
-            else
-            {
-                await DialogService.ShowConfirmDialog("Error Push", result.Error, DialogVariant.Error, DialogType.Info);
-            }
-        }
-        catch (Exception ex)
-        {
-             await DialogService.ShowConfirmDialog("Error", ex.Message, DialogVariant.Error, DialogType.Info);
-        }
-        finally
-        {
-            IsLoading = false;
+
+            // Retornar el username autenticado (que coincide con el provider del proyecto)
+            return AuthenticatedUserName;
         }
     }
+
+    public ICommand ConnectAccountCommand => new AsyncRelayCommand(async _ => await ConnectAccountAsync());
 
     #endregion
 
@@ -488,7 +475,6 @@ public class ChangesViewModel : ViewModelBase
         try 
         {
             var remoteUrl = await _gitRepository.GetRemoteUrlAsync(ProjectPath);
-            // Si no detecta remote URL (repos locales sin remote), no hacemos nada
             if (string.IsNullOrEmpty(remoteUrl)) return;
 
             Chapi.Domain.Enums.GitProvider provider = Chapi.Domain.Enums.GitProvider.Unknown;
@@ -515,10 +501,21 @@ public class ChangesViewModel : ViewModelBase
             
             OnPropertyChanged(nameof(ProviderIcon));
             OnPropertyChanged(nameof(ProviderColor));
+            
+            // Pre-cargar el avatar de GitLab si está autenticado
+            if (IsUserLoggedIn && 
+                AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.GitLab && 
+                !string.IsNullOrWhiteSpace(AuthenticatedUserName) &&
+                AuthenticatedUserName != "Conectar")
+            {
+               _ = Task.Run(async () =>
+                {
+                    await Chapi.Domain.Services.AvatarCacheService.Instance.GetGitLabAvatarUrlAsync(AuthenticatedUserName);
+                });
+            }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error checking auth status: {ex.Message}");
         }
     }
 
@@ -537,6 +534,16 @@ public class ChangesViewModel : ViewModelBase
             {
                 // Recargar el estado para mostrar el usuario logueado
                 await LoadAuthStatusAsync();
+                
+                // Pre-cargar el avatar para evitar "vibración" al cambiar de proyecto
+                if (AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.GitLab && 
+                    !string.IsNullOrWhiteSpace(AuthenticatedUserName))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        await Chapi.Domain.Services.AvatarCacheService.Instance.GetGitLabAvatarUrlAsync(AuthenticatedUserName);
+                    });
+                }
             }
             else if (result.Error != "Autenticación cancelada")
             {
@@ -565,28 +572,10 @@ public class ChangesViewModel : ViewModelBase
             
             GitUserEmail = email ?? string.Empty;
             GitUserName = name ?? string.Empty;
-            
-            if (string.IsNullOrWhiteSpace(GitUserEmail))
-            {
-                System.Diagnostics.Debug.WriteLine($"⚠️ Email de Git no configurado. Ejecuta: git config --global user.email \"tu@email.com\"");
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine($"✅ Email de Git cargado: {GitUserEmail}");
-            }
-            
-            if (string.IsNullOrWhiteSpace(GitUserName))
-            {
-                System.Diagnostics.Debug.WriteLine($"⚠️ Nombre de Git no configurado. Ejecuta: git config --global user.name \"Tu Nombre\"");
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine($"✅ Nombre de Git cargado: {GitUserName}");
-            }
+
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"❌ Error obteniendo config de Git: {ex.Message}");
             GitUserEmail = string.Empty;
             GitUserName = string.Empty;
         }
@@ -610,8 +599,7 @@ public class ChangesViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error cargando stashes: {ex.Message}");
-            Stashes.Clear();
+           Stashes.Clear();
         }
         finally
         {
@@ -656,7 +644,6 @@ public class ChangesViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error cargando archivos del stash: {ex.Message}");
         }
     }
 
@@ -696,7 +683,6 @@ public class ChangesViewModel : ViewModelBase
         }
         catch (Exception ex) 
         { 
-            System.Diagnostics.Debug.WriteLine($"Error LoadDiffAsync: {ex.Message}");
         }
     }
 
@@ -710,25 +696,7 @@ public class ChangesViewModel : ViewModelBase
 
         try
         {
-            // Para stash, necesitamos comparar el archivo dentro del stash contra su version anterior en el mismo stash
-            // O, simplemente visualizar que tiene el stash.
-            // "stash show -p" da el diff contra el commit donde se hizo stash.
-            
-            // Estrategia: Obtener el diff crudo como antes, pero parsearlo es complejo.
-            // Alternativa: Obtener contenido del archivo en el stash.
-            // Alternativa: Obtener contenido del archivo en el stash.
             string newText = await _gitRepository.GetFileContentAsync(ProjectPath, SelectedStash.Name, SelectedStashedFile.FilePath);
-            
-            // Intentar obtener el contenido contra el que se compara (Parent del stash o HEAD al momento de stash)
-            // Esto es mas complejo. Para simplificar y mantener consistencia visual,
-            // podemos mostrar el contenido del stash como "Nuevo" y vacio como "Viejo" si es dificil obtener el base,
-            // pero lo ideal es ver el DIFF.
-            
-            // Como fallback, volvemos a usar el comando git stash show -p y lo parseamos simple, 
-            // O mejor:
-            // oldText = file en stash^1 
-            // newText = file en stash
-            
             string oldText = string.Empty;
             // Intentar leer pariente
             try { oldText = await _gitRepository.GetFileContentAsync(ProjectPath, $"{SelectedStash.Name}^1", SelectedStashedFile.FilePath); } catch {}
@@ -737,7 +705,6 @@ public class ChangesViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error cargando diff del stash: {ex.Message}");
         }
     }
 
