@@ -121,10 +121,8 @@ public class GitHubOAuthProvider : IGitAuthProvider
 
             var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(json);
             
-            // GitHub a veces devuelve 200 OK con un error en el JSON
             if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.AccessToken))
             {
-                // Intentar extraer error del JSON si existe
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("error_description", out var desc))
                     return Result<TokenResponse>.Fail($"GitHub Error: {desc.GetString()}");
@@ -162,7 +160,6 @@ public class GitHubOAuthProvider : IGitAuthProvider
     {
         try
         {
-            // Solicitamos los repositorios del usuario (incluyendo privados si el token tiene permiso)
             var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/repos?sort=updated&per_page=100");
             request.Headers.Add("Authorization", $"Bearer {token}");
 

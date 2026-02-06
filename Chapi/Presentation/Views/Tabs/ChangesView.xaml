@@ -549,7 +549,7 @@
                                         <Grid.ContextMenu>
                                             <ContextMenu>
                                                 <MenuItem x:Name="DiffLineMenu_OpenFile"
-                                                          Header="Abrir en VS Code"
+                                                          Header="Open with default program"
                                                           Click="DiffLineMenu_OpenFile_Click"
                                                           FontWeight="Bold">
                                                     <MenuItem.Icon>

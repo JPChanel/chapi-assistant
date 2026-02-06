@@ -38,6 +38,7 @@ namespace Chapi
         private bool _isReloadingChanges = false;
         private bool _isGitInstalled = false;
         private System.Windows.Threading.DispatcherTimer _fetchTimer;
+        private CancellationTokenSource? _projectSwitchCts;
 
         public string AppVersion { get; private set; }
         public string ServiceStatusText => "Activo";
@@ -203,52 +204,86 @@ namespace Chapi
         private async void ProjectsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ProjectsComboBox.SelectedItem is not ProjectViewModel selectedProject) return;
+            
+            // Cancelar cualquier secuencia de carga anterior
+            _projectSwitchCts?.Cancel();
+            _projectSwitchCts = new CancellationTokenSource();
+            var token = _projectSwitchCts.Token;
+
             projectDirectory = selectedProject.FullPath;
+            
+            // Limpieza visual inmediata en el ViewModel de cambios
+            if (_changesViewModel != null)
+            {
+                _changesViewModel.ProjectPath = projectDirectory; // Esto ya dispara LoadChangesAsync interno que ahora limpia la lista
+            }
+
             InitializeFileSystemWatcher(projectDirectory);
             
             if (!_isGitInstalled) return;
 
             App.TrayIconManager?.UpdateProjectMenuItem(selectedProject.Name, false);
 
-            var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
-            var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
-
-            string activeBranch = await _gitRepository.GetCurrentBranchAsync(projectDirectory);
-            
-            if (!string.IsNullOrEmpty(activeBranch) && !branches.Contains(activeBranch))
+            try
             {
-                branches.Add(activeBranch);
-            }
+                // Carga inicial rápida de ramas
+                var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
+                var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
+                if (token.IsCancellationRequested) return;
 
-            BranchesComboBox.ItemsSource = branches;
-
-            if (!string.IsNullOrEmpty(activeBranch))
-            {
-                _currentlySelectedBranch = activeBranch;
-                BranchesComboBox.SelectedItem = activeBranch;
+                string activeBranch = await _gitRepository.GetCurrentBranchAsync(projectDirectory);
+                if (token.IsCancellationRequested) return;
                 
-                // Actualizar inmediatamente el botón de Git con lo que ya sabemos del proyecto
-                UpdateGitActionButton();
-                
-                if (selectedProject.Ahead > 0)
+                if (!string.IsNullOrEmpty(activeBranch) && !branches.Contains(activeBranch))
                 {
-                    Msg.Assistant($"🚀 Tienes {selectedProject.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
+                    branches.Add(activeBranch);
                 }
+
+                BranchesComboBox.ItemsSource = branches;
+                if (!string.IsNullOrEmpty(activeBranch))
+                {
+                    _currentlySelectedBranch = activeBranch;
+                    BranchesComboBox.SelectedItem = activeBranch;
+                    UpdateGitActionButton();
+                    
+                    if (selectedProject.Ahead > 0)
+                    {
+                        Msg.Assistant($"🚀 Tienes {selectedProject.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
+                    }
+                }
+
+                // Cargas pesadas en segundo plano con validación de token
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        // No necesitamos llamar a LoadChangesAsync de nuevo aquí porque ya se disparó al poner ProjectPath
+                        if (token.IsCancellationRequested) return;
+                        
+                        await Dispatcher.InvokeAsync(async () => {
+                            if (!token.IsCancellationRequested) await LoadHistoryAsync();
+                        });
+                        
+                        if (token.IsCancellationRequested) return;
+                        await Task.Delay(50, token); 
+
+                        await Dispatcher.InvokeAsync(async () => {
+                            if (!token.IsCancellationRequested) 
+                            {
+                                await LoadReleasesAsync();
+                                await CheckBranchStatusAsync();
+                                await DoFetchAsync(isSilent: true);
+                            }
+                        });
+                    }
+                    catch (OperationCanceledException) { }
+                    catch (Exception) { }
+                }, token);
             }
-             _ = Task.Run(async () =>
-             {
-                 try
-                 {
-                     await Dispatcher.InvokeAsync(async () => await LoadChangesAsync());
-                     await Task.Delay(50); 
-                     await Dispatcher.InvokeAsync(async () => await LoadHistoryAsync());
-                     await Task.Delay(50);
-                     await Dispatcher.InvokeAsync(async () => await LoadReleasesAsync());
-                     await Dispatcher.InvokeAsync(async () => await CheckBranchStatusAsync());
-                     await Dispatcher.InvokeAsync(async () => await DoFetchAsync(isSilent: true));
-                 }
-                 catch { }
-             });
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error al cambiar de proyecto: {ex.Message}");
+            }
         }
 
         private async void BranchesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -866,7 +901,7 @@ namespace Chapi
 
         #endregion
 
-        #region âœ… Git Operations Event Handlers
+        #region Git Operations Event Handlers
         private async void Branch_Create_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string sourceBranch) return;
@@ -1020,6 +1055,35 @@ namespace Chapi
             GitActionsComboBox.IsDropDownOpen = true;
         }
         #endregion
+
+        public void ProcessExternalArguments(string args)
+        {
+            if (string.IsNullOrWhiteSpace(args)) return;
+
+            // Limpiamos comillas si existen
+            string path = args.Trim('\"');
+
+            // Si es un directorio, lo abrimos
+            if (Directory.Exists(path))
+            {
+                // Intentamos cambiar al proyecto si ya estÃ¡ en la lista
+                SwitchToProject(path);
+                
+                // Si no estÃ¡ en la lista, podrÃ­amos agregarlo (opcional, igual que btnAddProject)
+                if (ProjectsComboBox.SelectedItem == null || ((ProjectViewModel)ProjectsComboBox.SelectedItem).FullPath != path)
+                {
+                   ProjectSettings.AddProject(path);
+                   LoadProjects();
+                   SwitchToProject(path);
+                }
+            }
+            // Si es un archivo, intentamos encontrar su proyecto y abrirlo
+            else if (File.Exists(path))
+            {
+                string? dir = Path.GetDirectoryName(path);
+                if (dir != null) ProcessExternalArguments(dir);
+            }
+        }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {

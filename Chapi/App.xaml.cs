@@ -41,7 +41,21 @@ namespace Chapi
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
-        private const int SW_RESTORE = 9; // Constante para restaurar una ventana
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, ref COPYDATASTRUCT lParam);
+
+        private const int SW_RESTORE = 9; 
+        private const int WM_COPYDATA = 0x004A;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct COPYDATASTRUCT
+        {
+            public IntPtr dwData;
+            public int cbData;
+            [MarshalAs(UnmanagedType.LPStr)]
+            public string lpData;
+        }
+
         private static uint _restoreMessage;
         public static string GlobalDialogIdentifier => "RootDialog";
         public static TrayIconManager TrayIconManager { get; private set; }
@@ -170,7 +184,19 @@ namespace Chapi
 
                 if (hWnd != IntPtr.Zero)
                 {
-                    // Enviamos el mensaje para que la otra instancia se "levante" sola
+                    // Si hay argumentos (ej: abrir archivo), los enviamos vía WM_COPYDATA
+                    string args = string.Join(" ", Environment.GetCommandLineArgs().Skip(1));
+                    if (!string.IsNullOrEmpty(args))
+                    {
+                        byte[] s_Data = System.Text.Encoding.Default.GetBytes(args);
+                        COPYDATASTRUCT cds;
+                        cds.dwData = (IntPtr)100; // ID personalizado
+                        cds.cbData = s_Data.Length + 1;
+                        cds.lpData = args;
+                        
+                        SendMessage(hWnd, WM_COPYDATA, IntPtr.Zero, ref cds);
+                    }
+
                     PostMessage(hWnd, _restoreMessage, IntPtr.Zero, IntPtr.Zero);
                 }
 
@@ -213,6 +239,20 @@ namespace Chapi
                 MainWindow.Show();
                 MainWindow.WindowState = WindowState.Normal;
                 MainWindow.Activate();
+                handled = true;
+            }
+            else if (msg == WM_COPYDATA)
+            {
+                COPYDATASTRUCT cds = (COPYDATASTRUCT)Marshal.PtrToStructure(lParam, typeof(COPYDATASTRUCT));
+                if (cds.lpData != null)
+                {
+                    string args = cds.lpData;
+                    // Notificamos a la ventana principal para que procese los nuevos argumentos
+                    if (MainWindow is MainWindow mw)
+                    {
+                        mw.ProcessExternalArguments(args);
+                    }
+                }
                 handled = true;
             }
             return IntPtr.Zero;

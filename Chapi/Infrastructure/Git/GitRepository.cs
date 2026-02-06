@@ -701,32 +701,17 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            var result = await _executor.ExecuteAsync("stash list --pretty=format:\"%gD|%gd|%gs\"", projectPath);
+            // Pedimos informaciÃ³n extendida del stash de forma mÃ¡s eficiente
+            // %gd: reflog selector (stash@{0})
+            // %gs: subject
+            var result = await _executor.ExecuteAsync("stash list --pretty=format:\"%gd|%gs\"", projectPath);
             
-            if (!result.IsSuccess)
+            if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Output))
             {
                  return Enumerable.Empty<GitStash>();
             }
 
-            var stashes = _parser.ParseStashListOutput(result.Output).ToList();
-
-            var populatedStashes = new List<GitStash>();
-            foreach (var stash in stashes)
-            {
-                int count = 0;
-                try 
-                {
-                    var filesResult = await _executor.ExecuteAsync($"stash show --name-only \"{stash.Name}\"", projectPath);
-                    if (filesResult.IsSuccess && !string.IsNullOrWhiteSpace(filesResult.Output))
-                    {
-                        count = filesResult.Output.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length;
-                    }
-                }
-                catch { }
-                populatedStashes.Add(stash with { FileCount = count });
-            }
-
-            return populatedStashes;
+            return _parser.ParseStashListOutput(result.Output).ToList();
         }
         catch
         {

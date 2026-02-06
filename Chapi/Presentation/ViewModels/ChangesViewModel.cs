@@ -46,6 +46,7 @@ public class ChangesViewModel : ViewModelBase
     private bool _isMassUpdating;
     private bool _isStashViewVisible;
     private bool _isGenerating;
+    private CancellationTokenSource? _loadCts;
 
     public event EventHandler? CommitCompleted;
 
@@ -420,13 +421,27 @@ public class ChangesViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(ProjectPath))
             return;
 
-        // Usar el Use Case para obtener cambios
-        var fileChanges = await _loadChangesUseCase.ExecuteAsync(ProjectPath);
+        // Cancelar carga anterior si existe
+        _loadCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        var token = _loadCts.Token;
 
-        // Mapear a ViewModels
+        // Limpiar cambios inmediatamente para evitar datos "pegados" de otros proyectos
         Changes.Clear();
-        int totalAdd = 0;
-        int totalDel = 0;
+        TotalAdditions = 0;
+        TotalDeletions = 0;
+
+        try
+        {
+            // Usar el Use Case para obtener cambios
+            var fileChanges = await _loadChangesUseCase.ExecuteAsync(ProjectPath);
+
+            // Si se cancelÃ³ durante la espera (ej: cambiamos de proyecto otra vez), salir
+            if (token.IsCancellationRequested) return;
+
+            // Mapear a ViewModels
+            int totalAdd = 0;
+            int totalDel = 0;
 
         foreach (var fileChange in fileChanges)
         {
@@ -448,19 +463,29 @@ public class ChangesViewModel : ViewModelBase
             totalDel += viewModel.Deletions;
         }
 
-        TotalAdditions = totalAdd;
-        TotalDeletions = totalDel;
-        OnPropertyChanged(nameof(AreAllSelected));
-        OnPropertyChanged(nameof(SelectedCount));
+            TotalAdditions = totalAdd;
+            TotalDeletions = totalDel;
+            OnPropertyChanged(nameof(AreAllSelected));
+            OnPropertyChanged(nameof(SelectedCount));
 
-        // Cargar stashes tambien
-        await LoadStashesAsync();
-        
-        // Verificar estado de autenticacion
-        await LoadAuthStatusAsync();
-        
-        // Cargar email del usuario de Git
-        await LoadGitUserEmailAsync();
+            // Cargar stashes tambien
+            await LoadStashesAsync();
+            
+            // Verificar estado de autenticacion
+            await LoadAuthStatusAsync();
+            
+            // Cargar email del usuario de Git
+            await LoadGitUserEmailAsync();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error al cargar cambios: {ex.Message}");
+        }
+        finally
+        {
+            if (_loadCts?.Token == token) _loadCts = null;
+        }
     }
 
     private async Task LoadAuthStatusAsync()
