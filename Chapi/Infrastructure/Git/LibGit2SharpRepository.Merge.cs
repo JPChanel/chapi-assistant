@@ -4,6 +4,7 @@ using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
 using LibGit2Sharp;
+using System.IO;
 
 namespace Chapi.Infrastructure.Git;
 
@@ -13,31 +14,165 @@ namespace Chapi.Infrastructure.Git;
 /// </summary>
 public partial class LibGit2SharpRepository
 {
-    public async Task<Result> MergeBranchAsync(string projectPath, string sourceBranch, bool fastForward = true)
+    public async Task<Result> MergeBranchAsync(string projectPath, string sourceBranchName, bool fastForward = true)
     {
-        // Delegar al GitRepository (Git CLI) que ya tiene la implementación
-        var executor = new GitCommandExecutor();
-        var parser = new GitOutputParser();
-        var gitRepo = new GitRepository(executor, parser);
-        return await gitRepo.MergeBranchAsync(projectPath, sourceBranch, fastForward);
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                
+                // 1. Validar estado
+                if (repo.RetrieveStatus().IsDirty)
+                     return Result.Fail("Cambios locales pendientes. Haz commit o stash antes de fusionar.");
+
+                var source = repo.Branches[sourceBranchName];
+                if (source == null) return Result.Fail($"Rama '{sourceBranchName}' no encontrada.");
+
+                // 2. Definir identidades
+                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+
+                // 3. Ejecutar Merge
+                var options = new MergeOptions 
+                { 
+                    FastForwardStrategy = fastForward ? FastForwardStrategy.Default : FastForwardStrategy.NoFastForward,
+                    FailOnConflict = true 
+                };
+
+                var mergeResult = repo.Merge(source, signature, options);
+
+                if (mergeResult.Status == MergeStatus.Conflicts)
+                {
+                    repo.Reset(LibGit2Sharp.ResetMode.Hard); // Abortar si hay conflictos (por ahora, ya que no tenemos resolución UI)
+                    return Result.Fail("Conflicto de fusión detectado. La operación fue abortada.");
+                }
+
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Result.Fail($"Error en Merge: {ex.Message}");
+            }
+        });
     }
 
-    public async Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranch)
+    public async Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranchName)
     {
-        // Delegar al GitRepository (Git CLI)
-        var executor = new GitCommandExecutor();
-        var parser = new GitOutputParser();
-        var gitRepo = new GitRepository(executor, parser);
-        return await gitRepo.SquashMergeBranchAsync(projectPath, sourceBranch);
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+
+                if (repo.RetrieveStatus().IsDirty)
+                     return Result.Fail("Cambios locales pendientes. Haz commit o stash antes.");
+
+                var source = repo.Branches[sourceBranchName];
+                if (source == null) return Result.Fail($"Rama '{sourceBranchName}' no encontrada.");
+
+                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+
+                var options = new MergeOptions 
+                { 
+                    FastForwardStrategy = FastForwardStrategy.NoFastForward,
+                    CommitOnSuccess = false 
+                };
+
+                var mergeResult = repo.Merge(source, signature, options);
+
+                if (mergeResult.Status == MergeStatus.Conflicts)
+                {
+                    repo.Reset(LibGit2Sharp.ResetMode.Hard);
+                    return Result.Fail("Conflicto detectado durante Squash. Operación abortada.");
+                }
+
+                // Eliminamos MERGE_HEAD para convertirlo en un commit normal (Squash)
+                var mergeHeadPath = Path.Combine(repo.Info.Path, "MERGE_HEAD");
+                if (File.Exists(mergeHeadPath))
+                {
+                    File.Delete(mergeHeadPath);
+                }
+                
+                repo.Commit($"Squash merge from '{sourceBranchName}'", signature, signature);
+                
+                // Limpiar cualquier otro estado
+                if (repo.Info.IsHeadDetached) repo.Reset(LibGit2Sharp.ResetMode.Mixed);
+
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Result.Fail($"Error en Squash: {ex.Message}");
+            }
+        });
     }
 
-    public async Task<Result> RebaseBranchAsync(string projectPath, string targetBranch)
+    public async Task<Result> RebaseBranchAsync(string projectPath, string targetBranchName)
     {
-        // Delegar al GitRepository (Git CLI)
-        var executor = new GitCommandExecutor();
-        var parser = new GitOutputParser();
-        var gitRepo = new GitRepository(executor, parser);
-        return await gitRepo.RebaseBranchAsync(projectPath, targetBranch);
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+
+                if (repo.RetrieveStatus().IsDirty)
+                {
+                    return Result.Fail("No se puede hacer rebase con cambios locales pendientes. Haz commit o stash primero.");
+                }
+
+                var currentBranch = repo.Head;
+                var targetBranch = repo.Branches[targetBranchName];
+
+                if (targetBranch == null)
+                {
+                    return Result.Fail($"La rama destino '{targetBranchName}' no existe.");
+                }
+
+                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                var identity = new Identity(signature.Name, signature.Email);
+
+                // Rebase Básico: Intentar rebasear Current sobre Target
+                // NOTA: Rebase.Start devuelve algo diferente según la versión.
+                // Usaremos una estrategia más segura: Try-Catch con la operación básica.
+                
+                var options = new RebaseOptions();
+                var result = repo.Rebase.Start(currentBranch, targetBranch, null, identity, options);
+                
+                // Procesar pasos si es necesario (versiones antiguas o casos complejos)
+                // Vamos a iterar mientras no esté completo, hasta un límite seguro.
+                int stepsLimit = 1000;
+                int steps = 0;
+                
+                while (result.Status != RebaseStatus.Complete && steps < stepsLimit)
+                {
+                    if (result.Status == RebaseStatus.Stop)
+                    {
+                        // Conflicto u otra parada
+                         repo.Rebase.Abort();
+                         return Result.Fail($"Rebase detenido por conflictos o intervención manual requerida.");
+                    }
+                    
+                    // Continuar aplicando
+                    result = repo.Rebase.Continue(identity, options);
+                    steps++;
+                }
+
+                if (result.Status != RebaseStatus.Complete)
+                {
+                    // Si sigue incompleto tras el bucle
+                    repo.Rebase.Abort();
+                    return Result.Fail($"El rebase no pudo completarse automáticamente. Estado final: {result.Status}");
+                }
+
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                // Seguridad extra: intentar abortar si quedó a medias
+                try { using var r = new Repository(projectPath); r.Rebase.Abort(); } catch { }
+                return Result.Fail($"Error en Rebase: {ex.Message}");
+            }
+        });
     }
 
     public async Task<(bool hasConflicts, string message)> CheckMergeConflictsAsync(string projectPath, string sourceBranchName)

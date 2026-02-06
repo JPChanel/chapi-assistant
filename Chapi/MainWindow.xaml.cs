@@ -1018,9 +1018,7 @@ namespace Chapi
 
         private async Task ExecuteGitMergeOperation(string mergeType, string targetBranch)
         {
-            // En este nuevo flujo:
-            // Source = _currentlySelectedBranch (Donde estoy)
-            // Target = targetBranch (Donde van los cambios)
+
             string sourceBranch = _currentlySelectedBranch;
 
             if (targetBranch.Equals(sourceBranch, StringComparison.OrdinalIgnoreCase))
@@ -1028,9 +1026,6 @@ namespace Chapi
                 await DialogService.ShowConfirmDialog("Error", $"No puedes hacer {mergeType.ToLower()} de una rama consigo misma.", DialogVariant.Error, DialogType.Info);
                 return;
             }
-
-            // 1. Detección Temprana de Conflictos Indirectos
-            // Verificamos si Target -> Source da conflictos. Si sí, bloqueamos.
             if (mergeType != "Rebase")
             {
                 var (hasConflicts, conflictMessage) = await _gitRepository.CheckMergeConflictsAsync(projectDirectory, targetBranch);
@@ -1045,7 +1040,6 @@ namespace Chapi
                 }
             }
 
-            // 2. Verificar estado limpio antes de cambiar de rama
             var status = await _gitRepository.GetChangesAsync(projectDirectory);
             if (status.Any())
             {
@@ -1057,17 +1051,15 @@ namespace Chapi
                 return;
             }
 
-            // 3. Confirmación Final
             var prompt = mergeType == "Squash" 
-                ? $"¿Estás seguro de hacer SQUASH MERGE de '{sourceBranch}' EN '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá." 
-                : $"¿Estás seguro de fusionar '{sourceBranch}' EN '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá.";
+                ? $"¿Estás seguro de hacer SQUASH MERGE de '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá." 
+                : $"¿Estás seguro de fusionar '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá.";
 
             if (mergeType == "Rebase") prompt = $"¿Rebase '{sourceBranch}' sobre '{targetBranch}'? (Esto actualizará tu rama actual usando la destino como base)";
 
             var confirm = await DialogService.ShowConfirmDialog($"{mergeType} to {targetBranch}", prompt, DialogVariant.Info, DialogType.Confirm);
             if (!confirm) return;
 
-            // 4. Ejecución
             await RunWithLoading(async () =>
             {
                 Result result = Result.Fail("Iniciando...");
@@ -1080,8 +1072,6 @@ namespace Chapi
                     }
                     else
                     {
-                        // Flujo para Merge/Squash (Source -> Target)
-                        
                         // A. Ir al destino
                         var checkoutTarget = await _gitRepository.SwitchBranchAsync(projectDirectory, targetBranch);
                         if (!checkoutTarget.IsSuccess) throw new Exception($"No se pudo cambiar a '{targetBranch}': {checkoutTarget.Error}");
