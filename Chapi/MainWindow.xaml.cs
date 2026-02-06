@@ -666,7 +666,7 @@ namespace Chapi
             return true;
         }
 
-        #region âœ… TrayIcon and XAML Event Handlers
+        #region TrayIcon and XAML Event Handlers
         public void SwitchToProject(string path)
         {
             if (string.IsNullOrEmpty(path)) return;
@@ -735,7 +735,7 @@ namespace Chapi
                     var request = new Chapi.Application.UseCases.Projects.CreateProjectRequest(
                         projectName,
                         parentDir,
-                        repoUrl, // repoUrl definido en MainWindow (el de la plantilla base)
+                        repoUrl,
                         remoteUrl
                     );
 
@@ -745,7 +745,6 @@ namespace Chapi
                     {
                         Msg.Assistant($"✅ Proyecto '{projectName}' creado exitosamente.");
                         LoadProjects();
-                        // Seleccionar el nuevo proyecto
                         SwitchToProject(result.Data);
                         Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager.ClearAllRollbacks();
                     }
@@ -827,7 +826,6 @@ namespace Chapi
             if (!IsVisible) Show();
             Activate();
 
-            // En Chapi, RollbackManager se encarga de listar rollbacks
             var rollbacks = Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager.GetAvailableRollbacks();
 
             if (!rollbacks.Any())
@@ -855,7 +853,6 @@ namespace Chapi
 
         private async void GitTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Evitar que eventos de selección internos (como del ListView de Releases) disparen la recarga
             if (e.OriginalSource is not System.Windows.Controls.TabControl) return;
 
             if (GitTabs.SelectedItem == TagsTab)
@@ -868,7 +865,6 @@ namespace Chapi
         {
             if (!_isWindowInitialized || ModoAgenteComboBox.SelectedItem is not ComboBoxItem selectedItem) return;
 
-            // Evitar bucles al resetear al indice 0
             if (ModoAgenteComboBox.SelectedIndex == 0) return;
 
             if (selectedItem.Name == "AddMethodItem")
@@ -884,7 +880,6 @@ namespace Chapi
                 SqlGenerator_Click();
             }
 
-            // Resetear seleccion visualmente
             Dispatcher.BeginInvoke(new Action(() => ModoAgenteComboBox.SelectedIndex = 0));
         }
 
@@ -983,8 +978,6 @@ namespace Chapi
 
             if (action.HasValue)
             {
-                // Ejecutar acción
-                // Primero restauramos la selección visual para que no se quede marcada la accion transitoria
                 _isExecutingGitAction = true;
                 GitActionsComboBox.SelectedIndex = 0;
                 _isExecutingGitAction = false;
@@ -1031,26 +1024,20 @@ namespace Chapi
                         break;
                 }
 
-                // Las notificaciones de exito/error ya son manejadas por los Casos de Uso
-
-                // Actualizar todo
                 await LoadHistoryAsync();
+                await UpdateProjectStatusesAsync(); 
                 _ = DoFetchAsync(isSilent: true);
             });
         }
 
         private async void GitActionsComboBox_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            // Comportamiento "Split Button" solicitado:
-            // Click Izquierdo: Ejecuta la acción actual (Fetch/Pull/Push) y BLOQUEA el dropdown
-            e.Handled = true; // Importante: Evita que el ComboBox procese el evento y abra el popup
-
+            e.Handled = true; 
             await ExecuteGitAction(_currentGitAction);
         }
 
         private void GitActionsComboBox_PreviewMouseRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            // Click Derecho: Abre el dropdown para ver mas opciones
             e.Handled = true;
             GitActionsComboBox.IsDropDownOpen = true;
         }
@@ -1060,16 +1047,12 @@ namespace Chapi
         {
             if (string.IsNullOrWhiteSpace(args)) return;
 
-            // Limpiamos comillas si existen
             string path = args.Trim('\"');
 
-            // Si es un directorio, lo abrimos
             if (Directory.Exists(path))
             {
-                // Intentamos cambiar al proyecto si ya estÃ¡ en la lista
                 SwitchToProject(path);
                 
-                // Si no estÃ¡ en la lista, podrÃ­amos agregarlo (opcional, igual que btnAddProject)
                 if (ProjectsComboBox.SelectedItem == null || ((ProjectViewModel)ProjectsComboBox.SelectedItem).FullPath != path)
                 {
                    ProjectSettings.AddProject(path);
@@ -1077,7 +1060,6 @@ namespace Chapi
                    SwitchToProject(path);
                 }
             }
-            // Si es un archivo, intentamos encontrar su proyecto y abrirlo
             else if (File.Exists(path))
             {
                 string? dir = Path.GetDirectoryName(path);
