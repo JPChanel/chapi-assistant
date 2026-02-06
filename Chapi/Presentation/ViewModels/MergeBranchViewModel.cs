@@ -131,9 +131,9 @@ public class MergeBranchViewModel : INotifyPropertyChanged
         // El texto ahora refleja que vamos A la rama seleccionada
         ActionButtonText = MergeType switch
         {
-            "Squash" => "Squash y fusionar en destino",
-            "Rebase" => "Rebase sobre destino",
-            _ => "Fusionar en destino"
+            "Squash" => "Squash y Merge",
+            "Rebase" => "Rebase",
+            _ => "Create a merge commit"
         };
     }
 
