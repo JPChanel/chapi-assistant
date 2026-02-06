@@ -31,11 +31,11 @@ public class FetchChangesUseCase
 
         if (result.IsSuccess && !isSilent)
         {
-            _notifications.ShowSuccess("âœ… Fetch completado");
+            _notifications.ShowSuccess("Fetch completado");
         }
         else if (!result.IsSuccess && !isSilent)
         {
-            _notifications.ShowError($"âŒ Error al hacer fetch: {result.Error}");
+            _notifications.ShowError($"Error al hacer fetch: {result.Error}");
         }
 
         return result;

@@ -15,6 +15,9 @@
             <SolidColorBrush x:Key="HeaderBackground" Color="#000000"/>
             <SolidColorBrush x:Key="HeaderForeground" Color="White"/>
             <converters:IsNotDefaultBranchConverter x:Key="IsNotDefaultBranchConverter"/>
+            <converters:BooleanToIconConverter x:Key="BooleanToIconConverter"/>
+            <converters:StringToBoolConverter x:Key="StringToBoolConverter"/>
+            <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

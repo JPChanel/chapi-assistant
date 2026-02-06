@@ -6,6 +6,7 @@ using Chapi.Domain.Models;
 using LibGit2Sharp;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Chapi.Infrastructure.Git;
 
@@ -36,7 +37,7 @@ public class LibGit2SharpRepository : IGitRepository
 
         return new UsernamePasswordCredentials
         {
-            Username = cred.Value.username,
+            Username = provider == GitProvider.GitLab ? "oauth2" : cred.Value.username,
             Password = cred.Value.token
         };
     }

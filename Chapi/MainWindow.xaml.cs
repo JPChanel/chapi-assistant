@@ -98,7 +98,10 @@ namespace Chapi
             await Task.Delay(300);
 
             _isWindowInitialized = true;
-            LoadProjects();            
+            LoadProjects();
+            
+            // Pre-cargar repositorios remotos para el dialogo de clonado
+            _ = App.ServiceProvider.GetService<Chapi.Presentation.ViewModels.CloneRepositoryViewModel>();
             _ = Task.Run(async () => await CheckGitInstallationAsync());
 
             if (_changesViewModel != null)
@@ -440,28 +443,30 @@ namespace Chapi
         {
             try
             {
-                var (success, urlRepo) = await DialogService.ShowInputDialog("Clonar Repositorio", "Ingrese la URL del repositorio Git:");
-                if (!success || string.IsNullOrWhiteSpace(urlRepo)) return;
+                var viewModel = App.ServiceProvider.GetRequiredService<Chapi.Presentation.ViewModels.CloneRepositoryViewModel>();
+                var dialog = new Chapi.Presentation.Views.Dialogs.CloneRepositoryDialog { DataContext = viewModel };
 
-                using var folderDialog = new FolderBrowserDialog { Description = "Seleccione la carpeta donde se clonará el repositorio" };
-                if (folderDialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
-
-                await RunWithLoading(async () =>
+                var result = await DialogService.ShowDialog(dialog);
+                
+                if (result is Chapi.Presentation.ViewModels.CloneRepositoryViewModel vm)
                 {
-                    var useCase = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Projects.CloneProjectUseCase>();
-                    var result = await useCase.ExecuteAsync(urlRepo, folderDialog.SelectedPath);
+                    await RunWithLoading(async () =>
+                    {
+                        var useCase = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Projects.CloneProjectUseCase>();
+                        var cloneResult = await useCase.ExecuteAsync(vm.Url, vm.LocalPath);
 
-                    if (result.IsSuccess)
-                    {
-                        Msg.Assistant($"✅ Repositorio clonado exitosamente en {result.Data}");
-                        LoadProjects();
-                        SwitchToProject(result.Data);
-                    }
-                    else
-                    {
-                        await DialogService.ShowConfirmDialog("Error", $"No se pudo clonar: {result.Error}", DialogVariant.Error, DialogType.Info);
-                    }
-                });
+                        if (cloneResult.IsSuccess)
+                        {
+                            Msg.Assistant($"✅ Repositorio clonado exitosamente en {cloneResult.Data}");
+                            LoadProjects();
+                            SwitchToProject(cloneResult.Data);
+                        }
+                        else
+                        {
+                            await DialogService.ShowConfirmDialog("Error", $"No se pudo clonar: {cloneResult.Error}", DialogVariant.Error, DialogType.Info);
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {

@@ -133,6 +133,7 @@ namespace Chapi
             services.AddSingleton<Presentation.ViewModels.ReleasesViewModel>();
             services.AddTransient<Presentation.ViewModels.LoginGitHubViewModel>();
             services.AddTransient<Presentation.ViewModels.GitProviderSelectionViewModel>();
+            services.AddSingleton<Presentation.ViewModels.CloneRepositoryViewModel>();
 
             ServiceProvider = services.BuildServiceProvider();
         }

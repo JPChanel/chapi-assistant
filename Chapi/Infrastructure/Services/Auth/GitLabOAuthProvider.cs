@@ -2,14 +2,21 @@ using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
 using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
+using Chapi.Domain.Models;
 using Chapi.Infrastructure.Configuration;
+using Chapi.Infrastructure.Services;
 using Microsoft.Extensions.Options;
+
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Chapi.Infrastructure.Services.Auth;
 
@@ -61,7 +68,7 @@ public class GitLabOAuthProvider : IGitAuthProvider
             if (string.IsNullOrEmpty(code))
                 return Result<GitCredential>.Fail("Autenticación cancelada");
 
-            // 5. Intercambiar código por token
+            // 5. Intercambiar código por token de OAuth
             var tokenResponse = await ExchangeCodeForTokenAsync(code);
             if (tokenResponse == null)
                 return Result<GitCredential>.Fail("Error al obtener token de acceso");
@@ -71,7 +78,7 @@ public class GitLabOAuthProvider : IGitAuthProvider
             if (!userResult.IsSuccess)
                 return userResult;
 
-            // 7. Guardar credenciales
+            // 7. Guardar el token de OAuth
             await _credentialStorage.SaveCredentialAsync("GitLab", userResult.Data.Username, tokenResponse.AccessToken);
 
             return userResult;
@@ -96,6 +103,63 @@ public class GitLabOAuthProvider : IGitAuthProvider
         {
             return false;
         }
+    }
+
+    public async Task<Result<List<RemoteRepository>>> GetRepositoriesAsync(string token)
+    {
+        try
+        {
+            // GitLab llama a los repositorios "projects"
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{_config.BaseUrl}/api/v4/projects?membership=true&order_by=updated_at&per_page=100");
+            request.Headers.Add("Authorization", $"Bearer {token}");
+
+            var response = await _httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+                return Result<List<RemoteRepository>>.Fail($"Error obteniendo proyectos: {response.StatusCode}");
+
+            var json = await response.Content.ReadAsStringAsync();
+            var projects = JsonSerializer.Deserialize<List<GitLabProjectDto>>(json);
+
+            if (projects == null)
+                return Result<List<RemoteRepository>>.Fail("No se pudo deserializar la lista de proyectos");
+
+            var result = projects.Select(p => new RemoteRepository
+            {
+                Name = p.Name,
+                FullName = p.PathWithNamespace,
+                CloneUrl = p.HttpUrlToRepo,
+                IsPrivate = p.Visibility == "private",
+                Description = p.Description,
+                UpdatedAt = p.UpdatedAt
+            }).ToList();
+
+            return Result<List<RemoteRepository>>.Success(result);
+        }
+        catch (Exception ex)
+        {
+            return Result<List<RemoteRepository>>.Fail($"Error obteniendo proyectos: {ex.Message}");
+        }
+    }
+
+    private class GitLabProjectDto
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("path_with_namespace")]
+        public string PathWithNamespace { get; set; } = string.Empty;
+
+        [JsonPropertyName("http_url_to_repo")]
+        public string HttpUrlToRepo { get; set; } = string.Empty;
+
+        [JsonPropertyName("visibility")]
+        public string Visibility { get; set; } = string.Empty;
+
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
+
+        [JsonPropertyName("last_activity_at")]
+        public DateTime? UpdatedAt { get; set; }
     }
 
     public async Task<Result<GitCredential>> GetUserInfoAsync(string token)

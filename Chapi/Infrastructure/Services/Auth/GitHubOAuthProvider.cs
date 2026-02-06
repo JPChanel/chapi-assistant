@@ -2,6 +2,7 @@ using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
 using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
+using Chapi.Domain.Models;
 using Chapi.Infrastructure.Configuration;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
@@ -10,6 +11,10 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Chapi.Infrastructure.Services.Auth;
 
@@ -30,7 +35,11 @@ public class GitHubOAuthProvider : IGitAuthProvider
         IOptions<GitAuthConfig> config)
     {
         _credentialStorage = credentialStorage;
+        
+        // Configuramos el HttpClient para ignorar el proxy del sistema si da problemas
+        var handler = new HttpClientHandler { UseProxy = false };
         _httpClient = httpClient;
+        
         _config = config.Value.GitHub;
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "ChapiAssistant");
     }
@@ -63,9 +72,11 @@ public class GitHubOAuthProvider : IGitAuthProvider
                 return Result<GitCredential>.Fail("Autenticación cancelada");
 
             // 5. Intercambiar código por token
-            var tokenResponse = await ExchangeCodeForTokenAsync(code);
-            if (tokenResponse == null)
-                return Result<GitCredential>.Fail("Error al obtener token de acceso");
+            var tokenResult = await ExchangeCodeForTokenResultAsync(code);
+            if (!tokenResult.IsSuccess)
+                return Result<GitCredential>.Fail(tokenResult.Error);
+
+            var tokenResponse = tokenResult.Data;
 
             // 6. Obtener información del usuario
             var userResult = await GetUserInfoAsync(tokenResponse.AccessToken);
@@ -83,6 +94,54 @@ public class GitHubOAuthProvider : IGitAuthProvider
         }
     }
 
+    private async Task<Result<TokenResponse>> ExchangeCodeForTokenResultAsync(string code)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://github.com/login/oauth/access_token");
+            request.Headers.Add("Accept", "application/json");
+
+            var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = _config.ClientId,
+                ["client_secret"] = _config.ClientSecret,
+                ["code"] = code,
+                ["redirect_uri"] = _config.RedirectUri
+            });
+
+            request.Content = content;
+
+            var response = await _httpClient.SendAsync(request);
+            var json = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return Result<TokenResponse>.Fail($"GitHub devolvió error HTTP {response.StatusCode}: {json}");
+            }
+
+            var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(json);
+            
+            // GitHub a veces devuelve 200 OK con un error en el JSON
+            if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.AccessToken))
+            {
+                // Intentar extraer error del JSON si existe
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("error_description", out var desc))
+                    return Result<TokenResponse>.Fail($"GitHub Error: {desc.GetString()}");
+                if (doc.RootElement.TryGetProperty("error", out var err))
+                    return Result<TokenResponse>.Fail($"GitHub Error: {err.GetString()}");
+
+                return Result<TokenResponse>.Fail($"Error al procesar respuesta de GitHub: {json}");
+            }
+
+            return Result<TokenResponse>.Success(tokenResponse);
+        }
+        catch (Exception ex)
+        {
+            return Result<TokenResponse>.Fail($"Error de conexión con GitHub: {ex.Message}");
+        }
+    }
+
     public async Task<bool> ValidateTokenAsync(string token)
     {
         try
@@ -97,6 +156,63 @@ public class GitHubOAuthProvider : IGitAuthProvider
         {
             return false;
         }
+    }
+
+    public async Task<Result<List<RemoteRepository>>> GetRepositoriesAsync(string token)
+    {
+        try
+        {
+            // Solicitamos los repositorios del usuario (incluyendo privados si el token tiene permiso)
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/repos?sort=updated&per_page=100");
+            request.Headers.Add("Authorization", $"Bearer {token}");
+
+            var response = await _httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+                return Result<List<RemoteRepository>>.Fail($"Error obteniendo repositorios: {response.StatusCode}");
+
+            var json = await response.Content.ReadAsStringAsync();
+            var repos = JsonSerializer.Deserialize<List<GitHubRepoDto>>(json);
+
+            if (repos == null)
+                return Result<List<RemoteRepository>>.Fail("No se pudo deserializar la lista de repositorios");
+
+            var result = repos.Select(r => new RemoteRepository
+            {
+                Name = r.Name,
+                FullName = r.FullName,
+                CloneUrl = r.CloneUrl,
+                IsPrivate = r.Private,
+                Description = r.Description,
+                UpdatedAt = r.UpdatedAt
+            }).ToList();
+
+            return Result<List<RemoteRepository>>.Success(result);
+        }
+        catch (Exception ex)
+        {
+            return Result<List<RemoteRepository>>.Fail($"Error obteniendo repositorios: {ex.Message}");
+        }
+    }
+
+    private class GitHubRepoDto
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("full_name")]
+        public string FullName { get; set; } = string.Empty;
+
+        [JsonPropertyName("clone_url")]
+        public string CloneUrl { get; set; } = string.Empty;
+
+        [JsonPropertyName("private")]
+        public bool Private { get; set; }
+
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
+
+        [JsonPropertyName("updated_at")]
+        public DateTime? UpdatedAt { get; set; }
     }
 
     public async Task<Result<GitCredential>> GetUserInfoAsync(string token)
@@ -260,35 +376,7 @@ public class GitHubOAuthProvider : IGitAuthProvider
         }
     }
 
-    private async Task<TokenResponse?> ExchangeCodeForTokenAsync(string code)
-    {
-        try
-        {
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://github.com/login/oauth/access_token");
-            request.Headers.Add("Accept", "application/json");
 
-            var content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["client_id"] = _config.ClientId,
-                ["client_secret"] = _config.ClientSecret,
-                ["code"] = code,
-                ["redirect_uri"] = _config.RedirectUri
-            });
-
-            request.Content = content;
-
-            var response = await _httpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
-                return null;
-
-            var json = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<TokenResponse>(json);
-        }
-        catch
-        {
-            return null;
-        }
-    }
 
     private class TokenResponse
     {
