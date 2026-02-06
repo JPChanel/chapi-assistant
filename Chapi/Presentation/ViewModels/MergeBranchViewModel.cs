@@ -23,7 +23,7 @@ public class MergeBranchViewModel : INotifyPropertyChanged
     private bool _hasConflicts;
     private bool _isUpToDate;
     private string _statusMessage = string.Empty;
-    private string _actionButtonText = "Create merge commit";
+    private string _actionButtonText = "Crear commit de fusión";
 
     public MergeBranchViewModel(IGitRepository gitRepository, string projectPath, string mergeType)
     {
@@ -71,19 +71,34 @@ public class MergeBranchViewModel : INotifyPropertyChanged
     public bool IsCheckingStatus
     {
         get => _isCheckingStatus;
-        set { _isCheckingStatus = value; OnPropertyChanged(nameof(IsCheckingStatus)); }
+        set 
+        { 
+            _isCheckingStatus = value; 
+            OnPropertyChanged(nameof(IsCheckingStatus)); 
+            OnPropertyChanged(nameof(CanMerge)); // Actualizar estado del botón
+        }
     }
 
     public bool HasConflicts
     {
         get => _hasConflicts;
-        set { _hasConflicts = value; OnPropertyChanged(nameof(HasConflicts)); }
+        set 
+        { 
+            _hasConflicts = value; 
+            OnPropertyChanged(nameof(HasConflicts)); 
+            OnPropertyChanged(nameof(CanMerge)); // Actualizar estado del botón
+        }
     }
 
     public bool IsUpToDate
     {
         get => _isUpToDate;
-        set { _isUpToDate = value; OnPropertyChanged(nameof(IsUpToDate)); }
+        set 
+        { 
+            _isUpToDate = value; 
+            OnPropertyChanged(nameof(IsUpToDate)); 
+            OnPropertyChanged(nameof(CanMerge)); // Actualizar estado del botón
+        }
     }
 
     public string StatusMessage
@@ -116,9 +131,9 @@ public class MergeBranchViewModel : INotifyPropertyChanged
         // El texto ahora refleja que vamos A la rama seleccionada
         ActionButtonText = MergeType switch
         {
-            "Squash" => "Squash and merge into target",
-            "Rebase" => "Rebase onto target",
-            _ => "Merge into destination"
+            "Squash" => "Squash y fusionar en destino",
+            "Rebase" => "Rebase sobre destino",
+            _ => "Fusionar en destino"
         };
     }
 
@@ -133,7 +148,7 @@ public class MergeBranchViewModel : INotifyPropertyChanged
         }
 
         IsCheckingStatus = true;
-        StatusMessage = "Checking compatibility...";
+        StatusMessage = "Verificando compatibilidad...";
         HasConflicts = false;
         IsUpToDate = false;
         ((RelayCommand)ConfirmCommand).RaiseCanExecuteChanged();
@@ -144,31 +159,35 @@ public class MergeBranchViewModel : INotifyPropertyChanged
             {
                 // VALIDACIÓN INTELIGENTE:
                 // Estamos validando "Current -> Selected".
-                // Verificar si "Selected -> Current" genera conflicto es un excelente proxy sin cambiar de rama.
-                // Si "main" choca con "feature", entonces "feature" chocará con "main".
-                
                 var (conflicts, msg) = await _gitRepository.CheckMergeConflictsAsync(_projectPath, SelectedBranch.Name);
                 
                 if (conflicts)
                 {
                     HasConflicts = true;
-                    // Mensaje educativo estilo GitLab
-                    StatusMessage = $"Conflicts detected. You must merge '{SelectedBranch.Name}' into '{CurrentBranch}' first.";
+                    
+                    if (msg == "DIRTY_WORKTREE" || msg.Contains("overwritten") || msg.Contains("changes"))
+                    {
+                         StatusMessage = "⚠️ Cambios locales detectados. Por favor haz commit o stash primero.";
+                    }
+                    else
+                    {
+                         StatusMessage = $"Conflictos detectados. Intenta sincronizar '{SelectedBranch.Name}' en '{CurrentBranch}' primero.";
+                    }
                 }
                 else
                 {
                     // Si no hay conflictos trayendo el destino, es seguro intentar enviar.
-                    StatusMessage = $"Ready to merge '{CurrentBranch}' into '{SelectedBranch.Name}'.";
+                    StatusMessage = $"Listo para fusionar '{CurrentBranch}' en '{SelectedBranch.Name}'.";
                 }
             }
             else
             {
-                StatusMessage = "Rebase will rewrite commit history.";
+                StatusMessage = "El rebase reescribirá el historial de commits.";
             }
         }
         catch
         {
-            StatusMessage = "Unable to check merge status.";
+            StatusMessage = "No se pudo verificar el estado de la fusión.";
         }
         finally
         {

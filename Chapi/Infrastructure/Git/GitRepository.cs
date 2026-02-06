@@ -429,34 +429,46 @@ public class GitRepository : IGitRepository
     {
         try
         {
-            // Hacer un merge de prueba sin commit
+            // 1. Verificación previa: Directorio limpio (Evita falsos positivos de conflictos)
+            var statusResult = await _executor.ExecuteAsync("status --porcelain", projectPath);
+            if (statusResult.IsSuccess && !string.IsNullOrWhiteSpace(statusResult.Output))
+            {
+                // Hay cambios locales sin commit. Git merge fallará por seguridad.
+                return (true, "DIRTY_WORKTREE");
+            }
+
+            // 2. Hacer un merge de prueba sin commit
             var result = await _executor.ExecuteAsync($"merge --no-commit --no-ff \"{sourceBranch}\"", projectPath);
+
+            // "Already up to date" es éxito total, no conflicto.
+            if (result.Output.Contains("Already up to date", StringComparison.OrdinalIgnoreCase))
+            {
+                // Limpiar cualquier estado residual por si acaso
+                await _executor.ExecuteAsync("merge --abort", projectPath);
+                return (false, "Already up to date");
+            }
             
             bool hasConflicts = !result.IsSuccess || result.Output.Contains("CONFLICT", StringComparison.OrdinalIgnoreCase);
             
-            // Abortar el merge de prueba
+            // Abortar el merge de prueba para dejar el repo limpio
             await _executor.ExecuteAsync("merge --abort", projectPath);
             
             if (hasConflicts)
             {
-                // Contar archivos en conflicto
-                var statusResult = await _executor.ExecuteAsync("diff --name-only --diff-filter=U", projectPath);
-                var conflictFiles = statusResult.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                int count = conflictFiles.Length;
-                
-                string message = count > 0 
-                    ? $"Se detectaron {count} archivo(s) con conflictos potenciales"
-                    : "Puede haber conflictos al hacer merge";
+                // Intentar extraer mensaje de error específico si no es conflicto estándar
+                string message = result.Error;
+                if (string.IsNullOrWhiteSpace(message)) message = result.Output;
                 
                 return (true, message);
             }
             
             return (false, string.Empty);
         }
-        catch
+        catch (Exception ex)
         {
-            // Si hay error, asumir que puede haber conflictos
-            return (false, string.Empty);
+            // Loguear error real
+            System.Diagnostics.Debug.WriteLine($"Error checking conflicts: {ex.Message}");
+            return (true, ex.Message); // Asumir conflicto si falla por excepción técnica
         }
     }
 

@@ -35,22 +35,20 @@
             <StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                      <TextBlock Text="{Binding MergeType}" FontWeight="Bold" Opacity="0.7"/>
-                     <TextBlock Text=" from " Opacity="0.7"/>
+                     <TextBlock Text=" desde " Opacity="0.7"/>
                      <TextBlock Text="{Binding CurrentBranch}" FontWeight="SemiBold"/>
-                     <TextBlock Text=" into..." Opacity="0.7"/>
+                     <TextBlock Text=" hacia..." Opacity="0.7"/>
                 </StackPanel>
-                <TextBlock Text="Select destination branch" 
+                <TextBlock Text="Selecciona la rama de destino" 
                            FontSize="14" Opacity="0.5" Margin="0,2,0,0"/>
             </StackPanel>
         </Border>
 
         <!-- 2. SEARCH -->
         <Border Grid.Row="1" Padding="16,12">
-            <TextBox materialDesign:HintAssist.Hint="Filter branches"
+            <TextBox materialDesign:HintAssist.Hint="Filtrar ramas"
                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                     Height="36"
-                     Padding="8,0"
+                     Style="{StaticResource MaterialDesignOutlinedTextBox}"                     
                      materialDesign:TextFieldAssist.DecorationVisibility="Collapsed"
                      BorderBrush="{DynamicResource MaterialDesignDivider}"/>
         </Border>
@@ -97,7 +95,7 @@
                                 <!-- Nombre y Detalle -->
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Name}" FontWeight="Medium"/>
-                                    <TextBlock Text="Default branch" 
+                                    <TextBlock Text="Rama predeterminada" 
                                                FontSize="10" Opacity="0.5"
                                                Visibility="{Binding IsDefault, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                 </StackPanel>
@@ -177,7 +175,7 @@
 
                 <!-- Buttons -->
                 <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="Cancel" 
+                    <Button Content="Cancelar" 
                             Style="{StaticResource MaterialDesignFlatButton}" 
                             Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
                             Margin="0,0,8,0"/>
