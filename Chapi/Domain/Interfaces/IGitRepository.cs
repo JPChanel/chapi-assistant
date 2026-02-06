@@ -28,6 +28,10 @@ public interface IGitRepository
     Task<Result> SwitchBranchAsync(string projectPath, string branchName);
     Task<Result> CreateBranchAsync(string projectPath, string branchName, string? fromCommitOrBranch = null);
     Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false);
+    Task<Result> MergeBranchAsync(string projectPath, string sourceBranch, bool fastForward = true);
+    Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranch);
+    Task<Result> RebaseBranchAsync(string projectPath, string targetBranch);
+    Task<(bool hasConflicts, string message)> CheckMergeConflictsAsync(string projectPath, string sourceBranch);
     Task<Result> ResetAsync(string projectPath, string target, ResetMode mode);
     Task<Result> RestoreFileFromStashAsync(string projectPath, string stashName, string filePath);
 

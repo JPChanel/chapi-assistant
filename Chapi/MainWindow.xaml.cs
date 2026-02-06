@@ -16,6 +16,7 @@ using System.Windows.Media;
 using Velopack;
 using Velopack.Sources;
 using UseCases = Chapi.Application.UseCases.Git;
+using Chapi.Domain.Common;
 
 namespace Chapi
 {
@@ -947,6 +948,174 @@ namespace Chapi
                 else
                 {
                     await DialogService.ShowConfirmDialog("Error al eliminar rama", result.Error, DialogVariant.Error, DialogType.Info);
+                }
+            });
+        }
+
+
+        private async void Branch_Merge_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateProject()) return;
+            string? branch = GetBranchFromSender(sender);
+            
+            if (branch != null) await ExecuteGitMergeOperation("Merge", branch);
+            else await ShowMergeDialogAsync("Merge");
+        }
+
+        private async void Branch_SquashMerge_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateProject()) return;
+            string? branch = GetBranchFromSender(sender);
+
+            if (branch != null) await ExecuteGitMergeOperation("Squash", branch);
+            else await ShowMergeDialogAsync("Squash");
+        }
+
+        private async void Branch_Rebase_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ValidateProject()) return;
+            string? branch = GetBranchFromSender(sender);
+
+            if (branch != null) await ExecuteGitMergeOperation("Rebase", branch);
+            else await ShowMergeDialogAsync("Rebase");
+        }
+
+        private string? GetBranchFromSender(object sender)
+        {
+            if (sender is MenuItem menuItem && menuItem.CommandParameter is string branchName && !string.IsNullOrWhiteSpace(branchName))
+            {
+                return branchName;
+            }
+            return null;
+        }
+
+        private async Task ShowMergeDialogAsync(string mergeType)
+        {
+            // Instanciar VM con dependencias para validación en vivo
+            var viewModel = new Chapi.Presentation.ViewModels.MergeBranchViewModel(_gitRepository, projectDirectory, mergeType);
+
+            // Cargar ramas
+            var branches = await _gitRepository.GetBranchesAsync(projectDirectory);
+            viewModel.LoadBranches(branches, _currentlySelectedBranch);
+
+            var dialog = new Chapi.Presentation.Views.Dialogs.MergeBranchDialog
+            {
+                DataContext = viewModel
+            };
+
+            var result = await DialogService.ShowDialog(dialog);
+
+            if (result is Chapi.Presentation.ViewModels.BranchItemViewModel selectedBranch)
+            {
+                // Si el usuario confirmó en el diálogo, ejecutamos la operación.
+                // Nota: El diálogo ya valida conflictos visualmente, pero aquí haremos la ejecución final.
+                // Si hay conflictos marcados en el VM pero el usuario forzó la acción (si permitimos eso),
+                // o para reconfirmar antes de ejecutar "write" operations.
+                
+                await ExecuteGitMergeOperation(mergeType, selectedBranch.Name);
+            }
+        }
+
+        private async Task ExecuteGitMergeOperation(string mergeType, string targetBranch)
+        {
+            // En este nuevo flujo:
+            // Source = _currentlySelectedBranch (Donde estoy)
+            // Target = targetBranch (Donde van los cambios)
+            string sourceBranch = _currentlySelectedBranch;
+
+            if (targetBranch.Equals(sourceBranch, StringComparison.OrdinalIgnoreCase))
+            {
+                await DialogService.ShowConfirmDialog("Error", $"No puedes hacer {mergeType.ToLower()} de una rama consigo misma.", DialogVariant.Error, DialogType.Info);
+                return;
+            }
+
+            // 1. Detección Temprana de Conflictos Indirectos
+            // Verificamos si Target -> Source da conflictos. Si sí, bloqueamos.
+            if (mergeType != "Rebase")
+            {
+                var (hasConflicts, conflictMessage) = await _gitRepository.CheckMergeConflictsAsync(projectDirectory, targetBranch);
+                if (hasConflicts)
+                {
+                    await DialogService.ShowConfirmDialog(
+                        "⚠️ Conflictos Detectados",
+                        $"No se puede enviar '{sourceBranch}' a '{targetBranch}' porque hay conflictos pendientes.\n\nSOLUCIÓN: Primero debes fusionar '{targetBranch}' en tu rama actual y resolver los conflictos.",
+                        DialogVariant.Error,
+                        DialogType.Info);
+                    return;
+                }
+            }
+
+            // 2. Verificar estado limpio antes de cambiar de rama
+            var status = await _gitRepository.GetChangesAsync(projectDirectory);
+            if (status.Any())
+            {
+                await DialogService.ShowConfirmDialog(
+                    "⚠️ Cambios Pendientes",
+                    "Para hacer merge hacia otra rama, tu directorio de trabajo debe estar limpio.\n\nPor favor haz commit o stash de tus cambios actuales antes de continuar.",
+                    DialogVariant.Warning,
+                    DialogType.Info);
+                return;
+            }
+
+            // 3. Confirmación Final
+            var prompt = mergeType == "Squash" 
+                ? $"¿Estás seguro de hacer SQUASH MERGE de '{sourceBranch}' EN '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá." 
+                : $"¿Estás seguro de fusionar '{sourceBranch}' EN '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá.";
+
+            if (mergeType == "Rebase") prompt = $"¿Rebase '{sourceBranch}' sobre '{targetBranch}'? (Esto actualizará tu rama actual usando la destino como base)";
+
+            var confirm = await DialogService.ShowConfirmDialog($"{mergeType} to {targetBranch}", prompt, DialogVariant.Info, DialogType.Confirm);
+            if (!confirm) return;
+
+            // 4. Ejecución
+            await RunWithLoading(async () =>
+            {
+                Result result = Result.Fail("Iniciando...");
+
+                try 
+                {
+                    if (mergeType == "Rebase")
+                    {
+                        result = await _gitRepository.RebaseBranchAsync(projectDirectory, targetBranch);
+                    }
+                    else
+                    {
+                        // Flujo para Merge/Squash (Source -> Target)
+                        
+                        // A. Ir al destino
+                        var checkoutTarget = await _gitRepository.SwitchBranchAsync(projectDirectory, targetBranch);
+                        if (!checkoutTarget.IsSuccess) throw new Exception($"No se pudo cambiar a '{targetBranch}': {checkoutTarget.Error}");
+
+                        // B. Realizar Merge/Squash (trayendo Source)
+                        if (mergeType == "Merge")
+                            result = await _gitRepository.MergeBranchAsync(projectDirectory, sourceBranch, fastForward: true);
+                        else // Squash
+                            result = await _gitRepository.SquashMergeBranchAsync(projectDirectory, sourceBranch);
+
+                        // C. Volver al origen (siempre intentamos volver)
+                        await _gitRepository.SwitchBranchAsync(projectDirectory, sourceBranch);
+                    }
+
+                    if (result.IsSuccess)
+                    {
+                        Msg.Assistant($"✅ Operación '{mergeType}' exitosa: '{sourceBranch}' → '{targetBranch}'");
+                        await LoadChangesAsync();
+                        await LoadHistoryAsync();
+                        await UpdateProjectStatusesAsync();
+                    }
+                    else
+                    {
+                        throw new Exception(result.Error);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Intentar volver a casa por seguridad si algo falló a medias
+                    if (_currentlySelectedBranch != sourceBranch)
+                        await _gitRepository.SwitchBranchAsync(projectDirectory, sourceBranch);
+
+                    await DialogService.ShowConfirmDialog($"Error en {mergeType}", $"Ocurrió un error: {ex.Message}", DialogVariant.Error, DialogType.Info);
+                    await LoadChangesAsync();
                 }
             });
         }

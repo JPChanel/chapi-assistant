@@ -258,6 +258,31 @@
                                     Style="{StaticResource MaterialDesignOutlinedComboBox}"
                                     SelectionChanged="BranchesComboBox_SelectionChanged" 
                                     HorizontalContentAlignment="Stretch">
+                            <ComboBox.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Crear Rama..." Click="Branch_Create_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="SourceBranchPlus" Foreground="Green"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator />
+                                    <MenuItem Header="Merge into current branch..." Click="Branch_Merge_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="SourceMerge" Foreground="Blue"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Squash and merge..." Click="Branch_SquashMerge_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="CallMerge" Foreground="Purple"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Rebase current branch..." Click="Branch_Rebase_Click">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="SourceBranchSync" Foreground="Orange"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </ComboBox.ContextMenu>
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid Background="Transparent">
@@ -272,6 +297,23 @@
                                                         <materialDesign:PackIcon Kind="SourceBranchPlus" Foreground="Green"/>
                                                     </MenuItem.Icon>
                                                 </MenuItem>
+                                                <Separator />
+                                                <MenuItem Header="Merge into current branch..." Click="Branch_Merge_Click" CommandParameter="{Binding}">
+                                                    <MenuItem.Icon>
+                                                        <materialDesign:PackIcon Kind="SourceMerge" Foreground="Blue"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <MenuItem Header="Squash and merge into current branch..." Click="Branch_SquashMerge_Click" CommandParameter="{Binding}">
+                                                    <MenuItem.Icon>
+                                                        <materialDesign:PackIcon Kind="CallMerge" Foreground="Purple"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <MenuItem Header="Rebase current branch..." Click="Branch_Rebase_Click" CommandParameter="{Binding}">
+                                                    <MenuItem.Icon>
+                                                        <materialDesign:PackIcon Kind="SourceBranchSync" Foreground="Orange"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <Separator />
                                                 <MenuItem Header="Eliminar Rama..." Click="Branch_Delete_Click" CommandParameter="{Binding}" Foreground="Red" Visibility="{Binding Converter={StaticResource IsNotDefaultBranchConverter}}">
                                                     <MenuItem.Icon>
                                                         <materialDesign:PackIcon Kind="SourceBranchRemove" Foreground="Red"/>

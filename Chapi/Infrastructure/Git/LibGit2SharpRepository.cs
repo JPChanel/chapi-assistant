@@ -13,7 +13,7 @@ namespace Chapi.Infrastructure.Git;
 /// <summary>
 /// Implementación de repositorio Git usando LibGit2Sharp (autónomo, no requiere git instalado).
 /// </summary>
-public class LibGit2SharpRepository : IGitRepository
+public partial class LibGit2SharpRepository : IGitRepository
 {
     private readonly IGitAuthProviderFactory _authFactory;
     private readonly ICredentialStorageService _credentialStorage;

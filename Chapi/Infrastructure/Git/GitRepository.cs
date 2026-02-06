@@ -385,6 +385,81 @@ public class GitRepository : IGitRepository
         }
     }
 
+    public async Task<Result> MergeBranchAsync(string projectPath, string sourceBranch, bool fastForward = true)
+    {
+        try
+        {
+            string ffFlag = fastForward ? "" : "--no-ff";
+            var result = await _executor.ExecuteAsync($"merge {ffFlag} \"{sourceBranch}\"", projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al hacer merge: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranch)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"merge --squash \"{sourceBranch}\"", projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al hacer squash merge: {ex.Message}");
+        }
+    }
+
+    public async Task<Result> RebaseBranchAsync(string projectPath, string targetBranch)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"rebase \"{targetBranch}\"", projectPath);
+            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al hacer rebase: {ex.Message}");
+        }
+    }
+
+    public async Task<(bool hasConflicts, string message)> CheckMergeConflictsAsync(string projectPath, string sourceBranch)
+    {
+        try
+        {
+            // Hacer un merge de prueba sin commit
+            var result = await _executor.ExecuteAsync($"merge --no-commit --no-ff \"{sourceBranch}\"", projectPath);
+            
+            bool hasConflicts = !result.IsSuccess || result.Output.Contains("CONFLICT", StringComparison.OrdinalIgnoreCase);
+            
+            // Abortar el merge de prueba
+            await _executor.ExecuteAsync("merge --abort", projectPath);
+            
+            if (hasConflicts)
+            {
+                // Contar archivos en conflicto
+                var statusResult = await _executor.ExecuteAsync("diff --name-only --diff-filter=U", projectPath);
+                var conflictFiles = statusResult.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                int count = conflictFiles.Length;
+                
+                string message = count > 0 
+                    ? $"Se detectaron {count} archivo(s) con conflictos potenciales"
+                    : "Puede haber conflictos al hacer merge";
+                
+                return (true, message);
+            }
+            
+            return (false, string.Empty);
+        }
+        catch
+        {
+            // Si hay error, asumir que puede haber conflictos
+            return (false, string.Empty);
+        }
+    }
+
     public async Task<Result> ResetAsync(string projectPath, string target, ResetMode mode)
     {
         try
