@@ -33,11 +33,11 @@
         <!-- 1. HEADER -->
         <Border Grid.Row="0" Padding="16" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1">
             <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                     <TextBlock Text="{Binding MergeType}" FontWeight="Bold" Opacity="0.7"/>
-                     <TextBlock Text=" desde " Opacity="0.7"/>
-                     <TextBlock Text="{Binding CurrentBranch}" FontWeight="SemiBold"/>
-                     <TextBlock Text=" hacia..." Opacity="0.7"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4" >
+                    <TextBlock Text="{Binding MergeType}" FontWeight="Bold" Opacity="0.7" FontSize="16"/>
+                    <TextBlock Text=" desde " Opacity="0.7" FontSize="16"/>
+                    <TextBlock Text="{Binding CurrentBranch}" FontWeight="SemiBold" FontSize="16"/>
+                    <TextBlock Text=" hacia..." Opacity="0.7" FontSize="16"/>
                 </StackPanel>
                 <TextBlock Text="Selecciona la rama de destino" 
                            FontSize="14" Opacity="0.5" Margin="0,2,0,0"/>
