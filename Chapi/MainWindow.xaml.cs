@@ -102,6 +102,16 @@ namespace Chapi
             
             // Pre-cargar repositorios remotos para el dialogo de clonado
             _ = App.ServiceProvider.GetService<Chapi.Presentation.ViewModels.CloneRepositoryViewModel>();
+
+            // Pre-cargar avatares de usuario
+            _ = Task.Run(async () => 
+            {
+                var storage = App.ServiceProvider.GetService<Chapi.Domain.Interfaces.ICredentialStorageService>();
+                if (storage != null)
+                {
+                    await Chapi.Domain.Services.AvatarCacheService.Instance.PreloadAvatarsAsync(storage);
+                }
+            });
             _ = Task.Run(async () => await CheckGitInstallationAsync());
 
             if (_changesViewModel != null)

@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Chapi.Domain.Interfaces;
 
 namespace Chapi.Domain.Services
 {
@@ -16,13 +18,53 @@ namespace Chapi.Domain.Services
         public static AvatarCacheService Instance => _instance.Value;
 
         private readonly Dictionary<string, string> _avatarCache = new();
-        private readonly HashSet<string> _pendingRequests = new(); // Para evitar consultas duplicadas
+        private readonly HashSet<string> _pendingRequests = new();
         private readonly object _cacheLock = new();
+        private readonly string _localAvatarsPath;
 
-        // Evento para notificar cuando un avatar se actualiza
         public event EventHandler<AvatarUpdatedEventArgs> AvatarUpdated;
 
-        private AvatarCacheService() { }
+        private AvatarCacheService()
+        {
+            _localAvatarsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Chapi", "Avatars");
+            
+            if (!Directory.Exists(_localAvatarsPath))
+            {
+                Directory.CreateDirectory(_localAvatarsPath);
+            }
+        }
+
+        private async Task<string> EnsureLocalAvatarAsync(string provider, string username, string remoteUrl)
+        {
+            if (string.IsNullOrWhiteSpace(remoteUrl) || remoteUrl.Contains("gravatar.com"))
+                return remoteUrl;
+
+            var extension = ".png"; // Por defecto
+            if (remoteUrl.Contains(".jpg") || remoteUrl.Contains(".jpeg")) extension = ".jpg";
+            
+            var fileName = $"{provider}_{username}{extension}";
+            var localPath = Path.Combine(_localAvatarsPath, fileName);
+
+            if (File.Exists(localPath))
+            {
+                return new Uri(localPath).AbsoluteUri;
+            }
+
+            try
+            {
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("User-Agent", "ChapiAssistant");
+                var data = await client.GetByteArrayAsync(remoteUrl);
+                await File.WriteAllBytesAsync(localPath, data);
+                return new Uri(localPath).AbsoluteUri;
+            }
+            catch
+            {
+                return remoteUrl;
+            }
+        }
 
         protected virtual void OnAvatarUpdated(string provider, string username)
         {
@@ -47,14 +89,28 @@ namespace Chapi.Domain.Services
                 }
             }
 
-            var url = $"https://avatars.githubusercontent.com/{username}?v=4&s={size}";
-            
-            lock (_cacheLock)
+            // Verificar si existe localmente
+            var localFile = Path.Combine(_localAvatarsPath, $"GitHub_{username}.png");
+            if (File.Exists(localFile))
             {
-                _avatarCache[cacheKey] = url;
+                var localUrl = new Uri(localFile).AbsoluteUri;
+                lock (_cacheLock) { _avatarCache[cacheKey] = localUrl; }
+                return localUrl;
             }
 
-            return url;
+            var remoteUrl = $"https://avatars.githubusercontent.com/{username}?v=4&s={size}";
+            
+            // Descargar en background para la prÃ³xima vez
+            _ = Task.Run(async () => {
+                var local = await EnsureLocalAvatarAsync("GitHub", username, remoteUrl);
+                if (local.StartsWith("file:"))
+                {
+                    lock (_cacheLock) { _avatarCache[cacheKey] = local; }
+                    OnAvatarUpdated("GitHub", username);
+                }
+            });
+
+            return remoteUrl;
         }
 
         /// <summary>
@@ -88,14 +144,17 @@ namespace Chapi.Domain.Services
                 var avatarUrlMatch = Regex.Match(response, "\"avatar_url\":\"([^\"]+)\"");
                 if (avatarUrlMatch.Success)
                 {
-                    var url = avatarUrlMatch.Groups[1].Value;
+                    var remoteUrl = avatarUrlMatch.Groups[1].Value;
+                    
+                    // Asegurar localmente
+                    var localUrl = await EnsureLocalAvatarAsync("GitLab", username, remoteUrl);
                     
                     lock (_cacheLock)
                     {
-                        _avatarCache[cacheKey] = url;
+                        _avatarCache[cacheKey] = localUrl;
                     }
                     
-                    return url;
+                    return localUrl;
                 }
             }
             catch (Exception ex)
@@ -214,6 +273,29 @@ namespace Chapi.Domain.Services
                 foreach (var key in keysToRemove)
                 {
                     _avatarCache.Remove(key);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Precarga avatares para los proveedores especificados
+        /// </summary>
+        public async Task PreloadAvatarsAsync(ICredentialStorageService storage)
+        {
+            var providers = new[] { "GitHub", "GitLab" };
+            foreach (var provider in providers)
+            {
+                var cred = await storage.GetCredentialAsync(provider);
+                if (cred.HasValue && !string.IsNullOrWhiteSpace(cred.Value.username))
+                {
+                    if (provider == "GitHub")
+                    {
+                        GetGitHubAvatarUrl(cred.Value.username);
+                    }
+                    else if (provider == "GitLab")
+                    {
+                        await GetGitLabAvatarUrlAsync(cred.Value.username);
+                    }
                 }
             }
         }

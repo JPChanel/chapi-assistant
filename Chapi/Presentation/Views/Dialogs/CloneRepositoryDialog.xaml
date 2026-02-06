@@ -11,33 +11,29 @@
              Background="{StaticResource MaterialDesignPaper}">
 
     <UserControl.Resources>
-        <GroupStyle x:Key="RepositoryGroupStyle">
-            <GroupStyle.ContainerStyle>
-                <Style TargetType="{x:Type GroupItem}">
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="{x:Type GroupItem}">
-                                <Expander IsExpanded="True" 
-                                          Background="Transparent"
-                                          BorderThickness="0,0,0,1"
-                                          BorderBrush="{DynamicResource MaterialDesignDivider}">
-                                    <Expander.Header>
-                                        <Grid Height="20">
-                                            <TextBlock Text="{Binding Name}" 
-                                                       FontWeight="ExtraBold"                                                        
-                                                       Foreground="{DynamicResource PrimaryHueMidBrush}" 
-                                                       FontSize="17"
-                                                       VerticalAlignment="Center"/>
-                                        </Grid>
-                                    </Expander.Header>
-                                    <ItemsPresenter Margin="0,0,0,8" />
-                                </Expander>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-            </GroupStyle.ContainerStyle>
-        </GroupStyle>
+        <Style x:Key="RepositoryGroupItemStyle" TargetType="{x:Type GroupItem}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type GroupItem}">
+                        <Expander IsExpanded="True" 
+                                  Background="Transparent"
+                                  BorderThickness="0,0,0,1"
+                                  BorderBrush="{DynamicResource MaterialDesignDivider}">
+                            <Expander.Header>
+                                <Grid Height="20">
+                                    <TextBlock Text="{Binding Name}" 
+                                               FontWeight="ExtraBold"                                                        
+                                               Foreground="{DynamicResource PrimaryHueMidBrush}" 
+                                               FontSize="17"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </Expander.Header>
+                            <ItemsPresenter Margin="0,0,0,8" />
+                        </Expander>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="0">
@@ -96,7 +92,7 @@
                                      SelectedItem="{Binding SelectedRepo}"
                                      Style="{StaticResource MaterialDesignListBox}">
                                 <ListBox.GroupStyle>
-                                    <StaticResource ResourceKey="RepositoryGroupStyle" />
+                                    <GroupStyle ContainerStyle="{StaticResource RepositoryGroupItemStyle}" />
                                 </ListBox.GroupStyle>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
@@ -109,7 +105,7 @@
                                                                     Foreground="{DynamicResource PrimaryHueMidBrush}"
                                                                     VerticalAlignment="Center" Margin="0,0,12,0" />
                                             <StackPanel Grid.Column="1">
-                                                <TextBlock Text="{Binding FullName}"  FontSize="14"/>
+                                                <TextBlock Text="{Binding FullName}" FontSize="14"/>
                                                 <TextBlock Text="{Binding Description}" FontSize="11" 
                                                           Opacity="0.6" TextTrimming="CharacterEllipsis" 
                                                           Visibility="{Binding Description, Converter={StaticResource NullToVisibilityConverter}}"/>
@@ -165,7 +161,7 @@
                                      SelectedItem="{Binding SelectedRepo}"
                                      Style="{StaticResource MaterialDesignListBox}">
                                 <ListBox.GroupStyle>
-                                    <StaticResource ResourceKey="RepositoryGroupStyle" />
+                                    <GroupStyle ContainerStyle="{StaticResource RepositoryGroupItemStyle}" />
                                 </ListBox.GroupStyle>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
@@ -178,7 +174,7 @@
                                                                     Foreground="#FC6D26"
                                                                     VerticalAlignment="Center" Margin="0,0,12,0" />
                                             <StackPanel Grid.Column="1">
-                                                <TextBlock Text="{Binding FullName}"  FontSize="14"/>
+                                                <TextBlock Text="{Binding FullName}" FontSize="14"/>
                                                 <TextBlock Text="{Binding Description}" FontSize="11" 
                                                           Opacity="0.6" TextTrimming="CharacterEllipsis"
                                                           Visibility="{Binding Description, Converter={StaticResource NullToVisibilityConverter}}"/>
@@ -232,7 +228,6 @@
             </Grid>
         </materialDesign:Card>
 
-        <!-- Footer -->
         <!-- Footer -->
         <Grid Grid.Row="2" Margin="24,0,24,24">
             <StackPanel>
