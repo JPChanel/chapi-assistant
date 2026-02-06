@@ -1069,6 +1069,10 @@ public class ChangesViewModel : ViewModelBase
         {
             CommitSummary = string.Empty;
             CommitDescription = string.Empty;
+            
+            // Invalidar caché para forzar recarga desde Git
+            _changesCache.Invalidate(ProjectPath);
+            
             await LoadChangesAsync();
             
             // Notificar que se completo el commit para que el historial se actualice
@@ -1099,6 +1103,7 @@ public class ChangesViewModel : ViewModelBase
         var result = await _discardChangesUseCase.ExecuteAsync(ProjectPath, new[] { item.FilePath });
         if (result.IsSuccess)
         {
+            _changesCache.Invalidate(ProjectPath);
             await LoadChangesAsync();
         }
     }
@@ -1118,6 +1123,7 @@ public class ChangesViewModel : ViewModelBase
         var result = await _discardChangesUseCase.ExecuteAsync(ProjectPath, allFiles);
         if (result.IsSuccess)
         {
+            _changesCache.Invalidate(ProjectPath);
             await LoadChangesAsync();
         }
     }
@@ -1146,6 +1152,7 @@ public class ChangesViewModel : ViewModelBase
         var result = await _stashChangesUseCase.ExecuteAsync(ProjectPath, message, filesToStash);
         if (result.IsSuccess)
         {
+            _changesCache.Invalidate(ProjectPath);
             await LoadChangesAsync();
         }
     }
@@ -1162,6 +1169,7 @@ public class ChangesViewModel : ViewModelBase
         var result = await _stashPopUseCase.ExecuteAsync(ProjectPath, index);
         if (result.IsSuccess)
         {
+            _changesCache.Invalidate(ProjectPath);
             await LoadChangesAsync();
         }
         else
@@ -1189,6 +1197,7 @@ public class ChangesViewModel : ViewModelBase
                 return;
             }
             
+            _changesCache.Invalidate(ProjectPath);
             await LoadChangesAsync();
             IsStashViewVisible = false;
         }
@@ -1219,6 +1228,7 @@ public class ChangesViewModel : ViewModelBase
         var result = await _stashDropUseCase.ExecuteAsync(ProjectPath, index);
         if (result.IsSuccess)
         {
+            _changesCache.Invalidate(ProjectPath);
             await LoadChangesAsync();
         }
     }
@@ -1238,6 +1248,7 @@ public class ChangesViewModel : ViewModelBase
         var result = await _stashClearUseCase.ExecuteAsync(ProjectPath);
         if (result.IsSuccess)
         {
+            _changesCache.Invalidate(ProjectPath);
             await LoadChangesAsync();
         }
     }
