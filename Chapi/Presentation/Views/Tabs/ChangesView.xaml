@@ -141,6 +141,38 @@
                                                 </StackPanel>
                                             </Border>
                                         </Button>
+
+                                        <!-- Gear animado para indicar sincronización -->
+                                        <materialDesign:PackIcon Kind="Cog" 
+                                                                 Width="12" Height="12" 
+                                                                 Margin="6,0,0,0"
+                                                                 Foreground="Gray"
+                                                                 VerticalAlignment="Center"
+                                                                 Visibility="{Binding IsSyncing, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <materialDesign:PackIcon.RenderTransform>
+                                                <RotateTransform CenterX="6" CenterY="6" />
+                                            </materialDesign:PackIcon.RenderTransform>
+                                            <materialDesign:PackIcon.Style>
+                                                <Style TargetType="materialDesign:PackIcon" BasedOn="{StaticResource {x:Type materialDesign:PackIcon}}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSyncing}" Value="True">
+                                                            <DataTrigger.EnterActions>
+                                                                <BeginStoryboard x:Name="SpinBoard">
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                                         From="0" To="360" Duration="0:0:2" 
+                                                                                         RepeatBehavior="Forever" />
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </DataTrigger.EnterActions>
+                                                            <DataTrigger.ExitActions>
+                                                                <StopStoryboard BeginStoryboardName="SpinBoard" />
+                                                            </DataTrigger.ExitActions>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </materialDesign:PackIcon.Style>
+                                        </materialDesign:PackIcon>
                                      
                                     </StackPanel>
 
@@ -318,7 +350,7 @@
                                         BorderThickness="1"
                                         Margin="4,1">
                                     <Border.ContextMenu>
-                                        <ContextMenu>                                                                  
+                                        <ContextMenu>
                                             <MenuItem Header="Descartar Cambios"
                                                       Click="DiscardChangesMenuItem_Click"
                                                       CommandParameter="{Binding}"
@@ -648,5 +680,3 @@
         </Grid>
     </Grid>
 </UserControl>
-
-

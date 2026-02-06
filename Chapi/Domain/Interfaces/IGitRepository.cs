@@ -67,6 +67,7 @@ public interface IGitRepository
     Task<bool> HasUpstreamAsync(string projectPath, string branchName);
     Task<string> GetFileContentAsync(string projectPath, string revision, string filePath);
     Task<string> GetDiffAsync(string projectPath, string file, string? revision = null);
+    Task<(int additions, int deletions)> GetFileStatsAsync(string projectPath, string filePath);
 
     // Config
     Task<string> GetConfigAsync(string key, bool global = false);

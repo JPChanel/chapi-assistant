@@ -34,6 +34,8 @@ public class ChangesViewModel : ViewModelBase
     private readonly PushChangesUseCase _pushChangesUseCase;
     private readonly Domain.Interfaces.IGitAuthProviderFactory _authFactory;
     private readonly Domain.Interfaces.ICredentialStorageService _credentialStorage;
+    private readonly Chapi.Infrastructure.Git.GitChangeWatcher _changeWatcher;
+    private readonly Chapi.Infrastructure.Git.GitChangesCache _changesCache;
 
     private string _projectPath = string.Empty;
     private int _totalAdditions;
@@ -46,6 +48,7 @@ public class ChangesViewModel : ViewModelBase
     private bool _isMassUpdating;
     private bool _isStashViewVisible;
     private bool _isGenerating;
+    private bool _isSyncing;
     private CancellationTokenSource? _loadCts;
 
     public event EventHandler? CommitCompleted;
@@ -77,6 +80,13 @@ public class ChangesViewModel : ViewModelBase
         _credentialStorage = credentialStorage;
         _pushChangesUseCase = pushChangesUseCase;
         
+        // Inicializar watcher y caché (como GitHub Desktop)
+        _changeWatcher = new Chapi.Infrastructure.Git.GitChangeWatcher();
+        _changesCache = new Chapi.Infrastructure.Git.GitChangesCache();
+        
+        // Suscribirse a cambios del repositorio
+        _changeWatcher.RepositoryChanged += OnRepositoryChanged;
+        
         Changes = new ObservableCollection<ChangeItemViewModel>();
         Stashes = new ObservableCollection<GitStash>();
         StashedFiles = new ObservableCollection<ChangeItemViewModel>();
@@ -98,6 +108,22 @@ public class ChangesViewModel : ViewModelBase
         
         // Suscribirse al evento de actualización de avatares
         Chapi.Domain.Services.AvatarCacheService.Instance.AvatarUpdated += OnAvatarUpdated;
+    }
+
+    private void OnRepositoryChanged(object? sender, string projectPath)
+    {
+        // Solo recargar si es el proyecto actual
+        if (projectPath == ProjectPath)
+        {
+            System.Diagnostics.Debug.WriteLine($"🔄 Cambio detectado en {projectPath}, recargando...");
+            _changesCache.Invalidate(projectPath);
+            
+            // Ejecutar en el UI thread para evitar errores de cross-thread
+            System.Windows.Application.Current?.Dispatcher.InvokeAsync(async () =>
+            {
+                await LoadChangesAsync();
+            });
+        }
     }
 
     private void OnAvatarUpdated(object sender, Chapi.Domain.Services.AvatarUpdatedEventArgs e)
@@ -127,6 +153,12 @@ public class ChangesViewModel : ViewModelBase
                 CommitSummary = string.Empty;
                 CommitDescription = string.Empty;
                 
+                // Iniciar monitoreo del nuevo proyecto (como GitHub Desktop)
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    _changeWatcher.WatchRepository(value);
+                }
+                
                 _ = LoadChangesAsync();
                 _ = LoadStashesAsync();
             }
@@ -149,6 +181,12 @@ public class ChangesViewModel : ViewModelBase
     {
         get => _totalDeletions;
         private set => SetProperty(ref _totalDeletions, value);
+    }
+
+    public bool IsSyncing
+    {
+        get => _isSyncing;
+        set => SetProperty(ref _isSyncing, value);
     }
 
     /// <summary>
@@ -420,53 +458,88 @@ public class ChangesViewModel : ViewModelBase
     {
         if (string.IsNullOrWhiteSpace(ProjectPath))
             return;
-
-        // Cancelar carga anterior si existe
         _loadCts?.Cancel();
         _loadCts = new CancellationTokenSource();
         var token = _loadCts.Token;
 
-        // Limpiar cambios inmediatamente para evitar datos "pegados" de otros proyectos
+        IsSyncing = true;
+       
+        // Resetear totales para evitar que se "peguen" de otros proyectos
         Changes.Clear();
         TotalAdditions = 0;
         TotalDeletions = 0;
 
         try
         {
-            // Usar el Use Case para obtener cambios
+            if (_changesCache.TryGetChanges(ProjectPath, out var cachedChanges, out var cachedAdditions, out var cachedDeletions))
+            {
+                System.Diagnostics.Debug.WriteLine($"⚡ Usando caché para {ProjectPath}");
+                
+                // Usar datos del caché
+                foreach (var fileChange in cachedChanges)
+                {
+                    var viewModel = MapToViewModel(fileChange);
+                    viewModel.PropertyChanged += (s, e) =>
+                    {
+                        if (_isMassUpdating) return;
+                        
+                        if (e.PropertyName == nameof(ChangeItemViewModel.IsSelected))
+                        {
+                            OnPropertyChanged(nameof(AreAllSelected));
+                            OnPropertyChanged(nameof(SelectedCount));
+                            (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+                        }
+                    };
+                    Changes.Add(viewModel);
+                }
+
+                TotalAdditions = cachedAdditions;
+                TotalDeletions = cachedDeletions;
+                OnPropertyChanged(nameof(AreAllSelected));
+                OnPropertyChanged(nameof(SelectedCount));
+
+                IsSyncing = false;
+                
+                // Cargar otras cosas en background
+                _ = LoadStashesAsync();
+                _ = LoadAuthStatusAsync();
+                _ = LoadGitUserEmailAsync();
+                
+                return;
+            }
+
+            // No hay caché válido, cargar desde Git
+            System.Diagnostics.Debug.WriteLine($"🔄 Cargando cambios desde Git para {ProjectPath}");
+            
+            // Usar el Use Case para obtener cambios (ahora es MUCHO más rápido)
             var fileChanges = await _loadChangesUseCase.ExecuteAsync(ProjectPath);
 
-            // Si se cancelÃ³ durante la espera (ej: cambiamos de proyecto otra vez), salir
+            // Si se canceló durante la espera (ej: cambiamos de proyecto otra vez), salir
             if (token.IsCancellationRequested) return;
 
-            // Mapear a ViewModels
-            int totalAdd = 0;
-            int totalDel = 0;
-
-        foreach (var fileChange in fileChanges)
-        {
-            var viewModel = MapToViewModel(fileChange);
-            viewModel.PropertyChanged += (s, e) =>
+            // Mapear a ViewModels (sin stats aún)
+            foreach (var fileChange in fileChanges)
             {
-                if (_isMassUpdating) return;
-                
-                if (e.PropertyName == nameof(ChangeItemViewModel.IsSelected))
+                var viewModel = MapToViewModel(fileChange);
+                viewModel.PropertyChanged += (s, e) =>
                 {
-                    OnPropertyChanged(nameof(AreAllSelected));
-                    OnPropertyChanged(nameof(SelectedCount));
-                    (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
-                }
-            };
-            Changes.Add(viewModel);
-            
-            totalAdd += viewModel.Additions;
-            totalDel += viewModel.Deletions;
-        }
+                    if (_isMassUpdating) return;
+                    
+                    if (e.PropertyName == nameof(ChangeItemViewModel.IsSelected))
+                    {
+                        OnPropertyChanged(nameof(AreAllSelected));
+                        OnPropertyChanged(nameof(SelectedCount));
+                        (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+                    }
+                };
+                Changes.Add(viewModel);
+            }
 
-            TotalAdditions = totalAdd;
-            TotalDeletions = totalDel;
             OnPropertyChanged(nameof(AreAllSelected));
             OnPropertyChanged(nameof(SelectedCount));
+
+            // Cargar stats en background (no bloquea la UI)
+            _ = LoadFileStatsInBackgroundAsync(token);
 
             // Cargar stashes tambien
             await LoadStashesAsync();
@@ -484,8 +557,100 @@ public class ChangesViewModel : ViewModelBase
         }
         finally
         {
-            if (_loadCts?.Token == token) _loadCts = null;
+            if (_loadCts?.Token == token) 
+            {
+                _loadCts = null;
+                IsSyncing = false;
+            }
         }
+    }
+
+    /// <summary>
+    /// Carga las estadísticas de archivos en background sin bloquear la UI.
+    /// Esto permite mostrar la lista rápidamente y luego actualizar los números.
+    /// </summary>
+    private async Task LoadFileStatsInBackgroundAsync(CancellationToken token)
+    {
+        try
+        {
+            // Variables locales para acumular (evita race conditions)
+            int totalAdd = 0;
+            int totalDel = 0;
+
+            // Cargar stats de los primeros 20 archivos visibles primero (prioridad)
+            var visibleFiles = Changes.Take(20).ToList();
+            
+            foreach (var file in visibleFiles)
+            {
+                if (token.IsCancellationRequested) return;
+                
+                try
+                {
+                    var stats = await _gitRepository.GetFileStatsAsync(ProjectPath, file.FilePath);
+                    file.Additions = stats.additions;
+                    file.Deletions = stats.deletions;
+                    
+                    // Acumular en variables locales
+                    totalAdd += stats.additions;
+                    totalDel += stats.deletions;
+                }
+                catch { }
+            }
+
+            // Actualizar totales después de los primeros 20
+            TotalAdditions = totalAdd;
+            TotalDeletions = totalDel;
+
+            // Luego cargar el resto en background
+            var remainingFiles = Changes.Skip(20).ToList();
+            foreach (var file in remainingFiles)
+            {
+                if (token.IsCancellationRequested) return;
+                
+                try
+                {
+                    var stats = await _gitRepository.GetFileStatsAsync(ProjectPath, file.FilePath);
+                    file.Additions = stats.additions;
+                    file.Deletions = stats.deletions;
+                    
+                    // Actualizar totales
+                    TotalAdditions += stats.additions;
+                    TotalDeletions += stats.deletions;
+                }
+                catch { }
+            }
+
+            // 💾 Guardar en caché para la próxima vez (como GitHub Desktop)
+            if (!token.IsCancellationRequested)
+            {
+                var allChanges = Changes.Select(c => new FileChange
+                {
+                    FilePath = c.FilePath,
+                    Status = MapStatusFromViewModel(c.ShortStatus),
+                    Additions = c.Additions,
+                    Deletions = c.Deletions
+                }).ToList();
+
+                _changesCache.SetChanges(ProjectPath, allChanges, TotalAdditions, TotalDeletions);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error cargando stats: {ex.Message}");
+        }
+    }
+
+    private ChangeStatus MapStatusFromViewModel(string shortStatus)
+    {
+        return shortStatus switch
+        {
+            "A" => ChangeStatus.Added,
+            "M" => ChangeStatus.Modified,
+            "D" => ChangeStatus.Deleted,
+            "R" => ChangeStatus.Renamed,
+            "?" => ChangeStatus.Untracked,
+            _ => ChangeStatus.Modified
+        };
     }
 
     private async Task LoadAuthStatusAsync()
@@ -1235,6 +1400,16 @@ public class ChangesViewModel : ViewModelBase
             ChangeStatus.Conflict => (PackIconKind.AlertOctagon, Brushes.Red),
             _ => (PackIconKind.FileQuestion, Brushes.Gray)
         };
+    }
+
+    /// <summary>
+    /// Limpia recursos cuando se destruye el ViewModel.
+    /// </summary>
+    public void Dispose()
+    {
+        _changeWatcher?.Dispose();
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
     }
 
     #endregion

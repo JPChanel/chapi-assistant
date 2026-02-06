@@ -428,6 +428,39 @@ public class GitRepository : IGitRepository
         catch { return string.Empty; }
     }
 
+    /// <summary>
+    /// Obtiene las estadísticas de cambios (additions/deletions) para un archivo específico.
+    /// </summary>
+    public async Task<(int additions, int deletions)> GetFileStatsAsync(string projectPath, string filePath)
+    {
+        try
+        {
+            // Usar --numstat para obtener solo las estadísticas del archivo específico
+            var result = await _executor.ExecuteAsync($"diff --numstat -- \"{filePath}\"", projectPath);
+            
+            if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Output))
+                return (0, 0);
+
+            // Parsear la salida: "additions\tdeletions\tfilename"
+            var stats = _parser.ParseNumStatOutput(result.Output);
+            
+            // Buscar por path normalizado
+            var normalizedPath = filePath.Replace(Path.DirectorySeparatorChar, '/');
+            
+            if (stats.TryGetValue(filePath, out var stat))
+                return (stat.Additions, stat.Deletions);
+            
+            if (stats.TryGetValue(normalizedPath, out var stat2))
+                return (stat2.Additions, stat2.Deletions);
+
+            return (0, 0);
+        }
+        catch
+        {
+            return (0, 0);
+        }
+    }
+
     public async Task<string> GetConfigAsync(string key, bool global = false)
     {
         try

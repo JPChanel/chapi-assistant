@@ -164,16 +164,12 @@ public class LibGit2SharpRepository : IGitRepository
                 using var repo = new Repository(projectPath);
                 var changes = new List<FileChange>();
 
-                // 1. Obtener estados básicos (untracked, etc.)
+                // Solo obtener estados básicos (sin diff costoso)
                 var statusOptions = new StatusOptions { IncludeIgnored = false };
                 var repoStatus = repo.RetrieveStatus(statusOptions);
 
-                // 2. Obtener diff para additions/deletions (HEAD vs WorkingDirectory)
-                Patch diff = null;
-                if (!repo.Info.IsHeadUnborn)
-                {
-                    diff = repo.Diff.Compare<Patch>(repo.Head.Tip.Tree, DiffTargets.WorkingDirectory);
-                }
+                // NO calcular diff aquí - se hará bajo demanda cuando el usuario seleccione el archivo
+                // Esto reduce drásticamente el tiempo de carga (de 26s a ~2-3s en repos grandes)
 
                 foreach (var item in repoStatus)
                 {
@@ -208,18 +204,9 @@ public class LibGit2SharpRepository : IGitRepository
                         {
                             FilePath = item.FilePath.Replace('/', Path.DirectorySeparatorChar),
                             Status = status,
+                            Additions = 0,  // Se calculará bajo demanda
+                            Deletions = 0   // Se calculará bajo demanda
                         };
-
-                        // Buscar estadísticas en el diff
-                        if (diff != null)
-                        {
-                            var patchEntry = diff[item.FilePath];
-                            if (patchEntry != null)
-                            {
-                                change.Additions = patchEntry.LinesAdded;
-                                change.Deletions = patchEntry.LinesDeleted;
-                            }
-                        }
 
                         changes.Add(change);
                     }
@@ -491,6 +478,46 @@ public class LibGit2SharpRepository : IGitRepository
                 return diff.Content;
             }
             catch { return string.Empty; }
+        });
+    }
+
+    /// <summary>
+    /// Obtiene las estadísticas de cambios (additions/deletions) para un archivo específico.
+    /// Este método se llama bajo demanda cuando el usuario selecciona un archivo.
+    /// </summary>
+    public async Task<(int additions, int deletions)> GetFileStatsAsync(string projectPath, string filePath)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                
+                // Si es un repo nuevo sin commits, no hay stats
+                if (repo.Info.IsHeadUnborn) return (0, 0);
+
+                // Normalizar path para LibGit2Sharp (usa /)
+                var normalizedPath = filePath.Replace(Path.DirectorySeparatorChar, '/');
+
+                // Calcular diff solo para este archivo específico
+                var diff = repo.Diff.Compare<Patch>(
+                    repo.Head.Tip.Tree, 
+                    DiffTargets.WorkingDirectory, 
+                    new[] { normalizedPath }
+                );
+
+                var patchEntry = diff[normalizedPath];
+                if (patchEntry != null)
+                {
+                    return (patchEntry.LinesAdded, patchEntry.LinesDeleted);
+                }
+
+                return (0, 0);
+            }
+            catch
+            {
+                return (0, 0);
+            }
         });
     }
 
