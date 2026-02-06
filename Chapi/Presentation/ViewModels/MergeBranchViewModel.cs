@@ -113,6 +113,13 @@ public class MergeBranchViewModel : INotifyPropertyChanged
         set { _actionButtonText = value; OnPropertyChanged(nameof(ActionButtonText)); }
     }
 
+    public string MergeDescription
+    {
+        get => _mergeDescription;
+        set { _mergeDescription = value; OnPropertyChanged(nameof(MergeDescription)); }
+    }
+    private string _mergeDescription = string.Empty;
+
     public bool CanMerge => SelectedBranch != null && !IsCheckingStatus && !HasConflicts && !IsUpToDate;
 
     public ObservableCollection<BranchItemViewModel> AllBranches { get; } = new();
@@ -129,11 +136,20 @@ public class MergeBranchViewModel : INotifyPropertyChanged
     private void UpdateActionButtonText()
     {
         // El texto ahora refleja que vamos A la rama seleccionada
-        ActionButtonText = MergeType switch
+        switch (MergeType)
         {
-            "Squash" => "Squash y Merge",
-            "Rebase" => "Rebase",
-            _ => "Create a merge commit"
+            case "Squash":
+                ActionButtonText = "Squash y Merge";
+                MergeDescription = "Combina todos tus commits en uno solo. Tu historial individual se perderá, pero el destino quedará más limpio.";
+                break;
+            case "Rebase":
+                ActionButtonText = "Rebase";
+                MergeDescription = "Reescribe la historia linealmente. Mueve tus commits al final del destino. Útil para mantener un historial recto.";
+                break;
+            default:
+                ActionButtonText = "Create a merge commit";
+                MergeDescription = "Crea un nuevo commit de unión que conserva la historia completa de ambas ramas.";
+                break;
         };
     }
 
