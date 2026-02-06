@@ -31,6 +31,8 @@ public partial class LibGit2SharpRepository
 
                 // 2. Definir identidades
                 var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                if (signature == null)
+                    return Result.Fail("No se ha configurado usuario ni correo en git config (user.name / user.email).");
 
                 // 3. Ejecutar Merge
                 var options = new MergeOptions 
@@ -71,6 +73,8 @@ public partial class LibGit2SharpRepository
                 if (source == null) return Result.Fail($"Rama '{sourceBranchName}' no encontrada.");
 
                 var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                if (signature == null)
+                    return Result.Fail("No se ha configurado usuario ni correo en git config.");
 
                 var options = new MergeOptions 
                 { 
@@ -129,6 +133,9 @@ public partial class LibGit2SharpRepository
                 }
 
                 var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                if (signature == null)
+                    return Result.Fail("No se ha configurado usuario ni correo en git config.");
+
                 var identity = new Identity(signature.Name, signature.Email);
 
                 // Rebase Básico: Intentar rebasear Current sobre Target
