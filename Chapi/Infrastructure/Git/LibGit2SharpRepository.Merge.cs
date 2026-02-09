@@ -232,35 +232,6 @@ public partial class LibGit2SharpRepository
                     baseCommit?.Tree ?? repo.Head.Tip.Tree, 
                     sourceBranch.Tip.Tree
                 );
-
-                // Para ser 100% certeros sin tocar el índice, necesitamos usar repo.Merge.Commits en memoria
-                // Sin embargo, LibGit2Sharp NO DEJA hacerlo 'dry-run' fácilmente sin escribir en el índice.
-                
-                // La mejor aproximación segura SIN git.exe es capturar excepciones controladas
-                // O confiar en que si no es FF, podría haber conflictos si tocan los mismos archivos.
-                
-                // ESTRATEGIA SEGURA:
-                // Usamos `repo.ObjectDatabase.CalculateHistoryDivergence` ya lo usamos.
-                // Vamos a verificar conflictos a nivel de archivos modificados en ambos lados.
-                
-                // a) Archivos modificados en Current desde Base
-                var changesInCurrent = repo.Diff.Compare<TreeChanges>(baseCommit?.Tree, currentBranch.Tip.Tree)
-                                                .Select(c => c.Path).ToHashSet();
-                
-                // b) Archivos modificados en Source desde Base
-                var changesInSource = repo.Diff.Compare<TreeChanges>(baseCommit?.Tree, sourceBranch.Tip.Tree)
-                                              .Select(c => c.Path).ToHashSet();
-                
-                // c) Intersección
-                var potentialConflicts = changesInCurrent.Intersect(changesInSource).ToList();
-                
-                if (potentialConflicts.Any())
-                {
-                    // Si ambos tocaron el mismo archivo, HAY riesgo alto de conflicto.
-                    // Aunque Git es listo (auto-merge), para nuestra UI es mejor advertir.
-                    return (true, $"Posible conflicto en {potentialConflicts.Count} archivo(s): {string.Join(", ", potentialConflicts.Take(3))}...");
-                }
-
                 return (false, "Merge seems clean");
             }
             catch (Exception ex)
