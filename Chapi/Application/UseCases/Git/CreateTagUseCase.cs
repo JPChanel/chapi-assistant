@@ -44,7 +44,19 @@ public class CreateTagUseCase
                 return result;
             }
 
-            _notificationService.ShowSuccess($"✅ Etiqueta '{tagName}' creada correctamente");
+            // Intentar subir al remoto
+            _notificationService.ShowInfo($"Subiendo etiqueta '{tagName}' al remoto...");
+            var pushResult = await _gitRepo.PushTagAsync(projectPath, tagName);
+
+            if (pushResult.IsSuccess)
+            {
+                _notificationService.ShowSuccess($"✅ Etiqueta '{tagName}' creada y subida correctamente");
+            }
+            else
+            {
+                _notificationService.ShowWarning($"⚠️ Etiqueta creada localmente pero falló al subir: {pushResult.Error}");
+            }
+
             return Result.Success();
         }
         catch (Exception ex)

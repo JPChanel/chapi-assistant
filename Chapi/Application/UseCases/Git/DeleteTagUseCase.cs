@@ -31,14 +31,26 @@ public class DeleteTagUseCase
             
             var result = await _gitRepo.DeleteTagLocalAsync(projectPath, tagName);
 
-            if (result.IsSuccess)
+            if (!result.IsSuccess)
             {
-                _notificationService.ShowSuccess($"âœ… Etiqueta '{tagName}' eliminada correctamente");
-                return Result.Success();
+                _notificationService.ShowError($"❌ No se pudo eliminar la etiqueta localmente: {result.Error}");
+                return result;
             }
 
-            _notificationService.ShowError($"â Œ No se pudo eliminar la etiqueta: {result.Error}");
-            return result;
+            // Eliminar del remoto
+            _notificationService.ShowInfo($"Eliminando etiqueta '{tagName}' del remoto...");
+            var remoteResult = await _gitRepo.DeleteTagRemoteAsync(projectPath, tagName);
+
+            if (remoteResult.IsSuccess)
+            {
+                _notificationService.ShowSuccess($"✅ Etiqueta '{tagName}' eliminada local y remotamente");
+            }
+            else
+            {
+                _notificationService.ShowWarning($"⚠️ Etiqueta eliminada localmente, pero falló en remoto: {remoteResult.Error}");
+            }
+            
+            return Result.Success();
         }
         catch (Exception ex)
         {

@@ -149,6 +149,8 @@ public class ReleasesViewModel : ViewModelBase
         }
     }
 
+    public event EventHandler? TagDeleted;
+
     private async Task DeleteTagAsync(object? parameter)
     {
         string? tagName = parameter switch
@@ -167,6 +169,7 @@ public class ReleasesViewModel : ViewModelBase
         if (result.IsSuccess)
         {
             await LoadReleasesAsync();
+            TagDeleted?.Invoke(this, EventArgs.Empty);
         }
     }
 

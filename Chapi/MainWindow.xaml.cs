@@ -142,6 +142,14 @@ namespace Chapi
                     await UpdateProjectStatusesAsync();
                 };
             }
+
+            if (_releasesViewModel != null)
+            {
+                _releasesViewModel.TagDeleted += async (s, e) =>
+                {
+                    await LoadHistoryAsync();
+                };
+            }
         }
 
         private async Task CheckForUpdates()

@@ -65,7 +65,20 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListViewItem">
-                                        <Border x:Name="CardBorder" Margin="8,0" Padding="15,12" CornerRadius="8" Background="#241A3D" BorderBrush="#3D2B66" BorderThickness="1">
+                                        <Border x:Name="CardBorder" Margin="8,0" Padding="15,12" CornerRadius="8" Background="#241A3D" BorderBrush="#3D2B66" BorderThickness="1"
+                                                Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}">
+                                            <Border.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Eliminar Tag..." 
+                                                              Command="{Binding PlacementTarget.Tag.DeleteTagCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                              CommandParameter="{Binding}" 
+                                                              Foreground="#FF5252">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="TagRemove" Foreground="#FF5252"/>
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto"/>
@@ -96,15 +109,7 @@
                             </Setter>
                         </Style>
                     </ListView.ItemContainerStyle>
-                    <ListView.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="Eliminar Tag..." Command="{Binding DataContext.DeleteTagCommand, RelativeSource={RelativeSource AncestorType=ListView}}" CommandParameter="{Binding}" Foreground="#FF5252">
-                                <MenuItem.Icon>
-                                    <materialDesign:PackIcon Kind="TagRemove" Foreground="#FF5252"/>
-                                </MenuItem.Icon>
-                            </MenuItem>
-                        </ContextMenu>
-                    </ListView.ContextMenu>
+
                 </ListView>
             </Grid>
         </Border>

@@ -1200,6 +1200,75 @@ public partial class LibGit2SharpRepository : IGitRepository
         });
     }
 
+    public async Task<Result> DeleteTagRemoteAsync(string projectPath, string tagName)
+    {
+        try
+        {
+            string remoteUrl;
+            using (var repo = new Repository(projectPath))
+            {
+                var remote = repo.Network.Remotes["origin"];
+                if (remote == null) return Result.Fail("Remote 'origin' no encontrado");
+                remoteUrl = remote.Url;
+            }
+
+            var creds = await GetCredentialsAsync(remoteUrl);
+            if (creds == null) return Result.Fail("Credenciales no encontradas. Inicia sesión.");
+
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    using var repo = new Repository(projectPath);
+                    var remote = repo.Network.Remotes["origin"];
+                    var options = new PushOptions 
+                    { 
+                        CredentialsProvider = (_url, _user, _types) => creds 
+                    };
+                    // Eliminar tag remoto: :refs/tags/tagName
+                    repo.Network.Push(remote, $":refs/tags/{tagName}", options);
+                    return Result.Success();
+                }
+                catch (Exception ex) { return Result.Fail($"Error eliminando tag remoto: {ex.Message}"); }
+            });
+        }
+        catch (Exception ex) { return Result.Fail($"Error: {ex.Message}"); }
+    }
+
+    public async Task<Result> PushTagAsync(string projectPath, string tagName)
+    {
+        try
+        {
+            string remoteUrl;
+            using (var repo = new Repository(projectPath))
+            {
+                var remote = repo.Network.Remotes["origin"];
+                if (remote == null) return Result.Fail("Remote 'origin' no encontrado");
+                remoteUrl = remote.Url;
+            }
+
+            var creds = await GetCredentialsAsync(remoteUrl);
+            if (creds == null) return Result.Fail("Credenciales no encontradas. Inicia sesión.");
+
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    using var repo = new Repository(projectPath);
+                    var remote = repo.Network.Remotes["origin"];
+                    var options = new PushOptions 
+                    { 
+                        CredentialsProvider = (_url, _user, _types) => creds 
+                    };
+                    repo.Network.Push(remote, $"refs/tags/{tagName}", options);
+                    return Result.Success();
+                }
+                catch (Exception ex) { return Result.Fail($"Error subiendo tag: {ex.Message}"); }
+            });
+        }
+        catch (Exception ex) { return Result.Fail($"Error: {ex.Message}"); }
+    }
+
     public async Task<IEnumerable<GitTagItem>> GetTagsAsync(string projectPath)
     {
         return await Task.Run(() =>

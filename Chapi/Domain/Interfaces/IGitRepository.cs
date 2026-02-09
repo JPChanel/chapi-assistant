@@ -63,6 +63,8 @@ public interface IGitRepository
     // Tags
     Task<Result> CreateTagAsync(string projectPath, string tagName, string message, string commitHash = null);
     Task<Result> DeleteTagLocalAsync(string projectPath, string tagName);
+    Task<Result> DeleteTagRemoteAsync(string projectPath, string tagName);
+    Task<Result> PushTagAsync(string projectPath, string tagName);
     Task<IEnumerable<GitTagItem>> GetTagsAsync(string projectPath);
     Task<Dictionary<string, List<string>>> GetTagCommitMapAsync(string projectPath);
 
