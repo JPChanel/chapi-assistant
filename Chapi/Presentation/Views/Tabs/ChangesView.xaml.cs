@@ -178,6 +178,15 @@ public partial class ChangesView : UserControl
         }
     }
 
+    private void RestoreLatestStashButton_Click(object sender, RoutedEventArgs e)
+    {
+        var latestStash = _viewModel?.Stashes?.FirstOrDefault();
+        if (latestStash != null)
+        {
+             _viewModel.PopStashCommand.Execute(latestStash);
+        }
+    }
+
     private async void StashView_DiscardButton_Click(object sender, RoutedEventArgs e) 
     {
         if (_viewModel?.SelectedStash is GitStash stash)

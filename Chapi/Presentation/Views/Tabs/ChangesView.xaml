@@ -267,27 +267,37 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock x:Name="StashExpanderHeader"
                                            Text="{Binding Stashes.Count, StringFormat='Stashed Changes ({0})'}"
                                            Grid.Column="0"
                                            FontWeight="Bold"
                                            VerticalAlignment="Center"
-                                           Margin="10,0"/>
-                                <Button x:Name="DiscardAllStashesButton"
+                                           Margin="5,0"/>
+
+                                <Button x:Name="RestoreLatestStashButton"
                                         Grid.Column="1"
-                                        Content="Descartar Todo"
+                                        Content="Restaurar"
+                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                        Click="RestoreLatestStashButton_Click"
+                                        ToolTip="Restaura el stash más reciente (o el primero de la lista)"
+                                        Foreground="DeepSkyBlue"/>
+
+                                <Button x:Name="DiscardAllStashesButton"
+                                        Grid.Column="2"
+                                        Content="Descartar"
                                         Style="{StaticResource MaterialDesignFlatButton}"
                                         Click="DiscardAllStashesButton_Click"
                                         ToolTip="Elimina permanentemente TODOS los stashes"
-                                        Foreground="Red"
-                                        Margin="0,0,10,0"/>
+                                        Foreground="Red"/>
                             </Grid>
                         </Expander.Header>
                         <ListView x:Name="StashListView"
                                   ItemsSource="{Binding Stashes}"
                                   MaxHeight="150"
                                   ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                   SelectionChanged="StashListView_SelectionChanged">
                             <ListView.ItemTemplate>
                                 <DataTemplate DataType="{x:Type entities:GitStash}">
@@ -298,7 +308,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Message}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Message}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                                             <TextBlock Text="{Binding FileCount, StringFormat='{}{0} archivos'}" Foreground="{DynamicResource MaterialDesignBody}" Opacity="0.7" FontSize="11"/>
                                         </StackPanel>
                                         <Button x:Name="RestoreStashItemButton"
