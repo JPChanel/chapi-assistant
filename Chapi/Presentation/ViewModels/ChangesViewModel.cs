@@ -883,17 +883,25 @@ public class ChangesViewModel : ViewModelBase
     /// <summary>
     /// Carga la lista de stashes.
     /// </summary>
-    public async Task LoadStashesAsync()
+    private async Task LoadStashesAsync()
     {
-        if (string.IsNullOrWhiteSpace(ProjectPath)) return;
+        if (string.IsNullOrEmpty(ProjectPath)) return;
 
         try
         {
             var stashes = await _gitRepository.ListStashesAsync(ProjectPath);
+            var currentBranch = await _gitRepository.GetCurrentBranchAsync(ProjectPath);
+            
             Stashes.Clear();
             foreach (var stash in stashes)
             {
-                Stashes.Add(stash);
+                // Filtrar stashes por rama actual (estilo GitHub Desktop)
+                // Git por defecto pone "WIP on {rama}:" o "On {rama}:"
+                if (string.IsNullOrEmpty(currentBranch) || 
+                    stash.Message.Contains($"on {currentBranch}", StringComparison.OrdinalIgnoreCase))
+                {
+                    Stashes.Add(stash);
+                }
             }
         }
         catch (Exception ex)

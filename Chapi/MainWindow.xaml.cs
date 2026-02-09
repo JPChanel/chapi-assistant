@@ -335,8 +335,15 @@ namespace Chapi
                 var useCase = App.ServiceProvider.GetService(typeof(UseCases.SwitchBranchUseCase)) as UseCases.SwitchBranchUseCase;
                 var switchResult = await useCase.ExecuteAsync(projectDirectory, newBranch, stashChanges);
                 
-                if (switchResult.IsSuccess) _currentlySelectedBranch = newBranch;
-                else BranchesComboBox.SelectedItem = _currentlySelectedBranch;
+                if (switchResult.IsSuccess) 
+                {
+                    _currentlySelectedBranch = newBranch;
+                }
+                else 
+                {
+                    BranchesComboBox.SelectedItem = _currentlySelectedBranch;
+                    await DialogService.ShowConfirmDialog("No se pudo cambiar de rama", switchResult.Error, DialogVariant.Error, DialogType.Info);
+                }
             });
 
             await LoadChangesAsync();

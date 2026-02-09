@@ -375,15 +375,44 @@ public partial class LibGit2SharpRepository : IGitRepository
             {
                 using var repo = new Repository(projectPath);
                 var branch = repo.Branches[branchName];
+                
+                // Si la rama no existe localmente, intentar buscarla en remotos y crearla
                 if (branch == null)
-                    return Result.Fail($"Rama {branchName} no existe");
+                {
+                    var remoteBranch = repo.Branches[$"origin/{branchName}"];
+                    if (remoteBranch != null)
+                    {
+                        // Crear rama local trackeando a la remota
+                        branch = repo.CreateBranch(branchName, remoteBranch.Tip);
+                        repo.Branches.Update(branch, b => b.UpstreamBranch = remoteBranch.CanonicalName);
+                    }
+                    else
+                    {
+                        return Result.Fail($"La rama '{branchName}' no existe local ni remotamente.");
+                    }
+                }
 
-                Commands.Checkout(repo, branch);
+                // Checkout
+                var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.None }; // None = Fail on conflict (default behaviors)
+                
+                // Intentar checkout
+                Commands.Checkout(repo, branch, options);
+
+                if (repo.Head.FriendlyName != branchName)
+                {
+                    return Result.Fail($"No se pudo cambiar a '{branchName}'. Sigues en '{repo.Head.FriendlyName}'.");
+                }
+
                 return Result.Success();
+            }
+            catch (CheckoutConflictException)
+            {
+                // Este es el caso clave: LibGit2Sharp lanza excepción si hay conflictos de checkout
+                return Result.Fail("CONFLICTO: Tienes cambios locales que serían sobrescritos por el cambio de rama. Por favor haz Commit o Stash antes de cambiar.");
             }
             catch (Exception ex)
             {
-                return Result.Fail($"Error cambiando rama: {ex.Message}");
+                return Result.Fail($"Error al cambiar de rama: {ex.Message}");
             }
         });
     }
