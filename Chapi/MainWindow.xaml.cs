@@ -126,7 +126,21 @@ namespace Chapi
             }
             if (_historyViewModel != null)
             {
-                _historyViewModel.ResetCompleted += async (s, e) => await LoadChangesAsync();
+                _historyViewModel.ResetCompleted += async (s, e) => 
+                {
+                    // Forzar recarga de cambios en el VM de Cambios
+                    if (_changesViewModel != null)
+                    {
+                        await _changesViewModel.ForceRefreshAsync();
+                    }
+                    else
+                    {
+                        await LoadChangesAsync();
+                    }
+
+                    // Actualizar indicadores (flecha de push/pull)
+                    await UpdateProjectStatusesAsync();
+                };
             }
         }
 
@@ -900,7 +914,15 @@ namespace Chapi
         #region Git Operations Event Handlers
         private async void Branch_Create_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not MenuItem menuItem || menuItem.CommandParameter is not string sourceBranch) return;
+            string? sourceBranch = null;
+            if (sender is MenuItem menuItem)
+            {
+                sourceBranch = menuItem.CommandParameter as string;
+            }
+
+            if (string.IsNullOrEmpty(sourceBranch)) sourceBranch = _currentlySelectedBranch;
+
+            if (string.IsNullOrEmpty(sourceBranch)) return;
             if (!ValidateProject()) return;
 
             var (ok, newBranchName) = await DialogService.ShowInputDialog("Crear Rama", $"Ingrese el nombre de la nueva rama (basada en '{sourceBranch}'):");
@@ -933,7 +955,7 @@ namespace Chapi
                 return;
             }
 
-            var confirm = await DialogService.ShowConfirmDialog("Eliminar Rama", $"Â¿Estas seguro de eliminar la rama '{branchName}'?", DialogVariant.Warning, DialogType.Confirm);
+            var confirm = await DialogService.ShowConfirmDialog("Eliminar Rama", $"¿Estas seguro de eliminar la rama '{branchName}'?", DialogVariant.Warning, DialogType.Confirm);
             if (!confirm) return;
 
             await RunWithLoading(async () =>
@@ -1081,14 +1103,36 @@ namespace Chapi
                             result = await _gitRepository.MergeBranchAsync(projectDirectory, sourceBranch, fastForward: true);
                         else // Squash
                             result = await _gitRepository.SquashMergeBranchAsync(projectDirectory, sourceBranch);
-
-                        // C. Volver al origen (siempre intentamos volver)
-                        await _gitRepository.SwitchBranchAsync(projectDirectory, sourceBranch);
                     }
 
                     if (result.IsSuccess)
                     {
+                        // Actualizar variable de estado para que la UI refleje el cambio de rama
+                        _currentlySelectedBranch = targetBranch;
+                        BranchesComboBox.SelectedItem = targetBranch;
+
                         Msg.Assistant($"✅ Operación '{mergeType}' exitosa: '{sourceBranch}' → '{targetBranch}'");
+
+                        // Preguntar si quiere hacer Push de la rama DESTINO (targetBranch)
+                        var pushConfirm = await DialogService.ShowConfirmDialog(
+                            "Push al Servidor",
+                            $"El merge local en '{targetBranch}' fue exitoso.\n\n¿Quieres subir (Push) los cambios de '{targetBranch}' a origin ahora mismo para que se reflejen en GitHub/GitLab?",
+                            DialogVariant.Info,
+                            DialogType.Confirm);
+
+                        if (pushConfirm)
+                        {
+                            var pushResult = await _gitRepository.PushAsync(projectDirectory, targetBranch);
+                            if (pushResult.IsSuccess)
+                            {
+                                Msg.Assistant($"🚀 Push exitoso: '{targetBranch}' actualizado en remoto.");
+                            }
+                            else
+                            {
+                                await DialogService.ShowConfirmDialog("Error al hacer Push", pushResult.Error, DialogVariant.Error, DialogType.Info);
+                            }
+                        }
+
                         await LoadChangesAsync();
                         await LoadHistoryAsync();
                         await UpdateProjectStatusesAsync();
@@ -1099,8 +1143,7 @@ namespace Chapi
                     }
                 }
                 catch (Exception ex)
-                {
-                    // Intentar volver a casa por seguridad si algo falló a medias
+                {   
                     if (_currentlySelectedBranch != sourceBranch)
                         await _gitRepository.SwitchBranchAsync(projectDirectory, sourceBranch);
 

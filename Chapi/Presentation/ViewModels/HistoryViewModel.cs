@@ -292,7 +292,7 @@ public class HistoryViewModel : ViewModelBase
         // Confirmar con el usuario
         var confirm = await DialogService.ShowConfirmDialog(
             "Deshacer  šltimo Commit",
-            $"Â¿Estas seguro de deshacer el commit '{commit.ShortHash}'?\n\nLos cambios se mantendran en el area de trabajo.",
+            $"¿Estas seguro de deshacer el commit '{commit.ShortHash}'?\n\nLos cambios se mantendran en el area de trabajo.",
             DialogVariant.Warning,
             DialogType.Confirm);
 
@@ -304,6 +304,7 @@ public class HistoryViewModel : ViewModelBase
         if (result.IsSuccess)
         {
             Msg.Assistant($"✅ Commit '{commit.ShortHash}' deshecho. Los cambios están en el área de trabajo.");
+
             await ReloadHistoryAsync();
             
             // Notificar que se completo el reset para que los cambios se actualicen

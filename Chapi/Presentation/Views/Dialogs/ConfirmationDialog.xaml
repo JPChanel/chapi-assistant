@@ -93,7 +93,7 @@
                             CommandParameter="false"
                             Style="{StaticResource MaterialDesignFlatButton}"
                             Margin="0,0,8,0"/>
-                    <Button Content="S "
+                    <Button Content="SI"
                             Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
                             CommandParameter="true"
                             Style="{StaticResource MaterialDesignRaisedButton}"/>

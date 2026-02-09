@@ -133,6 +133,19 @@ public class ChangesViewModel : ViewModelBase
         OnPropertyChanged(nameof(DisplayUserName));
     }
 
+    /// <summary>
+    /// Fuerza la recarga de cambios, invalidando la caché interna.
+    /// Útil cuando ocurren cambios externos (como un Undo Commit) que el watcher podría no detectar a tiempo.
+    /// </summary>
+    public async Task ForceRefreshAsync()
+    {
+        if (string.IsNullOrEmpty(ProjectPath)) return;
+        
+        System.Diagnostics.Debug.WriteLine($"🔄 ForceRefresh solicitado para {ProjectPath}");
+        _changesCache.Invalidate(ProjectPath);
+        await LoadChangesAsync();
+    }
+
     #region Properties
 
     /// <summary>

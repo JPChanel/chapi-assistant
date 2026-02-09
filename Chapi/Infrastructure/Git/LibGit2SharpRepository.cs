@@ -122,12 +122,16 @@ public partial class LibGit2SharpRepository : IGitRepository
 
     public async Task<HashSet<string>> GetUnpushedCommitsAsync(string projectPath, string branch)
     {
-        return await Task.Run(async () =>
+        return await Task.Run(() =>
         {
             try
             {
                 using var repo = new Repository(projectPath);
                 var localBranch = repo.Branches[branch];
+                
+                if (localBranch == null)
+                    return new HashSet<string>();
+
                 var trackingBranch = localBranch.TrackedBranch;
 
                 if (trackingBranch == null)
@@ -618,7 +622,26 @@ public partial class LibGit2SharpRepository : IGitRepository
                         CredentialsProvider = (_url, _user, _type) => credentials
                     };
 
-                    repo.Network.Push(localBranch, options);
+                    // Si la rama no tiene seguimiento (es nueva), la publicamos explícitamente
+                    if (localBranch.TrackedBranch == null)
+                    {
+                        var remote = repo.Network.Remotes["origin"];
+                        if (remote == null) return Result.Fail("No se encontró el remoto 'origin'");
+
+                        // Push explícito al remoto
+                        repo.Network.Push(remote, localBranch.CanonicalName, options);
+
+                        // Configurar upstream (tracking) para futuras operaciones
+                        repo.Branches.Update(localBranch, 
+                            b => b.Remote = remote.Name,
+                            b => b.UpstreamBranch = localBranch.CanonicalName);
+                    }
+                    else
+                    {
+                        // Si ya tiene tracking, usamos el push estándar
+                        repo.Network.Push(localBranch, options);
+                    }
+
                     return Result.Success();
                 }
                 catch (Exception ex)

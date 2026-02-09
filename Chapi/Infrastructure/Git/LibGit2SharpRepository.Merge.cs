@@ -45,7 +45,7 @@ public partial class LibGit2SharpRepository
 
                 if (mergeResult.Status == MergeStatus.Conflicts)
                 {
-                    repo.Reset(LibGit2Sharp.ResetMode.Hard); // Abortar si hay conflictos (por ahora, ya que no tenemos resolución UI)
+                    repo.Reset(LibGit2Sharp.ResetMode.Hard); 
                     return Result.Fail("Conflicto de fusión detectado. La operación fue abortada.");
                 }
 
