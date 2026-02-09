@@ -1,0 +1,81 @@
+﻿<UserControl x:Class="Chapi.Presentation.Views.Tabs.AssistantView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Chapi.Presentation.Views"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="800">
+    
+    <Grid>
+        <ScrollViewer x:Name="ChatScrollViewer"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="8">
+            <ItemsControl x:Name="MessagesItemsControl" ItemsSource="{Binding Messages}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="10,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" x:Name="ColAvatarLeft"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" x:Name="ColAvatarRight"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Avatar del Asistente (izquierda) -->
+                            <Border x:Name="AssistantAvatar" Grid.Column="0" Width="32" Height="32" Background="#3F51B5" CornerRadius="16" VerticalAlignment="Top" Margin="0,0,12,0">
+                                <materialDesign:PackIcon Kind="Robot" Foreground="White" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+
+                            <!-- Burbuja de Mensaje -->
+                            <Border x:Name="MessageBubble" 
+                                    Grid.Column="1" 
+                                    Padding="16,12" 
+                                    CornerRadius="16"
+                                    Background="#2A2A2A"
+                                    BorderBrush="#3A3A3A"
+                                    BorderThickness="1"
+                                    MaxWidth="850"
+                                    HorizontalAlignment="Left">
+                                <StackPanel>
+                                    <TextBlock x:Name="MessageText"
+                                               Text="{Binding Text}"
+                                               TextWrapping="Wrap"
+                                               TextAlignment="Justify"
+                                               FontSize="14"
+                                               LineHeight="20"
+                                               Foreground="#E0E0E0"/>
+                                    <TextBlock Text="{Binding Timestamp}"
+                                               FontSize="9"
+                                               HorizontalAlignment="Right"
+                                               Opacity="0.5"
+                                               Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Avatar del Usuario (derecha) -->
+                            <Border x:Name="UserAvatar" Grid.Column="2" Width="32" Height="32" Background="#212121" CornerRadius="16" VerticalAlignment="Top" Margin="12,0,0,0" Visibility="Collapsed">
+                                <materialDesign:PackIcon Kind="Account" Foreground="#888" Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding Author}" Value="User">
+                                <Setter TargetName="AssistantAvatar" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="UserAvatar" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="MessageBubble" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="MessageBubble" Property="Background" Value="#311B92"/>
+                                <Setter TargetName="MessageBubble" Property="BorderThickness" Value="0"/>
+                                <Setter TargetName="MessageText" Property="Foreground" Value="White"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Author}" Value="Assistant">
+                                <Setter TargetName="AssistantAvatar" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="UserAvatar" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="MessageBubble" Property="HorizontalAlignment" Value="Left"/>
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

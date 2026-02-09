@@ -1,0 +1,133 @@
+<Window x:Class="Chapi.Presentation.Views.Dialogs.GitProviderSelectionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Conectar con Git"
+        Width="500" Height="450"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource MaterialDesignPaper}">
+    
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,24">
+            <TextBlock Text="Conectar con Git" 
+                       Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                       Margin="0,0,0,8"/>
+            <TextBlock Text="Selecciona tu proveedor Git para autenticarte"
+                       Opacity="0.7"/>
+        </StackPanel>
+
+        <!-- Providers -->
+        <StackPanel Grid.Row="1" VerticalAlignment="Center">
+            
+            <!-- GitHub -->
+            <Border Background="{DynamicResource MaterialDesignCardBackground}"
+                    Padding="20" Margin="0,0,0,16"
+                    BorderBrush="{DynamicResource PrimaryHueMidBrush}"
+                    BorderThickness="2"
+                    CornerRadius="8">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <md:PackIcon Kind="Star" Foreground="Orange" Margin="0,0,8,0" Width="20" Height="20"/>
+                        <TextBlock Text="Recomendado" FontWeight="Bold" Foreground="Orange"/>
+                    </StackPanel>
+                    
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <md:PackIcon Kind="Github" Width="32" Height="32" Margin="0,0,12,0"/>
+                        <TextBlock Text="GitHub" 
+                                   FontSize="18" FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,16" Opacity="0.7">
+                        Autenticación rápida y segura con tu cuenta de GitHub. Se abrirá tu navegador para autorizar.
+                    </TextBlock>
+                    
+                    <Button Content="🚀 Conectar con GitHub"
+                            Command="{Binding LoginGitHubCommand}"
+                            Style="{StaticResource MaterialDesignRaisedButton}"
+                            Height="40"
+                            IsEnabled="{Binding IsAuthenticating, Converter={StaticResource InverseBooleanConverter}}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- GitLab -->
+            <Border Background="{DynamicResource MaterialDesignCardBackground}"
+                    Padding="20"
+                    BorderBrush="{DynamicResource MaterialDesignDivider}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <md:PackIcon Kind="Gitlab" Width="32" Height="32" Margin="0,0,12,0" Foreground="#FC6D26"/>
+                        <TextBlock Text="GitLab" 
+                                   FontSize="18" FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,16" Opacity="0.7">
+                        Autenticación con tu cuenta de GitLab. Compatible con GitLab.com y self-hosted.
+                    </TextBlock>
+                    
+                    <Button Content="🦊 Conectar con GitLab"
+                            Command="{Binding LoginGitLabCommand}"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Height="40"
+                            IsEnabled="{Binding IsAuthenticating, Converter={StaticResource InverseBooleanConverter}}"/>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+
+        <!-- Status -->
+        <StackPanel Grid.Row="2" Margin="0,24,0,0">
+            
+            <!-- Loading -->
+            <StackPanel Orientation="Horizontal" 
+                        Margin="0,0,0,12"
+                        Visibility="{Binding IsAuthenticating, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
+                             Value="0"
+                             IsIndeterminate="True"
+                             Width="20" Height="20"
+                             Margin="0,0,12,0"/>
+                <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Success -->
+            <Border Background="{DynamicResource MaterialDesignPaper}"
+                    BorderBrush="Green"
+                    BorderThickness="1"
+                    Padding="12"
+                    CornerRadius="4"
+                    Visibility="{Binding IsAuthenticated, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal">
+                    <md:PackIcon Kind="CheckCircle" Foreground="Green" Margin="0,0,8,0" Width="24" Height="24"/>
+                    <StackPanel>
+                        <TextBlock Text="{Binding StatusMessage}" FontWeight="Bold"/>
+                        <TextBlock Opacity="0.7">
+                            <Run Text="Proveedor:"/>
+                            <Run Text="{Binding AuthenticatedProvider}" FontWeight="Bold"/>
+                        </TextBlock>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Close Button -->
+            <Button Content="Cerrar"
+                    Click="CloseButton_Click"
+                    Style="{StaticResource MaterialDesignFlatButton}"
+                    HorizontalAlignment="Right"
+                    Margin="0,16,0,0"
+                    Visibility="{Binding IsAuthenticated, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+        </StackPanel>
+    </Grid>
+</Window>
