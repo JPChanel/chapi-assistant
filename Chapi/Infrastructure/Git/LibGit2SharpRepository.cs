@@ -90,10 +90,17 @@ public partial class LibGit2SharpRepository : IGitRepository
 
                 foreach (var c in commits)
                 {
+                    string description = string.Empty;
+                    if (!string.IsNullOrEmpty(c.Message) && !string.IsNullOrEmpty(c.MessageShort) && c.Message.Length > c.MessageShort.Length)
+                    {
+                        description = c.Message.Substring(c.MessageShort.Length).Trim();
+                    }
+
                     var commit = new GitCommit
                     {
                         Hash = c.Sha,
                         Message = c.MessageShort,
+                        Description = description,
                         Author = c.Author.Name,
                         Date = c.Author.When.DateTime,
                         Tags = new List<string>()

@@ -71,8 +71,8 @@ namespace Chapi
             var services = new ServiceCollection();
 
             // Infrastructure - Git
-            services.AddSingleton<GitCommandExecutor>();
-            services.AddSingleton<GitOutputParser>();
+            // services.AddSingleton<GitCommandExecutor>(); // Removed
+            // services.AddSingleton<GitOutputParser>();    // Removed
             services.AddSingleton<IGitRepository, Chapi.Infrastructure.Git.LibGit2SharpRepository>();
 
             // Configuración Auth
