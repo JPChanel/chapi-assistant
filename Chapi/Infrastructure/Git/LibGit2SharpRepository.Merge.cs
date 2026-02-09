@@ -217,21 +217,6 @@ public partial class LibGit2SharpRepository
                      return (false, "Already up to date (Current is ahead)");
                 }
 
-                // 3. Simulación de Merge en Memoria (Tree Merge)
-                // LibGit2Sharp permite comparar árboles para predecir conflictos sin tocar el disco
-                var baseCommit = repo.ObjectDatabase.FindMergeBase(currentBranch.Tip, sourceBranch.Tip);
-                
-                if (baseCommit == null)
-                {
-                    // Si no tienen historia común, es un merge complejo pero no necesariamente conflicto.
-                    // Asumiremos safe si no hay colisiones de archivos, pero por seguridad, 
-                    // verificamos con un Tree Merge usando la estrategia por defecto.
-                }
-
-                var treeChanges = repo.Diff.Compare<TreeChanges>(
-                    baseCommit?.Tree ?? repo.Head.Tip.Tree, 
-                    sourceBranch.Tip.Tree
-                );
                 return (false, "Merge seems clean");
             }
             catch (Exception ex)
