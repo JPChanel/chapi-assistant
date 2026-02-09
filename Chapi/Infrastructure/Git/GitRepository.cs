@@ -371,13 +371,41 @@ public class GitRepository : IGitRepository
         }
     }
 
-    public async Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false)
+    public async Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false, bool deleteRemote = false)
     {
         try
         {
+            // 1. Validar que no sea la rama actual
+            var current = await GetCurrentBranchAsync(projectPath);
+            if (current == branchName)
+                return Result.Fail("No se puede eliminar la rama actual. Cambia de rama primero.");
+
+            // 2. Ejecutar borrado LOCAL
             string flag = force ? "-D" : "-d";
             var result = await _executor.ExecuteAsync($"branch {flag} \"{branchName}\"", projectPath);
-            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+
+            if (!result.IsSuccess) return Result.Fail(result.Output + " " + result.Error);
+            
+            // 3. Verificar que ya no exista localmente
+            var verify = await _executor.ExecuteAsync($"rev-parse --verify \"{branchName}\"", projectPath);
+            if (verify.IsSuccess && !string.IsNullOrWhiteSpace(verify.Output))
+            {
+                 return Result.Fail($"No se pudo eliminar la rama local '{branchName}'. Output: {result.Output}");
+            }
+            
+            // 4. Ejecutar borrado REMOTO (si se solicitó)
+            if (deleteRemote)
+            {
+                // git push origin --delete branchName
+                var remoteResult = await _executor.ExecuteAsync($"push origin --delete \"{branchName}\"", projectPath);
+                if (!remoteResult.IsSuccess)
+                {
+                    // Si falla el remoto, retornamos error pero avisando que el local SÍ se borró
+                    return Result.Fail($"La rama local se eliminó, pero hubo error al eliminar en remoto: {remoteResult.Error}");
+                }
+            }
+
+            return Result.Success();
         }
         catch (Exception ex)
         {
@@ -399,18 +427,9 @@ public class GitRepository : IGitRepository
         }
     }
 
-    public async Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranch)
-    {
-        try
-        {
-            var result = await _executor.ExecuteAsync($"merge --squash \"{sourceBranch}\"", projectPath);
-            return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
-        }
-        catch (Exception ex)
-        {
-            return Result.Fail($"Error al hacer squash merge: {ex.Message}");
-        }
-    }
+
+
+
 
     public async Task<Result> RebaseBranchAsync(string projectPath, string targetBranch)
     {
@@ -502,6 +521,47 @@ public class GitRepository : IGitRepository
         {
             return Result.Fail($"Error al restaurar archivo desde stash: {ex.Message}");
         }
+    }
+
+    public async Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranch, string? commitMessage = null)
+    {
+        try
+        {
+            var result = await _executor.ExecuteAsync($"merge --squash \"{sourceBranch}\"", projectPath);
+            if (!result.IsSuccess) return Result.Fail(result.Error);
+
+            if (!string.IsNullOrWhiteSpace(commitMessage))
+            {
+                 // Commit with message
+                 var escapedMessage = commitMessage.Replace("\"", "\\\"");
+                 var commitResult = await _executor.ExecuteAsync($"commit -m \"{escapedMessage}\"", projectPath);
+                 if (!commitResult.IsSuccess) return Result.Fail(commitResult.Error);
+            }
+            // If commitMessage is null, the user will have to commit manually or we leave it staged for them?
+            // The previous implementation of SquashMergeBranchAsync just did `merge --squash`.
+            // But LibGit2Sharp implementation DOES commit.
+            // If we want parity, we should commit if message is provided, or let it be if not?
+            // But `merge --squash` in CLI leaves changes in Index (Staging). It does NOT commit.
+            // So if we passed a message, we definitely want to commit.
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Error al hacer squash merge: {ex.Message}");
+        }
+    }
+
+    public async Task<string> GetBranchDiffAsync(string projectPath, string sourceBranch, string targetBranch)
+    {
+        try
+        {
+            // git diff target...source shows changes that occurred on source since it diverged from target
+            // OR git diff target..source
+            var result = await _executor.ExecuteAsync($"diff \"{targetBranch}\"..\"{sourceBranch}\"", projectPath);
+            return result.IsSuccess ? result.Output : string.Empty;
+        }
+        catch { return string.Empty; }
     }
 
     public async Task<string> GetDiffAsync(string projectPath, string file, string? revision = null)

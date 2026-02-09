@@ -123,26 +123,33 @@
                 </Grid.RowDefinitions>
 
                 <!-- Info Description -->
-                <Grid Grid.Row="0" Margin="24,0,24,12" Opacity="0.6" HorizontalAlignment="Stretch">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    
-                    <materialDesign:PackIcon Kind="InformationOutline" 
-                                           Grid.Column="0"
-                                           VerticalAlignment="Center" 
-                                           Margin="0,0,8,0"
-                                           Width="16" Height="16"/>
-                                           
-                    <TextBlock Grid.Column="1" 
-                               Text="{Binding MergeDescription}"
-                               FontSize="11"
-                               Foreground="{DynamicResource MaterialDesignBody}"
-                               TextWrapping="Wrap"
-                               VerticalAlignment="Center"
-                               TextAlignment="Left"/>
-                </Grid>
+                <StackPanel Grid.Row="0" Margin="24,0,24,12" Orientation="Vertical">
+                    <Grid Opacity="0.6" HorizontalAlignment="Stretch" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <materialDesign:PackIcon Kind="InformationOutline" 
+                                               Grid.Column="0"
+                                               VerticalAlignment="Center" 
+                                               Margin="0,0,8,0"
+                                               Width="16" Height="16"/>
+                                               
+                        <TextBlock Grid.Column="1" 
+                                   Text="{Binding MergeDescription}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource MaterialDesignBody}"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center"
+                                   TextAlignment="Left"/>
+                    </Grid>
+
+                    <CheckBox IsChecked="{Binding IsDeleteSourceBranchChecked}"
+                              Content="Eliminar rama origen después de fusionar (Recomendado)"
+                              FontSize="12"
+                              ToolTip="Limpia la rama después de fusionarla para evitar confusiones."/>
+                </StackPanel>
 
                 <!-- Status Area -->
                 <StackPanel Grid.Row="1" Margin="0,0,0,16" Orientation="Horizontal" HorizontalAlignment="Center">

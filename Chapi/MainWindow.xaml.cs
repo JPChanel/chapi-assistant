@@ -376,6 +376,33 @@ namespace Chapi
 
             NeedsPublish = !await _gitRepository.HasUpstreamAsync(projectDirectory, _currentlySelectedBranch);
         }
+        
+        private async Task RefreshBranchesAsync()
+        {
+            try 
+            {
+                // Refrescar ramas tras operaciones que pueden crearlas o borrarlas
+                var branches = (await _gitRepository.GetBranchesAsync(projectDirectory)).ToList();
+                string activeBranch = await _gitRepository.GetCurrentBranchAsync(projectDirectory);
+                
+                if (!string.IsNullOrEmpty(activeBranch) && !branches.Contains(activeBranch))
+                {
+                    branches.Add(activeBranch);
+                }
+
+                BranchesComboBox.ItemsSource = branches;
+                
+                if (!string.IsNullOrEmpty(activeBranch))
+                {
+                    _currentlySelectedBranch = activeBranch;
+                    BranchesComboBox.SelectedItem = activeBranch;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error refrescando ramas: {ex.Message}");
+            }
+        }
 
         private async void PublishBranch_Click(object sender, RoutedEventArgs e)
         {
@@ -955,21 +982,34 @@ namespace Chapi
                 return;
             }
 
-            var confirm = await DialogService.ShowConfirmDialog("Eliminar Rama", $"¿Estas seguro de eliminar la rama '{branchName}'?", DialogVariant.Warning, DialogType.Confirm);
+            var confirm = await DialogService.ShowConfirmDialog("Eliminar Rama", $"¿Estás seguro de eliminar la rama '{branchName}'?", DialogVariant.Warning, DialogType.Confirm);
             if (!confirm) return;
+
+            // Preguntar si borrar remoto también
+            var confirmRemote = await DialogService.ShowConfirmDialog("Eliminar Remoto", $"¿Deseas eliminar también la rama '{branchName}' del repositorio remoto (origin)?", DialogVariant.Info, DialogType.Confirm);
 
             await RunWithLoading(async () =>
             {
-                var result = await _gitRepository.DeleteBranchAsync(projectDirectory, branchName);
+                var result = await _gitRepository.DeleteBranchAsync(projectDirectory, branchName, force: false, deleteRemote: confirmRemote); // Force false para manual delete, que avise si no esta merged
                 if (result.IsSuccess)
                 {
-                    var branches = await _gitRepository.GetBranchesAsync(projectDirectory);
-                    BranchesComboBox.ItemsSource = branches;
-                    Msg.Assistant($"✅ Rama '{branchName}' eliminada.");
+                    await RefreshBranchesAsync();
+                    Msg.Assistant($"✅ Rama '{branchName}' eliminada{(confirmRemote ? " (Local y Remoto)" : " (Local)")}.");
                 }
                 else
                 {
-                    await DialogService.ShowConfirmDialog("Error al eliminar rama", result.Error, DialogVariant.Error, DialogType.Info);
+                    // Si falla por "not fully merged", podemos preguntar si forzar
+                    if (result.Error.Contains("not fully merged") || result.Error.Contains("force"))
+                    {
+                         // Reintentar con force
+                         // Pero como estamos dentro de RunWithLoading y DialogService debe correr en UI thread...
+                         // Simplificamos mostrando el error, o podriamos mejorar el flujo.
+                         await DialogService.ShowConfirmDialog("Error al eliminar rama", result.Error + "\n\nPara forzar el borrado (perdiendo cambios no fusionados), usa la terminal por ahora.", DialogVariant.Error, DialogType.Info);
+                    }
+                    else
+                    {
+                        await DialogService.ShowConfirmDialog("Error al eliminar rama", result.Error, DialogVariant.Error, DialogType.Info);
+                    }
                 }
             });
         }
@@ -1029,16 +1069,12 @@ namespace Chapi
 
             if (result is Chapi.Presentation.ViewModels.BranchItemViewModel selectedBranch)
             {
-                // Si el usuario confirmó en el diálogo, ejecutamos la operación.
-                // Nota: El diálogo ya valida conflictos visualmente, pero aquí haremos la ejecución final.
-                // Si hay conflictos marcados en el VM pero el usuario forzó la acción (si permitimos eso),
-                // o para reconfirmar antes de ejecutar "write" operations.
                 
-                await ExecuteGitMergeOperation(mergeType, selectedBranch.Name);
+                await ExecuteGitMergeOperation(mergeType, selectedBranch.Name, autoDeleteBranch: viewModel.IsDeleteSourceBranchChecked);
             }
         }
 
-        private async Task ExecuteGitMergeOperation(string mergeType, string targetBranch)
+        private async Task ExecuteGitMergeOperation(string mergeType, string targetBranch, bool autoDeleteBranch = false)
         {
 
             string sourceBranch = _currentlySelectedBranch;
@@ -1079,8 +1115,35 @@ namespace Chapi
 
             if (mergeType == "Rebase") prompt = $"¿Rebase '{sourceBranch}' sobre '{targetBranch}'? (Esto actualizará tu rama actual usando la destino como base)";
 
-            var confirm = await DialogService.ShowConfirmDialog($"{mergeType} to {targetBranch}", prompt, DialogVariant.Info, DialogType.Confirm);
-            if (!confirm) return;
+            string? squashCommitMessage = null;
+            bool shouldDeleteBranch = autoDeleteBranch; // Heredamos del dialogo anterior por defecto
+
+            if (mergeType == "Squash")
+            {
+                 var squashDialog = new Chapi.Presentation.Views.Dialogs.SquashCommitDialog(_gitRepository, projectDirectory, sourceBranch, targetBranch, autoDeleteBranch);
+                 // El dialogo de Squash recibe el checkbox inicial del merge dialog para informar si se eliminará o no (opcionalmente podriamos mostrarlo readonly)
+                 // O simplemente asumimos que la decisión ya fue tomada. 
+                 
+                 var resultDialog = await DialogService.ShowDialog(squashDialog);
+                 
+                 if (resultDialog is bool confirmed && confirmed)
+                 {
+                     squashCommitMessage = squashDialog.CommitMessage;
+                     // shouldDeleteBranch sigue siendo lo que vino por parametro (autoDeleteBranch) 
+                     // o si decidimos dar oportunidad de cambio en el squash dialog (que acabamos de quitar), entonces no cambia.
+                 }
+                 else
+                 {
+                     return; 
+                 }
+            }
+            else
+            {
+                // Si NO es squash (ej. Merge normal), mostramos confirmación
+                // Y usamos 'shouldDeleteBranch' que vino de parametro 'autoDeleteBranch'
+                var confirm = await DialogService.ShowConfirmDialog($"{mergeType} to {targetBranch}", prompt, DialogVariant.Info, DialogType.Confirm);
+                if (!confirm) return;
+            }
 
             await RunWithLoading(async () =>
             {
@@ -1102,7 +1165,7 @@ namespace Chapi
                         if (mergeType == "Merge")
                             result = await _gitRepository.MergeBranchAsync(projectDirectory, sourceBranch, fastForward: true);
                         else // Squash
-                            result = await _gitRepository.SquashMergeBranchAsync(projectDirectory, sourceBranch);
+                            result = await _gitRepository.SquashMergeBranchAsync(projectDirectory, sourceBranch, squashCommitMessage);
                     }
 
                     if (result.IsSuccess)
@@ -1133,9 +1196,27 @@ namespace Chapi
                             }
                         }
 
+                        // Eliminación de rama: Aplica tanto para Squash como para Merge normal si el usuario lo pidió
+                        // (En Squash viene del SquashDialog, en Merge viene del autodeleteBranch pasado)
+                        if (shouldDeleteBranch)
+                        {
+                            // Intentamos borrar tanto local como remoto para limpieza completa
+                            var deleteResult = await _gitRepository.DeleteBranchAsync(projectDirectory, sourceBranch, force: true, deleteRemote: true);
+                            
+                            if (deleteResult.IsSuccess)
+                            {
+                                Msg.Assistant($"🗑️ Rama '{sourceBranch}' eliminada (Local y Remoto).");
+                            }
+                            else
+                            {
+                                await DialogService.ShowConfirmDialog("Aviso", $"Se intentó eliminar la rama '{sourceBranch}' pero hubo un problema: {deleteResult.Error}", DialogVariant.Warning, DialogType.Info);
+                            }
+                        }
+
                         await LoadChangesAsync();
                         await LoadHistoryAsync();
                         await UpdateProjectStatusesAsync();
+                        await RefreshBranchesAsync();
                     }
                     else
                     {

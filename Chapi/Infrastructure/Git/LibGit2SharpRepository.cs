@@ -140,20 +140,36 @@ public partial class LibGit2SharpRepository : IGitRepository
                 // Obtener commits locales que no están en el remoto
                 var filter = new CommitFilter
                 {
-                    SortBy = CommitSortStrategies.Topological,
+                    SortBy = CommitSortStrategies.Topological | CommitSortStrategies.Time,
                     IncludeReachableFrom = localBranch.Tip,
                     ExcludeReachableFrom = trackingBranch.Tip
                 };
 
-                var unpushed = repo.Commits.QueryBy(filter).Select(c => c.Sha).ToHashSet();
-                return unpushed;
+                return repo.Commits.QueryBy(filter).Select(c => c.Sha).ToHashSet();
             }
-            catch
-            {
-                return new HashSet<string>();
-            }
+            catch { return new HashSet<string>(); }
         });
     }
+
+    public async Task<string> GetBranchDiffAsync(string projectPath, string sourceBranch, string targetBranch)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var source = repo.Branches[sourceBranch];
+                var target = repo.Branches[targetBranch];
+
+                if (source == null || target == null) return string.Empty;
+
+                var patch = repo.Diff.Compare<Patch>(target.Tip.Tree, source.Tip.Tree);
+                return patch.Content;
+            }
+            catch { return string.Empty; }
+        });
+    }
+
 
     #endregion
 
@@ -385,20 +401,47 @@ public partial class LibGit2SharpRepository : IGitRepository
         });
     }
 
-    public async Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false)
+    public async Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false, bool deleteRemote = false)
     {
-        return await Task.Run(() =>
+        return await Task.Run(async () =>
         {
             try
             {
                 using var repo = new Repository(projectPath);
-                var branch = repo.Branches[branchName];
-                if (branch == null) return Result.Fail("Rama no encontrada");
                 
+                // 1. Borrar LOCAL
+                var branch = repo.Branches[branchName];
+                if (branch == null) return Result.Fail("Rama local no encontrada");
+
+                if (branch.IsCurrentRepositoryHead) return Result.Fail("No se puede eliminar la rama actual. Cambia de rama primero.");
+
                 repo.Branches.Remove(branch);
+                
+                // Verificar local
+                if (repo.Branches[branchName] != null) return Result.Fail("No se pudo eliminar la rama (posiblemente bloqueada).");
+                
+                // 2. Borrar REMOTO
+                if (deleteRemote)
+                {
+                    // Necesitamos credenciales para push
+                    var remote = repo.Network.Remotes["origin"];
+                    if (remote != null)
+                    {
+                         // Obtener credenciales (reutilizando logica interna si es posible o asumiendo que ya estan cacheadas por git credential manager)
+                         // LibGit2Sharp requiere explicitamente credenciales para Network operations si no es Public.
+                         // Por simplicidad, intentamos usar el helper GetCredentialsAsync
+                         var creds = await GetCredentialsAsync(remote.Url);
+                         
+                         var options = new PushOptions { CredentialsProvider = (_url, _user, _cred) => creds };
+                         
+                         // Push con refspec vacio para borrar: :refs/heads/branchName
+                         repo.Network.Push(remote, $":refs/heads/{branchName}", options);
+                    }
+                }
+
                 return Result.Success();
             }
-            catch (Exception ex) { return Result.Fail(ex.Message); }
+            catch (Exception ex) { return Result.Fail($"Error al eliminar rama: {ex.Message}"); }
         });
     }
 

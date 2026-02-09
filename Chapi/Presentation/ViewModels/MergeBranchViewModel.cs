@@ -12,6 +12,8 @@ public class MergeBranchViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
+    public bool IsDeleteSourceBranchChecked { get; set; } = true;
+
     private readonly IGitRepository _gitRepository;
     private readonly string _projectPath;
     private string _currentBranch = string.Empty;

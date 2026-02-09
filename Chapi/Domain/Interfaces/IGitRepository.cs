@@ -27,9 +27,9 @@ public interface IGitRepository
     Task<string> GetCurrentBranchAsync(string projectPath);
     Task<Result> SwitchBranchAsync(string projectPath, string branchName);
     Task<Result> CreateBranchAsync(string projectPath, string branchName, string? fromCommitOrBranch = null);
-    Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false);
+    Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false, bool deleteRemote = false);
     Task<Result> MergeBranchAsync(string projectPath, string sourceBranch, bool fastForward = true);
-    Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranch);
+    Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranch, string? commitMessage = null);
     Task<Result> RebaseBranchAsync(string projectPath, string targetBranch);
     Task<(bool hasConflicts, string message)> CheckMergeConflictsAsync(string projectPath, string sourceBranch);
     Task<Result> ResetAsync(string projectPath, string target, ResetMode mode);
@@ -71,6 +71,7 @@ public interface IGitRepository
     Task<bool> HasUpstreamAsync(string projectPath, string branchName);
     Task<string> GetFileContentAsync(string projectPath, string revision, string filePath);
     Task<string> GetDiffAsync(string projectPath, string file, string? revision = null);
+    Task<string> GetBranchDiffAsync(string projectPath, string sourceBranch, string targetBranch);
     Task<(int additions, int deletions)> GetFileStatsAsync(string projectPath, string filePath);
 
     // Config

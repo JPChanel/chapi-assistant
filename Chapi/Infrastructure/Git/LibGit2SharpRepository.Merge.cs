@@ -58,7 +58,7 @@ public partial class LibGit2SharpRepository
         });
     }
 
-    public async Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranchName)
+    public async Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranchName, string? commitMessage = null)
     {
         return await Task.Run(() =>
         {
@@ -97,7 +97,8 @@ public partial class LibGit2SharpRepository
                     File.Delete(mergeHeadPath);
                 }
                 
-                repo.Commit($"Squash merge from '{sourceBranchName}'", signature, signature);
+                var msg = !string.IsNullOrWhiteSpace(commitMessage) ? commitMessage : $"Squash merge from '{sourceBranchName}'";
+                repo.Commit(msg, signature, signature);
                 
                 // Limpiar cualquier otro estado
                 if (repo.Info.IsHeadDetached) repo.Reset(LibGit2Sharp.ResetMode.Mixed);
