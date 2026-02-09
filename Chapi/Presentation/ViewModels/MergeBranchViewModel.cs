@@ -14,6 +14,13 @@ public class MergeBranchViewModel : INotifyPropertyChanged
 
     public bool IsDeleteSourceBranchChecked { get; set; } = true;
 
+    private bool _isDeleteOptionVisible = true;
+    public bool IsDeleteOptionVisible
+    {
+        get => _isDeleteOptionVisible;
+        set { _isDeleteOptionVisible = value; OnPropertyChanged(nameof(IsDeleteOptionVisible)); }
+    }
+
     private readonly IGitRepository _gitRepository;
     private readonly string _projectPath;
     private string _currentBranch = string.Empty;
@@ -143,14 +150,17 @@ public class MergeBranchViewModel : INotifyPropertyChanged
             case "Squash":
                 ActionButtonText = "Squash y Merge";
                 MergeDescription = "Combina todos tus commits en uno solo. Tu historial individual se perderá, pero el destino quedará más limpio.";
+                IsDeleteOptionVisible = true;
                 break;
             case "Rebase":
                 ActionButtonText = "Rebase";
-                MergeDescription = "Reescribe la historia linealmente. Mueve tus commits al final del destino. Útil para mantener un historial recto.";
+                MergeDescription = "Actualiza tu rama actual integrando los últimos cambios de la rama seleccionada. Reescribe tu historial para que sea lineal.";
+                IsDeleteOptionVisible = false; 
                 break;
             default:
                 ActionButtonText = "Create a merge commit";
                 MergeDescription = "Crea un nuevo commit de unión que conserva la historia completa de ambas ramas.";
+                IsDeleteOptionVisible = true;
                 break;
         };
     }
@@ -173,34 +183,46 @@ public class MergeBranchViewModel : INotifyPropertyChanged
 
         try
         {
-            if (MergeType != "Rebase") 
+            // PROTECCIÓN DE RAMAS PRINCIPALES PARA REBASE
+            if (MergeType == "Rebase")
             {
-                // VALIDACIÓN INTELIGENTE:
-                // Estamos validando "Current -> Selected".
-                var (conflicts, msg) = await _gitRepository.CheckMergeConflictsAsync(_projectPath, SelectedBranch.Name);
-                
-                if (conflicts)
+                var protectedBranches = new[] { "main", "master", "production","prod" };
+                if (protectedBranches.Contains(CurrentBranch.ToLowerInvariant()))
                 {
-                    HasConflicts = true;
-                    
-                    if (msg == "DIRTY_WORKTREE" || msg.Contains("overwritten") || msg.Contains("changes"))
-                    {
-                         StatusMessage = "⚠️ Cambios locales detectados. Por favor haz commit o stash primero.";
-                    }
-                    else
-                    {
-                         StatusMessage = $"Conflictos detectados. Intenta sincronizar '{SelectedBranch.Name}' en '{CurrentBranch}' primero.";
-                    }
+                    StatusMessage = $"⚠️ PROTECCIÓN: No está permitido hacer rebase sobre '{CurrentBranch}'. Reescribir la historia de ramas principales es peligroso.";
+                    HasConflicts = true; // Bloquea el botón de confirmar
+                    return;
+                }
+            }
+
+            // VALIDACIÓN:
+            // Verificamos si hay conflictos al traer la rama seleccionada.
+            // Para Merge: Traer Selected a Current.
+            // Para Rebase: Poner Current sobre Selected (los conflictos de contenido serán los mismos).
+            var (conflicts, msg) = await _gitRepository.CheckMergeConflictsAsync(_projectPath, SelectedBranch.Name);
+            
+            if (conflicts)
+            {
+                HasConflicts = true;
+                
+                if (msg == "DIRTY_WORKTREE" || msg.Contains("overwritten") || msg.Contains("changes"))
+                {
+                        StatusMessage = "⚠️ Cambios locales detectados. Por favor haz commit o stash primero.";
                 }
                 else
                 {
-                    // Si no hay conflictos trayendo el destino, es seguro intentar enviar.
-                    StatusMessage = $"Listo para fusionar '{CurrentBranch}' en '{SelectedBranch.Name}'.";
+                        if (MergeType == "Rebase")
+                            StatusMessage = $"⚠️ Conflictos detectados. El rebase fallará. Sincroniza o resuelve conflictos manualmente primero.";
+                        else
+                            StatusMessage = $"Conflictos detectados. Intenta sincronizar '{SelectedBranch.Name}' en '{CurrentBranch}' primero.";
                 }
             }
             else
             {
-                StatusMessage = "El rebase reescribirá el historial de commits.";
+                if (MergeType == "Rebase")
+                    StatusMessage = $"Listo para rebasear '{CurrentBranch}' sobre '{SelectedBranch.Name}'.";
+                else
+                    StatusMessage = $"Listo para fusionar '{CurrentBranch}' en '{SelectedBranch.Name}'.";
             }
         }
         catch

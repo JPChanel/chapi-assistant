@@ -148,6 +148,7 @@
                     <CheckBox IsChecked="{Binding IsDeleteSourceBranchChecked}"
                               Content="Eliminar rama origen después de fusionar (Recomendado)"
                               FontSize="12"
+                              Visibility="{Binding IsDeleteOptionVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
                               ToolTip="Limpia la rama después de fusionarla para evitar confusiones."/>
                 </StackPanel>
 
@@ -200,7 +201,9 @@
                     <TextBlock Text="{Binding StatusMessage}" 
                                VerticalAlignment="Center" 
                                FontSize="12"
-                               Opacity="0.8"/>
+                               Opacity="0.8"
+                               TextWrapping="Wrap"
+                               MaxWidth="380"/>
                 </StackPanel>
 
                 <!-- Buttons -->

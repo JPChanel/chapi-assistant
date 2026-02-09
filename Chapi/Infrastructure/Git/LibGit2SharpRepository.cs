@@ -645,7 +645,7 @@ public partial class LibGit2SharpRepository : IGitRepository
 
     #region Remote
 
-    public async Task<Result> PushAsync(string projectPath, string branch)
+    public async Task<Result> PushAsync(string projectPath, string branch, bool force = false)
     {
         try
         {
@@ -666,20 +666,26 @@ public partial class LibGit2SharpRepository : IGitRepository
                 {
                     using var repo = new Repository(projectPath);
                     var localBranch = repo.Branches[branch];
-                    
+                    if (localBranch == null) return Result.Fail($"Rama '{branch}' no encontrada.");
+
+                    var remote = repo.Network.Remotes["origin"];
+                    if (remote == null) return Result.Fail("No se encontró el remoto 'origin'");
+
                     var options = new PushOptions
                     {
                         CredentialsProvider = (_url, _user, _type) => credentials
                     };
 
-                    // Si la rama no tiene seguimiento (es nueva), la publicamos explícitamente
+                    // Construir RefSpec (con + si es force)
+                    // Ej: refs/heads/dev  o  +refs/heads/dev
+                    string pushRefSpec = localBranch.CanonicalName;
+                    if (force) pushRefSpec = "+" + pushRefSpec;
+
+                    // Si la rama no tiene seguimiento (es nueva), la publicamos explícitamente y configuramos upstream
                     if (localBranch.TrackedBranch == null)
                     {
-                        var remote = repo.Network.Remotes["origin"];
-                        if (remote == null) return Result.Fail("No se encontró el remoto 'origin'");
-
-                        // Push explícito al remoto
-                        repo.Network.Push(remote, localBranch.CanonicalName, options);
+                        // Push explícito al remoto usando el refspec (que soporta force aunque sea raro en rama nueva)
+                        repo.Network.Push(remote, pushRefSpec, options);
 
                         // Configurar upstream (tracking) para futuras operaciones
                         repo.Branches.Update(localBranch, 
@@ -688,8 +694,17 @@ public partial class LibGit2SharpRepository : IGitRepository
                     }
                     else
                     {
-                        // Si ya tiene tracking, usamos el push estándar
-                        repo.Network.Push(localBranch, options);
+                        // Si ya tiene tracking
+                        if (force)
+                        {
+                            // Para force push necesitamos usar la sobrecarga con RefSpec string explícito
+                            repo.Network.Push(remote, pushRefSpec, options);
+                        }
+                        else
+                        {
+                            // Push estándar seguro
+                            repo.Network.Push(localBranch, options);
+                        }
                     }
 
                     return Result.Success();

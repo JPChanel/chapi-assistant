@@ -133,52 +133,44 @@ public partial class LibGit2SharpRepository
                     return Result.Fail($"La rama destino '{targetBranchName}' no existe.");
                 }
 
+                if (currentBranch.Tip.Sha == targetBranch.Tip.Sha)
+                {
+                    return Result.Fail("Las ramas ya están sincronizadas (mismo commit).");
+                }
+
+                // Identidad para los commits re-aplicados
                 var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
                 if (signature == null)
                     return Result.Fail("No se ha configurado usuario ni correo en git config.");
 
                 var identity = new Identity(signature.Name, signature.Email);
-
-                // Rebase Básico: Intentar rebasear Current sobre Target
-                // NOTA: Rebase.Start devuelve algo diferente según la versión.
-                // Usaremos una estrategia más segura: Try-Catch con la operación básica.
-                
                 var options = new RebaseOptions();
+
+                // Iniciar Rebase: Current sobre Target
+                // Equivalente a: git checkout Current && git rebase Target
                 var result = repo.Rebase.Start(currentBranch, targetBranch, null, identity, options);
-                
-                // Procesar pasos si es necesario (versiones antiguas o casos complejos)
-                // Vamos a iterar mientras no esté completo, hasta un límite seguro.
-                int stepsLimit = 1000;
-                int steps = 0;
-                
-                while (result.Status != RebaseStatus.Complete && steps < stepsLimit)
-                {
-                    if (result.Status == RebaseStatus.Stop)
-                    {
-                        // Conflicto u otra parada
-                         repo.Rebase.Abort();
-                         return Result.Fail($"Rebase detenido por conflictos o intervención manual requerida.");
-                    }
-                    
-                    // Continuar aplicando
-                    result = repo.Rebase.Continue(identity, options);
-                    steps++;
-                }
 
-                if (result.Status != RebaseStatus.Complete)
+                if (result.Status == RebaseStatus.Complete)
                 {
-                    // Si sigue incompleto tras el bucle
+                    return Result.Success();
+                }
+                else if (result.Status == RebaseStatus.Conflicts || result.Status == RebaseStatus.Stop)
+                {
                     repo.Rebase.Abort();
-                    return Result.Fail($"El rebase no pudo completarse automáticamente. Estado final: {result.Status}");
+                    return Result.Fail("Conflictos detectados durante el rebase. Operación abortada automáticamente.");
                 }
-
-                return Result.Success();
+                else
+                {
+                    // Estado inesperado
+                    repo.Rebase.Abort();
+                    return Result.Fail($"El rebase no se completó (Estado: {result.Status}). Operación abortada.");
+                }
             }
             catch (Exception ex)
             {
                 // Seguridad extra: intentar abortar si quedó a medias
                 try { using var r = new Repository(projectPath); r.Rebase.Abort(); } catch { }
-                return Result.Fail($"Error en Rebase: {ex.Message}");
+                return Result.Fail($"Error crítico en Rebase: {ex.Message}");
             }
         });
     }

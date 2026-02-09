@@ -36,7 +36,7 @@ public interface IGitRepository
     Task<Result> RestoreFileFromStashAsync(string projectPath, string stashName, string filePath);
 
     // Remote
-    Task<Result> PushAsync(string projectPath, string branch);
+    Task<Result> PushAsync(string projectPath, string branch, bool force = false);
     Task<Result> PullAsync(string projectPath, string branch);
     Task<Result> FetchAsync(string projectPath);
     Task<(int Ahead, int Behind)> GetAheadBehindCountAsync(string projectPath);

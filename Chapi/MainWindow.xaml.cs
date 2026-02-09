@@ -1109,11 +1109,27 @@ namespace Chapi
                 return;
             }
 
-            var prompt = mergeType == "Squash" 
-                ? $"¿Estás seguro de hacer SQUASH MERGE de '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá." 
-                : $"¿Estás seguro de fusionar '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá.";
+            var prompt = "";
+            DialogVariant variant = DialogVariant.Info;
 
-            if (mergeType == "Rebase") prompt = $"¿Rebase '{sourceBranch}' sobre '{targetBranch}'? (Esto actualizará tu rama actual usando la destino como base)";
+            if (mergeType == "Squash")
+            {
+                prompt = $"¿Estás seguro de hacer SQUASH MERGE de '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá.";
+            }
+            else if (mergeType == "Rebase")
+            {
+                prompt = $"⚠️ EL REBASE REQUERIRÁ FORCE PUSH\n\n" +
+                         $"¿Estás seguro de que deseas hacer rebase a '{sourceBranch}' de '{targetBranch}'?\n\n" +
+                         $"Al finalizar el rebase, tu historia local cambiará y divergirás del remoto.\n" +
+                         $"Para actualizar el servidor, necesitarás hacer un FORCE PUSH posteriormente.\n" +
+                         $"Esto alterará la historia en el remoto y podría causar problemas a otros colaboradores en esta rama.\n\n" +
+                         $"¿Deseas continuar?";
+                variant = DialogVariant.Warning;
+            }
+            else
+            {
+                prompt = $"¿Estás seguro de fusionar '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá.";
+            }
 
             string? squashCommitMessage = null;
             bool shouldDeleteBranch = autoDeleteBranch; // Heredamos del dialogo anterior por defecto
@@ -1139,9 +1155,10 @@ namespace Chapi
             }
             else
             {
-                // Si NO es squash (ej. Merge normal), mostramos confirmación
+                // Si NO es squash (ej. Merge normal o Rebase), mostramos confirmación
                 // Y usamos 'shouldDeleteBranch' que vino de parametro 'autoDeleteBranch'
-                var confirm = await DialogService.ShowConfirmDialog($"{mergeType} to {targetBranch}", prompt, DialogVariant.Info, DialogType.Confirm);
+                // Usamos el 'variant' definido arriba (Warning para Rebase, Info para Merge)
+                var confirm = await DialogService.ShowConfirmDialog($"{mergeType} operation", prompt, variant, DialogType.Confirm);
                 if (!confirm) return;
             }
 
@@ -1170,35 +1187,64 @@ namespace Chapi
 
                     if (result.IsSuccess)
                     {
-                        // Actualizar variable de estado para que la UI refleje el cambio de rama
-                        _currentlySelectedBranch = targetBranch;
-                        BranchesComboBox.SelectedItem = targetBranch;
-
                         Msg.Assistant($"✅ Operación '{mergeType}' exitosa: '{sourceBranch}' → '{targetBranch}'");
 
-                        // Preguntar si quiere hacer Push de la rama DESTINO (targetBranch)
-                        var pushConfirm = await DialogService.ShowConfirmDialog(
-                            "Push al Servidor",
-                            $"El merge local en '{targetBranch}' fue exitoso.\n\n¿Quieres subir (Push) los cambios de '{targetBranch}' a origin ahora mismo para que se reflejen en GitHub/GitLab?",
-                            DialogVariant.Info,
-                            DialogType.Confirm);
-
-                        if (pushConfirm)
+                        if (mergeType == "Rebase")
                         {
-                            var pushResult = await _gitRepository.PushAsync(projectDirectory, targetBranch);
-                            if (pushResult.IsSuccess)
+                            // En Rebase nos quedamos en la rama original (sourceBranch), no cambiamos a target.
+                            // Por lo tanto NO actualizamos _currentlySelectedBranch a targetBranch.
+
+                            var forcePushConfirm = await DialogService.ShowConfirmDialog(
+                                "Rebase Exitoso - Force Push Requerido",
+                                "La rama actual se ha rebasado correctamente.\n\n⚠️ Tu historia local ha divergido del remoto.\n¿Deseas realizar un FORCE PUSH ahora para actualizar el servidor?\n(Solo hazlo si estás seguro de que nadie más trabaja sobre esta rama)",
+                                DialogVariant.Warning,
+                                DialogType.Confirm);
+                            
+                            if (forcePushConfirm)
                             {
-                                Msg.Assistant($"🚀 Push exitoso: '{targetBranch}' actualizado en remoto.");
+                                var pushResult = await _gitRepository.PushAsync(projectDirectory, sourceBranch, force: true);
+                                if (pushResult.IsSuccess)
+                                {
+                                    Msg.Assistant($"🚀 Force Push exitoso: '{sourceBranch}' actualizado en remoto.");
+                                }
+                                else
+                                {
+                                    await DialogService.ShowConfirmDialog("Error Force Push", pushResult.Error, DialogVariant.Error, DialogType.Info);
+                                }
                             }
-                            else
+
+                            shouldDeleteBranch = false; // Nunca eliminar la rama actual en un rebase
+                        }
+                        else
+                        {
+                            // Flujo normal para Merge/Squash: Ya nos movimos a targetBranch
+                            _currentlySelectedBranch = targetBranch;
+                            BranchesComboBox.SelectedItem = targetBranch;
+
+                            // Preguntar si quiere hacer Push de la rama DESTINO (targetBranch)
+                            var pushConfirm = await DialogService.ShowConfirmDialog(
+                                "Push al Servidor",
+                                $"El merge local en '{targetBranch}' fue exitoso.\n\n¿Quieres subir (Push) los cambios de '{targetBranch}' a origin ahora mismo para que se reflejen en GitHub/GitLab?",
+                                DialogVariant.Info,
+                                DialogType.Confirm);
+
+                            if (pushConfirm)
                             {
-                                await DialogService.ShowConfirmDialog("Error al hacer Push", pushResult.Error, DialogVariant.Error, DialogType.Info);
+                                var pushResult = await _gitRepository.PushAsync(projectDirectory, targetBranch);
+                                if (pushResult.IsSuccess)
+                                {
+                                    Msg.Assistant($"🚀 Push exitoso: '{targetBranch}' actualizado en remoto.");
+                                }
+                                else
+                                {
+                                    await DialogService.ShowConfirmDialog("Error al hacer Push", pushResult.Error, DialogVariant.Error, DialogType.Info);
+                                }
                             }
                         }
 
                         // Eliminación de rama: Aplica tanto para Squash como para Merge normal si el usuario lo pidió
                         // (En Squash viene del SquashDialog, en Merge viene del autodeleteBranch pasado)
-                        if (shouldDeleteBranch)
+                        if (shouldDeleteBranch && mergeType != "Rebase")
                         {
                             // Intentamos borrar tanto local como remoto para limpieza completa
                             var deleteResult = await _gitRepository.DeleteBranchAsync(projectDirectory, sourceBranch, force: true, deleteRemote: true);
