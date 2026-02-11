@@ -6,7 +6,7 @@
         Title="Conectar con Git"
         Width="500" Height="450"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize">
+        ResizeMode="NoResize" Background="#1A132D">
     
     <Window.Resources>
         <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
@@ -23,19 +23,19 @@
         <!-- Header -->
         <Border Grid.Row="0" Margin="0" Padding="24,24,24,10">
             <StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
-                     <md:PackIcon Kind="Github" Width="40" Height="40" Margin="8"/>
-                     <md:PackIcon Kind="Gitlab" Width="40" Height="40" Margin="8"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16" >
+                        <md:PackIcon Kind="Github" Width="40" Height="40" Margin="8" Foreground="White"/>
+                        <md:PackIcon Kind="Gitlab" Width="40" Height="40" Margin="8" Foreground="#FC6D26"/>
                 </StackPanel>
                 <TextBlock Text="¡Bienvenido a Chapi!" 
                            Style="{StaticResource MaterialDesignHeadline4TextBlock}"
                            HorizontalAlignment="Center"
                            FontWeight="Bold"
-                           Margin="0,0,0,8"/>
+                           Margin="0,0,0,8" Foreground="White"/>
                 <TextBlock Text="Para comenzar, conecta tu cuenta de Git"
                            Style="{StaticResource MaterialDesignBody1TextBlock}"
                            HorizontalAlignment="Center"
-                           Opacity="0.8"/>
+                           Opacity="0.8" Foreground="White"/>
             </StackPanel>
         </Border>
 
