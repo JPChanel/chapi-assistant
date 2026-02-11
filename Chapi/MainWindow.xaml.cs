@@ -600,6 +600,30 @@ namespace Chapi
                 // para que cuando el usuario despliegue el combo, ya vea los numeritos.
                 await UpdateProjectStatusesAsync();
             }
+
+            // Verificar si el usuario ha iniciado sesión en algún proveedor Git
+            await CheckSetupAsync();
+        }
+
+        private async Task CheckSetupAsync()
+        {
+            var storage = App.ServiceProvider.GetService<ICredentialStorageService>();
+            if (storage == null) return;
+
+            bool hasGitHub = await storage.HasCredentialAsync("GitHub");
+            bool hasGitLab = await storage.HasCredentialAsync("GitLab");
+
+            if (!hasGitHub && !hasGitLab)
+            {
+                // Si no hay cuentas configuradas, mostrar el diálogo de conexión (estilo "Setup Inicial")
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    var viewModel = App.ServiceProvider.GetRequiredService<Chapi.Presentation.ViewModels.GitProviderSelectionViewModel>();
+                    var dialog = new Chapi.Presentation.Views.Dialogs.GitProviderSelectionDialog(viewModel);
+                    dialog.Owner = this;
+                    dialog.ShowDialog();
+                });
+            }
         }
 
         private async Task DoFetchAsync(bool isSilent = false)
