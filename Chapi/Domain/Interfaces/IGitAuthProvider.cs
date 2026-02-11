@@ -33,4 +33,8 @@ public interface IGitAuthProvider
     /// Obtiene la lista de repositorios del usuario.
     /// </summary>
     Task<Result<List<RemoteRepository>>> GetRepositoriesAsync(string token);
+    /// <summary>
+    /// Intenta renovar el token de acceso usando un refresh token si está disponible.
+    /// </summary>
+    Task<Result<GitCredential>> RefreshTokenAsync();
 }

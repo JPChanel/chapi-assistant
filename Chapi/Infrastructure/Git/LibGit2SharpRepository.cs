@@ -37,7 +37,7 @@ public partial class LibGit2SharpRepository : IGitRepository
 
         return new UsernamePasswordCredentials
         {
-            Username = provider == GitProvider.GitLab ? "oauth2" : cred.Value.username,
+            Username = string.IsNullOrEmpty(cred.Value.username) ? "oauth2" : cred.Value.username,
             Password = cred.Value.token
         };
     }
@@ -678,7 +678,6 @@ public partial class LibGit2SharpRepository : IGitRepository
     {
         try
         {
-            // Detectar remote URL sin abrir repo aún (para evitar bloqueo)
             string remoteUrl = "";
             using (var repoCheck = new Repository(projectPath))
             {
@@ -689,60 +688,72 @@ public partial class LibGit2SharpRepository : IGitRepository
             if (credentials == null)
                 return Result.Fail("No hay credenciales autenticadas. Por favor inicia sesión.");
 
-            return await Task.Run(() =>
+            Func<Credentials, Task<Result>> pushAction = async (creds) => 
             {
-                try
+                return await Task.Run(() =>
                 {
-                    using var repo = new Repository(projectPath);
-                    var localBranch = repo.Branches[branch];
-                    if (localBranch == null) return Result.Fail($"Rama '{branch}' no encontrada.");
-
-                    var remote = repo.Network.Remotes["origin"];
-                    if (remote == null) return Result.Fail("No se encontró el remoto 'origin'");
-
-                    var options = new PushOptions
+                    try
                     {
-                        CredentialsProvider = (_url, _user, _type) => credentials
-                    };
+                        using var repo = new Repository(projectPath);
+                        var localBranch = repo.Branches[branch];
+                        if (localBranch == null) return Result.Fail($"Rama '{branch}' no encontrada.");
 
-                    // Construir RefSpec (con + si es force)
-                    // Ej: refs/heads/dev  o  +refs/heads/dev
-                    string pushRefSpec = localBranch.CanonicalName;
-                    if (force) pushRefSpec = "+" + pushRefSpec;
+                        var remote = repo.Network.Remotes["origin"];
+                        if (remote == null) return Result.Fail("No se encontró el remoto 'origin'");
 
-                    // Si la rama no tiene seguimiento (es nueva), la publicamos explícitamente y configuramos upstream
-                    if (localBranch.TrackedBranch == null)
-                    {
-                        // Push explícito al remoto usando el refspec (que soporta force aunque sea raro en rama nueva)
-                        repo.Network.Push(remote, pushRefSpec, options);
-
-                        // Configurar upstream (tracking) para futuras operaciones
-                        repo.Branches.Update(localBranch, 
-                            b => b.Remote = remote.Name,
-                            b => b.UpstreamBranch = localBranch.CanonicalName);
-                    }
-                    else
-                    {
-                        // Si ya tiene tracking
-                        if (force)
+                        var options = new PushOptions
                         {
-                            // Para force push necesitamos usar la sobrecarga con RefSpec string explícito
+                            CredentialsProvider = (_url, _user, _type) => creds
+                        };
+
+                        string pushRefSpec = localBranch.CanonicalName;
+                        if (force) pushRefSpec = "+" + pushRefSpec;
+
+                        if (localBranch.TrackedBranch == null)
+                        {
                             repo.Network.Push(remote, pushRefSpec, options);
+                            repo.Branches.Update(localBranch, 
+                                b => b.Remote = remote.Name,
+                                b => b.UpstreamBranch = localBranch.CanonicalName);
                         }
                         else
                         {
-                            // Push estándar seguro
-                            repo.Network.Push(localBranch, options);
+                            if (force)
+                                repo.Network.Push(remote, pushRefSpec, options);
+                            else
+                                repo.Network.Push(localBranch, options);
                         }
-                    }
 
-                    return Result.Success();
-                }
-                catch (Exception ex)
+                        return Result.Success();
+                    }
+                    catch (Exception ex)
+                    {
+                        return Result.Fail($"Error push: {ex.Message}");
+                    }
+                });
+            };
+
+            var result = await pushAction(credentials);
+
+            // Reintento con Refresh Token si falla por permisos
+            if (!result.IsSuccess && (result.Error.Contains("403") || result.Error.Contains("401") || result.Error.Contains("authentication")))
+            {
+                var providerType = _authFactory.DetectProviderFromUrl(remoteUrl);
+                var authProvider = _authFactory.GetProvider(providerType);
+                
+                var refreshResult = await authProvider.RefreshTokenAsync();
+                if (refreshResult.IsSuccess)
                 {
-                    return Result.Fail($"Error push: {ex.Message}");
+                    var newCreds = new UsernamePasswordCredentials
+                    {
+                        Username = refreshResult.Data.Username,
+                        Password = refreshResult.Data.AccessToken
+                    };
+                    return await pushAction(newCreds);
                 }
-            });
+            }
+
+            return result;
         }
         catch (Exception ex)
         {
@@ -764,33 +775,58 @@ public partial class LibGit2SharpRepository : IGitRepository
             if (credentials == null)
                 return Result.Fail("No hay credenciales autenticadas.");
 
-            return await Task.Run(() =>
+            Func<Credentials, Task<Result>> pullAction = async (creds) =>
             {
-                try
+                return await Task.Run(() =>
                 {
-                    using var repo = new Repository(projectPath);
-                    var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
-
-                    var options = new PullOptions
+                    try
                     {
-                        FetchOptions = new FetchOptions
+                        using var repo = new Repository(projectPath);
+                        var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+
+                        var options = new PullOptions
                         {
-                            CredentialsProvider = (_url, _user, _type) => credentials
-                        }
-                    };
+                            FetchOptions = new FetchOptions
+                            {
+                                CredentialsProvider = (_url, _user, _type) => creds
+                            }
+                        };
 
-                    var result = Commands.Pull(repo, signature, options);
-                    
-                    if (result.Status == MergeStatus.Conflicts)
-                        return Result.Fail("Conflictos al hacer pull");
+                        var result = Commands.Pull(repo, signature, options);
+                        
+                        if (result.Status == MergeStatus.Conflicts)
+                            return Result.Fail("Conflictos al hacer pull");
 
-                    return Result.Success();
-                }
-                catch (Exception ex)
+                        return Result.Success();
+                    }
+                    catch (Exception ex)
+                    {
+                        return Result.Fail($"Error pull: {ex.Message}");
+                    }
+                });
+            };
+
+            var result = await pullAction(credentials);
+
+            // Reintento con Refresh Token
+            if (!result.IsSuccess && (result.Error.Contains("403") || result.Error.Contains("401") || result.Error.Contains("authentication")))
+            {
+                var providerType = _authFactory.DetectProviderFromUrl(remoteUrl);
+                var authProvider = _authFactory.GetProvider(providerType);
+                
+                var refreshResult = await authProvider.RefreshTokenAsync();
+                if (refreshResult.IsSuccess)
                 {
-                    return Result.Fail($"Error pull: {ex.Message}");
+                    var newCreds = new UsernamePasswordCredentials
+                    {
+                        Username = refreshResult.Data.Username,
+                        Password = refreshResult.Data.AccessToken
+                    };
+                    return await pullAction(newCreds);
                 }
-            });
+            }
+
+            return result;
         }
         catch (Exception ex)
         {

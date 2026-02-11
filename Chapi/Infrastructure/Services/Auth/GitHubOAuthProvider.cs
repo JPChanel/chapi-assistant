@@ -156,6 +156,11 @@ public class GitHubOAuthProvider : IGitAuthProvider
         }
     }
 
+    public Task<Result<GitCredential>> RefreshTokenAsync()
+    {
+        return Task.FromResult(Result<GitCredential>.Fail("GitHub no soporta refresh token en este flujo."));
+    }
+
     public async Task<Result<List<RemoteRepository>>> GetRepositoriesAsync(string token)
     {
         try

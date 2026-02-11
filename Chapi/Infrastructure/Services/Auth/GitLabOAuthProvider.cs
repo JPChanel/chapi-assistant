@@ -80,6 +80,12 @@ public class GitLabOAuthProvider : IGitAuthProvider
 
             // 7. Guardar el token de OAuth
             await _credentialStorage.SaveCredentialAsync("GitLab", userResult.Data.Username, tokenResponse.AccessToken);
+            
+            // Guardar Refresh Token para renovación automática
+            if (!string.IsNullOrEmpty(tokenResponse.RefreshToken))
+            {
+                await _credentialStorage.SaveCredentialAsync("GitLab_Refresh", "RefreshToken", tokenResponse.RefreshToken);
+            }
 
             return userResult;
         }
@@ -102,6 +108,61 @@ public class GitLabOAuthProvider : IGitAuthProvider
         catch
         {
             return false;
+        }
+    }
+
+    public async Task<Result<GitCredential>> RefreshTokenAsync()
+    {
+        try
+        {
+            // 1. Recuperar Refresh Token guardado
+            var refreshCred = await _credentialStorage.GetCredentialAsync("GitLab_Refresh");
+            if (!refreshCred.HasValue || string.IsNullOrEmpty(refreshCred.Value.token))
+                return Result<GitCredential>.Fail("No existe refresh token");
+
+            // 2. Solicitar renovación
+            var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = _config.ClientId,
+                ["client_secret"] = _config.ClientSecret,
+                ["refresh_token"] = refreshCred.Value.token,
+                ["grant_type"] = "refresh_token",
+                ["redirect_uri"] = _config.RedirectUri
+            });
+
+            var response = await _httpClient.PostAsync($"{_config.BaseUrl}/oauth/token", content);
+            if (!response.IsSuccessStatusCode)
+            {
+                // Si falla el refresh, borrarlo para forzar login
+                await _credentialStorage.DeleteCredentialAsync("GitLab_Refresh");
+                return Result<GitCredential>.Fail("El token de refresco expiró o es inválido.");
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(json);
+
+            if (tokenResponse == null)
+                return Result<GitCredential>.Fail("Error al procesar respuesta de renovación.");
+
+            // 3. Obtener info de usuario para actualizar credenciales
+            var userResult = await GetUserInfoAsync(tokenResponse.AccessToken);
+            if (!userResult.IsSuccess) return userResult;
+
+            // 4. Actualizar credenciales
+            // Guardar Access Token (usando el nombre de usuario real obtenido)
+            await _credentialStorage.SaveCredentialAsync("GitLab", userResult.Data.Username, tokenResponse.AccessToken);
+
+            // Guardar Nuevo Refresh Token (rotación de tokens)
+            if (!string.IsNullOrEmpty(tokenResponse.RefreshToken))
+            {
+                await _credentialStorage.SaveCredentialAsync("GitLab_Refresh", "RefreshToken", tokenResponse.RefreshToken);
+            }
+
+            return userResult;
+        }
+        catch (Exception ex)
+        {
+            return Result<GitCredential>.Fail($"Error al renovar token: {ex.Message}");
         }
     }
 
