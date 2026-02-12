@@ -20,41 +20,23 @@
         </Style>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <Grid Margin="25">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/> <!-- Alert Banner -->
                 <RowDefinition Height="*"/>    <!-- Content -->
             </Grid.RowDefinitions>
 
-            <!-- 1. ALERT BANNER -->
-            <materialDesign:Card Background="#2D2010" BorderBrush="Orange" BorderThickness="1"
-                                 Padding="15" Margin="0,0,0,30" UniformCornerRadius="8"
-                                 Visibility="{Binding HasPendingCriticalAssets, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <materialDesign:PackIcon Kind="AlertOutline" Width="28" Height="28" Foreground="Orange" VerticalAlignment="Center" Margin="0,0,15,0"/>
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="Scripts SQL / Archivos Críticos Pendientes" Foreground="Orange" FontWeight="Bold" FontSize="15"/>
-                        <TextBlock Text="Tienes archivos de despliegue sin marcar como ejecutados en producción." Foreground="Orange" FontSize="12" Opacity="0.8" Margin="0,2,0,0"/>
-                    </StackPanel>
-                    <Button Grid.Column="2" Content="Revisar" Style="{StaticResource MaterialDesignOutlinedButton}" 
-                            Foreground="Orange" BorderBrush="Orange" Height="32" Padding="15,0"/>
-                </Grid>
-            </materialDesign:Card>
+            <!-- ... Alert Banner ... -->
 
             <!-- 2. MAIN COLUMNS -->
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" MinWidth="320" x:Name="Col1"/>
-                    <ColumnDefinition Width="30" x:Name="Space1"/>
-                    <ColumnDefinition Width="*" MinWidth="320" x:Name="Col2"/>
-                    <ColumnDefinition Width="30" x:Name="Space2"/>
-                    <ColumnDefinition Width="*" MinWidth="320" x:Name="Col3"/>
+                    <ColumnDefinition Width="*" MinWidth="250" x:Name="Col1"/>
+                    <ColumnDefinition Width="20" x:Name="Space1"/>
+                    <ColumnDefinition Width="*" MinWidth="250" x:Name="Col2"/>
+                    <ColumnDefinition Width="20" x:Name="Space2"/>
+                    <ColumnDefinition Width="*" MinWidth="250" x:Name="Col3"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- COL 1: PENDIENTES / PAPELERA -->
@@ -181,7 +163,7 @@
                                                 
                                                 <!-- Editable Title -->
                                                 <TextBox Grid.Column="1" 
-                                                         Text="{Binding Title, UpdateSourceTrigger=LostFocus}" 
+                                                         Text="{Binding Title, UpdateSourceTrigger=PropertyChanged, Delay=600}" 
                                                          FontSize="13" 
                                                          Foreground="#DDD" 
                                                          BorderThickness="0" 

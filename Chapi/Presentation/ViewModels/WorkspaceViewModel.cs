@@ -151,6 +151,10 @@ public class WorkspaceViewModel : ViewModelBase
                                  if (t.Title == null) t.Title = "(Sin título recuperado)";
                                  // Enum validation creates overhead, but let's assume valid or default to 0 (Baja) if weird
                                  
+                                 // Manually subscribe to PropertyChanged because CollectionChanged is ignored during loading
+                                 t.PropertyChanged -= Task_PropertyChanged;
+                                 t.PropertyChanged += Task_PropertyChanged;
+
                                  Tasks.Add(t);
                              }
                              catch (Exception ex)
@@ -167,6 +171,11 @@ public class WorkspaceViewModel : ViewModelBase
                             {
                                 if (t.Id == Guid.Empty) t.Id = Guid.NewGuid();
                                 if (t.Title == null) t.Title = "(Historial sin título)";
+                                
+                                // Manually subscribe to PropertyChanged
+                                t.PropertyChanged -= Task_PropertyChanged;
+                                t.PropertyChanged += Task_PropertyChanged;
+
                                 HistoryTasks.Add(t);
                             }
                             catch (Exception ex)
