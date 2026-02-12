@@ -1,0 +1,13 @@
+using System.Threading.Tasks;
+using Chapi.Domain.Common;
+using Chapi.Domain.Entities.Workspace;
+
+namespace Chapi.Application.Interfaces.Workspace;
+
+public interface IWorkspaceService
+{
+    Task<Result<WorkspaceData>> LoadWorkspaceAsync(string projectPath);
+    Task<Result> SaveWorkspaceAsync(WorkspaceData data);
+    Task<Result<string>> GetRandomQuoteAsync();
+    Result OpenFileInExplorer(string filePath);
+}

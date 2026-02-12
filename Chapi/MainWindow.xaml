@@ -497,6 +497,18 @@
                         </TabItem.HeaderTemplate>
                         <views:HistoryView x:Name="HistoryViewControl"/>
                     </TabItem>
+
+                    <TabItem x:Name="WorkspaceTab" Header="Workspace">
+                         <TabItem.HeaderTemplate>
+                             <DataTemplate>
+                                 <StackPanel Orientation="Horizontal" Margin="10,0">
+                                     <materialDesign:PackIcon Kind="ViewDashboardOutline" Margin="0,0,8,0" Width="18" Height="18"/>
+                                     <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                                 </StackPanel>
+                             </DataTemplate>
+                         </TabItem.HeaderTemplate>
+                         <views:WorkspaceView x:Name="WorkspaceViewControl"/>
+                     </TabItem>
                     <TabItem x:Name="TagsTab">
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">

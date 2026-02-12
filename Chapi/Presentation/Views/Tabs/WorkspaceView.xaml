@@ -1,0 +1,461 @@
+<UserControl x:Class="Chapi.Presentation.Views.Tabs.WorkspaceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:Chapi.Presentation.Converters"
+             mc:Ignorable="d" 
+             d:DesignHeight="700" d:DesignWidth="1200">
+
+    <UserControl.Resources>
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
+        <converters:ZeroCountToVisibilityConverter x:Key="ZeroCountToVisibilityConverter"/>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        
+        <Style x:Key="TaskCardStyle" TargetType="materialDesign:Card">
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Background" Value="#1E1E1E"/>
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+        <Grid Margin="25">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Alert Banner -->
+                <RowDefinition Height="*"/>    <!-- Content -->
+            </Grid.RowDefinitions>
+
+            <!-- 1. ALERT BANNER -->
+            <materialDesign:Card Background="#2D2010" BorderBrush="Orange" BorderThickness="1"
+                                 Padding="15" Margin="0,0,0,30" UniformCornerRadius="8"
+                                 Visibility="{Binding HasPendingCriticalAssets, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <materialDesign:PackIcon Kind="AlertOutline" Width="28" Height="28" Foreground="Orange" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Scripts SQL / Archivos Críticos Pendientes" Foreground="Orange" FontWeight="Bold" FontSize="15"/>
+                        <TextBlock Text="Tienes archivos de despliegue sin marcar como ejecutados en producción." Foreground="Orange" FontSize="12" Opacity="0.8" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Content="Revisar" Style="{StaticResource MaterialDesignOutlinedButton}" 
+                            Foreground="Orange" BorderBrush="Orange" Height="32" Padding="15,0"/>
+                </Grid>
+            </materialDesign:Card>
+
+            <!-- 2. MAIN COLUMNS -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="320" x:Name="Col1"/>
+                    <ColumnDefinition Width="30" x:Name="Space1"/>
+                    <ColumnDefinition Width="*" MinWidth="320" x:Name="Col2"/>
+                    <ColumnDefinition Width="30" x:Name="Space2"/>
+                    <ColumnDefinition Width="*" MinWidth="320" x:Name="Col3"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- COL 1: PENDIENTES / PAPELERA -->
+                <Grid Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Grid Margin="0,0,0,15">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ClipboardListOutline" Width="22" Height="22" VerticalAlignment="Center">
+                                <materialDesign:PackIcon.Style>
+                                    <Style TargetType="materialDesign:PackIcon">
+                                        <Setter Property="Foreground" Value="#00E5FF"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsHistoryVisible}" Value="True">
+                                                <Setter Property="Kind" Value="TrashCanOutline"/>
+                                                <Setter Property="Foreground" Value="#FF4444"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialDesign:PackIcon.Style>
+                            </materialDesign:PackIcon>
+                            
+                            <TextBlock FontWeight="Bold" FontSize="14" Margin="10,0,0,0" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="PENDIENTES"/>
+                                        <Setter Property="Foreground" Value="#EEE"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsHistoryVisible}" Value="True">
+                                                <Setter Property="Text" Value="PAPELERA"/>
+                                                <Setter Property="Foreground" Value="#FF4444"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                        
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                             <Button Command="{Binding ToggleHistoryCommand}"
+                                     Height="30" Width="30" Padding="0"
+                                     Background="Transparent" BorderThickness="0">
+                                 <materialDesign:PackIcon Kind="History" Width="22" Height="22">
+                                     <materialDesign:PackIcon.Style>
+                                         <Style TargetType="materialDesign:PackIcon">
+                                             <Setter Property="Foreground" Value="#666"/>
+                                             <Style.Triggers>
+                                                 <DataTrigger Binding="{Binding IsHistoryVisible}" Value="True">
+                                                     <Setter Property="Foreground" Value="#00E5FF"/>
+                                                 </DataTrigger>
+                                             </Style.Triggers>
+                                         </Style>
+                                     </materialDesign:PackIcon.Style>
+                                 </materialDesign:PackIcon>
+                                 </Button>
+                                 <Button Command="{Binding AddTaskCommand}"
+                                         ToolTip="Agregar Tarea Rápida" Height="30" Width="30" Margin="5,0,0,0"
+                                         Style="{StaticResource MaterialDesignIconButton}"
+                                         Visibility="{Binding IsHistoryVisible, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                      <materialDesign:PackIcon Kind="PlusCircle" Foreground="#00E5FF" Width="26" Height="26"/>
+                                 </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Task Lists -->
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,5,0">
+                        <StackPanel>
+                            <!-- Active Tasks -->
+                            <ItemsControl ItemsSource="{Binding Tasks}" Visibility="{Binding IsHistoryVisible, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#151515" CornerRadius="8" BorderBrush="#252525" BorderThickness="1" Margin="0,0,0,10" Padding="10">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                     <!-- Priority Cycler with Dynamic Icon -->
+                                                     <Button Command="{Binding DataContext.ChangePriorityCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource MaterialDesignIconButton}"
+                                                            Height="24" Width="24" Margin="0,0,5,0"
+                                                            Padding="0" Background="Transparent" BorderThickness="0">
+                                                        <materialDesign:PackIcon Width="16" Height="16">
+                                                            <materialDesign:PackIcon.Style>
+                                                                <Style TargetType="materialDesign:PackIcon">
+                                                                    <Setter Property="Kind" Value="Minus" />
+                                                                    <Setter Property="Foreground" Value="Yellow" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Priority}" Value="Baja">
+                                                                            <Setter Property="Kind" Value="ArrowDown" />
+                                                                            <Setter Property="Foreground" Value="LimeGreen" />
+                                                                        </DataTrigger>
+                                                                         <DataTrigger Binding="{Binding Priority}" Value="Media">
+                                                                            <Setter Property="Kind" Value="Minus" />
+                                                                            <Setter Property="Foreground" Value="Yellow" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding Priority}" Value="Alta">
+                                                                            <Setter Property="Kind" Value="ArrowUp" />
+                                                                            <Setter Property="Foreground" Value="Red" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </materialDesign:PackIcon.Style>
+                                                        </materialDesign:PackIcon>
+                                                    </Button>
+
+                                                    <!-- Checkbox (Safe Standard Style) -->
+                                                    <CheckBox IsChecked="{Binding IsCompleted}" 
+                                                              VerticalAlignment="Center">
+                                                        <CheckBox.LayoutTransform>
+                                                            <ScaleTransform ScaleX="1.2" ScaleY="1.2"/>
+                                                        </CheckBox.LayoutTransform>
+                                                    </CheckBox>
+                                                </StackPanel>
+                                                
+                                                <!-- Editable Title -->
+                                                <TextBox Grid.Column="1" 
+                                                         Text="{Binding Title, UpdateSourceTrigger=LostFocus}" 
+                                                         FontSize="13" 
+                                                         Foreground="#DDD" 
+                                                         BorderThickness="0" 
+                                                         Background="Transparent"
+                                                         VerticalAlignment="Center"
+                                                         TextWrapping="Wrap"
+                                                         AcceptsReturn="True">
+                                                    <TextBox.Style>
+                                                        <Style TargetType="TextBox" BasedOn="{StaticResource MaterialDesignTextBox}">
+                                                            <Setter Property="materialDesign:TextFieldAssist.DecorationVisibility" Value="Hidden"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                                                    <Setter Property="Opacity" Value="0.5"/>
+                                                                    <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBox.Style>
+                                                </TextBox>
+
+                                                <!-- Delete Button -->
+                                                <Button Grid.Column="2" 
+                                                        Command="{Binding DataContext.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource MaterialDesignIconButton}" Height="24" Width="24" Foreground="#444" Margin="10,0,0,0">
+                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="16" Height="16"/>
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            
+                            <!-- History List (Trash) -->
+                             <ItemsControl ItemsSource="{Binding HistoryTasks}" Visibility="{Binding IsHistoryVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,10">
+                                            <Rectangle Stroke="#333" StrokeThickness="1" StrokeDashArray="4 2" RadiusX="8" RadiusY="8" Fill="Transparent"/>
+                                            <Grid Margin="15,12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Title}" FontSize="13" TextDecorations="Strikethrough" Foreground="#666" TextWrapping="Wrap"/>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                        <TextBlock Text="ELIMINADO:" FontSize="9" Foreground="#444" FontWeight="Bold" Margin="0,0,4,0"/>
+                                                        <TextBlock Text="{Binding DeletedAt, StringFormat={}{0:yyyy-MM-dd}}" FontSize="9" Foreground="#555"/>
+                                                        <TextBlock Text="•" FontSize="9" Foreground="#444" Margin="5,0"/>
+                                                        <TextBlock Text="{Binding DaysRemaining, StringFormat='{}{0} DÍAS RESTANTES'}" FontSize="9" Foreground="#FF4444" FontWeight="Bold"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+
+                                                <Button Grid.Column="1" 
+                                                        Command="{Binding DataContext.RestoreTaskCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip="Restaurar Tarea"
+                                                        Style="{StaticResource MaterialDesignIconButton}" Height="30" Width="30" Foreground="#00E5FF">
+                                                    <materialDesign:PackIcon Kind="Restore" Width="20" Height="20"/>
+                                                </Button>
+                                            </Grid>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            
+                            <!-- Empty States -->
+                            <StackPanel Margin="0,40,0,0" HorizontalAlignment="Center" Opacity="0.3" Visibility="{Binding Tasks.Count, Converter={StaticResource ZeroCountToVisibilityConverter}, FallbackValue=Collapsed}">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsHistoryVisible}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <materialDesign:PackIcon Kind="ClipboardCheckOutline" Width="40" Height="40" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Todo al día" Margin="0,10,0,0" FontSize="12"/>
+                            </StackPanel>
+
+                             <StackPanel Margin="0,40,0,0" HorizontalAlignment="Center" Opacity="0.3">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding IsHistoryVisible}" Value="True"/>
+                                                    <Condition Binding="{Binding HistoryTasks.Count}" Value="0"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <materialDesign:PackIcon Kind="DeleteEmptyOutline" Width="40" Height="40" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Papelera vacía" Margin="0,10,0,0" FontSize="12"/>
+                            </StackPanel>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- COL 2: DEPLOYMENT QUEUE -->
+                <Grid Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Grid Margin="0,0,0,15">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="DatabaseExport" Foreground="#D500F9" Width="22" Height="22" VerticalAlignment="Center"/>
+                            <TextBlock Text="DEPLOYMENT QUEUE" Foreground="#EEE" FontWeight="Bold" FontSize="14" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        
+                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                             <Button Style="{StaticResource MaterialDesignIconButton}" 
+                                     Click="BtnAddAsset_Click"
+                                     ToolTip="Vincular Archivos" Height="30" Width="30">
+                                 <materialDesign:PackIcon Kind="PlusCircle" Foreground="#D500F9" Width="26" Height="26"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Drop Zone / Manual Add -->
+                    <Button Grid.Row="1" Height="90" Margin="0,0,0,20"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            Padding="0"
+                            Click="BtnAddAsset_Click"
+                            AllowDrop="True">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Grid Cursor="Hand">
+                                    <Rectangle Stroke="#333" StrokeThickness="2" StrokeDashArray="4 4" RadiusX="8" RadiusY="8" Fill="#08FFFFFF"/>
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <materialDesign:PackIcon Kind="FileUploadOutline" Width="32" Height="32" HorizontalAlignment="Center" Foreground="#555"/>
+                                        <TextBlock Text="ARRASTRAR O VINCULAR" Margin="0,8,0,0" Foreground="#555" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Asset List -->
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,5,0">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding DeploymentQueue}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#151515" CornerRadius="8" BorderBrush="#252525" BorderThickness="1" Margin="0,0,0,10" Padding="0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                
+                                                <!-- Icon & Status Strip -->
+                                                <Border Grid.Column="0" Background="#1A1A1A" Width="50" CornerRadius="8,0,0,8" BorderBrush="#252525" BorderThickness="0,0,1,0">
+                                                    <materialDesign:PackIcon Kind="FileCodeOutline" Width="24" Height="24" Foreground="#D500F9" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                </Border>
+                                                
+                                                <!-- Content -->
+                                                <Grid Grid.Column="1" Margin="12,10">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    
+                                                    <TextBlock Text="{Binding FileName}" Foreground="#DDD" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                                    
+                                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
+                                                        <Border Background="#331010" BorderBrush="#FF4444" BorderThickness="1" CornerRadius="3" Padding="6,2" Visibility="{Binding IsPending, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Kind="Exclamation" Width="10" Height="10" Foreground="#FF4444" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="PENDIENTE" FontSize="9" FontWeight="Bold" Foreground="#FF4444" Margin="4,0,0,0"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                         <Border Background="#103310" BorderBrush="#44FF44" BorderThickness="1" CornerRadius="3" Padding="6,2" Visibility="{Binding IsPending, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Kind="Check" Width="10" Height="10" Foreground="#44FF44" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="VINCULADO" FontSize="9" FontWeight="Bold" Foreground="#44FF44" Margin="4,0,0,0"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </StackPanel>
+                                                </Grid>
+                                                
+                                                <!-- Actions -->
+                                                <StackPanel Grid.Column="2" Orientation="Vertical" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                     <Button Command="{Binding DataContext.OpenAssetCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource MaterialDesignIconButton}" Height="24" Width="24" Foreground="#888" ToolTip="Ver en carpeta">
+                                                        <materialDesign:PackIcon Kind="FolderOpenOutline" Width="16" Height="16"/>
+                                                    </Button>
+                                                    <Button Command="{Binding DataContext.RemoveAssetCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource MaterialDesignIconButton}" Height="24" Width="24" Foreground="#FF4444" Margin="0,5,0,0" ToolTip="Desvincular">
+                                                        <materialDesign:PackIcon Kind="LinkVariantOff" Width="16" Height="16"/>
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- Empty State -->
+                            <StackPanel Margin="0,40,0,0" HorizontalAlignment="Center" Opacity="0.3" Visibility="{Binding DeploymentQueue.Count, Converter={StaticResource ZeroCountToVisibilityConverter}, FallbackValue=Collapsed}">
+                                <materialDesign:PackIcon Kind="FolderSearchOutline" Width="40" Height="40" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Cola vacía" Margin="0,10,0,0" FontSize="12"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- COL 3: NOTES & WISDOM -->
+                <Grid Grid.Column="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Margin="0,0,0,15">
+                         <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="NotebookOutline" Foreground="Orange" Width="22" Height="22" VerticalAlignment="Center"/>
+                            <TextBlock Text="NOTAS DE SESIÓN" Foreground="#EEE" FontWeight="Bold" FontSize="14" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                         </StackPanel>
+                         <TextBlock Text="AUTOSAVE: ON" FontSize="9" Foreground="#555" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="Bold"/>
+                    </Grid>
+
+                    <!-- Notes Area -->
+                    <Border Grid.Row="1" Background="#151515" CornerRadius="8" BorderBrush="#252525" BorderThickness="1">
+                        <TextBox Style="{StaticResource MaterialDesignFilledTextBox}"
+                                 VerticalAlignment="Stretch"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 Padding="15"
+                                 FontSize="13"
+                                 TextBlock.LineHeight="22"
+                                 Foreground="#CCC"
+                                 Text="{Binding SessionNotes, UpdateSourceTrigger=PropertyChanged}"
+                                 materialDesign:HintAssist.Hint="Tus apuntes rápidos..."/>
+                    </Border>
+
+                    <!-- Wisdom Widget -->
+                    <Border Grid.Row="2" Margin="0,25,0,0" Background="#0C1518" BorderBrush="#00E5FF" BorderThickness="1,0,0,0" Padding="20,15" CornerRadius="0,6,6,0">
+                         <Border.Effect>
+                             <DropShadowEffect Color="#00E5FF" BlurRadius="10" Opacity="0.1" ShadowDepth="0"/>
+                         </Border.Effect>
+                        <StackPanel>
+                            <TextBlock Text="DEV TIP DE CHAPI" Foreground="#00E5FF" FontWeight="Bold" FontSize="11" Margin="0,0,0,10"/>
+                            <TextBlock Text="{Binding RandomQuote}" 
+                                       TextWrapping="Wrap" 
+                                       FontStyle="Italic" 
+                                       Foreground="#BBB"
+                                       FontSize="13"
+                                       LineHeight="20"/>
+                            
+                            <ProgressBar Value="30" Maximum="100" Height="2" Margin="0,15,0,0" Background="#333" Foreground="#00E5FF" BorderThickness="0"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

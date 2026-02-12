@@ -55,6 +55,7 @@ namespace Chapi
         private Presentation.ViewModels.ChangesViewModel? _changesViewModel;
         private Presentation.ViewModels.HistoryViewModel? _historyViewModel;
         private Presentation.ViewModels.ReleasesViewModel? _releasesViewModel;
+        private Presentation.ViewModels.WorkspaceViewModel? _workspaceViewModel;
         private readonly IGitRepository _gitRepository;
 
         public MainWindow()
@@ -67,10 +68,13 @@ namespace Chapi
             _changesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ChangesViewModel)) as Presentation.ViewModels.ChangesViewModel;
             _historyViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.HistoryViewModel)) as Presentation.ViewModels.HistoryViewModel;
             _releasesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ReleasesViewModel)) as Presentation.ViewModels.ReleasesViewModel;
+            // Manual injection for now as it's a new service
+            _workspaceViewModel = new Presentation.ViewModels.WorkspaceViewModel(new Chapi.Infrastructure.Services.WorkspaceService());
             
             ChangesTab.DataContext = _changesViewModel;
             HistoryTab.DataContext = _historyViewModel;
             TagsTab.DataContext = _releasesViewModel;
+            WorkspaceTab.DataContext = _workspaceViewModel;
 
             Msg.Assistant("👋 ¡Hey! Soy Chapi 🤖 Tu dev buddy para arquitectura.");
 
@@ -284,7 +288,11 @@ namespace Chapi
                         if (token.IsCancellationRequested) return;
                         
                         await Dispatcher.InvokeAsync(async () => {
-                            if (!token.IsCancellationRequested) await LoadHistoryAsync();
+                            if (!token.IsCancellationRequested) 
+                            {
+                                await LoadHistoryAsync();
+                                await LoadWorkspaceAsync();
+                            }
                         });
                         
                         if (token.IsCancellationRequested) return;
@@ -379,6 +387,12 @@ namespace Chapi
             if (string.IsNullOrEmpty(projectDirectory) || _historyViewModel == null) return;
             _historyViewModel.ProjectPath = projectDirectory;
             await _historyViewModel.ReloadHistoryAsync();
+        }
+
+        private async Task LoadWorkspaceAsync()
+        {
+            if (string.IsNullOrEmpty(projectDirectory) || _workspaceViewModel == null) return;
+            await _workspaceViewModel.InitializeAsync(projectDirectory);
         }
 
         private async Task CheckBranchStatusAsync()
