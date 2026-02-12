@@ -7,16 +7,26 @@ using Chapi.Application.Interfaces.Workspace;
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities.Workspace;
 using System.Collections.Generic;
+using Chapi.Infrastructure.AI;
 
 namespace Chapi.Infrastructure.Services;
 
 public class WorkspaceService : IWorkspaceService
 {
     private readonly string _appDataPath;
+    private readonly string _tipsCachePath;
+
+    private class DailyTipsCache
+    {
+        public DateTime Date { get; set; }
+        public List<string> Tips { get; set; } = new();
+    }
 
     public WorkspaceService()
     {
         _appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ChapiAssistant", "Workspaces");
+        _tipsCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ChapiAssistant", "daily_tips.json");
+        
         if (!Directory.Exists(_appDataPath))
         {
             Directory.CreateDirectory(_appDataPath);
@@ -88,9 +98,7 @@ public class WorkspaceService : IWorkspaceService
                             data.Tasks.Add(task);
                         }
                     }
-                    catch (Exception ex)
-                    {
-                    }
+                    catch { }
                 }
             }
             
@@ -149,12 +157,9 @@ public class WorkspaceService : IWorkspaceService
                     {
                         try 
                         {
-                            File.Delete(file); 
+                             File.Delete(file); 
                         }
-                        catch (Exception ex) 
-                        {
-                          
-                        }
+                        catch { }
                     }
                 }
             }
@@ -169,25 +174,78 @@ public class WorkspaceService : IWorkspaceService
 
     public async Task<Result<string>> GetRandomQuoteAsync()
     {
-        // Simulating async for future API call
-        await Task.Yield();
-        
-        var quotes = new List<string>
+        // 1. Try to load from cache
+        try
         {
-            "La vida tiene su propio backend: son esas conexiones ocultas que hacen que todo funcione sin que lo notes.",
+            if (File.Exists(_tipsCachePath))
+            {
+                var json = await File.ReadAllTextAsync(_tipsCachePath);
+                var cache = JsonSerializer.Deserialize<DailyTipsCache>(json);
+
+                if (cache != null && cache.Date.Date == DateTime.Today && cache.Tips.Any())
+                {
+                    var random = new Random();
+                    return Result<string>.Success(cache.Tips[random.Next(cache.Tips.Count)]);
+                }
+            }
+        }
+        catch { /* Ignore */ }
+
+        // 2. Fallback
+        var fallbackTips = new List<string>
+        {
+            "La vida tiene su propio backend: son esas conexiones ocultas que hacen que todo funcione.",
             "El código limpio es como un buen chiste: si tienes que explicarlo, es malo.",
             "Hay dos formas de escribir programas sin errores; solo la tercera funciona.",
             "Primero resuelve el problema. Luego, escribe el código.",
             "La simplicidad es el alma de la eficiencia.",
             "No documentes el problema, soluciónalo.",
-            "Si no está probado, está roto.",
-            "Refactorizar es como limpiar tu habitación: nadie quiere hacerlo, pero se siente genial cuando terminas.",
-            "Los bugs son solo features no documentadas... o eso dicen.",
-            "Un buen programador es alguien que mira a ambos lados antes de cruzar una calle de sentido único."
+            "Refactorizar es como limpiar tu habitación: nadie quiere hacerlo, pero se siente genial.",
+            "Un buen programador mira a ambos lados antes de cruzar una calle de sentido único."
         };
 
-        var random = new Random();
-        return Result<string>.Success(quotes[random.Next(quotes.Count)]);
+        // 3. Trigger background refresh
+        _ = Task.Run(() => RefreshDailyTipsAsync());
+
+        var rnd = new Random();
+        return Result<string>.Success(fallbackTips[rnd.Next(fallbackTips.Count)]);
+    }
+
+    private async Task RefreshDailyTipsAsync()
+    {
+        try
+        {
+            // Simple check to avoid spamming if cache is fresh enough
+            if (File.Exists(_tipsCachePath))
+            {
+                var lastWrite = File.GetLastWriteTime(_tipsCachePath);
+                if (lastWrite.Date == DateTime.Today) return;
+            }
+
+            var prompt = "Genera un JSON array de strings con 10 consejos cortos (máx 15 palabras), ingeniosos, modernos y útiles sobre desarrollo de software, clean code, arquitectura o vida dev. En español. Solo el JSON array puro.";
+            
+            var response = await AIClient.SendPromptAsync(prompt);
+            
+            if (string.IsNullOrWhiteSpace(response)) return;
+
+            // Clean up potentially wrapped JSON
+            response = response.Replace("```json", "").Replace("```", "").Trim();
+            
+            var tips = JsonSerializer.Deserialize<List<string>>(response);
+            
+            if (tips != null && tips.Any())
+            {
+                var cache = new DailyTipsCache
+                {
+                    Date = DateTime.Today,
+                    Tips = tips
+                };
+                
+                var json = JsonSerializer.Serialize(cache);
+                await File.WriteAllTextAsync(_tipsCachePath, json);
+            }
+        }
+        catch { }
     }
 
     public Result OpenFileInExplorer(string filePath)
@@ -197,9 +255,7 @@ public class WorkspaceService : IWorkspaceService
             if (string.IsNullOrWhiteSpace(filePath))
                 return Result.Fail("Ruta de archivo vacía");
 
-            // Check if file exists, if not check directory
             string argument = "/select, \"" + filePath + "\"";
-            
             Process.Start("explorer.exe", argument);
             return Result.Success();
         }

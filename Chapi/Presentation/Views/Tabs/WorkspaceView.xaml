@@ -452,8 +452,8 @@
                     <!-- Bottom Widgets -->
                     <StackPanel Grid.Row="2" Margin="0,25,0,0">
                         
-                        <!-- Wisdom Widget (Clean) -->
-                        <Border Background="#0C1518" BorderBrush="#00E5FF" BorderThickness="1,0,0,0" Padding="20,15" CornerRadius="0,6,6,0"
+                        <!-- Wisdom Widget (Standard) -->
+                        <Border Background="#151515" BorderBrush="#252525" BorderThickness="1" CornerRadius="8" Padding="15"
                                 TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" Margin="0,0,0,20">
                             <StackPanel>
                                 <TextBlock Text="DEV TIP DE CHAPI" Foreground="#00E5FF" FontWeight="Bold" FontSize="11" Margin="0,0,0,10"/>
