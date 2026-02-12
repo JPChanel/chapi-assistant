@@ -5,8 +5,6 @@ using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
 using LibGit2Sharp;
 using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Chapi.Infrastructure.Git;
 
@@ -51,7 +49,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             try
             {
                 using var repo = new Repository(projectPath);
-                
+
                 // Stage files
                 Commands.Stage(repo, files);
 
@@ -135,7 +133,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             {
                 using var repo = new Repository(projectPath);
                 var localBranch = repo.Branches[branch];
-                
+
                 if (localBranch == null)
                     return new HashSet<string>();
 
@@ -143,7 +141,7 @@ public partial class LibGit2SharpRepository : IGitRepository
 
                 if (trackingBranch == null)
                     return new HashSet<string>();
-                
+
                 // Obtener commits locales que no están en el remoto
                 var filter = new CommitFilter
                 {
@@ -375,7 +373,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             {
                 using var repo = new Repository(projectPath);
                 var branch = repo.Branches[branchName];
-                
+
                 // Si la rama no existe localmente, intentar buscarla en remotos y crearla
                 if (branch == null)
                 {
@@ -394,7 +392,7 @@ public partial class LibGit2SharpRepository : IGitRepository
 
                 // Checkout
                 var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.None }; // None = Fail on conflict (default behaviors)
-                
+
                 // Intentar checkout
                 Commands.Checkout(repo, branch, options);
 
@@ -424,10 +422,10 @@ public partial class LibGit2SharpRepository : IGitRepository
             try
             {
                 using var repo = new Repository(projectPath);
-                var target = string.IsNullOrEmpty(fromCommitOrBranch) 
-                    ? repo.Head.Tip 
+                var target = string.IsNullOrEmpty(fromCommitOrBranch)
+                    ? repo.Head.Tip
                     : (repo.Branches[fromCommitOrBranch]?.Tip ?? repo.Lookup<Commit>(fromCommitOrBranch));
-                
+
                 if (target == null) return Result.Fail("Origen de rama no encontrado");
 
                 repo.Branches.Add(branchName, target);
@@ -444,7 +442,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             try
             {
                 using var repo = new Repository(projectPath);
-                
+
                 // 1. Borrar LOCAL
                 var branch = repo.Branches[branchName];
                 if (branch == null) return Result.Fail("Rama local no encontrada");
@@ -452,10 +450,10 @@ public partial class LibGit2SharpRepository : IGitRepository
                 if (branch.IsCurrentRepositoryHead) return Result.Fail("No se puede eliminar la rama actual. Cambia de rama primero.");
 
                 repo.Branches.Remove(branch);
-                
+
                 // Verificar local
                 if (repo.Branches[branchName] != null) return Result.Fail("No se pudo eliminar la rama (posiblemente bloqueada).");
-                
+
                 // 2. Borrar REMOTO
                 if (deleteRemote)
                 {
@@ -463,15 +461,15 @@ public partial class LibGit2SharpRepository : IGitRepository
                     var remote = repo.Network.Remotes["origin"];
                     if (remote != null)
                     {
-                         // Obtener credenciales (reutilizando logica interna si es posible o asumiendo que ya estan cacheadas por git credential manager)
-                         // LibGit2Sharp requiere explicitamente credenciales para Network operations si no es Public.
-                         // Por simplicidad, intentamos usar el helper GetCredentialsAsync
-                         var creds = await GetCredentialsAsync(remote.Url);
-                         
-                         var options = new PushOptions { CredentialsProvider = (_url, _user, _cred) => creds };
-                         
-                         // Push con refspec vacio para borrar: :refs/heads/branchName
-                         repo.Network.Push(remote, $":refs/heads/{branchName}", options);
+                        // Obtener credenciales (reutilizando logica interna si es posible o asumiendo que ya estan cacheadas por git credential manager)
+                        // LibGit2Sharp requiere explicitamente credenciales para Network operations si no es Public.
+                        // Por simplicidad, intentamos usar el helper GetCredentialsAsync
+                        var creds = await GetCredentialsAsync(remote.Url);
+
+                        var options = new PushOptions { CredentialsProvider = (_url, _user, _cred) => creds };
+
+                        // Push con refspec vacio para borrar: :refs/heads/branchName
+                        repo.Network.Push(remote, $":refs/heads/{branchName}", options);
                     }
                 }
 
@@ -489,7 +487,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             {
                 using var repo = new Repository(projectPath);
                 var commit = repo.Lookup<Commit>(target);
-                
+
                 // Si el target termina en "^", buscamos el padre
                 if (target.EndsWith("^") && commit == null)
                 {
@@ -500,7 +498,8 @@ public partial class LibGit2SharpRepository : IGitRepository
 
                 if (commit == null) return Result.Fail("Commit no encontrado: " + target);
 
-                LibGit2Sharp.ResetMode libMode = mode switch {
+                LibGit2Sharp.ResetMode libMode = mode switch
+                {
                     Chapi.Domain.Enums.ResetMode.Soft => LibGit2Sharp.ResetMode.Soft,
                     Chapi.Domain.Enums.ResetMode.Mixed => LibGit2Sharp.ResetMode.Mixed,
                     Chapi.Domain.Enums.ResetMode.Hard => LibGit2Sharp.ResetMode.Hard,
@@ -545,7 +544,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                 using var repo = new Repository(projectPath);
                 var path = file.Replace(Path.DirectorySeparatorChar, '/');
                 Patch diff;
-                
+
                 if (string.IsNullOrEmpty(revision) || revision == "HEAD")
                 {
                     diff = repo.Diff.Compare<Patch>(repo.Head.Tip.Tree, DiffTargets.WorkingDirectory, new[] { path });
@@ -557,7 +556,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                     if (parent == null) return string.Empty;
                     diff = repo.Diff.Compare<Patch>(parent.Tree, commit.Tree, new[] { path });
                 }
-                
+
                 return diff.Content;
             }
             catch { return string.Empty; }
@@ -575,7 +574,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             try
             {
                 using var repo = new Repository(projectPath);
-                
+
                 // Si es un repo nuevo sin commits, no hay stats
                 if (repo.Info.IsHeadUnborn) return (0, 0);
 
@@ -584,8 +583,8 @@ public partial class LibGit2SharpRepository : IGitRepository
 
                 // Calcular diff solo para este archivo específico
                 var diff = repo.Diff.Compare<Patch>(
-                    repo.Head.Tip.Tree, 
-                    DiffTargets.WorkingDirectory, 
+                    repo.Head.Tip.Tree,
+                    DiffTargets.WorkingDirectory,
                     new[] { normalizedPath }
                 );
 
@@ -615,7 +614,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                     // Configuración global desde .gitconfig
                     string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
                     if (!File.Exists(globalConfigPath)) return string.Empty;
-                    
+
                     using var config = global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath);
                     return config.Get<string>(key)?.Value ?? string.Empty;
                 }
@@ -625,7 +624,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                     // Como no tenemos projectPath aquí, intentamos global
                     string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
                     if (!File.Exists(globalConfigPath)) return string.Empty;
-                    
+
                     using var config = global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath);
                     return config.Get<string>(key)?.Value ?? string.Empty;
                 }
@@ -687,7 +686,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             if (credentials == null)
                 return Result.Fail("No hay credenciales autenticadas. Por favor inicia sesión.");
 
-            Func<Credentials, Task<Result>> pushAction = async (creds) => 
+            Func<Credentials, Task<Result>> pushAction = async (creds) =>
             {
                 return await Task.Run(() =>
                 {
@@ -711,7 +710,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                         if (localBranch.TrackedBranch == null)
                         {
                             repo.Network.Push(remote, pushRefSpec, options);
-                            repo.Branches.Update(localBranch, 
+                            repo.Branches.Update(localBranch,
                                 b => b.Remote = remote.Name,
                                 b => b.UpstreamBranch = localBranch.CanonicalName);
                         }
@@ -739,7 +738,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             {
                 var providerType = _authFactory.DetectProviderFromUrl(remoteUrl);
                 var authProvider = _authFactory.GetProvider(providerType);
-                
+
                 var refreshResult = await authProvider.RefreshTokenAsync();
                 if (refreshResult.IsSuccess)
                 {
@@ -792,7 +791,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                         };
 
                         var result = Commands.Pull(repo, signature, options);
-                        
+
                         if (result.Status == MergeStatus.Conflicts)
                             return Result.Fail("Conflictos al hacer pull");
 
@@ -812,7 +811,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             {
                 var providerType = _authFactory.DetectProviderFromUrl(remoteUrl);
                 var authProvider = _authFactory.GetProvider(providerType);
-                
+
                 var refreshResult = await authProvider.RefreshTokenAsync();
                 if (refreshResult.IsSuccess)
                 {
@@ -853,7 +852,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                 {
                     using var repo = new Repository(projectPath);
                     var remote = repo.Network.Remotes["origin"];
-                    
+
                     var options = new FetchOptions
                     {
                         CredentialsProvider = (_url, _user, _type) => credentials
@@ -939,7 +938,7 @@ public partial class LibGit2SharpRepository : IGitRepository
         try
         {
             var credentials = await GetCredentialsAsync(url);
-            
+
             return await Task.Run(() =>
             {
                 try
@@ -1006,7 +1005,7 @@ public partial class LibGit2SharpRepository : IGitRepository
     {
         // Con LibGit2Sharp, "git" está embebido en la app.
         // Siempre retornamos true porque nosotros somos el git provider.
-        return true; 
+        return true;
     }
 
     public async Task<bool> HasUpstreamAsync(string projectPath, string branchName)
@@ -1065,7 +1064,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                     // Intentar extraer la rama del mensaje (ej: "WIP on main: ...")
                     string branch = "Unknown";
                     var match = System.Text.RegularExpressions.Regex.Match(stash.Message, @"on ([^:]+):");
-                    if (match.Success) 
+                    if (match.Success)
                         branch = match.Groups[1].Value;
 
                     // Calcular cantidad de archivos (Diff entre stash commit y su primer padre)
@@ -1110,7 +1109,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                 var match = System.Text.RegularExpressions.Regex.Match(stashName, @"\{(\d+)\}");
                 if (!match.Success) return statuses;
                 int index = int.Parse(match.Groups[1].Value);
-                
+
                 var stash = repo.Stashes.ElementAtOrDefault(index);
                 if (stash == null) return statuses;
 
@@ -1145,7 +1144,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             {
                 using var repo = new Repository(projectPath);
                 int idx = index ?? 0;
-                
+
                 var options = new StashApplyOptions
                 {
                     ApplyModifiers = StashApplyModifiers.ReinstateIndex
@@ -1153,7 +1152,7 @@ public partial class LibGit2SharpRepository : IGitRepository
 
                 repo.Stashes.Apply(idx, options);
                 repo.Stashes.Remove(idx);
-                
+
                 return Result.Success();
             }
             catch (Exception ex)
@@ -1256,9 +1255,9 @@ public partial class LibGit2SharpRepository : IGitRepository
                 {
                     using var repo = new Repository(projectPath);
                     var remote = repo.Network.Remotes["origin"];
-                    var options = new PushOptions 
-                    { 
-                        CredentialsProvider = (_url, _user, _types) => creds 
+                    var options = new PushOptions
+                    {
+                        CredentialsProvider = (_url, _user, _types) => creds
                     };
                     // Eliminar tag remoto: :refs/tags/tagName
                     repo.Network.Push(remote, $":refs/tags/{tagName}", options);
@@ -1291,9 +1290,9 @@ public partial class LibGit2SharpRepository : IGitRepository
                 {
                     using var repo = new Repository(projectPath);
                     var remote = repo.Network.Remotes["origin"];
-                    var options = new PushOptions 
-                    { 
-                        CredentialsProvider = (_url, _user, _types) => creds 
+                    var options = new PushOptions
+                    {
+                        CredentialsProvider = (_url, _user, _types) => creds
                     };
                     repo.Network.Push(remote, $"refs/tags/{tagName}", options);
                     return Result.Success();
@@ -1312,7 +1311,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             {
                 using var repo = new Repository(projectPath);
                 var result = new List<GitTagItem>();
-                
+
                 foreach (var tag in repo.Tags.OrderByDescending(t => (t.Annotation?.Tagger.When ?? (t.Target as Commit)?.Author.When)?.DateTime ?? DateTime.MinValue))
                 {
                     var commit = tag.PeeledTarget as Commit;
@@ -1349,7 +1348,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                     if (!map.ContainsKey(sha)) map[sha] = new List<string>();
                     if (!map[sha].Contains(tag.FriendlyName))
                         map[sha].Add(tag.FriendlyName);
-                    
+
                     if (tag.Annotation != null)
                     {
                         var peeledSha = tag.PeeledTarget.Sha;
@@ -1363,7 +1362,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             catch { return new Dictionary<string, List<string>>(); }
         });
     }
-    
+
     // History details
     public async Task<IEnumerable<string>> GetFilesChangedInCommitAsync(string projectPath, string hash)
     {
@@ -1374,9 +1373,9 @@ public partial class LibGit2SharpRepository : IGitRepository
                 using var repo = new Repository(projectPath);
                 var commit = repo.Lookup<Commit>(hash);
                 if (commit == null) return Enumerable.Empty<string>();
-                
+
                 var parent = commit.Parents.FirstOrDefault();
-                if (parent == null) 
+                if (parent == null)
                 {
                     // Primer commit - listar todos los archivos
                     return commit.Tree.Select(e => e.Path).ToList();

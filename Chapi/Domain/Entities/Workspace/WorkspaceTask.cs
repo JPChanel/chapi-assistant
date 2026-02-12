@@ -1,7 +1,6 @@
-using System;
+using Chapi.Domain.Enums;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using Chapi.Domain.Enums;
 
 namespace Chapi.Domain.Entities.Workspace;
 
@@ -14,9 +13,9 @@ public class WorkspaceTask : INotifyPropertyChanged
     private TaskPriority _priority = TaskPriority.Media;
 
     public Guid Id { get; set; } = Guid.NewGuid();
-    
-    public string Title 
-    { 
+
+    public string Title
+    {
         get => _title;
         set
         {
@@ -28,8 +27,8 @@ public class WorkspaceTask : INotifyPropertyChanged
         }
     }
 
-    public bool IsCompleted 
-    { 
+    public bool IsCompleted
+    {
         get => _isCompleted;
         set
         {
@@ -41,8 +40,8 @@ public class WorkspaceTask : INotifyPropertyChanged
         }
     }
 
-    public TaskPriority Priority 
-    { 
+    public TaskPriority Priority
+    {
         get => _priority;
         set
         {
@@ -55,10 +54,10 @@ public class WorkspaceTask : INotifyPropertyChanged
     }
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
-    
+
     // Soft Delete
-    public bool IsDeleted 
-    { 
+    public bool IsDeleted
+    {
         get => _isDeleted;
         set
         {
@@ -71,8 +70,8 @@ public class WorkspaceTask : INotifyPropertyChanged
         }
     }
 
-    public DateTime? DeletedAt 
-    { 
+    public DateTime? DeletedAt
+    {
         get => _deletedAt;
         set
         {
@@ -86,12 +85,12 @@ public class WorkspaceTask : INotifyPropertyChanged
         }
     }
 
-    public int DaysSinceDeletion => DeletedAt.HasValue 
-        ? (DateTime.Now - DeletedAt.Value).Days 
+    public int DaysSinceDeletion => DeletedAt.HasValue
+        ? (DateTime.Now - DeletedAt.Value).Days
         : 0;
 
     public int DaysRemaining => 60 - DaysSinceDeletion;
-    
+
     public bool ShouldBePermanentlyDeleted => IsDeleted && DaysSinceDeletion >= 60;
 
     public event PropertyChangedEventHandler? PropertyChanged;

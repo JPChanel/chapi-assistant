@@ -1,5 +1,4 @@
 ﻿using Chapi.Domain.Interfaces;
-using Chapi.Infrastructure.Services;
 
 
 namespace Chapi.Infrastructure.Services;

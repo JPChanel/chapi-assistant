@@ -1,16 +1,13 @@
-﻿using Chapi.Infrastructure.AI;
+﻿using Chapi.Domain.Models;
 using Chapi.Infrastructure.AI;
+using Chapi.Infrastructure.Common;
+using Chapi.Infrastructure.Persistence.Rollbacks;
 using Chapi.Infrastructure.Roslyn;
-using Chapi.Domain.Models;
 using Chapi.Infrastructure.Services;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-
-using Chapi.Infrastructure.Persistence.Rollbacks;
-using Chapi.Domain.Entities;
-using Chapi.Infrastructure.Common;
 namespace Chapi.Presentation.Views.Agent
 {
     public partial class AddMethodView : Window
@@ -29,7 +26,7 @@ namespace Chapi.Presentation.Views.Agent
         private void LoadModulesAndDetectStyle()
         {
             // 1. Cargar Modulos
-            try 
+            try
             {
                 var modules = FindApiDirectory.GetModuleDirectories(_projectDirectory);
                 cboModulo.ItemsSource = modules;
@@ -43,7 +40,7 @@ namespace Chapi.Presentation.Views.Agent
             // 2. Detectar Estilo de API (Si existe carpeta Endpoints -> Es Ardalis)
             string apiProjectName = Path.GetFileName(_projectDirectory);
             string endpointsPath = Path.Combine(_projectDirectory, apiProjectName, "Endpoints");
-            
+
             if (Directory.Exists(endpointsPath))
             {
                 rbEndpoint.IsChecked = true;
@@ -70,7 +67,7 @@ namespace Chapi.Presentation.Views.Agent
             var metodo = txtMetodo.Text.Trim();
             metodo = string.IsNullOrEmpty(metodo) ? modulo : metodo;
             var bd = (cbobd.SelectedItem as ComboBoxItem)?.Content.ToString();
-            
+
             // Reemplazar / por \ para consistencia en Paths
             modulo = modulo.Replace("/", "\\");
 
@@ -83,7 +80,7 @@ namespace Chapi.Presentation.Views.Agent
 
             // 2. Forzar que el Modulo empiece con mayuscula (Solo la primera letra del path completo o de cada segmento?)
             // Dejamos tal cual por ahora, asumiendo que el usuario elige del combo o escribe bien.
-            
+
             metodo = string.IsNullOrEmpty(metodo) ? Path.GetFileName(modulo) : metodo; // Si es null, usa el nombre de la carpeta final
             // 4. Forzar que el Metodo empiece con mayuscula
             metodo = char.ToUpper(metodo[0]) + metodo.Substring(1);
@@ -259,9 +256,9 @@ namespace Chapi.Presentation.Views.Agent
             string appPath = Path.Combine(_projectDirectory, "Application", modulo);
             string domainPath = Path.Combine(_projectDirectory, "Domain", modulo);
             string infraPath = Path.Combine(_projectDirectory, "Infrastructure", bd, "Repositories", modulo);
-            
+
             bool useEndpoints = rbEndpoint.IsChecked == true;
-            string apiPath = useEndpoints 
+            string apiPath = useEndpoints
                 ? Path.Combine(_projectDirectory, apiProjectName, "Endpoints", modulo)
                 : Path.Combine(_projectDirectory, apiProjectName, "Controllers", modulo);
 
@@ -274,7 +271,7 @@ namespace Chapi.Presentation.Views.Agent
                     try
                     {
                         bool includeAppLayer = chkIncludeAppLayer.IsChecked == true;
-                        
+
                         if (useEndpoints)
                         {
                             rollbackEntry = AddApiEndpointMethod.Add(apiPath, modulo, metodo, nombreMetodo, rollbackEntry, includeAppLayer);
@@ -283,18 +280,18 @@ namespace Chapi.Presentation.Views.Agent
                         {
                             rollbackEntry = AddApiControllerMethod.Add(apiPath, modulo, metodo, nombreMetodo, rollbackEntry);
                         }
-                        
+
                         // Generar Application Layer si NO son Endpoints (Legacy) O si el usuario lo marco explicitamente
                         if (!useEndpoints || includeAppLayer)
                         {
                             // Si es Endpoint (moderno), usamos repositorio generico en el servicio.
                             // Si es Controller (legacy), usamos repositorio especifico.
-                            bool useGenericRepo = useEndpoints; 
+                            bool useGenericRepo = useEndpoints;
                             rollbackEntry = AddApplicationMethod.Add(appPath, modulo, metodo, nombreMetodo, rollbackEntry, useGenericRepo);
                         }
 
                         // 🤖 SI HAY RESULTADO DE IA, USAR GENERACI “N AVANZADA
-                         bool isArdalisStyle = useEndpoints; // Endpoint = Generic Interface. Controller = Specific Interface.
+                        bool isArdalisStyle = useEndpoints; // Endpoint = Generic Interface. Controller = Specific Interface.
 
                         if (aiResult != null)
                         {
@@ -319,11 +316,11 @@ namespace Chapi.Presentation.Views.Agent
                         {
                             var diContent = File.ReadAllText(dependencyInjectionPath);
                             RollbackManager.RecordFileModification(rollbackEntry, dependencyInjectionPath, diContent);
-                            
+
                             // Solo agregamos DI manual si NO son endpoints (Scrutor maneja lo demas, o si el usuario quiere force)
                             // En realidad Scrutor deberia manejar todo, pero mantenemos compatibilidad legacy para controllers
-                            if (!useEndpoints) 
-                            { 
+                            if (!useEndpoints)
+                            {
                                 AddDependencyInjection.Add(dependencyInjectionPath, nombreMetodo, new[] { metodo });
                             }
                         }
@@ -336,7 +333,7 @@ namespace Chapi.Presentation.Views.Agent
                         var tempPath = RollbackManager.GetRollbackFilePathForEntry(rollbackEntry);
                         RollbackManager.CommitTransaction(rollbackEntry);
                         // TODO: Fix ExecuteRollback call - needs RollbackEntry, not string
-                // 
+                        // 
                         throw;
                     }
                 }

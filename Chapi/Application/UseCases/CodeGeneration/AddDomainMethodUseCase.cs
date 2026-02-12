@@ -1,7 +1,6 @@
 using Chapi.Domain.Common;
-using Chapi.Domain.Entities;
-using Chapi.Infrastructure.Roslyn;
 using Chapi.Infrastructure.Persistence.Rollbacks;
+using Chapi.Infrastructure.Roslyn;
 
 namespace Chapi.Application.UseCases.CodeGeneration;
 

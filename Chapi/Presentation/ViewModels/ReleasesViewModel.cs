@@ -40,7 +40,7 @@ public class ReleasesViewModel : ViewModelBase
     }
 
     public ObservableCollection<GitTagItem> Releases { get; }
-    
+
     public ObservableCollection<string> ReleaseNotes
     {
         get => _releaseNotes;
@@ -113,13 +113,14 @@ public class ReleasesViewModel : ViewModelBase
         try
         {
             var releases = await _loadReleasesUseCase.ExecuteAsync(ProjectPath);
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => {
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
                 Releases.Clear();
                 foreach (var release in releases)
                 {
                     Releases.Add(release);
                 }
-                
+
                 if (Releases.Any() && SelectedRelease == null)
                 {
                     SelectedRelease = Releases.First();
@@ -162,7 +163,7 @@ public class ReleasesViewModel : ViewModelBase
 
         if (string.IsNullOrEmpty(tagName) || string.IsNullOrEmpty(ProjectPath)) return;
 
-        var confirm = await Infrastructure.Services.DialogService.ShowConfirmDialog("Eliminar Tag", $"¿Estas seguro de eliminar el tag '{tagName}'?",DialogVariant.Warning, DialogType.Confirm);
+        var confirm = await Infrastructure.Services.DialogService.ShowConfirmDialog("Eliminar Tag", $"¿Estas seguro de eliminar el tag '{tagName}'?", DialogVariant.Warning, DialogType.Confirm);
         if (!confirm) return;
 
         var result = await _deleteTagUseCase.ExecuteAsync(ProjectPath, tagName);
@@ -184,10 +185,10 @@ public class ReleasesViewModel : ViewModelBase
         if (SelectedRelease == null) return;
 
         // Notas de Versión
-        var details = !string.IsNullOrWhiteSpace(SelectedRelease.TagMessage) 
-            ? SelectedRelease.TagMessage 
+        var details = !string.IsNullOrWhiteSpace(SelectedRelease.TagMessage)
+            ? SelectedRelease.TagMessage
             : SelectedRelease.CommitMessage;
-            
+
         if (!string.IsNullOrEmpty(details))
         {
             var lines = details.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
@@ -208,7 +209,7 @@ public class ReleasesViewModel : ViewModelBase
                     ReleaseFiles.Add(file);
                 }
                 FilesCount = ReleaseFiles.Count;
-                
+
                 // Obtener estadísticas reales (additions/deletions)
                 var (adds, dels) = await _getCommitStatsUseCase.ExecuteAsync(ProjectPath, SelectedRelease.CommitHash);
                 Additions = adds;

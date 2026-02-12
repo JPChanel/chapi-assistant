@@ -31,7 +31,7 @@ public class GitLogItem
     public string RelativeDate { get; set; }
     public string Message { get; set; }
 
-    public string Description { get; set; } 
+    public string Description { get; set; }
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
     public bool IsUnpushed { get; set; } = false;
     public List<string> Tags { get; set; } = new List<string>();
@@ -68,17 +68,17 @@ public class ProjectViewModel : System.ComponentModel.INotifyPropertyChanged
     public PackIconKind Icon { get; set; }
 
     private int _ahead;
-    public int Ahead 
-    { 
-        get => _ahead; 
-        set { _ahead = value; OnPropertyChanged(nameof(Ahead)); OnPropertyChanged(nameof(HasAhead)); } 
+    public int Ahead
+    {
+        get => _ahead;
+        set { _ahead = value; OnPropertyChanged(nameof(Ahead)); OnPropertyChanged(nameof(HasAhead)); }
     }
 
     private int _behind;
-    public int Behind 
-    { 
-        get => _behind; 
-        set { _behind = value; OnPropertyChanged(nameof(Behind)); OnPropertyChanged(nameof(HasBehind)); } 
+    public int Behind
+    {
+        get => _behind;
+        set { _behind = value; OnPropertyChanged(nameof(Behind)); OnPropertyChanged(nameof(HasBehind)); }
     }
 
     public bool HasAhead => Ahead > 0;

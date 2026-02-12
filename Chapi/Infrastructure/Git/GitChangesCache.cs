@@ -1,5 +1,5 @@
-using System.Collections.Concurrent;
 using Chapi.Domain.Entities;
+using System.Collections.Concurrent;
 
 namespace Chapi.Infrastructure.Git;
 
@@ -52,7 +52,7 @@ public class GitChangesCache
 
         totalAdditions = cached.TotalAdditions;
         totalDeletions = cached.TotalDeletions;
-        
+
         return true;
     }
 
@@ -76,7 +76,7 @@ public class GitChangesCache
         };
 
         _cache[projectPath] = cached;
-       
+
     }
 
     /// <summary>
@@ -86,7 +86,7 @@ public class GitChangesCache
     {
         if (_cache.TryRemove(projectPath, out _))
         {
-           
+
         }
     }
 

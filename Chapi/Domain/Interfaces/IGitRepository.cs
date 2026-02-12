@@ -42,7 +42,7 @@ public interface IGitRepository
     Task<(int Ahead, int Behind)> GetAheadBehindCountAsync(string projectPath);
     Task<string> GetRemoteUrlAsync(string projectPath, string remoteName = "origin");
     Task<Result> SetRemoteUrlAsync(string projectPath, string remoteName, string url);
-    
+
     Task<IEnumerable<string>> GetFilesChangedInCommitAsync(string projectPath, string hash);
     Task<string> GetFileContentAtCommitAsync(string projectPath, string file, string hash);
     Task<string> GetCommitParentHashAsync(string projectPath, string hash);

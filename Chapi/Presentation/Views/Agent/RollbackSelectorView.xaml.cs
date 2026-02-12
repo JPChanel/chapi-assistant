@@ -1,8 +1,7 @@
-﻿using Chapi.Infrastructure.Services;
+﻿using Chapi.Infrastructure.Persistence.Rollbacks;
+using Chapi.Infrastructure.Services;
 using System.Windows;
 using System.Windows.Controls;
-
-using Chapi.Infrastructure.Persistence.Rollbacks;
 namespace Chapi.Presentation.Views.Agent
 {
     public partial class RollbackSelectorView : Window

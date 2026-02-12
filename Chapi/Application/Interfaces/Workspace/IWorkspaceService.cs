@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities.Workspace;
 

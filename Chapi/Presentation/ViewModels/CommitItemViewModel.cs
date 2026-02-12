@@ -1,5 +1,3 @@
-using System;
-
 namespace Chapi.Presentation.ViewModels;
 
 /// <summary>
@@ -61,7 +59,7 @@ public class CommitItemViewModel : ViewModelBase
     public bool IsSynced
     {
         get => _isSynced;
-        set 
+        set
         {
             if (SetProperty(ref _isSynced, value))
             {
@@ -80,7 +78,7 @@ public class CommitItemViewModel : ViewModelBase
     public System.Collections.ObjectModel.ObservableCollection<string> Tags
     {
         get => _tags;
-        set 
+        set
         {
             if (SetProperty(ref _tags, value))
             {

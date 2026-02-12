@@ -2,7 +2,6 @@
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
 using Chapi.Domain.Interfaces;
-using Chapi.Domain.Models;
 
 using System.IO;
 namespace Chapi.Application.UseCases.Projects;
@@ -27,7 +26,7 @@ public class SwitchProjectUseCase
                 return Result<Project>.Fail("El directorio no existe");
 
             var project = await _projectRepository.GetProjectAsync(projectPath);
-            
+
             if (project == null)
                 return Result<Project>.Fail("Proyecto no encontrado");
 

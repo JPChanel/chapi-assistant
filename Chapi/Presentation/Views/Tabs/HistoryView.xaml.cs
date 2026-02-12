@@ -1,12 +1,8 @@
-﻿using System;
+﻿using Chapi.Presentation.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using System.IO;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using Microsoft.Extensions.DependencyInjection;
-using Chapi.Presentation.ViewModels;
-using Chapi.Infrastructure.Services;
 
 namespace Chapi.Presentation.Views.Tabs;
 
@@ -19,7 +15,7 @@ public partial class HistoryView : UserControl
         InitializeComponent();
     }
 
-    private void History_ContextMenu_Opening(object sender, ContextMenuEventArgs e) 
+    private void History_ContextMenu_Opening(object sender, ContextMenuEventArgs e)
     {
         if (sender is FrameworkElement fe && fe.DataContext is CommitItemViewModel commit)
         {
@@ -36,7 +32,7 @@ public partial class HistoryView : UserControl
             }
         }
     }
-    
+
     private void History_ResetSoft_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuItem menuItem && menuItem.CommandParameter is CommitItemViewModel commit)
@@ -48,7 +44,7 @@ public partial class HistoryView : UserControl
             }
 
             _viewModel?.ResetSoftCommand.Execute(commit);
-            
+
             // Actualizar estado global (flechitas y botón push)
             MainWindow.Instance?.Dispatcher.InvokeAsync(async () => await MainWindow.Instance.UpdateProjectStatusesAsync());
         }
@@ -73,9 +69,9 @@ public partial class HistoryView : UserControl
     {
         string path = GetPathFromMenuItem(sender);
         if (string.IsNullOrEmpty(path)) return;
-        
-        try 
-        { 
+
+        try
+        {
             // Normalizar ruta para Windows
             path = path.Replace('/', '\\');
 
@@ -170,9 +166,9 @@ public partial class HistoryView : UserControl
             {
                 var gitRepo = App.ServiceProvider.GetRequiredService<Chapi.Domain.Interfaces.IGitRepository>();
                 var remoteUrl = await gitRepo.GetRemoteUrlAsync(_viewModel.ProjectPath, "origin");
-                
+
                 if (string.IsNullOrEmpty(remoteUrl)) return;
-                
+
                 remoteUrl = remoteUrl.Replace(".git", "");
                 if (remoteUrl.StartsWith("git@"))
                 {

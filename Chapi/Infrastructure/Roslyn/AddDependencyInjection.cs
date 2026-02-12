@@ -1,9 +1,8 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using Chapi.Infrastructure.Services;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.IO;
-
-using Chapi.Infrastructure.Services;
 namespace Chapi.Infrastructure.Roslyn;
 
 public class AddDependencyInjection

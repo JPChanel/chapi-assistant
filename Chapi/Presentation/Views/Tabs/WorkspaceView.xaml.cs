@@ -1,8 +1,7 @@
-using System;
+using Chapi.Presentation.ViewModels;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
-using Microsoft.Win32;
-using Chapi.Presentation.ViewModels;
 
 namespace Chapi.Presentation.Views.Tabs;
 

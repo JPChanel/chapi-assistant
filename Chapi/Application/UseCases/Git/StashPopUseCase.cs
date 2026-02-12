@@ -32,7 +32,7 @@ public class StashPopUseCase
             _notificationService.ShowInfo("Aplicando cambios del stash...");
 
             var result = await _gitRepo.StashPopAsync(projectPath, stashIndex);
-            
+
             if (!result.IsSuccess)
             {
                 if (result.Error.Contains("conflict", StringComparison.OrdinalIgnoreCase))

@@ -13,7 +13,7 @@ public class ProjectTemplateService : ITemplateService
             await Task.Run(() =>
             {
                 onProgress?.Invoke("Renombrando carpetas...");
-                
+
                 // Renombrar directorios (de abajo hacia arriba para no perder la ruta)
                 var directories = Directory.GetDirectories(path, "*", SearchOption.AllDirectories)
                                            .OrderByDescending(d => d.Length);
@@ -25,7 +25,7 @@ public class ProjectTemplateService : ITemplateService
                         var parent = Path.GetDirectoryName(dir);
                         var newDirName = Path.GetFileName(dir).Replace(oldName, newName);
                         var newDirPath = Path.Combine(parent, newDirName);
-                        
+
                         if (!Directory.Exists(newDirPath))
                         {
                             Directory.Move(dir, newDirPath);
@@ -57,7 +57,7 @@ public class ProjectTemplateService : ITemplateService
                         var parent = Path.GetDirectoryName(archivo);
                         var nuevoNombre = Path.GetFileName(archivo).Replace(oldName, newName);
                         var nuevoRuta = Path.Combine(parent, nuevoNombre);
-                        
+
                         if (!File.Exists(nuevoRuta))
                         {
                             File.Move(archivo, nuevoRuta);

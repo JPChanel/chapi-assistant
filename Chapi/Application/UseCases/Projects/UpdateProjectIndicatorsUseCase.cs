@@ -21,7 +21,7 @@ public class UpdateProjectIndicatorsUseCase
 
             // 2. Fetch silencioso en segundo plano (Lento)
             await _gitRepository.FetchAsync(projectPath);
-            
+
             // 3. Volver a obtener indicadores tras el fetch
             var finalCounts = await _gitRepository.GetAheadBehindCountAsync(projectPath);
             onUpdated?.Invoke(finalCounts.Ahead, finalCounts.Behind);

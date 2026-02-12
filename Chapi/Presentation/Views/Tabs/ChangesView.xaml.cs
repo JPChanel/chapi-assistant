@@ -1,20 +1,11 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Text.Json;
-using System.IO;
-using System.Windows.Data;
-using System.Globalization;
-using Chapi.Presentation.ViewModels;
-using Chapi.Domain.Entities;
-
-using Chapi.Infrastructure.Git;
-using Chapi.Application.UseCases;
+﻿using Chapi.Domain.Entities;
 using Chapi.Infrastructure.Services;
+using Chapi.Presentation.ViewModels;
 using Chapi.Presentation.Views.Dialogs;
 using DiffPlex.DiffBuilder.Model;
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
 
 namespace Chapi.Presentation.Views.Tabs;
 
@@ -44,7 +35,7 @@ public partial class ChangesView : UserControl
     private async void btnGitCommitIA_Click(object sender, RoutedEventArgs e)
     {
         if (_viewModel == null) return;
-        await MainWindow.Instance.RunWithLoading(async () => 
+        await MainWindow.Instance.RunWithLoading(async () =>
         {
             await _viewModel.GenerateCommitMessageCommand.ExecuteAsync(null);
         });
@@ -58,10 +49,10 @@ public partial class ChangesView : UserControl
     private async void DiscardAllChangesMenuItem_Click(object sender, RoutedEventArgs e)
     {
         var result = await DialogService.ShowConfirmDialog(
-            "Confirmar Descarte", 
-            "¿Estás seguro de que deseas descartar TODOS los cambios? Esta acción no se puede deshacer.", 
+            "Confirmar Descarte",
+            "¿Estás seguro de que deseas descartar TODOS los cambios? Esta acción no se puede deshacer.",
             DialogVariant.Warning);
-                                   
+
         if (result && _viewModel != null)
         {
             await _viewModel.DiscardAllCommand.ExecuteAsync(null);
@@ -127,7 +118,7 @@ public partial class ChangesView : UserControl
     {
         string path = GetPathFromMenuItem(sender);
         if (string.IsNullOrEmpty(path)) return;
-        
+
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -169,7 +160,7 @@ public partial class ChangesView : UserControl
         }
     }
 
-    private void StashView_RestoreButton_Click(object sender, RoutedEventArgs e) 
+    private void StashView_RestoreButton_Click(object sender, RoutedEventArgs e)
     {
         if (_viewModel?.SelectedStash is GitStash stash)
         {
@@ -183,17 +174,17 @@ public partial class ChangesView : UserControl
         var latestStash = _viewModel?.Stashes?.FirstOrDefault();
         if (latestStash != null)
         {
-             _viewModel.PopStashCommand.Execute(latestStash);
+            _viewModel.PopStashCommand.Execute(latestStash);
         }
     }
 
-    private async void StashView_DiscardButton_Click(object sender, RoutedEventArgs e) 
+    private async void StashView_DiscardButton_Click(object sender, RoutedEventArgs e)
     {
         if (_viewModel?.SelectedStash is GitStash stash)
         {
             var result = await DialogService.ShowConfirmDialog(
-                "Confirmar Eliminación", 
-                $"¿Estás seguro de que deseas eliminar el stash '{stash.Message}'?", 
+                "Confirmar Eliminación",
+                $"¿Estás seguro de que deseas eliminar el stash '{stash.Message}'?",
                 DialogVariant.Warning);
 
             if (result)
@@ -204,7 +195,7 @@ public partial class ChangesView : UserControl
         }
     }
 
-    private void StashView_BackButton_Click(object sender, RoutedEventArgs e) 
+    private void StashView_BackButton_Click(object sender, RoutedEventArgs e)
     {
         if (_viewModel != null) _viewModel.IsStashViewVisible = false;
     }
@@ -215,7 +206,7 @@ public partial class ChangesView : UserControl
     }
 
     private void DiffLine_ContextMenuOpening(object sender, ContextMenuEventArgs e) { }
-    private void DiffLineMenu_OpenFile_Click(object sender, RoutedEventArgs e) 
+    private void DiffLineMenu_OpenFile_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuItem mi && mi.DataContext is DiffPiece line && _viewModel?.SelectedChange != null)
         {
@@ -240,7 +231,7 @@ public partial class ChangesView : UserControl
     {
         string projectName = new DirectoryInfo(projectPath).Name;
         string fullPath = Path.Combine(projectPath, filePath);
-        
+
         bool isDotNet = IsDotNetProject(projectPath, filePath);
 
         if (isDotNet)
@@ -259,14 +250,14 @@ public partial class ChangesView : UserControl
         var processes = System.Diagnostics.Process.GetProcesses();
 
         var activeEditor = processes
-            .Where(p => 
+            .Where(p =>
             {
                 try
                 {
-                    bool isMajorEditor = p.ProcessName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) || 
-                                         p.ProcessName.Equals("Code", StringComparison.OrdinalIgnoreCase) || 
+                    bool isMajorEditor = p.ProcessName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) ||
+                                         p.ProcessName.Equals("Code", StringComparison.OrdinalIgnoreCase) ||
                                          p.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase);
-                    
+
                     if (!isMajorEditor || string.IsNullOrEmpty(p.MainWindowTitle)) return false;
 
                     if (p.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase))
@@ -278,7 +269,7 @@ public partial class ChangesView : UserControl
                 }
                 catch { return false; }
             })
-            .OrderBy(p => 
+            .OrderBy(p =>
             {
                 if (isDotNet)
                 {
@@ -290,12 +281,12 @@ public partial class ChangesView : UserControl
                 {
                     if (p.ProcessName.Contains("Antigravity")) return 0;
                     if (p.ProcessName.Equals("Code", StringComparison.OrdinalIgnoreCase)) return 1;
-                    return 2; 
+                    return 2;
                 }
             })
             .FirstOrDefault();
 
-        bool isWsl = projectPath.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) || 
+        bool isWsl = projectPath.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) ||
                      projectPath.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase);
 
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -307,7 +298,7 @@ public partial class ChangesView : UserControl
             {
                 string? slnFile = null;
                 string? currentDir = Path.GetDirectoryName(fullPath);
-                
+
                 while (!string.IsNullOrEmpty(currentDir) && currentDir.StartsWith(projectPath, StringComparison.OrdinalIgnoreCase))
                 {
                     slnFile = Directory.EnumerateFiles(currentDir, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
@@ -320,7 +311,7 @@ public partial class ChangesView : UserControl
 
                 if (slnFile == null)
                     slnFile = Directory.EnumerateFiles(projectPath, "*.sln", SearchOption.AllDirectories).FirstOrDefault();
-                
+
                 if (slnFile != null)
                 {
                     string devenvPath = GetVisualStudioPath(activeEditor);
@@ -350,7 +341,7 @@ public partial class ChangesView : UserControl
         else
         {
             string editorExe = "code";
-            if (activeEditor?.ProcessName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) == true || 
+            if (activeEditor?.ProcessName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) == true ||
                 (activeEditor == null && File.Exists(agyExePath)))
             {
                 editorExe = agyExePath;

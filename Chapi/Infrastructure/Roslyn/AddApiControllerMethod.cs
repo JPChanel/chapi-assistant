@@ -1,13 +1,12 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using Chapi.Infrastructure.Persistence.Rollbacks;
+using Chapi.Infrastructure.Services;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.IO;
 using static Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager;
-using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
-
-using Chapi.Infrastructure.Persistence.Rollbacks;
-using Chapi.Infrastructure.Services;
 using static Chapi.Infrastructure.Roslyn.GenerationStandards;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Chapi.Infrastructure.Roslyn;
 

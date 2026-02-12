@@ -1,22 +1,17 @@
-﻿using Chapi.Infrastructure.Git;
-using Chapi.Domain.Interfaces;
+﻿using Chapi.Domain.Interfaces;
 using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Views.Dialogs;
-using MaterialDesignThemes.Wpf;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
-using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
-using Chapi.Presentation.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media; 
+using System.Windows.Media;
 using Velopack;
 using Velopack.Sources;
 
@@ -808,7 +803,7 @@ namespace Chapi.Presentation.Views.Settings
             }
             catch (Exception ex)
             {
-                
+
             }
         }
 
@@ -831,7 +826,7 @@ namespace Chapi.Presentation.Views.Settings
             {
                 var factory = App.ServiceProvider.GetRequiredService<IGitAuthProviderFactory>();
                 var provider = factory.GetProvider(Chapi.Domain.Enums.GitProvider.GitHub);
-                
+
                 var result = await provider.AuthenticateAsync();
                 if (result.IsSuccess)
                 {
@@ -867,7 +862,7 @@ namespace Chapi.Presentation.Views.Settings
             {
                 var factory = App.ServiceProvider.GetRequiredService<IGitAuthProviderFactory>();
                 var provider = factory.GetProvider(Chapi.Domain.Enums.GitProvider.GitLab);
-                
+
                 var result = await provider.AuthenticateAsync();
                 if (result.IsSuccess)
                 {

@@ -11,7 +11,7 @@ public interface IGitAuthProviderFactory
     /// Obtiene el proveedor específico.
     /// </summary>
     IGitAuthProvider GetProvider(GitProvider provider);
-    
+
     /// <summary>
     /// Detecta el proveedor desde una URL de repositorio.
     /// </summary>

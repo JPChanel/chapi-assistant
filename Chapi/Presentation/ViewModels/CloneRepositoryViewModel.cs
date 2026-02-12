@@ -1,17 +1,12 @@
-using System.Collections.ObjectModel;
-using System.Windows.Input;
-using Chapi.Domain.Common;
+using Chapi.Application.UseCases.Projects;
 using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
-using Chapi.Application.UseCases.Projects;
-using System.Windows.Forms;
-using System.Linq;
-using System;
-using System.IO;
-using System.Threading.Tasks;
-using System.Windows.Data;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Windows;
+using System.IO;
+using System.Windows.Data;
+using System.Windows.Forms;
+using System.Windows.Input;
 
 namespace Chapi.Presentation.ViewModels;
 
@@ -38,7 +33,7 @@ public class CloneRepositoryViewModel : ViewModelBase
     public ObservableCollection<RemoteRepository> GitHubRepos => _githubRepos;
     public ObservableCollection<RemoteRepository> GitLabRepos => _gitlabRepos;
     public ObservableCollection<RemoteRepository> FilteredRepos => _filteredRepos;
-    
+
     public ICollectionView FilteredView { get; }
 
     public bool IsGitHubAuthenticated
@@ -58,11 +53,12 @@ public class CloneRepositoryViewModel : ViewModelBase
     public string SearchText
     {
         get => _searchText;
-        set { 
+        set
+        {
             if (SetProperty(ref _searchText, value))
             {
                 _searchDebounceTimer?.Dispose();
-                _searchDebounceTimer = new System.Threading.Timer(_ => 
+                _searchDebounceTimer = new System.Threading.Timer(_ =>
                 {
                     System.Windows.Application.Current.Dispatcher.Invoke(FilterRepos);
                 }, null, 250, Timeout.Infinite);
@@ -98,7 +94,8 @@ public class CloneRepositoryViewModel : ViewModelBase
     public int SelectedTabIndex
     {
         get => _selectedTabIndex;
-        set {
+        set
+        {
             if (SetProperty(ref _selectedTabIndex, value))
             {
                 OnPropertyChanged(nameof(IsCurrentProviderAuthenticated));
@@ -110,7 +107,8 @@ public class CloneRepositoryViewModel : ViewModelBase
     public RemoteRepository? SelectedRepo
     {
         get => _selectedRepo;
-        set {
+        set
+        {
             if (SetProperty(ref _selectedRepo, value) && value != null)
             {
                 Url = value.CloneUrl;
@@ -139,7 +137,7 @@ public class CloneRepositoryViewModel : ViewModelBase
         LoginCommand = new RelayCommand(ExecuteLogin);
 
         LocalPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "source", "repos");
-        
+
         Task.Run(LoadReposAsync);
     }
 
@@ -158,7 +156,7 @@ public class CloneRepositoryViewModel : ViewModelBase
                 {
                     if (provider == Domain.Enums.GitProvider.GitHub) IsGitHubAuthenticated = true;
                     else if (provider == Domain.Enums.GitProvider.GitLab) IsGitLabAuthenticated = true;
-                    
+
                     OnPropertyChanged(nameof(IsCurrentProviderAuthenticated));
                     await LoadReposAsync();
                 }
@@ -194,23 +192,57 @@ public class CloneRepositoryViewModel : ViewModelBase
     private async Task LoadProviderReposAsync(Domain.Enums.GitProvider provider, ObservableCollection<RemoteRepository> targetList)
     {
         var cred = await _credentialStorage.GetCredentialAsync(provider.ToString());
-        bool isAuthenticated = cred.HasValue && !string.IsNullOrEmpty(cred.Value.token);
-        
-        if (provider == Domain.Enums.GitProvider.GitHub) IsGitHubAuthenticated = isAuthenticated;
-        else if (provider == Domain.Enums.GitProvider.GitLab) IsGitLabAuthenticated = isAuthenticated;
-        
-        OnPropertyChanged(nameof(IsCurrentProviderAuthenticated));
+        string token = cred.HasValue ? cred.Value.token : string.Empty;
+        bool isAuthenticated = !string.IsNullOrEmpty(token);
+
+        if (isAuthenticated)
+        {
+            var authProvider = _authFactory.GetProvider(provider);
+
+            // 1. Validar si el token sigue siendo válido
+            if (!await authProvider.ValidateTokenAsync(token))
+            {
+                // 2. Si no es válido, intentar refrescar (crítico para GitLab que expira)
+                var refreshResult = await authProvider.RefreshTokenAsync();
+                if (refreshResult.IsSuccess)
+                {
+                    token = refreshResult.Data.AccessToken;
+                    // El storage se actualiza dentro de RefreshTokenAsync
+                }
+                else
+                {
+                    isAuthenticated = false;
+                }
+            }
+        }
+
+        // Actualizar estado de autenticación en UI
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            if (provider == Domain.Enums.GitProvider.GitHub) IsGitHubAuthenticated = isAuthenticated;
+            else if (provider == Domain.Enums.GitProvider.GitLab) IsGitLabAuthenticated = isAuthenticated;
+            OnPropertyChanged(nameof(IsCurrentProviderAuthenticated));
+        });
+
         if (!isAuthenticated) return;
 
-        var authProvider = _authFactory.GetProvider(provider);
-        var result = await authProvider.GetRepositoriesAsync(cred.Value.token);
-        
-        if (result.IsSuccess)
+        try
         {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => {
-                targetList.Clear();
-                foreach (var repo in result.Data) targetList.Add(repo);
-            });
+            var authProvider = _authFactory.GetProvider(provider);
+            var result = await authProvider.GetRepositoriesAsync(token);
+
+            if (result.IsSuccess)
+            {
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    targetList.Clear();
+                    foreach (var repo in result.Data) targetList.Add(repo);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+
         }
     }
 
@@ -221,7 +253,7 @@ public class CloneRepositoryViewModel : ViewModelBase
 
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
-            query = query.Where(r => 
+            query = query.Where(r =>
                 (r.FullName?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
                 (r.Name?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false));
         }
@@ -237,7 +269,7 @@ public class CloneRepositoryViewModel : ViewModelBase
     {
         LoadingMessage = "Seleccionando carpeta...";
         IsLoading = true;
-        
+
         // Pequeño delay para que la animación de entrada del overlay se vea suave
         await Task.Delay(50);
 

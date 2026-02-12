@@ -9,12 +9,12 @@ public class BooleanToIconConverter : IValueConverter
     {
         var isTrue = value is bool b && b;
         var icons = parameter?.ToString()?.Split(';');
-        
+
         if (icons?.Length == 2)
         {
             return isTrue ? icons[0] : icons[1];
         }
-        
+
         return isTrue ? "Check" : "Close";
     }
 

@@ -22,7 +22,7 @@ public class LoadChangesUseCase
             return Enumerable.Empty<FileChange>();
 
         var changes = await _gitRepo.GetChangesAsync(projectPath);
-        
+
         // Ordenar por ruta de archivo
         return changes.OrderBy(c => c.FilePath).ToList();
     }

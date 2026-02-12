@@ -1,14 +1,10 @@
 ﻿using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities;
-using System.Collections.ObjectModel;
+using Chapi.Infrastructure.Services;
+using Chapi.Presentation.Views.Dialogs;
 using DiffPlex.DiffBuilder;
 using DiffPlex.DiffBuilder.Model;
-using Chapi.Presentation.Views.Dialogs;
-using Chapi.Infrastructure.Git;
-
-using Chapi.Infrastructure.Services;
-using Chapi.Infrastructure.Persistence.Settings;
-using Chapi.Domain.Enums;
+using System.Collections.ObjectModel;
 namespace Chapi.Presentation.ViewModels;
 
 /// <summary>
@@ -23,7 +19,7 @@ public class HistoryViewModel : ViewModelBase
     private readonly CreateBranchUseCase _createBranchUseCase;
     private readonly CreateTagUseCase _createTagUseCase;
     private readonly Domain.Interfaces.IGitRepository _gitRepository;
-    
+
     private string _projectPath = string.Empty;
     private bool _isLoading;
     private CommitItemViewModel? _selectedCommit;
@@ -50,27 +46,27 @@ public class HistoryViewModel : ViewModelBase
         _createBranchUseCase = createBranchUseCase;
         _createTagUseCase = createTagUseCase;
         _gitRepository = gitRepository;
-        
+
         Commits = new ObservableCollection<CommitItemViewModel>();
         FilesChanged = new ObservableCollection<string>();
         DiffLines = new ObservableCollection<DiffPiece>();
-        
+
         LoadHistoryCommand = new AsyncRelayCommand(async _ => await LoadHistoryAsync());
         RefreshCommand = new AsyncRelayCommand(async _ => await ReloadHistoryAsync());
         LoadMoreCommand = new AsyncRelayCommand(async _ => await LoadMoreHistoryAsync());
-        ResetSoftCommand = new AsyncRelayCommand(async param => 
+        ResetSoftCommand = new AsyncRelayCommand(async param =>
         {
             if (param is CommitItemViewModel commit)
                 await ResetSoftAsync(commit);
         });
 
-        CreateBranchCommand = new AsyncRelayCommand(async param => 
+        CreateBranchCommand = new AsyncRelayCommand(async param =>
         {
             if (param is string hash) await CreateBranchAsync(hash);
             else if (param is CommitItemViewModel commit) await CreateBranchAsync(commit.Hash);
         });
 
-        CreateTagCommand = new AsyncRelayCommand(async param => 
+        CreateTagCommand = new AsyncRelayCommand(async param =>
         {
             if (param is string hash) await CreateTagAsync(hash);
             else if (param is CommitItemViewModel commit) await CreateTagAsync(commit.Hash);
@@ -257,7 +253,7 @@ public class HistoryViewModel : ViewModelBase
                         if (i + j < lines.Count && lines[i + j].Type != ChangeType.Unchanged) { isContext = true; break; }
                     }
                 }
-                
+
                 if (isContext) { filteredLines.Add(line); }
                 else if (filteredLines.Count > 0 && filteredLines.Last().Type != ChangeType.Imaginary)
                 {
@@ -300,13 +296,13 @@ public class HistoryViewModel : ViewModelBase
 
         // Ejecutar reset soft
         var result = await _gitRepository.ResetAsync(ProjectPath, commit.Hash + "^", Chapi.Domain.Enums.ResetMode.Soft);
-        
+
         if (result.IsSuccess)
         {
             Msg.Assistant($"✅ Commit '{commit.ShortHash}' deshecho. Los cambios están en el área de trabajo.");
 
             await ReloadHistoryAsync();
-            
+
             // Notificar que se completo el reset para que los cambios se actualicen
             ResetCompleted?.Invoke(this, EventArgs.Empty);
         }
@@ -343,11 +339,11 @@ public class HistoryViewModel : ViewModelBase
         // Verificar si la rama esta publicada (requerimiento del usuario)
         string currentBranch = await _gitRepository.GetCurrentBranchAsync(ProjectPath);
         bool isPublished = await _gitRepository.HasUpstreamAsync(ProjectPath, currentBranch);
-        
+
         if (!isPublished)
         {
-            await DialogService.ShowConfirmDialog("Rama no publicada", 
-                "Debes publicar la rama antes de crear etiquetas (tags) para asegurar la consistencia con el servidor.", 
+            await DialogService.ShowConfirmDialog("Rama no publicada",
+                "Debes publicar la rama antes de crear etiquetas (tags) para asegurar la consistencia con el servidor.",
                 DialogVariant.Warning, DialogType.Info);
             return;
         }

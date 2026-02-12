@@ -28,7 +28,7 @@ public class DeleteTagUseCase
         try
         {
             _notificationService.ShowInfo($"Eliminando etiqueta '{tagName}'...");
-            
+
             var result = await _gitRepo.DeleteTagLocalAsync(projectPath, tagName);
 
             if (!result.IsSuccess)
@@ -49,7 +49,7 @@ public class DeleteTagUseCase
             {
                 _notificationService.ShowWarning($"⚠️ Etiqueta eliminada localmente, pero falló en remoto: {remoteResult.Error}");
             }
-            
+
             return Result.Success();
         }
         catch (Exception ex)

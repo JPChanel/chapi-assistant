@@ -1,8 +1,4 @@
 using Chapi.Domain.Common;
-using Chapi.Domain.Entities;
-using Chapi.Domain.Enums;
-using Chapi.Domain.Interfaces;
-using Chapi.Domain.Models;
 using LibGit2Sharp;
 using System.IO;
 
@@ -21,10 +17,10 @@ public partial class LibGit2SharpRepository
             try
             {
                 using var repo = new Repository(projectPath);
-                
+
                 // 1. Validar estado
                 if (repo.RetrieveStatus().IsDirty)
-                     return Result.Fail("Cambios locales pendientes. Haz commit o stash antes de fusionar.");
+                    return Result.Fail("Cambios locales pendientes. Haz commit o stash antes de fusionar.");
 
                 var source = repo.Branches[sourceBranchName];
                 if (source == null) return Result.Fail($"Rama '{sourceBranchName}' no encontrada.");
@@ -35,17 +31,17 @@ public partial class LibGit2SharpRepository
                     return Result.Fail("No se ha configurado usuario ni correo en git config (user.name / user.email).");
 
                 // 3. Ejecutar Merge
-                var options = new MergeOptions 
-                { 
+                var options = new MergeOptions
+                {
                     FastForwardStrategy = fastForward ? FastForwardStrategy.Default : FastForwardStrategy.NoFastForward,
-                    FailOnConflict = true 
+                    FailOnConflict = true
                 };
 
                 var mergeResult = repo.Merge(source, signature, options);
 
                 if (mergeResult.Status == MergeStatus.Conflicts)
                 {
-                    repo.Reset(LibGit2Sharp.ResetMode.Hard); 
+                    repo.Reset(LibGit2Sharp.ResetMode.Hard);
                     return Result.Fail("Conflicto de fusión detectado. La operación fue abortada.");
                 }
 
@@ -67,7 +63,7 @@ public partial class LibGit2SharpRepository
                 using var repo = new Repository(projectPath);
 
                 if (repo.RetrieveStatus().IsDirty)
-                     return Result.Fail("Cambios locales pendientes. Haz commit o stash antes.");
+                    return Result.Fail("Cambios locales pendientes. Haz commit o stash antes.");
 
                 var source = repo.Branches[sourceBranchName];
                 if (source == null) return Result.Fail($"Rama '{sourceBranchName}' no encontrada.");
@@ -76,10 +72,10 @@ public partial class LibGit2SharpRepository
                 if (signature == null)
                     return Result.Fail("No se ha configurado usuario ni correo en git config.");
 
-                var options = new MergeOptions 
-                { 
+                var options = new MergeOptions
+                {
                     FastForwardStrategy = FastForwardStrategy.NoFastForward,
-                    CommitOnSuccess = false 
+                    CommitOnSuccess = false
                 };
 
                 var mergeResult = repo.Merge(source, signature, options);
@@ -96,10 +92,10 @@ public partial class LibGit2SharpRepository
                 {
                     File.Delete(mergeHeadPath);
                 }
-                
+
                 var msg = !string.IsNullOrWhiteSpace(commitMessage) ? commitMessage : $"Squash merge from '{sourceBranchName}'";
                 repo.Commit(msg, signature, signature);
-                
+
                 // Limpiar cualquier otro estado
                 if (repo.Info.IsHeadDetached) repo.Reset(LibGit2Sharp.ResetMode.Mixed);
 
@@ -182,7 +178,7 @@ public partial class LibGit2SharpRepository
             try
             {
                 using var repo = new Repository(projectPath);
-                
+
                 // 1. Verificar si hay cambios locales (Dirty State)
                 if (repo.RetrieveStatus().IsDirty)
                 {
@@ -197,24 +193,24 @@ public partial class LibGit2SharpRepository
 
                 // 2. Análisis de Merge (Fast-Forward o UpToDate) usando Divergencia
                 var divergence = repo.ObjectDatabase.CalculateHistoryDivergence(currentBranch.Tip, sourceBranch.Tip);
-                
+
                 // Si la rama fuente está detrás o igual (Author date check podría ser necesario, pero hash check es mejor)
                 if (sourceBranch.Tip.Sha == currentBranch.Tip.Sha)
                 {
                     return (false, "Already up to date");
                 }
-                
+
                 // Si la rama actual está "detrás" de la fuente y "no adelante" (divergencia cero), es FastForward
                 if (divergence.BehindBy > 0 && divergence.AheadBy == 0)
                 {
                     return (false, "Fast-forward possible");
                 }
-                
+
                 // Si la rama actual NO está detrás (Already up to date o Ahead)
                 if (divergence.BehindBy == 0)
                 {
-                     // Si Current está adelante de Source, no hay nada que traer (salvo que sea un rebase invertido)
-                     return (false, "Already up to date (Current is ahead)");
+                    // Si Current está adelante de Source, no hay nada que traer (salvo que sea un rebase invertido)
+                    return (false, "Already up to date (Current is ahead)");
                 }
 
                 return (false, "Merge seems clean");

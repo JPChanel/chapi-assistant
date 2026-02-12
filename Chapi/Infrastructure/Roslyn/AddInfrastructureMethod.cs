@@ -1,13 +1,12 @@
 ﻿using Chapi.Domain.Models;
+using Chapi.Infrastructure.Persistence.Rollbacks;
+using Chapi.Infrastructure.Services;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.IO;
 using System.Text;
 using static Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager;
-
-using Chapi.Infrastructure.Persistence.Rollbacks;
-using Chapi.Infrastructure.Services;
 using static Chapi.Infrastructure.Roslyn.GenerationStandards;
 
 namespace Chapi.Infrastructure.Roslyn;
@@ -27,7 +26,7 @@ public class AddInfrastructureMethod
         // Sanitizar nombres
         string cleanModule = moduleName.Replace(Path.DirectorySeparatorChar, '.').Replace(Path.AltDirectorySeparatorChar, '.');
         string lastModuleSegment = cleanModule.Split('.').Last();
-        
+
         // Limpiar methodName si viene con ruta
         var cleanMethodName = methodName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
         if (cleanMethodName != methodName) methodName = cleanMethodName;
@@ -39,7 +38,7 @@ public class AddInfrastructureMethod
 
         if (!Directory.Exists(projectPath))
             Directory.CreateDirectory(projectPath);
-            
+
         // Generar DTO (Siempre, ya que la clase repositorio lo referencia)
         var dtoPath = Path.Combine(projectPath, "Dto");
         if (!Directory.Exists(dtoPath))
@@ -73,15 +72,15 @@ public class AddInfrastructureMethod
         return rollbackEntry!;
     }
 
-private static async Task AddMethodToExistingClass(
-        string filePath,
-        GenerationStandards.OperationConfig config,
-        string operation,
-        string moduleName,
-        string lastModuleSegment,
-        string methodName,
-        SPAnalysisResult? aiResult,
-        bool isArdalisStyle)
+    private static async Task AddMethodToExistingClass(
+            string filePath,
+            GenerationStandards.OperationConfig config,
+            string operation,
+            string moduleName,
+            string lastModuleSegment,
+            string methodName,
+            SPAnalysisResult? aiResult,
+            bool isArdalisStyle)
     {
         var code = await File.ReadAllTextAsync(filePath);
         var syntaxTree = CSharpSyntaxTree.ParseText(code);
@@ -94,7 +93,7 @@ private static async Task AddMethodToExistingClass(
         if (classNode == null)
             return;
 
-        string entityName = lastModuleSegment; 
+        string entityName = lastModuleSegment;
 
         var methodCode = GenerateMethodCode(config, moduleName, entityName, methodName, aiResult, isArdalisStyle);
         var newMethod = SyntaxFactory.ParseMemberDeclaration(methodCode)!;
@@ -105,13 +104,13 @@ private static async Task AddMethodToExistingClass(
         Msg.Assistant($"Método agregado: {methodName} en {Path.GetFileName(filePath)}");
     }
 
-// Generar archivo completo de infraestructura
+    // Generar archivo completo de infraestructura
     private static async Task GenerateInfrastructureFile(
         string filePath,
         OperationConfig config,
-        string moduleName, 
-        string entityName, 
-        string methodName, 
+        string moduleName,
+        string entityName,
+        string methodName,
         string dbName,
         string operation,
         SPAnalysisResult? aiResult = null,
@@ -123,12 +122,12 @@ private static async Task AddMethodToExistingClass(
         string interfaceToImplement;
         if (isArdalisStyle)
         {
-             interfaceToImplement = FormatPattern(config.GenericRepositoryInterfacePattern, methodName);
+            interfaceToImplement = FormatPattern(config.GenericRepositoryInterfacePattern, methodName);
         }
         else
         {
             // Legacy Interface Names
-             interfaceToImplement = FormatPattern(config.ApplicationInterfaceNamePattern, methodName);
+            interfaceToImplement = FormatPattern(config.ApplicationInterfaceNamePattern, methodName);
         }
 
         var sb = new StringBuilder($@"
@@ -166,14 +165,14 @@ private static async Task AddMethodToExistingClass(
             ? string.Join("\n                        ", aiResult!.ResponseMapper)
             : "";
         spName = "\"" + spName + "\"";
-        
-        
+
+
         string implMethodName = isArdalisStyle ? config.GenericRepositoryMethodNamePattern : FormatPattern(config.RepositoryMethodNamePattern, methodName);
         string requestType = FormatPattern(config.EndpointRequestClassPattern, methodName);
 
         if (config.RepositoryNamespaceTag == "Search") // GET
         {
-             return $@"
+            return $@"
     public async Task<{(isArdalisStyle ? "IEnumerable<object>" : "object")}> {implMethodName}({requestType} request)
     {{
         using var cn = Connection();
@@ -186,10 +185,10 @@ private static async Task AddMethodToExistingClass(
         }});
     }}";
         }
-        
+
         if (config.RepositoryNamespaceTag == "Find") // GET BY ID
         {
-             return $@"
+            return $@"
     public async Task<{(isArdalisStyle ? "object?" : "object")}> {implMethodName}(int code)
     {{
         using var cn = Connection();

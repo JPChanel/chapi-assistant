@@ -28,7 +28,7 @@ public class WindowsCredentialStorageService : ICredentialStorageService
         };
 
         bool result = CredWrite(ref credential, 0);
-        
+
         if (credential.CredentialBlob != IntPtr.Zero)
             Marshal.ZeroFreeCoTaskMemUnicode(credential.CredentialBlob);
 

@@ -1,11 +1,9 @@
 ﻿using Chapi.Domain.Models;
+using Chapi.Infrastructure.Services;
 using Hardcodet.Wpf.TaskbarNotification;
 using MaterialDesignThemes.Wpf;
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-
-using Chapi.Infrastructure.Services;
 namespace Chapi
 {
     public class TrayIconManager
@@ -43,12 +41,13 @@ namespace Chapi
             var contextMenu = new ContextMenu();
 
             contextMenu.Items.Add(CreateMenuItem("Crear Nuevo Proyecto", PackIconKind.FolderPlusOutline, (s, e) => { Msg.User("Crear Nuevo Proyecto"); mainWindow.CreateNewTemplate(); }));
- 
+
             _projectsSubMenu = CreateMenuItem("Cambiar a Proyecto", PackIconKind.SwapHorizontal, null);
             _projectsSubMenu.Items.Add(CreateMenuItem(
                 "Agregar Proyecto Existente...",
                 PackIconKind.FolderAdd,
-                (s, e) => {
+                (s, e) =>
+                {
                     Msg.User("Asociar Proyecto Existente");
                     mainWindow.SelectProjectMenu_Click(s, e);
                 }
@@ -70,7 +69,8 @@ namespace Chapi
             contextMenu.Items.Add(CreateMenuItem("Ver Log de Procesos", PackIconKind.History, (s, e) => mainWindow.AddClassLog_Click()));
 
             contextMenu.Items.Add(new Separator());
-            contextMenu.Items.Add(CreateMenuItem("Servicios", PackIconKind.InformationOutline, (s, e) => {
+            contextMenu.Items.Add(CreateMenuItem("Servicios", PackIconKind.InformationOutline, (s, e) =>
+            {
                 mainWindow.ShowUpdateView();
             }));
             contextMenu.Items.Add(CreateMenuItem("Salir", PackIconKind.Logout, (s, e) => System.Windows.Application.Current.Shutdown()));
@@ -115,7 +115,7 @@ namespace Chapi
         /// <summary>
         /// Es llamado por MainWindow para poblar la lista de proyectos en el TrayIcon.
         /// </summary>
-        public void UpdateProjectList(List<ProjectViewModel> projects) 
+        public void UpdateProjectList(List<ProjectViewModel> projects)
         {
             while (_projectsSubMenu.Items.Count > 2)
             {
@@ -128,7 +128,7 @@ namespace Chapi
                 var projectItem = new MenuItem
                 {
                     Header = proj.Name,
-                    CommandParameter = proj.FullPath, 
+                    CommandParameter = proj.FullPath,
                     Icon = new PackIcon { Kind = proj.Icon, Width = 16, Height = 16 }
                 };
 

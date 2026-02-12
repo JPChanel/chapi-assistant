@@ -30,19 +30,19 @@ public class DiscardChangesUseCase
         try
         {
             bool isAll = files == null || !files.Any();
-            
-            _notificationService.ShowInfo(isAll 
-                ? "Descartando todos los cambios..." 
+
+            _notificationService.ShowInfo(isAll
+                ? "Descartando todos los cambios..."
                 : $"Descartando cambios en {files!.Count()} archivo(s)...");
 
             var result = await _gitRepo.DiscardChangesAsync(projectPath, files);
             if (!result.IsSuccess)
                 return result;
 
-            _notificationService.ShowSuccess(isAll 
-                ? "Todos los cambios han sido descartados" 
+            _notificationService.ShowSuccess(isAll
+                ? "Todos los cambios han sido descartados"
                 : $"Cambios descartados en {files!.Count()} archivo(s)");
-            
+
             return Result.Success();
         }
         catch (Exception ex)

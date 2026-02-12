@@ -1,16 +1,8 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Chapi.Infrastructure.Roslyn;
-using Chapi.Domain.Entities;
-using Chapi.Infrastructure.Git;
-using Chapi.Infrastructure.Services;
-
-using Chapi.Infrastructure.Persistence.Rollbacks;
+﻿using Chapi.Domain.Interfaces;
 using Chapi.Infrastructure.Common;
-using Chapi.Domain.Interfaces;
+using Chapi.Infrastructure.Persistence.Rollbacks;
+using Chapi.Infrastructure.Roslyn;
+using System.IO;
 namespace Chapi.Infrastructure.Services;
 
 public interface IModuleGeneratorService
@@ -37,11 +29,11 @@ public class ModuleGeneratorService : IModuleGeneratorService
             throw new Exception("No se pudo detectar el proyecto API.");
 
         string apiFolderName = Path.GetFileName(apiProjectPath);
-        
+
         // Determinar si es Ardalis o Classic
         bool isArdalis = Directory.Exists(Path.Combine(apiProjectPath, "Endpoints"));
         string apiSubFolder = isArdalis ? "Endpoints" : "Controllers";
-        
+
         _notificationService.ShowInfo($"Arquitectonico detectado: {(isArdalis ? "Ardalis (Endpoints)" : "Classic (Controllers)")}");
 
         string apiPath = Path.Combine(apiProjectPath, apiSubFolder, moduleName);
@@ -79,7 +71,7 @@ public class ModuleGeneratorService : IModuleGeneratorService
                 {
                     var diContent = File.ReadAllText(dependencyInjectionPath);
                     RollbackManager.RecordFileModification(rollbackEntry, dependencyInjectionPath, diContent);
-                    
+
                     // En Ardalis usualmente se usa Scrutor, pero si existe el archivo intentamos registrar
                     // aunque el estandar dice que Scrutor deberia hacerlo. Solo lo hacemos para Classic por ahora
                     // para no romper el estandar de Ardalis de "auto-discovery".

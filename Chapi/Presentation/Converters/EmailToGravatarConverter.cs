@@ -1,10 +1,8 @@
-using System;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Windows.Data;
 using System.Windows.Media.Imaging;
-using System.Threading.Tasks;
 
 namespace Chapi.Presentation.Converters
 {
@@ -16,17 +14,17 @@ namespace Chapi.Presentation.Converters
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             string url;
-            
+
             if (value is not string email || string.IsNullOrWhiteSpace(email))
             {
                 // Retorna imagen por defecto si no hay email
-                url = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&s=80";                
+                url = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&s=80";
             }
             else
             {
                 var hash = GetMd5Hash(email.Trim().ToLowerInvariant());
                 var size = parameter?.ToString() ?? "80";
-                
+
                 // d=mp: usa el avatar "mystery person" por defecto
                 // s=size: tamaño de la imagen
                 url = $"https://www.gravatar.com/avatar/{hash}?d=mp&s={size}";
@@ -40,12 +38,12 @@ namespace Chapi.Presentation.Converters
                 bitmap.CacheOption = BitmapCacheOption.OnLoad;
                 bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
                 bitmap.EndInit();
-               
+
                 return bitmap;
             }
             catch (Exception ex)
             {
-              
+
                 return null;
             }
         }

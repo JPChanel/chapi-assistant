@@ -1,9 +1,5 @@
 using Chapi.Application.UseCases.Auth;
-using Chapi.Domain.Models;
-using System;
 using System.Diagnostics;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Input;
 
 namespace Chapi.Presentation.ViewModels;
@@ -79,7 +75,7 @@ public class LoginGitHubViewModel : ViewModelBase
     private async Task PollForToken(string deviceCode, int interval)
     {
         int waitTime = interval > 0 ? interval : 5;
-        
+
         try
         {
             while (_pollCts != null && !_pollCts.Token.IsCancellationRequested)

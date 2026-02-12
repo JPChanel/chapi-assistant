@@ -1,4 +1,3 @@
-using System;
 using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media.Imaging;
@@ -13,7 +12,7 @@ namespace Chapi.Presentation.Converters
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             string url;
-            
+
             if (value is not string username || string.IsNullOrWhiteSpace(username))
             {
                 // Retorna imagen por defecto si no hay username
@@ -22,7 +21,7 @@ namespace Chapi.Presentation.Converters
             else
             {
                 var size = parameter?.ToString() ?? "80";
-                
+
                 // GitHub avatar URL
                 url = $"https://avatars.githubusercontent.com/{username}?v=4&s={size}";
             }

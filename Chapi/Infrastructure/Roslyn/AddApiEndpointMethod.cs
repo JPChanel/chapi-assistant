@@ -1,12 +1,7 @@
-﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
+﻿using Chapi.Infrastructure.Persistence.Rollbacks;
+using Chapi.Infrastructure.Services;
 using System.IO;
 using static Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager;
-using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
-
-using Chapi.Infrastructure.Persistence.Rollbacks;
-using Chapi.Infrastructure.Services;
 using static Chapi.Infrastructure.Roslyn.GenerationStandards;
 
 namespace Chapi.Infrastructure.Roslyn;
@@ -27,7 +22,7 @@ public static class AddApiEndpointMethod
 
         if (cleanMethodName.Equals(lastModuleName, StringComparison.OrdinalIgnoreCase))
         {
-            fileNameBase = config.EndpointFileName; 
+            fileNameBase = config.EndpointFileName;
         }
         else
         {
@@ -48,27 +43,27 @@ public static class AddApiEndpointMethod
                 };
             }
         }
-        
+
         if (operation.ToLower() == "post" && fileNameBase == "{0}")
         {
-             fileNameBase = cleanMethodName.Equals(lastModuleName, StringComparison.OrdinalIgnoreCase) ? "Execute" : cleanMethodName;
+            fileNameBase = cleanMethodName.Equals(lastModuleName, StringComparison.OrdinalIgnoreCase) ? "Execute" : cleanMethodName;
         }
 
         var fileName = fileNameBase + ".cs";
         var filePath = Path.Combine(apiPath, fileName);
 
         Directory.CreateDirectory(apiPath);
-        
+
         if (File.Exists(filePath))
         {
-             Msg.Assistant($"El endpoint {fileName} ya existe.");
-             return rollbackEntry;
+            Msg.Assistant($"El endpoint {fileName} ya existe.");
+            return rollbackEntry;
         }
 
         var code = GenerateEndpointClass(moduleName, fileNameBase, operation, methodName, config, includeAppLayer);
-        
+
         File.WriteAllText(filePath, code);
-        
+
         if (rollbackEntry != null)
         {
             RollbackManager.RecordFileCreation(rollbackEntry, filePath);
@@ -83,11 +78,11 @@ public static class AddApiEndpointMethod
         string cleanModule = moduleName.Replace(Path.DirectorySeparatorChar, '.').Replace(Path.AltDirectorySeparatorChar, '.');
         string cleanMethodName = methodName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
 
-        string route = $"/{cleanModule.ToLower().Replace('.', '/')}"; 
+        string route = $"/{cleanModule.ToLower().Replace('.', '/')}";
         if (operation.ToLower() == "getbyid") route += "/{id}";
-        
-        string requestType = FormatPattern(config.EndpointRequestClassPattern, cleanMethodName); 
-        string httpVerb = config.HttpAttributeName; 
+
+        string requestType = FormatPattern(config.EndpointRequestClassPattern, cleanMethodName);
+        string httpVerb = config.HttpAttributeName;
 
         string decimalsInterface;
         string variableName;
@@ -97,9 +92,9 @@ public static class AddApiEndpointMethod
         if (includeAppLayer)
         {
             string baseServiceName = FormatPattern(config.ApplicationClassNamePattern, cleanMethodName);
-            decimalsInterface = baseServiceName + "Service"; 
+            decimalsInterface = baseServiceName + "Service";
             variableName = "service";
-            callMethod = FormatPattern(config.ApplicationMethodNamePattern, cleanMethodName); 
+            callMethod = FormatPattern(config.ApplicationMethodNamePattern, cleanMethodName);
         }
         else
         {

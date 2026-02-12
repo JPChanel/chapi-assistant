@@ -1,7 +1,6 @@
-﻿using System.IO;
+﻿using Chapi.Infrastructure.Services;
+using System.IO;
 using System.Text.RegularExpressions;
-
-using Chapi.Infrastructure.Services;
 namespace Chapi.Infrastructure.Roslyn
 {
     public static class DependencyInjectorHelper

@@ -1,13 +1,9 @@
-using System;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows.Input;
 using Chapi.Application.Interfaces.Workspace;
 using Chapi.Domain.Entities.Workspace;
 using Chapi.Domain.Enums;
+using System.Collections.ObjectModel;
+using System.Windows.Input;
 using System.Windows.Threading;
-using System.Windows; 
 
 namespace Chapi.Presentation.ViewModels;
 
@@ -28,26 +24,26 @@ public class WorkspaceViewModel : ViewModelBase
         _workspaceService = workspaceService;
         Tasks = new ObservableCollection<WorkspaceTask>();
         Tasks.CollectionChanged += Tasks_CollectionChanged;
-        
+
         HistoryTasks = new ObservableCollection<WorkspaceTask>();
         DeploymentQueue = new ObservableCollection<DeploymentAsset>();
-        
+
         AddTaskCommand = new RelayCommand(async _ => await AddTaskAsync());
         DeleteTaskCommand = new RelayCommand(param => DeleteTask((WorkspaceTask)param));
         DeleteForeverCommand = new RelayCommand(param => DeleteForever((WorkspaceTask)param));
         RestoreTaskCommand = new RelayCommand(param => RestoreTask((WorkspaceTask)param));
         ToggleHistoryCommand = new RelayCommand(_ => IsHistoryVisible = !IsHistoryVisible);
-        
+
         AddAssetCommand = new RelayCommand(async path => await AddAssetAsync((string)path));
         RemoveAssetCommand = new RelayCommand(param => RemoveAsset((DeploymentAsset)param));
         OpenAssetCommand = new RelayCommand(param => OpenAsset((DeploymentAsset)param));
         ToggleAssetStatusCommand = new RelayCommand(param => ToggleAssetStatus((DeploymentAsset)param));
-        
+
         ChangePriorityCommand = new RelayCommand(param => CyclePriority((WorkspaceTask)param));
-        
+
         // Autosave for notes (Debounce)
         _autosaveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-        _autosaveTimer.Tick += async (s, e) => 
+        _autosaveTimer.Tick += async (s, e) =>
         {
             _autosaveTimer.Stop();
             await SaveWorkspaceAsync();
@@ -83,7 +79,7 @@ public class WorkspaceViewModel : ViewModelBase
         get => _hasPendingCriticalAssets;
         set => SetProperty(ref _hasPendingCriticalAssets, value);
     }
-    
+
     public bool IsHistoryVisible
     {
         get => _isHistoryVisible;
@@ -95,7 +91,7 @@ public class WorkspaceViewModel : ViewModelBase
     public ICommand DeleteForeverCommand { get; }
     public ICommand RestoreTaskCommand { get; }
     public ICommand ToggleHistoryCommand { get; }
-    
+
     public ICommand AddAssetCommand { get; }
     public ICommand RemoveAssetCommand { get; }
     public ICommand OpenAssetCommand { get; }
@@ -103,7 +99,7 @@ public class WorkspaceViewModel : ViewModelBase
     public ICommand ChangePriorityCommand { get; }
 
     private bool _isLoading;
-    
+
     // Progress Tracking
     private double _displayProgressValue;
     public double DisplayProgressValue
@@ -118,7 +114,7 @@ public class WorkspaceViewModel : ViewModelBase
         get => _progressText;
         set => SetProperty(ref _progressText, value);
     }
-    
+
     private void RecalculateProgress()
     {
         if (Tasks == null || Tasks.Count == 0)
@@ -130,7 +126,7 @@ public class WorkspaceViewModel : ViewModelBase
 
         var completed = Tasks.Count(t => t.IsCompleted);
         var total = Tasks.Count;
-        
+
         double target = (double)completed / total * 100;
         AnimateProgressTo(target);
         ProgressText = $"{target:0}%";
@@ -141,18 +137,18 @@ public class WorkspaceViewModel : ViewModelBase
         // Simple interpolation logic
         while (Math.Abs(DisplayProgressValue - target) > 0.1)
         {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => 
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 var step = (target - DisplayProgressValue) * 0.1; // 10% step speed
                 // Ensure minimum step to update eventually
                 if (Math.Abs(step) < 0.1) step = target > DisplayProgressValue ? 0.1 : -0.1;
-                
+
                 DisplayProgressValue += step;
-                
+
                 // Snap if close
                 if (Math.Abs(DisplayProgressValue - target) < 0.1) DisplayProgressValue = target;
             });
-            
+
             await Task.Delay(15); // 60fps-ish
         }
     }
@@ -160,8 +156,8 @@ public class WorkspaceViewModel : ViewModelBase
     public async Task InitializeAsync(string projectPath)
     {
         if (string.IsNullOrEmpty(projectPath)) return;
-        
-        try 
+
+        try
         {
             _isLoading = true;
             _currentProjectPath = projectPath;
@@ -172,7 +168,7 @@ public class WorkspaceViewModel : ViewModelBase
                 var data = result.Data!;
 
                 // Ensure we interact with ObservableCollections on the UI thread
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => 
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     try
                     {
@@ -182,33 +178,33 @@ public class WorkspaceViewModel : ViewModelBase
 
                         foreach (var t in HistoryTasks) t.PropertyChanged -= Task_PropertyChanged;
                         HistoryTasks.Clear();
-                        
+
                         DeploymentQueue.Clear();
 
                         // Auto-cleanup permanent deletions first
                         var toRemove = data.Tasks.Where(t => t.ShouldBePermanentlyDeleted).ToList();
                         bool needsCleanupSave = toRemove.Any();
-                        
-                        foreach(var item in toRemove) data.Tasks.Remove(item);
+
+                        foreach (var item in toRemove) data.Tasks.Remove(item);
 
                         // Add Active Tasks
                         foreach (var t in data.Tasks.Where(x => !x.IsDeleted).OrderByDescending(x => x.Priority).ToList())
                         {
-                             try 
-                             {
-                                 // Defensive coding: Ensure UI doesn't crash on bad data
-                                 if (t.Id == Guid.Empty) t.Id = Guid.NewGuid();
-                                 if (t.Title == null) t.Title = "(Sin título recuperado)";
-                                 
-                                 // Manually subscribe to PropertyChanged because CollectionChanged is ignored during loading
-                                 t.PropertyChanged -= Task_PropertyChanged;
-                                 t.PropertyChanged += Task_PropertyChanged;
+                            try
+                            {
+                                // Defensive coding: Ensure UI doesn't crash on bad data
+                                if (t.Id == Guid.Empty) t.Id = Guid.NewGuid();
+                                if (t.Title == null) t.Title = "(Sin título recuperado)";
 
-                                 Tasks.Add(t);
-                             }
-                             catch { }
+                                // Manually subscribe to PropertyChanged because CollectionChanged is ignored during loading
+                                t.PropertyChanged -= Task_PropertyChanged;
+                                t.PropertyChanged += Task_PropertyChanged;
+
+                                Tasks.Add(t);
+                            }
+                            catch { }
                         }
-                            
+
                         // Add History Tasks
                         foreach (var t in data.Tasks.Where(x => x.IsDeleted).OrderByDescending(x => x.DeletedAt).ToList())
                         {
@@ -216,7 +212,7 @@ public class WorkspaceViewModel : ViewModelBase
                             {
                                 if (t.Id == Guid.Empty) t.Id = Guid.NewGuid();
                                 if (t.Title == null) t.Title = "(Historial sin título)";
-                                
+
                                 // Manually subscribe to PropertyChanged
                                 t.PropertyChanged -= Task_PropertyChanged;
                                 t.PropertyChanged += Task_PropertyChanged;
@@ -229,9 +225,9 @@ public class WorkspaceViewModel : ViewModelBase
                         // Add Deployment Assets
                         foreach (var d in data.DeploymentQueue.ToList())
                             DeploymentQueue.Add(d);
-                        
+
                         SessionNotes = data.SessionNotes;
-                        
+
                         UpdatePendingStatus();
                     }
                     catch (Exception ex)
@@ -240,7 +236,7 @@ public class WorkspaceViewModel : ViewModelBase
                     }
                 });
             }
-            
+
             var quoteResult = await _workspaceService.GetRandomQuoteAsync();
             if (quoteResult.IsSuccess) RandomQuote = quoteResult.Data;
         }
@@ -274,7 +270,7 @@ public class WorkspaceViewModel : ViewModelBase
                 foreach (WorkspaceTask item in e.OldItems)
                     item.PropertyChanged -= Task_PropertyChanged;
             }
-            
+
             RecalculateProgress();
             TriggerAutoSave();
         }
@@ -284,7 +280,7 @@ public class WorkspaceViewModel : ViewModelBase
     private void Task_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (_isLoading) return;
-        
+
         // Recalculate progress if relevant property changes
         if (e.PropertyName == nameof(WorkspaceTask.IsCompleted) || e.PropertyName == nameof(WorkspaceTask.IsDeleted))
         {
@@ -303,7 +299,7 @@ public class WorkspaceViewModel : ViewModelBase
 
     private async Task AddTaskAsync()
     {
-        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => 
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
             var task = new WorkspaceTask
             {
@@ -311,7 +307,7 @@ public class WorkspaceViewModel : ViewModelBase
                 Priority = TaskPriority.Media,
                 CreatedAt = DateTime.Now
             };
-            
+
             // This triggers CollectionChanged, which subscribes events and triggers AutoSave
             Tasks.Insert(0, task);
         });
@@ -320,7 +316,7 @@ public class WorkspaceViewModel : ViewModelBase
     private void CyclePriority(WorkspaceTask task)
     {
         if (task == null) return;
-        
+
         switch (task.Priority)
         {
             case TaskPriority.Baja:
@@ -333,59 +329,59 @@ public class WorkspaceViewModel : ViewModelBase
                 task.Priority = TaskPriority.Baja;
                 break;
         }
-        
+
         TriggerAutoSave();
     }
 
     private void DeleteTask(WorkspaceTask task)
     {
         if (task == null) return;
-        
+
         task.IsDeleted = true;
         task.DeletedAt = DateTime.Now;
-        
+
         Tasks.Remove(task);
         HistoryTasks.Insert(0, task);
-        
+
         // Remove event subscription from moved task if using creating new instance? 
         // No, it's the same instance, so PropertyChanged event is still subscribed to Task_PropertyChanged.
         // But History items shouldn't trigger auto-save if we strictly follow logic. 
         // However, if we move it to history, we might want to unsubscribe or keep it.
         // For simplicity/safety, let's leave it. If user edits it in history (if possible), it saves.
-        
+
         SaveWorkspaceAsync();
     }
-    
+
     private void DeleteForever(WorkspaceTask task)
     {
         if (task == null) return;
-        
+
         task.PropertyChanged -= Task_PropertyChanged;
         HistoryTasks.Remove(task);
         SaveWorkspaceAsync();
     }
-    
+
     private void RestoreTask(WorkspaceTask task)
     {
         if (task == null) return;
-        
+
         task.IsDeleted = false;
         task.DeletedAt = null;
-        
+
         HistoryTasks.Remove(task);
         Tasks.Insert(0, task);
-        
+
         SaveWorkspaceAsync();
     }
 
     private async Task AddAssetAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return;
-        
+
         var asset = new DeploymentAsset { FilePath = path };
         DeploymentQueue.Add(asset);
         UpdatePendingStatus();
-        
+
         await SaveWorkspaceAsync();
     }
 
@@ -396,27 +392,27 @@ public class WorkspaceViewModel : ViewModelBase
         UpdatePendingStatus();
         SaveWorkspaceAsync();
     }
-    
+
     private void OpenAsset(DeploymentAsset asset)
     {
         if (asset == null) return;
         _workspaceService.OpenFileInExplorer(asset.FilePath);
     }
-    
+
     private void ToggleAssetStatus(DeploymentAsset asset)
     {
         if (asset == null) return;
-        
+
         asset.IsPending = !asset.IsPending;
         UpdatePendingStatus();
         SaveWorkspaceAsync();
     }
-    
+
     private void UpdatePendingStatus()
     {
         HasPendingCriticalAssets = DeploymentQueue.Any(d => d.IsPending);
     }
-    
+
     // Public so View can bind IsPending toggle to save
     public async Task SaveInternalAsync()
     {
@@ -427,13 +423,13 @@ public class WorkspaceViewModel : ViewModelBase
     private async Task SaveWorkspaceAsync()
     {
         if (string.IsNullOrEmpty(_currentProjectPath)) return;
-        if (_isLoading) return; 
+        if (_isLoading) return;
 
         try
         {
             // Capture data on UI thread to ensure thread safety and avoid "Collection modified" errors
             WorkspaceData data = null;
-            
+
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 data = new WorkspaceData

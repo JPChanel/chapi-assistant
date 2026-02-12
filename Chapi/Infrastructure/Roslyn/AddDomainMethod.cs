@@ -1,12 +1,11 @@
 ﻿using Chapi.Domain.Models;
+using Chapi.Infrastructure.Persistence.Rollbacks;
 using Chapi.Infrastructure.Services;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.IO;
 using static Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager;
-
-using Chapi.Infrastructure.Persistence.Rollbacks;
 using static Chapi.Infrastructure.Roslyn.GenerationStandards;
 
 namespace Chapi.Infrastructure.Roslyn;
@@ -30,14 +29,14 @@ public class AddDomainMethod
         {
             await GenerateOrUpdateEntity(entityPath, ns, entityName, aiResult, rollbackEntry);
         }
-        
+
         Msg.Assistant($"Agregando '{operation}' en Domain.{methodName}...");
 
         var cleanMethodName = methodName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
-        if (cleanMethodName != methodName) 
+        if (cleanMethodName != methodName)
         {
-             methodName = cleanMethodName; 
-             Msg.Assistant($"Nombre de método saneado a: {methodName}");
+            methodName = cleanMethodName;
+            Msg.Assistant($"Nombre de método saneado a: {methodName}");
         }
 
         // Preparar nombres
@@ -48,21 +47,21 @@ public class AddDomainMethod
 
         if (!OperationConfigs.TryGetValue(operation.ToLower(), out var config))
         {
-             Msg.Assistant($"Operación '{operation}' no soportada.");
-             return rollbackEntry;
+            Msg.Assistant($"Operación '{operation}' no soportada.");
+            return rollbackEntry;
         }
 
         string repoMethodName = isArdalisStyle ? config.GenericRepositoryMethodNamePattern : FormatPattern(config.RepositoryMethodNamePattern, methodName);
         requestClass = FormatPattern(config.EndpointRequestClassPattern, methodName);
         interfaceName = isArdalisStyle ? FormatPattern(config.GenericRepositoryInterfacePattern, methodName) : FormatPattern(config.ApplicationInterfaceNamePattern, methodName);
-        
+
         string resultType = operation.ToLower().Contains("get") ? "object" : "Response";
         methodSignature = $"Task<{resultType}> {repoMethodName}({requestClass} request);";
-        
+
         if (operation.ToLower() == "getbyid" || operation.ToLower() == "delete")
         {
-             // Overwrite for simple types if not using complex request
-             if (requestClass == "int") methodSignature = $"Task<{resultType}> {repoMethodName}(int code);";
+            // Overwrite for simple types if not using complex request
+            if (requestClass == "int") methodSignature = $"Task<{resultType}> {repoMethodName}(int code);";
         }
 
         requestPath = Path.Combine(entitiesPath, $"{requestClass}.cs");
@@ -79,17 +78,17 @@ public class AddDomainMethod
             }
         }
 
-        if (isArdalisStyle) 
+        if (isArdalisStyle)
         {
             return rollbackEntry; // Si usamos genéricos, no creamos interfaces específicas
         }
-        
+
         string interfacePath = Path.Combine(interfacesPath, $"{interfaceName}.cs");
         bool interfaceExisted = File.Exists(interfacePath);
         string originalContent = interfaceExisted ? await File.ReadAllTextAsync(interfacePath) : null;
 
         await EnsureInterfaceAsync(interfacePath, interfaceName, methodSignature, ns);
-        
+
         if (rollbackEntry != null)
         {
             if (!interfaceExisted)

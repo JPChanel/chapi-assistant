@@ -32,9 +32,9 @@ public class GitChangeWatcher : IDisposable
             var watcher = new FileSystemWatcher(projectPath)
             {
                 IncludeSubdirectories = true,
-                NotifyFilter = NotifyFilters.FileName 
-                             | NotifyFilters.DirectoryName 
-                             | NotifyFilters.LastWrite 
+                NotifyFilter = NotifyFilters.FileName
+                             | NotifyFilters.DirectoryName
+                             | NotifyFilters.LastWrite
                              | NotifyFilters.Size,
                 // Ignorar carpetas .git para evitar ruido
                 Filter = "*.*"
@@ -93,7 +93,7 @@ public class GitChangeWatcher : IDisposable
         Task.Run(async () =>
         {
             await Task.Delay(DEBOUNCE_MS);
-            
+
             // Verificar que no haya habido otro cambio más reciente
             if (_lastChangeTime.TryGetValue(projectPath, out var checkTime) && checkTime == now)
             {

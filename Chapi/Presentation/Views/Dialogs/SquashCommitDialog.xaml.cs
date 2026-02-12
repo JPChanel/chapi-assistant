@@ -1,10 +1,7 @@
-using System;
+using Chapi.Domain.Interfaces;
+using MaterialDesignThemes.Wpf;
 using System.Windows;
 using System.Windows.Controls;
-using MaterialDesignThemes.Wpf;
-using Chapi.Infrastructure.AI;
-using Chapi.Domain.Interfaces;
-using Chapi.Domain.Services;
 
 namespace Chapi.Presentation.Views.Dialogs
 {
@@ -24,7 +21,7 @@ namespace Chapi.Presentation.Views.Dialogs
             _sourceBranch = sourceBranch;
             _targetBranch = targetBranch;
             // autoDeleteBranch can be used here if we want to display a readonly indicator in the future
-            
+
             // Set default message
             MessageTextBox.Text = $"SM: Squash merge from '{sourceBranch}'";
             MessageTextBox.Focus();
@@ -37,7 +34,7 @@ namespace Chapi.Presentation.Views.Dialogs
             {
                 SetBusy(true);
                 StatusText.Text = "Obteniendo diferencias entre ramas...";
-                
+
                 // 1. Obtener diff consolidado entre ramas
                 string diff = await _gitRepository.GetBranchDiffAsync(_projectPath, _sourceBranch, _targetBranch);
 
@@ -61,7 +58,7 @@ namespace Chapi.Presentation.Views.Dialogs
                     {
                         var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                         var commitMsg = System.Text.Json.JsonSerializer.Deserialize<Chapi.Domain.Entities.CommitMessageResponse>(jsonResponse, options);
-                        
+
                         if (commitMsg != null && !string.IsNullOrWhiteSpace(commitMsg.Summary))
                         {
                             // Formato consolidado para squash con prefijo SM:
@@ -107,7 +104,7 @@ namespace Chapi.Presentation.Views.Dialogs
                 StatusText.Text = "⚠️ El mensaje no puede estar vacío.";
                 return;
             }
-            
+
             DialogHost.CloseDialogCommand.Execute(true, this);
         }
     }

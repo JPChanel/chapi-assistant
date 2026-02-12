@@ -16,7 +16,7 @@ namespace Chapi.Presentation.Converters
 
             var username = values[0] as string;
             var provider = values[1] as Chapi.Domain.Enums.GitProvider?;
-            
+
             if (string.IsNullOrWhiteSpace(username) || provider == null)
             {
                 return CreateDefaultAvatar();
@@ -48,13 +48,13 @@ namespace Chapi.Presentation.Converters
                 bitmap.UriSource = new Uri(url, UriKind.Absolute);
                 bitmap.CacheOption = BitmapCacheOption.OnLoad;
                 bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-                
+
                 bitmap.DownloadFailed += (s, e) =>
                 {
                 };
-                
+
                 bitmap.EndInit();
-                
+
                 return bitmap;
             }
             catch (Exception ex)

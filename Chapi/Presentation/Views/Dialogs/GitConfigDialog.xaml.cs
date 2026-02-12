@@ -1,7 +1,7 @@
+using MaterialDesignThemes.Wpf;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
-using MaterialDesignThemes.Wpf;
 
 namespace Chapi.Presentation.Views.Dialogs
 {

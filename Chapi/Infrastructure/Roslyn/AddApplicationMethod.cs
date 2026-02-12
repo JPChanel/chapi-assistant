@@ -1,10 +1,10 @@
-﻿using Chapi.Infrastructure.Services;
+﻿using Chapi.Infrastructure.Persistence.Rollbacks;
+using Chapi.Infrastructure.Services;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.IO;
 using static Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager;
-using Chapi.Infrastructure.Persistence.Rollbacks;
 using static Chapi.Infrastructure.Roslyn.GenerationStandards;
 
 namespace Chapi.Infrastructure.Roslyn;
@@ -27,8 +27,8 @@ public static class AddApplicationMethod
         // Limpiar mName (MethodName)
         string cleanMethodName = mName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
         string classNameBase = FormatPattern(config.ApplicationClassNamePattern, cleanMethodName);
-        if (useGenericRepository) classNameBase += "Service"; 
-        
+        if (useGenericRepository) classNameBase += "Service";
+
         var fileName = $"{classNameBase}.cs";
         var filePath = Path.Combine(appPath, fileName);
 
@@ -48,10 +48,10 @@ public static class AddApplicationMethod
                 RollbackManager.RecordFileCreation(rollbackEntry, filePath);
             return rollbackEntry;
         }
-        
+
         // RECUPERAR CONTENIDO Y AGREGAR MÉTODO SI YA EXISTE
         if (rollbackEntry != null)
-             RollbackManager.RecordFileModification(rollbackEntry, filePath, originalContent);
+            RollbackManager.RecordFileModification(rollbackEntry, filePath, originalContent);
 
         var code = File.ReadAllText(filePath);
         var tree = CSharpSyntaxTree.ParseText(code);
@@ -69,7 +69,7 @@ public static class AddApplicationMethod
 
         var newMethod = GenerateAppMethod(config, mName, useGenericRepository);
         var newClass = classNode.AddMembers(newMethod);
-        
+
         var newRoot = root.ReplaceNode(classNode, newClass);
         File.WriteAllText(filePath, newRoot.NormalizeWhitespace().ToFullString());
         Msg.Assistant($"Método '{targetMethodName}' agregado en {fileName}");
@@ -80,24 +80,24 @@ public static class AddApplicationMethod
     {
         string lastModuleSegment = cleanModule.Split('.').Last();
         string cleanMethodName = name.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Last();
-        
+
         var className = FormatPattern(config.ApplicationClassNamePattern, cleanMethodName);
         if (useGenericRepository) className += "Service";
-        
+
         string namespaceName = $"Application.{cleanModule}";
 
         // Dependencies
         string repositoryInterface;
         string repositoryVar = "repository";
-        
+
         // Imports strings
         string importInterfaces = $"using Domain.{cleanModule}.Interfaces;";
 
         if (useGenericRepository)
         {
 
-             repositoryInterface = FormatPattern(config.GenericRepositoryInterfacePattern, cleanMethodName);
-             importInterfaces = ""; 
+            repositoryInterface = FormatPattern(config.GenericRepositoryInterfacePattern, cleanMethodName);
+            importInterfaces = "";
         }
         else
         {
@@ -132,8 +132,8 @@ public class {className}({repositoryInterface} {repositoryVar})
     private static string GenerateAppMethodString(GenerationStandards.OperationConfig config, string cleanMethodName, bool useGenericRepository)
     {
         var methodName = FormatPattern(config.ApplicationMethodNamePattern, cleanMethodName);
-        var requestName = FormatPattern(config.RequestDtoNamePattern, cleanMethodName); 
-        
+        var requestName = FormatPattern(config.RequestDtoNamePattern, cleanMethodName);
+
         string repoCall;
         if (useGenericRepository)
         {
@@ -151,7 +151,7 @@ public class {className}({repositoryInterface} {repositoryVar})
                 {{
                     return await {repoCall};
                 }}";
-                }
+    }
 
 
 }

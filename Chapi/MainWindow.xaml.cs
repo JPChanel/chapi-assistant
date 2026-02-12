@@ -1,12 +1,11 @@
-using Chapi.Infrastructure.AI;
-using Chapi.Domain.Entities;
+using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
-using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Domain.Models;
+using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Views.Dialogs;
 using MaterialDesignThemes.Wpf;
+using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -16,7 +15,6 @@ using System.Windows.Media;
 using Velopack;
 using Velopack.Sources;
 using UseCases = Chapi.Application.UseCases.Git;
-using Chapi.Domain.Common;
 
 namespace Chapi
 {
@@ -63,14 +61,14 @@ namespace Chapi
             InitializeComponent();
             Instance = this;
             DataContext = MessageHelper.Instance;
-            
+
             _gitRepository = App.ServiceProvider.GetRequiredService<IGitRepository>();
             _changesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ChangesViewModel)) as Presentation.ViewModels.ChangesViewModel;
             _historyViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.HistoryViewModel)) as Presentation.ViewModels.HistoryViewModel;
             _releasesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ReleasesViewModel)) as Presentation.ViewModels.ReleasesViewModel;
             // Manual injection for now as it's a new service
             _workspaceViewModel = new Presentation.ViewModels.WorkspaceViewModel(new Chapi.Infrastructure.Services.WorkspaceService());
-            
+
             ChangesTab.DataContext = _changesViewModel;
             HistoryTab.DataContext = _historyViewModel;
             TagsTab.DataContext = _releasesViewModel;
@@ -105,12 +103,12 @@ namespace Chapi
 
             _isWindowInitialized = true;
             LoadProjects();
-            
+
             // Pre-cargar repositorios remotos para el dialogo de clonado
             _ = App.ServiceProvider.GetService<Chapi.Presentation.ViewModels.CloneRepositoryViewModel>();
 
             // Pre-cargar avatares de usuario
-            _ = Task.Run(async () => 
+            _ = Task.Run(async () =>
             {
                 var storage = App.ServiceProvider.GetService<Chapi.Domain.Interfaces.ICredentialStorageService>();
                 if (storage != null)
@@ -122,7 +120,7 @@ namespace Chapi
 
             if (_changesViewModel != null)
             {
-                _changesViewModel.CommitCompleted += async (s, e) => 
+                _changesViewModel.CommitCompleted += async (s, e) =>
                 {
                     await LoadHistoryAsync();
                     await UpdateProjectStatusesAsync();
@@ -130,7 +128,7 @@ namespace Chapi
             }
             if (_historyViewModel != null)
             {
-                _historyViewModel.ResetCompleted += async (s, e) => 
+                _historyViewModel.ResetCompleted += async (s, e) =>
                 {
                     // Forzar recarga de cambios en el VM de Cambios
                     if (_changesViewModel != null)
@@ -192,7 +190,7 @@ namespace Chapi
             App.TrayIconManager?.UpdateProjectList(projectVMs);
 
             // Ejecutar la actualizacion de estados con retardo para no competir por CPU/Disco al inicio
-            _ = Task.Run(async () => 
+            _ = Task.Run(async () =>
             {
                 await Task.Delay(1500); // Dar prioridad a la UI inicial
                 await UpdateProjectStatusesAsync(projectVMs);
@@ -231,14 +229,14 @@ namespace Chapi
         private async void ProjectsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ProjectsComboBox.SelectedItem is not ProjectViewModel selectedProject) return;
-            
+
             // Cancelar cualquier secuencia de carga anterior
             _projectSwitchCts?.Cancel();
             _projectSwitchCts = new CancellationTokenSource();
             var token = _projectSwitchCts.Token;
 
             projectDirectory = selectedProject.FullPath;
-            
+
             // Limpieza visual inmediata en el ViewModel de cambios
             if (_changesViewModel != null)
             {
@@ -246,7 +244,7 @@ namespace Chapi
             }
 
             InitializeFileSystemWatcher(projectDirectory);
-            
+
             if (!_isGitInstalled) return;
 
             App.TrayIconManager?.UpdateProjectMenuItem(selectedProject.Name, false);
@@ -260,7 +258,7 @@ namespace Chapi
 
                 string activeBranch = await _gitRepository.GetCurrentBranchAsync(projectDirectory);
                 if (token.IsCancellationRequested) return;
-                
+
                 if (!string.IsNullOrEmpty(activeBranch) && !branches.Contains(activeBranch))
                 {
                     branches.Add(activeBranch);
@@ -272,7 +270,7 @@ namespace Chapi
                     _currentlySelectedBranch = activeBranch;
                     BranchesComboBox.SelectedItem = activeBranch;
                     UpdateGitActionButton();
-                    
+
                     if (selectedProject.Ahead > 0)
                     {
                         Msg.Assistant($"🚀 Tienes {selectedProject.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
@@ -286,20 +284,22 @@ namespace Chapi
                     {
                         // No necesitamos llamar a LoadChangesAsync de nuevo aquí porque ya se disparó al poner ProjectPath
                         if (token.IsCancellationRequested) return;
-                        
-                        await Dispatcher.InvokeAsync(async () => {
-                            if (!token.IsCancellationRequested) 
+
+                        await Dispatcher.InvokeAsync(async () =>
+                        {
+                            if (!token.IsCancellationRequested)
                             {
                                 await LoadHistoryAsync();
                                 await LoadWorkspaceAsync();
                             }
                         });
-                        
-                        if (token.IsCancellationRequested) return;
-                        await Task.Delay(50, token); 
 
-                        await Dispatcher.InvokeAsync(async () => {
-                            if (!token.IsCancellationRequested) 
+                        if (token.IsCancellationRequested) return;
+                        await Task.Delay(50, token);
+
+                        await Dispatcher.InvokeAsync(async () =>
+                        {
+                            if (!token.IsCancellationRequested)
                             {
                                 await LoadReleasesAsync();
                                 await CheckBranchStatusAsync();
@@ -313,7 +313,7 @@ namespace Chapi
             }
             catch (Exception ex)
             {
-                
+
             }
         }
 
@@ -350,12 +350,12 @@ namespace Chapi
 
                 var useCase = App.ServiceProvider.GetService(typeof(UseCases.SwitchBranchUseCase)) as UseCases.SwitchBranchUseCase;
                 var switchResult = await useCase.ExecuteAsync(projectDirectory, newBranch, stashChanges);
-                
-                if (switchResult.IsSuccess) 
+
+                if (switchResult.IsSuccess)
                 {
                     _currentlySelectedBranch = newBranch;
                 }
-                else 
+                else
                 {
                     BranchesComboBox.SelectedItem = _currentlySelectedBranch;
                     await DialogService.ShowConfirmDialog("No se pudo cambiar de rama", switchResult.Error, DialogVariant.Error, DialogType.Info);
@@ -364,7 +364,7 @@ namespace Chapi
 
             await LoadChangesAsync();
             await LoadHistoryAsync();
-            await CheckBranchStatusAsync();    
+            await CheckBranchStatusAsync();
             await UpdateProjectStatusesAsync();
         }
 
@@ -405,22 +405,22 @@ namespace Chapi
 
             NeedsPublish = !await _gitRepository.HasUpstreamAsync(projectDirectory, _currentlySelectedBranch);
         }
-        
+
         private async Task RefreshBranchesAsync()
         {
-            try 
+            try
             {
                 // Refrescar ramas tras operaciones que pueden crearlas o borrarlas
                 var branches = (await _gitRepository.GetBranchesAsync(projectDirectory)).ToList();
                 string activeBranch = await _gitRepository.GetCurrentBranchAsync(projectDirectory);
-                
+
                 if (!string.IsNullOrEmpty(activeBranch) && !branches.Contains(activeBranch))
                 {
                     branches.Add(activeBranch);
                 }
 
                 BranchesComboBox.ItemsSource = branches;
-                
+
                 if (!string.IsNullOrEmpty(activeBranch))
                 {
                     _currentlySelectedBranch = activeBranch;
@@ -429,7 +429,7 @@ namespace Chapi
             }
             catch (Exception ex)
             {
-                
+
             }
         }
 
@@ -508,31 +508,31 @@ namespace Chapi
         {
             string path = GetPathFromMenuItem(sender);
             if (string.IsNullOrEmpty(path)) return;
-            
-            try 
-            { 
+
+            try
+            {
                 if (path.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) || path.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase))
                 {
-                     var parts = path.Split('\\', StringSplitOptions.RemoveEmptyEntries);
-                     if (parts.Length > 2)
-                     {
-                         string distro = parts[1];
-                         string linuxPath = "/" + string.Join("/", parts.Skip(2));
+                    var parts = path.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 2)
+                    {
+                        string distro = parts[1];
+                        string linuxPath = "/" + string.Join("/", parts.Skip(2));
 
-                         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                         var agyExePath = System.IO.Path.Combine(localAppData, "Programs", "Antigravity", "Antigravity.exe");
-                         string remoteUri = $"vscode-remote://wsl+{distro}{linuxPath}";
-                         Process.Start(new ProcessStartInfo
-                         {
-                             FileName = agyExePath,
-                             Arguments = $"--folder-uri \"{remoteUri}\"",
-                             UseShellExecute = true
-                         });
+                        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                        var agyExePath = System.IO.Path.Combine(localAppData, "Programs", "Antigravity", "Antigravity.exe");
+                        string remoteUri = $"vscode-remote://wsl+{distro}{linuxPath}";
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = agyExePath,
+                            Arguments = $"--folder-uri \"{remoteUri}\"",
+                            UseShellExecute = true
+                        });
                         return;
-                     }
+                    }
                 }
 
-                Process.Start(new ProcessStartInfo { FileName = "antigravity", Arguments = $"\"{path}\"", UseShellExecute = true }); 
+                Process.Start(new ProcessStartInfo { FileName = "antigravity", Arguments = $"\"{path}\"", UseShellExecute = true });
             }
             catch { Msg.Assistant("Antigravity no detectado o error al abrir."); }
         }
@@ -563,7 +563,7 @@ namespace Chapi
                 var dialog = new Chapi.Presentation.Views.Dialogs.CloneRepositoryDialog { DataContext = viewModel };
 
                 var result = await DialogService.ShowDialog(dialog);
-                
+
                 if (result is Chapi.Presentation.ViewModels.CloneRepositoryViewModel vm)
                 {
                     await RunWithLoading(async () =>
@@ -648,7 +648,7 @@ namespace Chapi
             {
                 await useCase.ExecuteAsync(projectDirectory, isSilent);
                 await LoadChangesAsync();
-                
+
                 // Actualizar indicadores despues del fetch
                 await UpdateProjectStatusesAsync();
             }
@@ -676,7 +676,7 @@ namespace Chapi
                 {
                     bool changed = proj.Ahead != ahead || proj.Behind != behind;
                     proj.Ahead = ahead;
-                    proj.Behind = behind;                
+                    proj.Behind = behind;
                     if ((changed || proj.FullPath == projectDirectory) && proj.FullPath == projectDirectory && !ProjectsComboBox.IsDropDownOpen)
                     {
                         UpdateGitActionButton();
@@ -692,7 +692,7 @@ namespace Chapi
             if (ProjectsComboBox.SelectedItem is not ProjectViewModel currentProject) return;
 
             // Accedemos al ComboBoxItem por defecto (índice 0) que usamos como botón dinámico
-            if (GitActionsComboBox.Items[0] is ComboBoxItem defaultItem && 
+            if (GitActionsComboBox.Items[0] is ComboBoxItem defaultItem &&
                 defaultItem.Content is StackPanel sp &&
                 sp.Children.Count >= 2)
             {
@@ -703,12 +703,12 @@ namespace Chapi
                 {
                     _currentGitAction = GitActionState.Pull;
                     GitActionsComboBox.BorderBrush = Brushes.DeepSkyBlue;
-                    if (icon != null) 
+                    if (icon != null)
                     {
                         icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudDownloadOutline;
                         icon.Foreground = Brushes.DeepSkyBlue;
                     }
-                    if (textBlock != null) 
+                    if (textBlock != null)
                     {
                         textBlock.Text = $"Pull Origin ({currentProject.Behind} ↓)";
                         textBlock.Foreground = Brushes.DeepSkyBlue;
@@ -718,12 +718,12 @@ namespace Chapi
                 {
                     _currentGitAction = GitActionState.Push;
                     GitActionsComboBox.BorderBrush = Brushes.Orange;
-                    if (icon != null) 
+                    if (icon != null)
                     {
                         icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudUploadOutline;
                         icon.Foreground = Brushes.Orange;
                     }
-                    if (textBlock != null) 
+                    if (textBlock != null)
                     {
                         textBlock.Text = $"Push Origin ({currentProject.Ahead} ↑)";
                         textBlock.Foreground = Brushes.Orange;
@@ -733,18 +733,18 @@ namespace Chapi
                 {
                     _currentGitAction = GitActionState.Fetch;
                     GitActionsComboBox.ClearValue(System.Windows.Controls.Control.BorderBrushProperty);
-                    if (icon != null) 
+                    if (icon != null)
                     {
                         icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.Refresh;
                         icon.ClearValue(System.Windows.Controls.Control.ForegroundProperty);
-                    } 
-                    if (textBlock != null) 
+                    }
+                    if (textBlock != null)
                     {
                         textBlock.Text = "Fetch Origin";
                         textBlock.ClearValue(TextBlock.ForegroundProperty);
                     }
                 }
-                
+
                 // Aseguramos que se muestre el item dinamico
                 GitActionsComboBox.SelectedIndex = 0;
             }
@@ -1054,10 +1054,10 @@ namespace Chapi
                     // Si falla por "not fully merged", podemos preguntar si forzar
                     if (result.Error.Contains("not fully merged") || result.Error.Contains("force"))
                     {
-                         // Reintentar con force
-                         // Pero como estamos dentro de RunWithLoading y DialogService debe correr en UI thread...
-                         // Simplificamos mostrando el error, o podriamos mejorar el flujo.
-                         await DialogService.ShowConfirmDialog("Error al eliminar rama", result.Error + "\n\nPara forzar el borrado (perdiendo cambios no fusionados), usa la terminal por ahora.", DialogVariant.Error, DialogType.Info);
+                        // Reintentar con force
+                        // Pero como estamos dentro de RunWithLoading y DialogService debe correr en UI thread...
+                        // Simplificamos mostrando el error, o podriamos mejorar el flujo.
+                        await DialogService.ShowConfirmDialog("Error al eliminar rama", result.Error + "\n\nPara forzar el borrado (perdiendo cambios no fusionados), usa la terminal por ahora.", DialogVariant.Error, DialogType.Info);
                     }
                     else
                     {
@@ -1072,7 +1072,7 @@ namespace Chapi
         {
             if (!ValidateProject()) return;
             string? branch = GetBranchFromSender(sender);
-            
+
             if (branch != null) await ExecuteGitMergeOperation("Merge", branch);
             else await ShowMergeDialogAsync("Merge");
         }
@@ -1122,7 +1122,7 @@ namespace Chapi
 
             if (result is Chapi.Presentation.ViewModels.BranchItemViewModel selectedBranch)
             {
-                
+
                 await ExecuteGitMergeOperation(mergeType, selectedBranch.Name, autoDeleteBranch: viewModel.IsDeleteSourceBranchChecked);
             }
         }
@@ -1189,22 +1189,22 @@ namespace Chapi
 
             if (mergeType == "Squash")
             {
-                 var squashDialog = new Chapi.Presentation.Views.Dialogs.SquashCommitDialog(_gitRepository, projectDirectory, sourceBranch, targetBranch, autoDeleteBranch);
-                 // El dialogo de Squash recibe el checkbox inicial del merge dialog para informar si se eliminará o no (opcionalmente podriamos mostrarlo readonly)
-                 // O simplemente asumimos que la decisión ya fue tomada. 
-                 
-                 var resultDialog = await DialogService.ShowDialog(squashDialog);
-                 
-                 if (resultDialog is bool confirmed && confirmed)
-                 {
-                     squashCommitMessage = squashDialog.CommitMessage;
-                     // shouldDeleteBranch sigue siendo lo que vino por parametro (autoDeleteBranch) 
-                     // o si decidimos dar oportunidad de cambio en el squash dialog (que acabamos de quitar), entonces no cambia.
-                 }
-                 else
-                 {
-                     return; 
-                 }
+                var squashDialog = new Chapi.Presentation.Views.Dialogs.SquashCommitDialog(_gitRepository, projectDirectory, sourceBranch, targetBranch, autoDeleteBranch);
+                // El dialogo de Squash recibe el checkbox inicial del merge dialog para informar si se eliminará o no (opcionalmente podriamos mostrarlo readonly)
+                // O simplemente asumimos que la decisión ya fue tomada. 
+
+                var resultDialog = await DialogService.ShowDialog(squashDialog);
+
+                if (resultDialog is bool confirmed && confirmed)
+                {
+                    squashCommitMessage = squashDialog.CommitMessage;
+                    // shouldDeleteBranch sigue siendo lo que vino por parametro (autoDeleteBranch) 
+                    // o si decidimos dar oportunidad de cambio en el squash dialog (que acabamos de quitar), entonces no cambia.
+                }
+                else
+                {
+                    return;
+                }
             }
             else
             {
@@ -1219,7 +1219,7 @@ namespace Chapi
             {
                 Result result = Result.Fail("Iniciando...");
 
-                try 
+                try
                 {
                     if (mergeType == "Rebase")
                     {
@@ -1252,7 +1252,7 @@ namespace Chapi
                                 "La rama actual se ha rebasado correctamente.\n\n⚠️ Tu historia local ha divergido del remoto.\n¿Deseas realizar un FORCE PUSH ahora para actualizar el servidor?\n(Solo hazlo si estás seguro de que nadie más trabaja sobre esta rama)",
                                 DialogVariant.Warning,
                                 DialogType.Confirm);
-                            
+
                             if (forcePushConfirm)
                             {
                                 var pushResult = await _gitRepository.PushAsync(projectDirectory, sourceBranch, force: true);
@@ -1301,7 +1301,7 @@ namespace Chapi
                         {
                             // Intentamos borrar tanto local como remoto para limpieza completa
                             var deleteResult = await _gitRepository.DeleteBranchAsync(projectDirectory, sourceBranch, force: true, deleteRemote: true);
-                            
+
                             if (deleteResult.IsSuccess)
                             {
                                 Msg.Assistant($"🗑️ Rama '{sourceBranch}' eliminada (Local y Remoto).");
@@ -1323,7 +1323,7 @@ namespace Chapi
                     }
                 }
                 catch (Exception ex)
-                {   
+                {
                     if (_currentlySelectedBranch != sourceBranch)
                         await _gitRepository.SwitchBranchAsync(projectDirectory, sourceBranch);
 
@@ -1347,13 +1347,13 @@ namespace Chapi
         private GitActionState _currentGitAction = GitActionState.Fetch;
 
         private bool _isExecutingGitAction = false;
-        
+
         private async void GitActionsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!_isWindowInitialized || _isExecutingGitAction || GitActionsComboBox.SelectedItem is not ComboBoxItem selectedItem) return;
 
             GitActionState? action = null;
-            
+
             if (selectedItem.Name == "PullGitActionItem") action = GitActionState.Pull;
             else if (selectedItem.Name == "PushGitActionItem") action = GitActionState.Push;
             else if (selectedItem.Name == "FetchGitActionItem") action = GitActionState.Fetch;
@@ -1394,12 +1394,12 @@ namespace Chapi
                         var fetchUC = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Git.FetchChangesUseCase>();
                         result = await fetchUC.ExecuteAsync(projectDirectory, isSilent: false);
                         break;
-                    
+
                     case GitActionState.Pull:
                         var pullUC = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Git.PullChangesUseCase>();
                         result = await pullUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch, stashBeforePull);
                         break;
-                    
+
                     case GitActionState.Push:
                         var pushUC = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Git.PushChangesUseCase>();
                         result = await pushUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch);
@@ -1407,14 +1407,14 @@ namespace Chapi
                 }
 
                 await LoadHistoryAsync();
-                await UpdateProjectStatusesAsync(); 
+                await UpdateProjectStatusesAsync();
                 _ = DoFetchAsync(isSilent: true);
             });
         }
 
         private async void GitActionsComboBox_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            e.Handled = true; 
+            e.Handled = true;
             await ExecuteGitAction(_currentGitAction);
         }
 
@@ -1434,12 +1434,12 @@ namespace Chapi
             if (Directory.Exists(path))
             {
                 SwitchToProject(path);
-                
+
                 if (ProjectsComboBox.SelectedItem == null || ((ProjectViewModel)ProjectsComboBox.SelectedItem).FullPath != path)
                 {
-                   ProjectSettings.AddProject(path);
-                   LoadProjects();
-                   SwitchToProject(path);
+                    ProjectSettings.AddProject(path);
+                    LoadProjects();
+                    SwitchToProject(path);
                 }
             }
             else if (File.Exists(path))

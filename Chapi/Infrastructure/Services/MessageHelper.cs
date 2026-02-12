@@ -1,6 +1,5 @@
 ﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Windows;
 
 namespace Chapi.Infrastructure.Services;
 
@@ -25,13 +24,13 @@ public class MessageHelper : INotifyPropertyChanged
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
         {
             Messages.Add(new ChatMessage
-        {
-            Author = "User",
-            Text = text,
-            Timestamp = DateTime.Now.ToString("HH:mm")
-        });
+            {
+                Author = "User",
+                Text = text,
+                Timestamp = DateTime.Now.ToString("HH:mm")
+            });
 
-        ScrollRequested?.Invoke(this, EventArgs.Empty);
+            ScrollRequested?.Invoke(this, EventArgs.Empty);
         });
     }
 
@@ -47,7 +46,7 @@ public class MessageHelper : INotifyPropertyChanged
             });
             ScrollRequested?.Invoke(this, EventArgs.Empty);
         });
-       
+
     }
 
     // 🔄 Evento que MainWindow puede escuchar para hacer scroll automático

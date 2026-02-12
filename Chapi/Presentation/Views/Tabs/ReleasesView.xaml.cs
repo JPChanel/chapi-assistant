@@ -1,5 +1,5 @@
-using System.Windows.Controls;
 using Chapi.Presentation.ViewModels;
+using System.Windows.Controls;
 
 namespace Chapi.Presentation.Views.Tabs;
 

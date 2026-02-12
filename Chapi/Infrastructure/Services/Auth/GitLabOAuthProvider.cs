@@ -4,7 +4,6 @@ using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
 using Chapi.Infrastructure.Configuration;
-using Chapi.Infrastructure.Services;
 using Microsoft.Extensions.Options;
 
 using System.Diagnostics;
@@ -13,10 +12,6 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Chapi.Infrastructure.Services.Auth;
 
@@ -32,7 +27,7 @@ public class GitLabOAuthProvider : IGitAuthProvider
     public GitProvider Provider => GitProvider.GitLab;
 
     public GitLabOAuthProvider(
-        ICredentialStorageService credentialStorage, 
+        ICredentialStorageService credentialStorage,
         HttpClient httpClient,
         IOptions<GitAuthConfig> config)
     {
@@ -80,7 +75,7 @@ public class GitLabOAuthProvider : IGitAuthProvider
 
             // 7. Guardar el token de OAuth
             await _credentialStorage.SaveCredentialAsync("GitLab", userResult.Data.Username, tokenResponse.AccessToken);
-            
+
             // Guardar Refresh Token para renovación automática
             if (!string.IsNullOrEmpty(tokenResponse.RefreshToken))
             {
@@ -280,13 +275,13 @@ public class GitLabOAuthProvider : IGitAuthProvider
             // Responder al navegador con UI Premium
             var response = context.Response;
             response.ContentType = "text/html; charset=utf-8";
-            
+
             bool isSuccess = !string.IsNullOrEmpty(code) && state == expectedState;
             string statusTitle = isSuccess ? "¡Conexión Exitosa!" : "Error de Conexión";
             string statusIcon = isSuccess ? "✅" : "❌";
             string statusColor = isSuccess ? "#fc6d26" : "#dc3545";
-            string statusMessage = isSuccess 
-                ? "GitLab se ha vinculado correctamente con Chapi." 
+            string statusMessage = isSuccess
+                ? "GitLab se ha vinculado correctamente con Chapi."
                 : (state != expectedState ? "Error de seguridad: el estado de la sesión no coincide." : "No se pudo verificar la identidad o el usuario canceló el acceso.");
             string brandColor = isSuccess ? "linear-gradient(135deg, #fc6d26 0%, #e24329 100%)" : "linear-gradient(135deg, #ff4b2b 0%, #ff416c 100%)";
 

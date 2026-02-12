@@ -1,6 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using Chapi.Domain.Entities;
-using System.Windows.Data;
 
 namespace Chapi.Presentation.ViewModels;
 

@@ -12,10 +12,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
 namespace Chapi.Infrastructure.Services.Auth;
 
 /// <summary>
@@ -30,16 +26,16 @@ public class GitHubOAuthProvider : IGitAuthProvider
     public GitProvider Provider => GitProvider.GitHub;
 
     public GitHubOAuthProvider(
-        ICredentialStorageService credentialStorage, 
+        ICredentialStorageService credentialStorage,
         HttpClient httpClient,
         IOptions<GitAuthConfig> config)
     {
         _credentialStorage = credentialStorage;
-        
+
         // Configuramos el HttpClient para ignorar el proxy del sistema si da problemas
         var handler = new HttpClientHandler { UseProxy = false };
         _httpClient = httpClient;
-        
+
         _config = config.Value.GitHub;
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "ChapiAssistant");
     }
@@ -120,7 +116,7 @@ public class GitHubOAuthProvider : IGitAuthProvider
             }
 
             var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(json);
-            
+
             if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.AccessToken))
             {
                 using var doc = JsonDocument.Parse(json);
@@ -274,13 +270,13 @@ public class GitHubOAuthProvider : IGitAuthProvider
             // Responder al navegador con UI Premium
             var response = context.Response;
             response.ContentType = "text/html; charset=utf-8";
-            
+
             bool isSuccess = !string.IsNullOrEmpty(code) && state == expectedState;
             string statusTitle = isSuccess ? "¡Conexión Exitosa!" : "Error de Conexión";
             string statusIcon = isSuccess ? "✅" : "❌";
             string statusColor = isSuccess ? "#28a745" : "#dc3545";
-            string statusMessage = isSuccess 
-                ? "GitHub se ha vinculado correctamente con Chapi." 
+            string statusMessage = isSuccess
+                ? "GitHub se ha vinculado correctamente con Chapi."
                 : (state != expectedState ? "Error de seguridad: el estado de la sesión no coincide." : "No se pudo verificar la identidad o el usuario canceló el acceso.");
             string brandColor = isSuccess ? "linear-gradient(135deg, #2abb47 0%, #28a745 100%)" : "linear-gradient(135deg, #ff4b2b 0%, #ff416c 100%)";
 

@@ -22,11 +22,11 @@ public class GetFileDiffUseCase
 
         // 1. Obtener el commit "padre"
         string parentHash = await _gitRepo.GetCommitParentHashAsync(projectPath, commitHash);
-        
+
         // 2. Obtener el texto del archivo en el commit PADRE (el "antes")
         // Si no hay padre (primer commit), el texto antiguo es vacio
-        string oldText = string.IsNullOrEmpty(parentHash) 
-            ? string.Empty 
+        string oldText = string.IsNullOrEmpty(parentHash)
+            ? string.Empty
             : await _gitRepo.GetFileContentAtCommitAsync(projectPath, file, parentHash);
 
         // 3. Obtener el texto del archivo en el commit ACTUAL (el "despues")

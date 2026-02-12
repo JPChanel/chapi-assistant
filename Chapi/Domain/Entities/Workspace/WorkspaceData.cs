@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace Chapi.Domain.Entities.Workspace;
 
 public class WorkspaceData

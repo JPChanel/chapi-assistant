@@ -1,6 +1,4 @@
-﻿
-using Chapi;
-using Chapi.Infrastructure.Persistence.Settings;
+﻿using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Views.Dialogs;
 using Mscc.GenerativeAI;
@@ -13,7 +11,7 @@ public class AIClient
     /// Encapsula la conexión con la API de Gemini 
     /// </summary>
     /// 
-   public static string GeminiApi
+    public static string GeminiApi
     {
         get
         {
@@ -47,7 +45,7 @@ public class AIClient
 
                 text = text.Trim();
 
-  
+
                 if (text.StartsWith("```"))
                 {
                     int start = text.IndexOf("{");
@@ -60,7 +58,7 @@ public class AIClient
             }
             catch (Exception ex)
             {
-                
+
                 msg = ex.Message;
             }
         }

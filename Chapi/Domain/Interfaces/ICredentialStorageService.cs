@@ -9,17 +9,17 @@ public interface ICredentialStorageService
     /// Guarda credenciales en Windows Credential Manager.
     /// </summary>
     Task SaveCredentialAsync(string service, string username, string token);
-    
+
     /// <summary>
     /// Obtiene credenciales guardadas.
     /// </summary>
     Task<(string username, string token)?> GetCredentialAsync(string service);
-    
+
     /// <summary>
     /// Elimina credenciales guardadas.
     /// </summary>
     Task DeleteCredentialAsync(string service);
-    
+
     /// <summary>
     /// Verifica si existen credenciales para un servicio.
     /// </summary>

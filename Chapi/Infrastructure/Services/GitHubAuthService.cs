@@ -2,15 +2,12 @@ using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
 using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
-using System;
-using System.Collections.Generic;
+using Chapi.Infrastructure.Configuration;
+using Microsoft.Extensions.Options;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Options;
-using Chapi.Infrastructure.Configuration;
 
 namespace Chapi.Infrastructure.Services;
 
@@ -86,7 +83,7 @@ public class GitHubAuthService : IGitHubAuthService
                 // "authorization_pending" es normal mientras el usuario no haya ingresado el código
                 if (tokenResponse.Error == "authorization_pending")
                     return Result<string>.Fail("pending");
-                
+
                 return Result<string>.Fail(tokenResponse.ErrorDescription ?? tokenResponse.Error);
             }
 

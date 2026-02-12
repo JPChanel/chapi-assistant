@@ -28,7 +28,7 @@ public class LoadHistoryUseCase
         if (!string.IsNullOrEmpty(currentBranch))
         {
             var unpushedHashes = await _gitRepo.GetUnpushedCommitsAsync(projectPath, currentBranch);
-            
+
             foreach (var commit in commits)
             {
                 commit.IsUnpushed = unpushedHashes.Contains(commit.Hash);

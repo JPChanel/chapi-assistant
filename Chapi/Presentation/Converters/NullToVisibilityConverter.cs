@@ -1,4 +1,3 @@
-using System;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
@@ -16,7 +15,7 @@ namespace Chapi.Presentation.Converters
 
             if (invert)
                 return isNull ? Visibility.Visible : Visibility.Collapsed;
-            
+
             return isNull ? Visibility.Collapsed : Visibility.Visible;
         }
 

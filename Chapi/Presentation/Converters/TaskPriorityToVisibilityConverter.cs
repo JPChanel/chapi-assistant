@@ -1,8 +1,7 @@
-using System;
+using Chapi.Domain.Enums;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
-using Chapi.Domain.Enums;
 
 namespace Chapi.Presentation.Converters;
 

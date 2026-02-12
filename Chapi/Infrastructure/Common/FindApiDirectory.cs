@@ -26,7 +26,7 @@ public class FindApiDirectory
     {
         var modules = new List<string>();
         string domainPath = Path.Combine(projectDirectory, "Domain");
-        
+
         // Lista de carpetas técnicas a ignorar
         var ignoredFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {

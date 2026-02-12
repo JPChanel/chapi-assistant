@@ -9,12 +9,12 @@ public enum ResetMode
     /// Mantiene los cambios en el area de staging (--soft)
     /// </summary>
     Soft,
-    
+
     /// <summary>
     /// Mantiene los cambios en el working directory (--mixed)
     /// </summary>
     Mixed,
-    
+
     /// <summary>
     /// Descarta todos los cambios (--hard)
     /// </summary>

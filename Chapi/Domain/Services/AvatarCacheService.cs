@@ -1,10 +1,7 @@
-using System;
-using System.Collections.Generic;
+using Chapi.Domain.Interfaces;
 using System.IO;
 using System.Net.Http;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using Chapi.Domain.Interfaces;
 
 namespace Chapi.Domain.Services
 {
@@ -29,7 +26,7 @@ namespace Chapi.Domain.Services
             _localAvatarsPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Chapi", "Avatars");
-            
+
             if (!Directory.Exists(_localAvatarsPath))
             {
                 Directory.CreateDirectory(_localAvatarsPath);
@@ -43,7 +40,7 @@ namespace Chapi.Domain.Services
 
             var extension = ".png"; // Por defecto
             if (remoteUrl.Contains(".jpg") || remoteUrl.Contains(".jpeg")) extension = ".jpg";
-            
+
             var fileName = $"{provider}_{username}{extension}";
             var localPath = Path.Combine(_localAvatarsPath, fileName);
 
@@ -80,7 +77,7 @@ namespace Chapi.Domain.Services
                 return GetDefaultAvatarUrl(size);
 
             var cacheKey = $"github:{username}:{size}";
-            
+
             lock (_cacheLock)
             {
                 if (_avatarCache.TryGetValue(cacheKey, out var cachedUrl))
@@ -99,9 +96,10 @@ namespace Chapi.Domain.Services
             }
 
             var remoteUrl = $"https://avatars.githubusercontent.com/{username}?v=4&s={size}";
-            
+
             // Descargar en background para la prÃ³xima vez
-            _ = Task.Run(async () => {
+            _ = Task.Run(async () =>
+            {
                 var local = await EnsureLocalAvatarAsync("GitHub", username, remoteUrl);
                 if (local.StartsWith("file:"))
                 {
@@ -122,7 +120,7 @@ namespace Chapi.Domain.Services
                 return GetDefaultAvatarUrl(size);
 
             var cacheKey = $"gitlab:{username}:{size}";
-            
+
             lock (_cacheLock)
             {
                 if (_avatarCache.TryGetValue(cacheKey, out var cachedUrl))
@@ -135,24 +133,24 @@ namespace Chapi.Domain.Services
             try
             {
                 var apiUrl = $"https://gitlab.com/api/v4/users?username={Uri.EscapeDataString(username)}";
-                
+
                 using var client = new HttpClient();
                 client.DefaultRequestHeaders.Add("User-Agent", "ChapiAssistant");
                 var response = await client.GetStringAsync(apiUrl);
-                
+
                 var avatarUrlMatch = Regex.Match(response, "\"avatar_url\":\"([^\"]+)\"");
                 if (avatarUrlMatch.Success)
                 {
                     var remoteUrl = avatarUrlMatch.Groups[1].Value;
-                    
+
                     // Asegurar localmente
                     var localUrl = await EnsureLocalAvatarAsync("GitLab", username, remoteUrl);
-                    
+
                     lock (_cacheLock)
                     {
                         _avatarCache[cacheKey] = localUrl;
                     }
-                    
+
                     return localUrl;
                 }
             }
@@ -174,7 +172,7 @@ namespace Chapi.Domain.Services
                 return GetDefaultAvatarUrl(size);
 
             var cacheKey = $"gitlab:{username}:{size}";
-            
+
             // Verificar caché primero (sin bloquear)
             lock (_cacheLock)
             {
@@ -195,24 +193,24 @@ namespace Chapi.Domain.Services
 
             // Si no está en caché, retornar URL temporal y consultar en background
             var tempUrl = GetDefaultAvatarUrl(size);
-            
+
             // Consultar API en background sin bloquear
             Task.Run(async () =>
             {
                 try
                 {
                     var apiUrl = $"https://gitlab.com/api/v4/users?username={Uri.EscapeDataString(username)}";
-                    
+
                     using var client = new HttpClient();
                     client.DefaultRequestHeaders.Add("User-Agent", "ChapiAssistant");
                     client.Timeout = TimeSpan.FromSeconds(5); // Timeout de 5 segundos
                     var response = await client.GetStringAsync(apiUrl);
-                    
+
                     var avatarUrlMatch = Regex.Match(response, "\"avatar_url\":\"([^\"]+)\"");
                     if (avatarUrlMatch.Success)
                     {
                         var url = avatarUrlMatch.Groups[1].Value;
-                        
+
                         lock (_cacheLock)
                         {
                             _avatarCache[cacheKey] = url;

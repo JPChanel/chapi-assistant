@@ -1,7 +1,6 @@
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
 using Chapi.Domain.Models;
-using System.Threading.Tasks;
 
 namespace Chapi.Domain.Interfaces;
 

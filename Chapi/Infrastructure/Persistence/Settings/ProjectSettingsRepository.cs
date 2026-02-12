@@ -1,6 +1,5 @@
 using Chapi.Domain.Entities;
 using Chapi.Domain.Interfaces;
-using Chapi.Infrastructure.Persistence.Settings;
 using System.IO;
 
 namespace Chapi.Infrastructure.Persistence.Settings;
@@ -10,10 +9,10 @@ public class ProjectSettingsRepository : IProjectRepository
     public Task<IEnumerable<Project>> GetAllProjectsAsync()
     {
         var paths = ProjectSettings.LoadProjects();
-        var projects = paths.Select(p => new Project 
-        { 
-            FullPath = p, 
-            Name = Path.GetFileName(p) 
+        var projects = paths.Select(p => new Project
+        {
+            FullPath = p,
+            Name = Path.GetFileName(p)
         });
         return Task.FromResult(projects);
     }
@@ -23,11 +22,11 @@ public class ProjectSettingsRepository : IProjectRepository
         var paths = ProjectSettings.LoadProjects();
         var p = paths.FirstOrDefault(x => x == path);
         if (p == null) return Task.FromResult<Project?>(null);
-        
-        return Task.FromResult<Project?>(new Project 
-        { 
-            FullPath = p, 
-            Name = Path.GetFileName(p) 
+
+        return Task.FromResult<Project?>(new Project
+        {
+            FullPath = p,
+            Name = Path.GetFileName(p)
         });
     }
 

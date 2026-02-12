@@ -3,7 +3,6 @@ using Chapi.Domain.Entities;
 using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
 using Chapi.Infrastructure.Persistence.Settings;
-using System.Threading.Tasks;
 
 namespace Chapi.Application.UseCases.Auth;
 
@@ -38,7 +37,7 @@ public class LoginGitHubUseCase
             return Result<GitHubUser>.Fail(tokenResult.Error);
 
         var userResult = await _authService.GetUserInfoAsync(tokenResult.Data!);
-        
+
         if (userResult.IsSuccess && userResult.Data != null)
         {
             // Guardar en settings

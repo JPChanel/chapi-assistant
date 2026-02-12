@@ -1,13 +1,12 @@
 ﻿
+using Chapi.Domain.Interfaces;
+using Chapi.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using Velopack;
-using Chapi.Domain.Interfaces;
-using Chapi.Infrastructure.Git;
-using Chapi.Infrastructure.Services;
 using UseCases = Chapi.Application.UseCases.Git;
 
 
@@ -44,7 +43,7 @@ namespace Chapi
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, ref COPYDATASTRUCT lParam);
 
-        private const int SW_RESTORE = 9; 
+        private const int SW_RESTORE = 9;
         private const int WM_COPYDATA = 0x004A;
 
         [StructLayout(LayoutKind.Sequential)]
@@ -62,7 +61,7 @@ namespace Chapi
         public static IConfiguration Configuration { get; private set; }
 
         public static NetworkWatcherService NetworkWatcher { get; private set; }
-        
+
         // Dependency Injection
         public static IServiceProvider ServiceProvider { get; private set; }
 
@@ -193,7 +192,7 @@ namespace Chapi
                         cds.dwData = (IntPtr)100; // ID personalizado
                         cds.cbData = s_Data.Length + 1;
                         cds.lpData = args;
-                        
+
                         SendMessage(hWnd, WM_COPYDATA, IntPtr.Zero, ref cds);
                     }
 
@@ -209,17 +208,17 @@ namespace Chapi
                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
             Configuration = builder.Build();
-            
+
             // Configurar Dependency Injection
             ConfigureServices();
 
             // Init NetworkWatcher with DI
             var gitRepo = ServiceProvider.GetRequiredService<IGitRepository>();
             NetworkWatcher = new NetworkWatcherService(gitRepo);
-            
+
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             MainWindow = new MainWindow();
-            
+
             // Hook para escuchar el mensaje de restauracion
             MainWindow.Loaded += (s, ev) =>
             {

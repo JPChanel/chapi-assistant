@@ -1,5 +1,4 @@
 using Chapi.Domain.Interfaces;
-using Chapi.Domain.Models; // Para Result
 using MaterialDesignThemes.Wpf;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -26,7 +25,7 @@ public class MergeBranchViewModel : INotifyPropertyChanged
     private string _currentBranch = string.Empty;
     private BranchItemViewModel? _selectedBranch;
     private string _searchText = string.Empty;
-    
+
     // Estado del Merge
     private bool _isCheckingStatus;
     private bool _hasConflicts;
@@ -57,9 +56,9 @@ public class MergeBranchViewModel : INotifyPropertyChanged
     public BranchItemViewModel? SelectedBranch
     {
         get => _selectedBranch;
-        set 
-        { 
-            _selectedBranch = value; 
+        set
+        {
+            _selectedBranch = value;
             OnPropertyChanged(nameof(SelectedBranch));
             OnPropertyChanged(nameof(CanMerge));
             _ = CheckMergeStatusAsync(); // Verificar estado al seleccionar
@@ -69,9 +68,9 @@ public class MergeBranchViewModel : INotifyPropertyChanged
     public string SearchText
     {
         get => _searchText;
-        set 
-        { 
-            _searchText = value; 
+        set
+        {
+            _searchText = value;
             OnPropertyChanged(nameof(SearchText));
             FilterBranches();
         }
@@ -80,10 +79,10 @@ public class MergeBranchViewModel : INotifyPropertyChanged
     public bool IsCheckingStatus
     {
         get => _isCheckingStatus;
-        set 
-        { 
-            _isCheckingStatus = value; 
-            OnPropertyChanged(nameof(IsCheckingStatus)); 
+        set
+        {
+            _isCheckingStatus = value;
+            OnPropertyChanged(nameof(IsCheckingStatus));
             OnPropertyChanged(nameof(CanMerge)); // Actualizar estado del botón
         }
     }
@@ -91,10 +90,10 @@ public class MergeBranchViewModel : INotifyPropertyChanged
     public bool HasConflicts
     {
         get => _hasConflicts;
-        set 
-        { 
-            _hasConflicts = value; 
-            OnPropertyChanged(nameof(HasConflicts)); 
+        set
+        {
+            _hasConflicts = value;
+            OnPropertyChanged(nameof(HasConflicts));
             OnPropertyChanged(nameof(CanMerge)); // Actualizar estado del botón
         }
     }
@@ -102,10 +101,10 @@ public class MergeBranchViewModel : INotifyPropertyChanged
     public bool IsUpToDate
     {
         get => _isUpToDate;
-        set 
-        { 
-            _isUpToDate = value; 
-            OnPropertyChanged(nameof(IsUpToDate)); 
+        set
+        {
+            _isUpToDate = value;
+            OnPropertyChanged(nameof(IsUpToDate));
             OnPropertyChanged(nameof(CanMerge)); // Actualizar estado del botón
         }
     }
@@ -135,7 +134,7 @@ public class MergeBranchViewModel : INotifyPropertyChanged
     public ObservableCollection<BranchItemViewModel> FilteredBranches { get; } = new();
 
     public string MergeType { get; set; } = "Merge"; // "Merge", "Squash", "Rebase"
-    
+
     public ICommand ConfirmCommand { get; }
     public ICommand CloseCommand { get; }
 
@@ -155,14 +154,15 @@ public class MergeBranchViewModel : INotifyPropertyChanged
             case "Rebase":
                 ActionButtonText = "Rebase";
                 MergeDescription = "Actualiza tu rama actual integrando los últimos cambios de la rama seleccionada. Reescribe tu historial para que sea lineal.";
-                IsDeleteOptionVisible = false; 
+                IsDeleteOptionVisible = false;
                 break;
             default:
                 ActionButtonText = "Create a merge commit";
                 MergeDescription = "Crea un nuevo commit de unión que conserva la historia completa de ambas ramas.";
                 IsDeleteOptionVisible = true;
                 break;
-        };
+        }
+        ;
     }
 
     private async Task CheckMergeStatusAsync()
@@ -186,7 +186,7 @@ public class MergeBranchViewModel : INotifyPropertyChanged
             // PROTECCIÓN DE RAMAS PRINCIPALES PARA REBASE
             if (MergeType == "Rebase")
             {
-                var protectedBranches = new[] { "main", "master", "production","prod" };
+                var protectedBranches = new[] { "main", "master", "production", "prod" };
                 if (protectedBranches.Contains(CurrentBranch.ToLowerInvariant()))
                 {
                     StatusMessage = $"⚠️ PROTECCIÓN: No está permitido hacer rebase sobre '{CurrentBranch}'. Reescribir la historia de ramas principales es peligroso.";
@@ -200,21 +200,21 @@ public class MergeBranchViewModel : INotifyPropertyChanged
             // Para Merge: Traer Selected a Current.
             // Para Rebase: Poner Current sobre Selected (los conflictos de contenido serán los mismos).
             var (conflicts, msg) = await _gitRepository.CheckMergeConflictsAsync(_projectPath, SelectedBranch.Name);
-            
+
             if (conflicts)
             {
                 HasConflicts = true;
-                
+
                 if (msg == "DIRTY_WORKTREE" || msg.Contains("overwritten") || msg.Contains("changes"))
                 {
-                        StatusMessage = "⚠️ Cambios locales detectados. Por favor haz commit o stash primero.";
+                    StatusMessage = "⚠️ Cambios locales detectados. Por favor haz commit o stash primero.";
                 }
                 else
                 {
-                        if (MergeType == "Rebase")
-                            StatusMessage = $"⚠️ Conflictos detectados. El rebase fallará. Sincroniza o resuelve conflictos manualmente primero.";
-                        else
-                            StatusMessage = $"Conflictos detectados. Intenta sincronizar '{SelectedBranch.Name}' en '{CurrentBranch}' primero.";
+                    if (MergeType == "Rebase")
+                        StatusMessage = $"⚠️ Conflictos detectados. El rebase fallará. Sincroniza o resuelve conflictos manualmente primero.";
+                    else
+                        StatusMessage = $"Conflictos detectados. Intenta sincronizar '{SelectedBranch.Name}' en '{CurrentBranch}' primero.";
                 }
             }
             else
@@ -264,12 +264,12 @@ public class MergeBranchViewModel : INotifyPropertyChanged
         AllBranches.Clear();
 
         var branchList = branches.Where(b => !b.Equals(currentBranch, StringComparison.OrdinalIgnoreCase)).ToList();
-        
+
         foreach (var branch in branchList)
         {
-            bool isDefault = branch.Equals("main", StringComparison.OrdinalIgnoreCase) || 
+            bool isDefault = branch.Equals("main", StringComparison.OrdinalIgnoreCase) ||
                            branch.Equals("master", StringComparison.OrdinalIgnoreCase);
-            
+
             AllBranches.Add(new BranchItemViewModel
             {
                 Name = branch,

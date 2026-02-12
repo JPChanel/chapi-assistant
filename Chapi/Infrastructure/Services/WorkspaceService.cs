@@ -1,13 +1,10 @@
-using System;
-using System.IO;
-using System.Text.Json;
-using System.Threading.Tasks;
-using System.Diagnostics;
 using Chapi.Application.Interfaces.Workspace;
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities.Workspace;
-using System.Collections.Generic;
 using Chapi.Infrastructure.AI;
+using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
 
 namespace Chapi.Infrastructure.Services;
 
@@ -26,7 +23,7 @@ public class WorkspaceService : IWorkspaceService
     {
         _appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ChapiAssistant", "Workspaces");
         _tipsCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ChapiAssistant", "daily_tips.json");
-        
+
         if (!Directory.Exists(_appDataPath))
         {
             Directory.CreateDirectory(_appDataPath);
@@ -38,7 +35,7 @@ public class WorkspaceService : IWorkspaceService
         // Use MD5 of the project path to create a unique folder name
         using var md5 = System.Security.Cryptography.MD5.Create();
         var hash = BitConverter.ToString(md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(projectPath))).Replace("-", "");
-        
+
         // Get project folder name for readability and append it
         var projectName = new DirectoryInfo(projectPath).Name;
         foreach (var c in Path.GetInvalidFileNameChars())
@@ -48,7 +45,7 @@ public class WorkspaceService : IWorkspaceService
 
         // Structure: AppData/ChapiAssistant/Workspaces/[HASH]_[ProjectName]/
         var projectStoragePath = Path.Combine(_appDataPath, folderName);
-        
+
         if (!Directory.Exists(projectStoragePath))
         {
             Directory.CreateDirectory(projectStoragePath);
@@ -101,7 +98,7 @@ public class WorkspaceService : IWorkspaceService
                     catch { }
                 }
             }
-            
+
             return Result<WorkspaceData>.Success(data);
         }
         catch (Exception ex)
@@ -123,14 +120,14 @@ public class WorkspaceService : IWorkspaceService
 
             if (!Directory.Exists(tasksPath))
                 Directory.CreateDirectory(tasksPath);
-            var metadata = new WorkspaceData 
+            var metadata = new WorkspaceData
             {
                 ProjectPath = data.ProjectPath,
                 SessionNotes = data.SessionNotes,
                 DeploymentQueue = data.DeploymentQueue,
                 LastUpdated = DateTime.Now
             };
-   
+
             var metadataJson = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(metadataPath, metadataJson);
 
@@ -155,9 +152,9 @@ public class WorkspaceService : IWorkspaceService
                 {
                     if (!currentTaskIds.Contains(fileId))
                     {
-                        try 
+                        try
                         {
-                             File.Delete(file); 
+                            File.Delete(file);
                         }
                         catch { }
                     }
@@ -223,16 +220,16 @@ public class WorkspaceService : IWorkspaceService
             }
 
             var prompt = "Genera un JSON array de strings con 10 consejos cortos (máx 15 palabras), ingeniosos, modernos y útiles sobre desarrollo de software, clean code, arquitectura o vida dev. En español. Solo el JSON array puro.";
-            
+
             var response = await AIClient.SendPromptAsync(prompt);
-            
+
             if (string.IsNullOrWhiteSpace(response)) return;
 
             // Clean up potentially wrapped JSON
             response = response.Replace("```json", "").Replace("```", "").Trim();
-            
+
             var tips = JsonSerializer.Deserialize<List<string>>(response);
-            
+
             if (tips != null && tips.Any())
             {
                 var cache = new DailyTipsCache
@@ -240,7 +237,7 @@ public class WorkspaceService : IWorkspaceService
                     Date = DateTime.Today,
                     Tips = tips
                 };
-                
+
                 var json = JsonSerializer.Serialize(cache);
                 await File.WriteAllTextAsync(_tipsCachePath, json);
             }

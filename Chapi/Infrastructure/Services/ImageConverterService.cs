@@ -1,6 +1,5 @@
 ﻿using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.Processing;
 using System.IO;
 
 namespace Chapi.Infrastructure.Services;
@@ -15,9 +14,9 @@ public class ImageConverterService
         public long ConvertedSize { get; set; }
         public bool Success { get; set; }
         public string? ErrorMessage { get; set; }
-        
-        public double CompressionRatio => OriginalSize > 0 
-            ? Math.Round((1 - (double)ConvertedSize / OriginalSize) * 100, 2) 
+
+        public double CompressionRatio => OriginalSize > 0
+            ? Math.Round((1 - (double)ConvertedSize / OriginalSize) * 100, 2)
             : 0;
     }
 
@@ -27,8 +26,8 @@ public class ImageConverterService
     /// Convierte una imagen individual a formato WebP
     /// </summary>
     public async Task<ConversionResult> ConvertImageAsync(
-        string sourcePath, 
-        string outputDirectory, 
+        string sourcePath,
+        string outputDirectory,
         int quality = 85,
         IProgress<string>? progress = null)
     {
@@ -57,7 +56,7 @@ public class ImageConverterService
 
             // Cargar y convertir la imagen
             using var image = await Image.LoadAsync(sourcePath);
-            
+
             var encoder = new WebpEncoder
             {
                 Quality = quality,
@@ -158,7 +157,7 @@ public class ImageConverterService
         string[] sizes = { "B", "KB", "MB", "GB" };
         double len = bytes;
         int order = 0;
-        
+
         while (len >= 1024 && order < sizes.Length - 1)
         {
             order++;

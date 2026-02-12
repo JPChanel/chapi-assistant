@@ -20,7 +20,7 @@ public class GetCommitStatsUseCase
             return (0, 0);
 
         var stats = await _gitRepo.GetCommitNumStatAsync(projectPath, hash);
-        
+
         int totalAdditions = stats.Values.Sum(s => s.Additions);
         int totalDeletions = stats.Values.Sum(s => s.Deletions);
 

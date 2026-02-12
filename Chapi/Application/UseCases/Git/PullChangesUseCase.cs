@@ -48,7 +48,7 @@ public class PullChangesUseCase
         if (result.IsSuccess)
         {
             _notifications.ShowSuccess($"✅ Pull exitoso desde {branch}");
-            
+
             // Si hicimos stash, intentamos recuperarlo
             if (stashChanges)
             {

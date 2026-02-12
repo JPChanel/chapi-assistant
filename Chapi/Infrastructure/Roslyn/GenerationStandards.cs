@@ -18,13 +18,13 @@ public static class GenerationStandards
         public string ApplicationMethodNamePattern { get; init; }
         public string ApplicationInterfaceNamePattern { get; init; } // Legacy: ISearch{0}Repository
         public string GenericRepositoryInterfacePattern { get; init; } // Modern: ISearchRepository<Req, Res>
-        public string RepositoryMethodNamePattern { get; init; } 
-        public string GenericRepositoryMethodNamePattern { get; init; } 
+        public string RepositoryMethodNamePattern { get; init; }
+        public string GenericRepositoryMethodNamePattern { get; init; }
         public string RequestDtoNamePattern { get; init; }
-        
+
         // --- NUEVAS PROPIEDADES PARA ARDALIS ENDPOINTS ---
-        public string EndpointFileName { get; init; } 
-        public string EndpointRequestClassPattern { get; init; } 
+        public string EndpointFileName { get; init; }
+        public string EndpointRequestClassPattern { get; init; }
 
         public string RepositoryClassNamePattern { get; init; }
         public string RepositoryNamespaceTag { get; init; }
@@ -45,11 +45,11 @@ public static class GenerationStandards
             ApplicationClassNamePattern = "Search{0}",
             ApplicationMethodNamePattern = "search{0}",
             ApplicationInterfaceNamePattern = "ISearch{0}Repository",
-            GenericRepositoryInterfacePattern = "ISearchRepository<Search{0}Request>", 
-            RepositoryMethodNamePattern = "Search{0}", 
-            GenericRepositoryMethodNamePattern = "Search", 
+            GenericRepositoryInterfacePattern = "ISearchRepository<Search{0}Request>",
+            RepositoryMethodNamePattern = "Search{0}",
+            GenericRepositoryMethodNamePattern = "Search",
             RequestDtoNamePattern = "Search{0}Request",
-            
+
             EndpointFileName = "Search",
             EndpointRequestClassPattern = "Search{0}Request",
 
@@ -72,9 +72,9 @@ public static class GenerationStandards
             RepositoryMethodNamePattern = "{0}", // Legacy
             GenericRepositoryMethodNamePattern = "Execute", // Modern
             RequestDtoNamePattern = "{0}Request",
-            
 
-            EndpointFileName = "Execute", 
+
+            EndpointFileName = "Execute",
             EndpointRequestClassPattern = "{0}Request",
 
             RepositoryClassNamePattern = "{0}Repository",
@@ -96,10 +96,10 @@ public static class GenerationStandards
             RepositoryMethodNamePattern = "Find{0}", // Legacy
             GenericRepositoryMethodNamePattern = "Find", // Modern
             RequestDtoNamePattern = "int",
-            
-    
+
+
             EndpointFileName = "GetById",
-            EndpointRequestClassPattern = "int", 
+            EndpointRequestClassPattern = "int",
             RepositoryClassNamePattern = "Find{0}Repository",
             RepositoryNamespaceTag = "Find"
         }

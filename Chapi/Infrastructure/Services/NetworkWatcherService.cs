@@ -1,5 +1,4 @@
-﻿using Chapi.Infrastructure.Git;
-using Chapi.Infrastructure.Persistence.Settings;
+﻿using Chapi.Infrastructure.Persistence.Settings;
 using System.Net.NetworkInformation;
 
 namespace Chapi.Infrastructure.Services;
@@ -75,7 +74,7 @@ public class NetworkWatcherService
                 if (string.IsNullOrWhiteSpace(settings.ProxyUrl))
                 {
                     _isApplying = false;
-                    return; 
+                    return;
                 }
 
                 string proxyUrlToApply = BuildProxyUrl(settings);

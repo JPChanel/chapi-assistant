@@ -36,7 +36,7 @@ public class CreateBranchUseCase
             _notificationService.ShowInfo($"Creando rama '{branchName}'...");
 
             var result = await _gitRepo.CreateBranchAsync(projectPath, branchName, fromCommitOrBranch);
-            
+
             if (!result.IsSuccess)
             {
                 _notificationService.ShowError($"❌ Error al crear rama: {result.Error}");

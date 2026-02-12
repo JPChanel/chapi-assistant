@@ -1,6 +1,6 @@
 using Chapi.Domain.Common;
-using Chapi.Domain.Interfaces;
 using Chapi.Domain.Entities;
+using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Projects;
 
