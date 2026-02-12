@@ -90,24 +90,9 @@ public class WorkspaceService : IWorkspaceService
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[WorkspaceService] Corrupt task file found: {file}. Error: {ex.Message}");
-                        // Optionally rename .bad to avoid reloading loop?
-                        // File.Move(file, file + ".corrupt");
                     }
                 }
             }
-            
-            // Legacy Migration (Optional: Load old single file if new structure doesn't exist?)
-            // For now, let's assume we are starting fresh or migrating. 
-            // If the old file exists in the old path, we could load it.
-            // Old path was: Path.Combine(_appDataPath, $"{hash}_{FileName}");
-            // Let's check it.
-            /*
-            var oldPath = Path.Combine(_appDataPath, $"{Path.GetFileName(storagePath)}_{FileName}");
-            if (!Directory.Exists(tasksPath) && File.Exists(oldPath)) {
-                 // Load old logic...
-            }
-            */
             
             return Result<WorkspaceData>.Success(data);
         }
@@ -130,10 +115,6 @@ public class WorkspaceService : IWorkspaceService
 
             if (!Directory.Exists(tasksPath))
                 Directory.CreateDirectory(tasksPath);
-
-            // 1. Save Metadata (Exclude tasks to keep it small)
-            // We need a temporary object or ignore Tasks property. 
-            // WorkspaceData has Tasks. We can just create a new instance with same props but empty tasks.
             var metadata = new WorkspaceData 
             {
                 ProjectPath = data.ProjectPath,
@@ -141,8 +122,7 @@ public class WorkspaceService : IWorkspaceService
                 DeploymentQueue = data.DeploymentQueue,
                 LastUpdated = DateTime.Now
             };
-            // Note: Tasks are empty in 'metadata' object, so serialized JSON won't have them (or empty).
-
+   
             var metadataJson = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(metadataPath, metadataJson);
 
@@ -173,7 +153,7 @@ public class WorkspaceService : IWorkspaceService
                         }
                         catch (Exception ex) 
                         {
-                            Debug.WriteLine($"[WorkspaceService] Failed to delete orphaned task: {ex.Message}");
+                          
                         }
                     }
                 }

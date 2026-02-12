@@ -103,6 +103,37 @@ public class WorkspaceViewModel : ViewModelBase
     public ICommand ChangePriorityCommand { get; }
 
     private bool _isLoading;
+    
+    // Progress Tracking
+    private double _progressValue;
+    public double ProgressValue
+    {
+        get => _progressValue;
+        set => SetProperty(ref _progressValue, value);
+    }
+
+    private string _progressText = "0/0";
+    public string ProgressText
+    {
+        get => _progressText;
+        set => SetProperty(ref _progressText, value);
+    }
+    
+    private void RecalculateProgress()
+    {
+        if (Tasks == null || Tasks.Count == 0)
+        {
+            ProgressValue = 0;
+            ProgressText = "Sin tareas";
+            return;
+        }
+
+        var completed = Tasks.Count(t => t.IsCompleted);
+        var total = Tasks.Count;
+        
+        ProgressValue = (double)completed / total * 100;
+        ProgressText = $"{completed}/{total} Tareas";
+    }
 
     public async Task InitializeAsync(string projectPath)
     {
@@ -110,7 +141,6 @@ public class WorkspaceViewModel : ViewModelBase
         
         try 
         {
-            System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Starting InitializeAsync for {projectPath}");
             _isLoading = true;
             _currentProjectPath = projectPath;
 
@@ -118,7 +148,6 @@ public class WorkspaceViewModel : ViewModelBase
             if (result.IsSuccess)
             {
                 var data = result.Data!;
-                System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Data loaded. Tasks: {data.Tasks.Count}, Queue: {data.DeploymentQueue.Count}");
 
                 // Ensure we interact with ObservableCollections on the UI thread
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => 
@@ -128,11 +157,9 @@ public class WorkspaceViewModel : ViewModelBase
                         // Unsubscribe from old items properly before clearing
                         foreach (var t in Tasks) t.PropertyChanged -= Task_PropertyChanged;
                         Tasks.Clear();
-                        System.Diagnostics.Debug.WriteLine("[WorkspaceVM] Tasks Cleared");
 
                         foreach (var t in HistoryTasks) t.PropertyChanged -= Task_PropertyChanged;
                         HistoryTasks.Clear();
-                        System.Diagnostics.Debug.WriteLine("[WorkspaceVM] History Cleared");
                         
                         DeploymentQueue.Clear();
 
@@ -143,7 +170,6 @@ public class WorkspaceViewModel : ViewModelBase
                         foreach(var item in toRemove) data.Tasks.Remove(item);
 
                         // Add Active Tasks
-                        System.Diagnostics.Debug.WriteLine("[WorkspaceVM] Adding Active Tasks...");
                         foreach (var t in data.Tasks.Where(x => !x.IsDeleted).OrderByDescending(x => x.Priority).ToList())
                         {
                              try 
@@ -151,7 +177,6 @@ public class WorkspaceViewModel : ViewModelBase
                                  // Defensive coding: Ensure UI doesn't crash on bad data
                                  if (t.Id == Guid.Empty) t.Id = Guid.NewGuid();
                                  if (t.Title == null) t.Title = "(Sin título recuperado)";
-                                 // Enum validation creates overhead, but let's assume valid or default to 0 (Baja) if weird
                                  
                                  // Manually subscribe to PropertyChanged because CollectionChanged is ignored during loading
                                  t.PropertyChanged -= Task_PropertyChanged;
@@ -159,12 +184,8 @@ public class WorkspaceViewModel : ViewModelBase
 
                                  Tasks.Add(t);
                              }
-                             catch (Exception ex)
-                             {
-                                 System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Failed to add task {t.Id}: {ex.Message}");
-                             }
+                             catch { }
                         }
-                        System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Added {Tasks.Count} active tasks");
                             
                         // Add History Tasks
                         foreach (var t in data.Tasks.Where(x => x.IsDeleted).OrderByDescending(x => x.DeletedAt).ToList())
@@ -180,52 +201,32 @@ public class WorkspaceViewModel : ViewModelBase
 
                                 HistoryTasks.Add(t);
                             }
-                            catch (Exception ex)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Failed to add history task {t.Id}: {ex.Message}");
-                            }
+                            catch { }
                         }
-                        System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Added {HistoryTasks.Count} history tasks");
 
                         // Add Deployment Assets
                         foreach (var d in data.DeploymentQueue.ToList())
                             DeploymentQueue.Add(d);
-                        System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Added {DeploymentQueue.Count} assets");
                         
                         SessionNotes = data.SessionNotes;
                         
                         UpdatePendingStatus();
-                        
-                        // Schedule save if cleanup happened, don't block initialization
-                        if (needsCleanupSave)
-                        {
-                            // Timer will pick this up when _isLoading becomes false
-                        }
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] CRITICAL ERROR in UI Invoke: {ex}");
                         System.Windows.MessageBox.Show($"Error inicializando Workspace (UI): {ex.Message}\n{ex.StackTrace}");
                     }
                 });
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] LoadWorkspaceAsync failed: {result.Error}");
             }
             
             var quoteResult = await _workspaceService.GetRandomQuoteAsync();
             if (quoteResult.IsSuccess) RandomQuote = quoteResult.Data;
         }
-        catch (Exception ex)
-        {
-             System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Error in InitializeAsync outer: {ex}");
-             // System.Windows.MessageBox.Show($"Error loading workspace: {ex.Message}");
-        }
+        catch { }
         finally
         {
             _isLoading = false;
-            System.Diagnostics.Debug.WriteLine("[WorkspaceVM] Initialization finished, _isLoading set to false");
+            RecalculateProgress();
         }
     }
 
@@ -252,22 +253,22 @@ public class WorkspaceViewModel : ViewModelBase
                     item.PropertyChanged -= Task_PropertyChanged;
             }
             
-            System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Collection Changed. Action: {e.Action}");
+            RecalculateProgress();
             TriggerAutoSave();
         }
-        catch (Exception ex)
-        {
-             System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Error in CollectionChanged: {ex}");
-        }
+        catch { }
     }
 
     private void Task_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (_isLoading) return;
         
-        // Filter out properties that don't need saving or could cause loops?
-        // But for now, just log and trigger.
-        System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] PropertyChanged: {e.PropertyName}");
+        // Recalculate progress if relevant property changes
+        if (e.PropertyName == nameof(WorkspaceTask.IsCompleted) || e.PropertyName == nameof(WorkspaceTask.IsDeleted))
+        {
+            RecalculateProgress();
+        }
+
         TriggerAutoSave();
     }
 
@@ -428,22 +429,9 @@ public class WorkspaceViewModel : ViewModelBase
 
             if (data == null) return;
 
-            // Perform I/O in background (SaveWorkspaceAsync internally uses async I/O)
-            System.Diagnostics.Debug.WriteLine("[WorkspaceVM] Saving workspace (Background)...");
-            var result = await _workspaceService.SaveWorkspaceAsync(data);
-            
-            if (!result.IsSuccess)
-            {
-               System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Save failed: {result.Error}");
-            }
-            else 
-            {
-               System.Diagnostics.Debug.WriteLine("[WorkspaceVM] Save complete.");
-            }
+            // Perform I/O in background
+            await _workspaceService.SaveWorkspaceAsync(data);
         }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[WorkspaceVM] Error saving workspace: {ex}");
-        }
+        catch { }
     }
 }

@@ -49,11 +49,9 @@ public class GitChangeWatcher : IDisposable
             watcher.EnableRaisingEvents = true;
             _watchers[projectPath] = watcher;
 
-            System.Diagnostics.Debug.WriteLine($"🔍 GitChangeWatcher: Monitoreando {projectPath}");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"❌ Error iniciando watcher: {ex.Message}");
         }
     }
 
@@ -67,7 +65,6 @@ public class GitChangeWatcher : IDisposable
             watcher.EnableRaisingEvents = false;
             watcher.Dispose();
             _lastChangeTime.TryRemove(projectPath, out _);
-            System.Diagnostics.Debug.WriteLine($"🛑 GitChangeWatcher: Detenido monitoreo de {projectPath}");
         }
     }
 
@@ -100,7 +97,6 @@ public class GitChangeWatcher : IDisposable
             // Verificar que no haya habido otro cambio más reciente
             if (_lastChangeTime.TryGetValue(projectPath, out var checkTime) && checkTime == now)
             {
-                System.Diagnostics.Debug.WriteLine($"📝 GitChangeWatcher: Cambio detectado en {projectPath}");
                 RepositoryChanged?.Invoke(this, projectPath);
             }
         });

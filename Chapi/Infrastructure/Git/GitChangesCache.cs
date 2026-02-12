@@ -52,8 +52,7 @@ public class GitChangesCache
 
         totalAdditions = cached.TotalAdditions;
         totalDeletions = cached.TotalDeletions;
-
-        System.Diagnostics.Debug.WriteLine($"✅ GitChangesCache: Hit para {projectPath} (edad: {age:F1}s)");
+        
         return true;
     }
 
@@ -77,7 +76,7 @@ public class GitChangesCache
         };
 
         _cache[projectPath] = cached;
-        System.Diagnostics.Debug.WriteLine($"💾 GitChangesCache: Guardado para {projectPath} ({cached.Changes.Count} archivos)");
+       
     }
 
     /// <summary>
@@ -87,7 +86,7 @@ public class GitChangesCache
     {
         if (_cache.TryRemove(projectPath, out _))
         {
-            System.Diagnostics.Debug.WriteLine($"🗑️ GitChangesCache: Invalidado para {projectPath}");
+           
         }
     }
 
@@ -97,6 +96,5 @@ public class GitChangesCache
     public void Clear()
     {
         _cache.Clear();
-        System.Diagnostics.Debug.WriteLine("🧹 GitChangesCache: Limpiado completamente");
     }
 }

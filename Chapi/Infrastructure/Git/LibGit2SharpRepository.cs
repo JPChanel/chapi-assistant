@@ -632,7 +632,6 @@ public partial class LibGit2SharpRepository : IGitRepository
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error en GetConfigAsync: {ex.Message}");
                 return string.Empty;
             }
         });

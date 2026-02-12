@@ -135,7 +135,6 @@ namespace Chapi.Domain.Services
             try
             {
                 var apiUrl = $"https://gitlab.com/api/v4/users?username={Uri.EscapeDataString(username)}";
-                System.Diagnostics.Debug.WriteLine($"🔍 AvatarCache: GitLab API - Consultando @{username}");
                 
                 using var client = new HttpClient();
                 client.DefaultRequestHeaders.Add("User-Agent", "ChapiAssistant");
@@ -203,7 +202,6 @@ namespace Chapi.Domain.Services
                 try
                 {
                     var apiUrl = $"https://gitlab.com/api/v4/users?username={Uri.EscapeDataString(username)}";
-                    System.Diagnostics.Debug.WriteLine($"🔍 AvatarCache: GitLab API - Consultando @{username} (background)");
                     
                     using var client = new HttpClient();
                     client.DefaultRequestHeaders.Add("User-Agent", "ChapiAssistant");

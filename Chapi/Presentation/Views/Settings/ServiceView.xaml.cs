@@ -313,7 +313,6 @@ namespace Chapi.Presentation.Views.Settings
                     if (installCode != 0)
                     {
                         txtStatus.Text = "¡Error fatal! No se pudo instalar 'vpk'.";
-                        Debug.WriteLine(installError);
                         return;
                     }
                     txtStatus.Text = "'vpk' instalado. Continuando...";
@@ -809,7 +808,7 @@ namespace Chapi.Presentation.Views.Settings
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading git accounts: {ex.Message}");
+                
             }
         }
 

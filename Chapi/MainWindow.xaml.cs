@@ -313,7 +313,7 @@ namespace Chapi
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error al cambiar de proyecto: {ex.Message}");
+                
             }
         }
 
@@ -429,7 +429,7 @@ namespace Chapi
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error refrescando ramas: {ex.Message}");
+                
             }
         }
 

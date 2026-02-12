@@ -115,7 +115,6 @@ public class ChangesViewModel : ViewModelBase
         // Solo recargar si es el proyecto actual
         if (projectPath == ProjectPath)
         {
-            System.Diagnostics.Debug.WriteLine($"🔄 Cambio detectado en {projectPath}, recargando...");
             _changesCache.Invalidate(projectPath);
             
             // Ejecutar en el UI thread para evitar errores de cross-thread
@@ -129,7 +128,6 @@ public class ChangesViewModel : ViewModelBase
     private void OnAvatarUpdated(object sender, Chapi.Domain.Services.AvatarUpdatedEventArgs e)
     {
         // Forzar actualización del DisplayUserName para que el binding se refresque
-        System.Diagnostics.Debug.WriteLine($"🔄 Avatar actualizado: {e.Provider}/@{e.Username} - Refrescando binding");
         OnPropertyChanged(nameof(DisplayUserName));
     }
 
@@ -141,7 +139,6 @@ public class ChangesViewModel : ViewModelBase
     {
         if (string.IsNullOrEmpty(ProjectPath)) return;
         
-        System.Diagnostics.Debug.WriteLine($"🔄 ForceRefresh solicitado para {ProjectPath}");
         _changesCache.Invalidate(ProjectPath);
         await LoadChangesAsync();
     }
@@ -486,7 +483,6 @@ public class ChangesViewModel : ViewModelBase
         {
             if (_changesCache.TryGetChanges(ProjectPath, out var cachedChanges, out var cachedAdditions, out var cachedDeletions))
             {
-                System.Diagnostics.Debug.WriteLine($"⚡ Usando caché para {ProjectPath}");
                 
                 // Usar datos del caché
                 foreach (var fileChange in cachedChanges)
@@ -521,9 +517,6 @@ public class ChangesViewModel : ViewModelBase
                 return;
             }
 
-            // No hay caché válido, cargar desde Git
-            System.Diagnostics.Debug.WriteLine($"🔄 Cargando cambios desde Git para {ProjectPath}");
-            
             // Usar el Use Case para obtener cambios (ahora es MUCHO más rápido)
             var fileChanges = await _loadChangesUseCase.ExecuteAsync(ProjectPath);
 
@@ -566,7 +559,6 @@ public class ChangesViewModel : ViewModelBase
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error al cargar cambios: {ex.Message}");
         }
         finally
         {
@@ -649,7 +641,6 @@ public class ChangesViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error cargando stats: {ex.Message}");
         }
     }
 

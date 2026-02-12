@@ -18,7 +18,6 @@ namespace Chapi.Presentation.Converters
             {
                 // Retorna imagen por defecto si no hay username
                 url = "https://avatars.githubusercontent.com/u/0?v=4&s=80";
-                System.Diagnostics.Debug.WriteLine($"⚠️ GitHubAvatarConverter: Username vacío, usando imagen por defecto");
             }
             else
             {
@@ -26,7 +25,6 @@ namespace Chapi.Presentation.Converters
                 
                 // GitHub avatar URL
                 url = $"https://avatars.githubusercontent.com/{username}?v=4&s={size}";
-                System.Diagnostics.Debug.WriteLine($"✅ GitHubAvatarConverter: Username '{username}' -> URL: {url}");
             }
 
             try
@@ -36,26 +34,12 @@ namespace Chapi.Presentation.Converters
                 bitmap.UriSource = new Uri(url, UriKind.Absolute);
                 bitmap.CacheOption = BitmapCacheOption.OnLoad;
                 bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-                
-                // Evento para detectar cuando se descarga
-                bitmap.DownloadCompleted += (s, e) =>
-                {
-                    System.Diagnostics.Debug.WriteLine($"✅ GitHubAvatarConverter: Imagen descargada exitosamente");
-                };
-                
-                bitmap.DownloadFailed += (s, e) =>
-                {
-                    System.Diagnostics.Debug.WriteLine($"❌ GitHubAvatarConverter: Error descargando imagen: {e.ErrorException?.Message}");
-                };
-                
+
                 bitmap.EndInit();
-                
-                System.Diagnostics.Debug.WriteLine($"🔄 GitHubAvatarConverter: Iniciando descarga asíncrona...");
                 return bitmap;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ GitHubAvatarConverter: Error cargando imagen: {ex.Message}");
                 return null;
             }
         }

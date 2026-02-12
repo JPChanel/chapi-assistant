@@ -20,8 +20,7 @@ namespace Chapi.Presentation.Converters
             if (value is not string email || string.IsNullOrWhiteSpace(email))
             {
                 // Retorna imagen por defecto si no hay email
-                url = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&s=80";
-                System.Diagnostics.Debug.WriteLine($"⚠️ EmailToGravatarConverter: Email vacío, usando imagen por defecto");
+                url = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&s=80";                
             }
             else
             {
@@ -31,8 +30,6 @@ namespace Chapi.Presentation.Converters
                 // d=mp: usa el avatar "mystery person" por defecto
                 // s=size: tamaño de la imagen
                 url = $"https://www.gravatar.com/avatar/{hash}?d=mp&s={size}";
-                System.Diagnostics.Debug.WriteLine($"✅ EmailToGravatarConverter: Email '{email}' -> Hash: {hash}");
-                System.Diagnostics.Debug.WriteLine($"📥 URL completa: {url}");
             }
 
             try
@@ -42,33 +39,13 @@ namespace Chapi.Presentation.Converters
                 bitmap.UriSource = new Uri(url, UriKind.Absolute);
                 bitmap.CacheOption = BitmapCacheOption.OnLoad;
                 bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-                
-                // Evento para detectar cuando se descarga
-                bitmap.DownloadCompleted += (s, e) =>
-                {
-                    System.Diagnostics.Debug.WriteLine($"✅ EmailToGravatarConverter: Imagen descargada exitosamente");
-                };
-                
-                bitmap.DownloadFailed += (s, e) =>
-                {
-                    System.Diagnostics.Debug.WriteLine($"❌ EmailToGravatarConverter: Error descargando imagen: {e.ErrorException?.Message}");
-                };
-                
                 bitmap.EndInit();
-                
-                // NO congelar para permitir descarga asíncrona
-                // if (bitmap.CanFreeze)
-                // {
-                //     bitmap.Freeze();
-                // }
-                
-                System.Diagnostics.Debug.WriteLine($"🔄 EmailToGravatarConverter: Iniciando descarga asíncrona...");
+               
                 return bitmap;
             }
             catch (Exception ex)
             {
-                // Si falla, retornar null
-                System.Diagnostics.Debug.WriteLine($"❌ EmailToGravatarConverter: Error cargando imagen: {ex.Message}");
+              
                 return null;
             }
         }

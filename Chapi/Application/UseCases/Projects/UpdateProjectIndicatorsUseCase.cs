@@ -28,7 +28,6 @@ public class UpdateProjectIndicatorsUseCase
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error actualizando indicadores para {projectPath}: {ex.Message}");
         }
     }
 }
