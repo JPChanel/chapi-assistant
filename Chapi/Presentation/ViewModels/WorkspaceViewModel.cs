@@ -41,6 +41,7 @@ public class WorkspaceViewModel : ViewModelBase
         AddAssetCommand = new RelayCommand(async path => await AddAssetAsync((string)path));
         RemoveAssetCommand = new RelayCommand(param => RemoveAsset((DeploymentAsset)param));
         OpenAssetCommand = new RelayCommand(param => OpenAsset((DeploymentAsset)param));
+        ToggleAssetStatusCommand = new RelayCommand(param => ToggleAssetStatus((DeploymentAsset)param));
         
         ChangePriorityCommand = new RelayCommand(param => CyclePriority((WorkspaceTask)param));
         
@@ -98,6 +99,7 @@ public class WorkspaceViewModel : ViewModelBase
     public ICommand AddAssetCommand { get; }
     public ICommand RemoveAssetCommand { get; }
     public ICommand OpenAssetCommand { get; }
+    public ICommand ToggleAssetStatusCommand { get; }
     public ICommand ChangePriorityCommand { get; }
 
     private bool _isLoading;
@@ -376,6 +378,15 @@ public class WorkspaceViewModel : ViewModelBase
     {
         if (asset == null) return;
         _workspaceService.OpenFileInExplorer(asset.FilePath);
+    }
+    
+    private void ToggleAssetStatus(DeploymentAsset asset)
+    {
+        if (asset == null) return;
+        
+        asset.IsPending = !asset.IsPending;
+        UpdatePendingStatus();
+        SaveWorkspaceAsync();
     }
     
     private void UpdatePendingStatus()

@@ -328,9 +328,39 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 
-                                                <!-- Icon & Status Strip -->
+                                                <!-- Icon & Toggle Check -->
                                                 <Border Grid.Column="0" Background="#1A1A1A" Width="50" CornerRadius="8,0,0,8" BorderBrush="#252525" BorderThickness="0,0,1,0">
-                                                    <materialDesign:PackIcon Kind="FileCodeOutline" Width="24" Height="24" Foreground="#D500F9" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                        <!-- File Icon -->
+                                                        <materialDesign:PackIcon Kind="FileCodeOutline" Width="24" Height="24" Foreground="#D500F9" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                                        
+                                                        <!-- Status Toggle Button -->
+                                                        <Button Command="{Binding DataContext.ToggleAssetStatusCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                Style="{StaticResource MaterialDesignIconButton}" Height="20" Width="20" Padding="0">
+                                                            <materialDesign:PackIcon Width="16" Height="16">
+                                                                <materialDesign:PackIcon.Style>
+                                                                    <Style TargetType="materialDesign:PackIcon">
+                                                                        <Setter Property="Kind" Value="CheckBold" /> <!-- Default: Ready to check -->
+                                                                        <Setter Property="Foreground" Value="#444" /> <!-- Gray initially -->
+                                                                        <Setter Property="ToolTip" Value="Marcar como EJECUTADO" />
+                                                                        
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsPending}" Value="False">
+                                                                                <Setter Property="Kind" Value="CheckAll" />
+                                                                                <Setter Property="Foreground" Value="#44FF44" /> <!-- Green = Done -->
+                                                                                <Setter Property="ToolTip" Value="EJECUTADO (Click para revertir)" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding IsPending}" Value="True">
+                                                                                 <Setter Property="Foreground" Value="#FF4444" /> <!-- Red = Pending -->
+                                                                                 <Setter Property="Kind" Value="AlertCircleOutline" /> 
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </materialDesign:PackIcon.Style>
+                                                            </materialDesign:PackIcon>
+                                                        </Button>
+                                                    </StackPanel>
                                                 </Border>
                                                 
                                                 <!-- Content -->
