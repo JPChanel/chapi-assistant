@@ -105,14 +105,14 @@ public class WorkspaceViewModel : ViewModelBase
     private bool _isLoading;
     
     // Progress Tracking
-    private double _progressValue;
-    public double ProgressValue
+    private double _displayProgressValue;
+    public double DisplayProgressValue
     {
-        get => _progressValue;
-        set => SetProperty(ref _progressValue, value);
+        get => _displayProgressValue;
+        set => SetProperty(ref _displayProgressValue, value);
     }
 
-    private string _progressText = "0/0";
+    private string _progressText = "0%";
     public string ProgressText
     {
         get => _progressText;
@@ -123,16 +123,38 @@ public class WorkspaceViewModel : ViewModelBase
     {
         if (Tasks == null || Tasks.Count == 0)
         {
-            ProgressValue = 0;
-            ProgressText = "Sin tareas";
+            AnimateProgressTo(0);
+            ProgressText = "0%";
             return;
         }
 
         var completed = Tasks.Count(t => t.IsCompleted);
         var total = Tasks.Count;
         
-        ProgressValue = (double)completed / total * 100;
-        ProgressText = $"{completed}/{total} Tareas";
+        double target = (double)completed / total * 100;
+        AnimateProgressTo(target);
+        ProgressText = $"{target:0}%";
+    }
+
+    private async void AnimateProgressTo(double target)
+    {
+        // Simple interpolation logic
+        while (Math.Abs(DisplayProgressValue - target) > 0.1)
+        {
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => 
+            {
+                var step = (target - DisplayProgressValue) * 0.1; // 10% step speed
+                // Ensure minimum step to update eventually
+                if (Math.Abs(step) < 0.1) step = target > DisplayProgressValue ? 0.1 : -0.1;
+                
+                DisplayProgressValue += step;
+                
+                // Snap if close
+                if (Math.Abs(DisplayProgressValue - target) < 0.1) DisplayProgressValue = target;
+            });
+            
+            await Task.Delay(15); // 60fps-ish
+        }
     }
 
     public async Task InitializeAsync(string projectPath)
