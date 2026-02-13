@@ -5,31 +5,31 @@ public class GetPrompt
     public static string GitCommit(string request)
     {
         return $@"
-        Analiza el siguiente 'diff' y genera un mensaje de commit profesional en espaÒol seg˙n el est·ndar Conventional Commits.
+        Analiza el siguiente 'diff' y genera un mensaje de commit profesional en espa√±ol seg√∫n el est√°ndar Conventional Commits.
 
         ?? Reglas:
-        - Debes retornar S”LO un objeto JSON v·lido, sin formato markdown (```json).
+        - Debes retornar S√ìLO un objeto JSON v√°lido, sin formato markdown (```json).
         - El JSON debe tener esta estructura:
           {{
             ""summary"": ""tipo(alcance): resumen corto"",
-            ""description"": ""descripciÛn detallada de los cambios""
+            ""description"": ""descripci√≥n detallada de los cambios""
           }}
-        - 'summary' (Resumen): Una sola lÌnea, 72 caracteres m·ximo.
-        - 'description' (DescripciÛn):
-            - Un resumen de 1 o 2 frases sobre el 'por quÈ' del cambio.
-            - Seguido de una lista de viÒetas (usando '-') con los cambios m·s importantes.
-            - Si los cambios son muy pequeÒos, la descripciÛn puede ser un string vacÌo ("""").
+        - 'summary' (Resumen): Una sola l√≠nea, 72 caracteres m√°ximo.
+        - 'description' (Descripci√≥n):
+            - Un resumen de 1 o 2 frases sobre el 'por qu√©' del cambio.
+            - Seguido de una lista de vi√±etas (usando '-') con los cambios m√°s importantes.
+            - Si los cambios son muy peque√±os, la descripci√≥n puede ser un string vac√≠o ("""").
 
-        ?? GuÌa de Tipos:
+        ?? Gu√≠a de Tipos:
         - 'feat': Nuevas funciones.
-        - 'fix': CorrecciÛn de errores.
-        - 'refactor': Limpieza de cÛdigo sin cambiar funcionalidad.
+        - 'fix': Correcci√≥n de errores.
+        - 'refactor': Limpieza de c√≥digo sin cambiar funcionalidad.
         - 'chore': Tareas de mantenimiento, builds, etc.
 
         Ejemplo de Salida JSON:
         {{
-          ""summary"": ""feat(git): implementa generaciÛn de commit con IA y manejo de diff"",
-          ""description"": ""Se actualiza el flujo de commits para usar la IA.\n\n- Modifica btnGitCommit_Click para analizar solo archivos seleccionados.\n- Cambia el comando diff a 'diff HEAD' para evitar el stage.\n- AÒade deserializaciÛn para el nuevo formato JSON de respuesta.""
+          ""summary"": ""feat(git): implementa generaci√≥n de commit con IA y manejo de diff"",
+          ""description"": ""Se actualiza el flujo de commits para usar la IA.\n\n- Modifica btnGitCommit_Click para analizar solo archivos seleccionados.\n- Cambia el comando diff a 'diff HEAD' para evitar el stage.\n- A√±ade deserializaci√≥n para el nuevo formato JSON de respuesta.""
         }}
 
         Texto del diff (Contexto):
@@ -40,14 +40,14 @@ public class GetPrompt
     public static string AnalyzeEmail(string moduleName, string methodName, string emailContent, string dataBase, string tipoMetodo)
     {
         return $@"
-            Analiza el siguiente correo tÈcnico o procedimiento Almacenado y extrae la informaciÛn del Stored Procedure.
+            Analiza el siguiente correo t√©cnico o procedimiento Almacenado y extrae la informaci√≥n del Stored Procedure.
 
             CONTEXTO:
-            - MÛdulo: {moduleName}
-            - MÈtodo: {methodName}
+            - M√≥dulo: {moduleName}
+            - M√©todo: {methodName}
             - Tipo Metodo: {tipoMetodo}
 
-            CORREO T…CNICO:
+            CORREO T√âCNICO:
             {emailContent}
 
             INSTRUCCIONES:
@@ -82,7 +82,7 @@ public class GetPrompt
                 => SI el tipo de metodo es Get o ById retornar en este formato por ejm: SELECT * FROM appmovil.f_appmovil_elevados_magistrado_deta(@as_cod_usuario,@an_cod_nivacc,@an_cod_magistrado,@an_cod_distri)
                 => SI el tipo de metodo es Post,Put o Delete solo retornar el nombre del sp ejm: seguridaderp.sp_segerp_rol_mant
             )
-            2. RequestParameters: par·metros de entrada (tipo nombre) equivalente en ingles en camelCase, si no se puede ver el tipo de dato infiere y ponle el tipo; siempre debes darme estandar de .netCore en ingles ""public int parametro {{ get; set; }}""
+            2. RequestParameters: par√°metros de entrada (tipo nombre) equivalente en ingles en camelCase, si no se puede ver el tipo de dato infiere y ponle el tipo; siempre debes darme estandar de .netCore en ingles ""public int parametro {{ get; set; }}""
             3. Parameters: mapea el requestParameter a lo q espera el SP y hace su mapeo automatico ; ahora si la base de datos es POSTGRES y es un Post,Put o Delete  el Parameter q retorne en este formato ejm: =>(
             parameters.Add(""@an_cod_rol"", datos.n_cod_rol);
             parameters.Add(""@as_des_rol"", datos.s_des_rol);
@@ -91,18 +91,18 @@ public class GetPrompt
             parameters.Add(""@rs_valor"", dbType: DbType.String, direction: ParameterDirection.Output, size: 100);
             )
             4. DtoFields: campos que retorna la BD (tipo nombreCampo) todo en minusculas tal cual el valor de retorno de la bd, si no se puede ver el tipo de dato infiere y ponle el tipo;  siempre debes darme estandar de .netCore ""public string parametro {{ get; set; }}""
-            5. ResponseMapper: mapeo para objeto anÛnimo en ingles camelCase (propiedadAPI = dto.campo)
+            5. ResponseMapper: mapeo para objeto an√≥nimo en ingles camelCase (propiedadAPI = dto.campo)
             6. Usa tipos C#: int, string, decimal, DateTime, bool            
             7. NO inventes datos, solo extrae lo del correo
-            8. Si no hay par·metros, retorna array vacÌo []
+            8. Si no hay par√°metros, retorna array vac√≠o []
 
-            EST¡NDARES DE NOMBRADO PERSONALIZADOS:
-            - Los nombres en inglÈs deben seguir tus convenciones:
-              ï Todo campo que represente un C”DIGO termina con **Code** (ej: resolutionCode, districtOriginCode, expedientCode).
-              ï Todo campo que represente un NOMBRE o DESCRIPCI”N termina con **Name** (ej: resolutionName, magistrateName).
-              ï Todo campo que represente un FLA  inician con **fla** (ej: flaSigned, flaProcess).
-              ï Usa camelCase en todos los nombres.
-              ï Ejemplos de propiedades est·ndar que debes seguir:
+            EST√ÅNDARES DE NOMBRADO PERSONALIZADOS:
+            - Los nombres en ingl√©s deben seguir tus convenciones:
+              ‚Ä¢ Todo campo que represente un C√ìDIGO termina con **Code** (ej: resolutionCode, districtOriginCode, expedientCode).
+              ‚Ä¢ Todo campo que represente un NOMBRE o DESCRIPCI√ìN termina con **Name** (ej: resolutionName, magistrateName).
+              ‚Ä¢ Todo campo que represente un FLA  inician con **fla** (ej: flaSigned, flaProcess).
+              ‚Ä¢ Usa camelCase en todos los nombres.
+              ‚Ä¢ Ejemplos de propiedades est√°ndar que debes seguir:
                 public string? code {{ get; set; }}
                 public string? documentNumber {{ get; set; }}
                 public string? paternalSurname {{ get; set; }}
@@ -127,7 +127,7 @@ public class GetPrompt
                 public string comprehendeds {{ get; set; }}
 
             REGLA FINAL:
-            Adec˙a los nombres generados a estos est·ndares si los tÈrminos del correo tÈcnico son equivalentes o cercanos.";
+            Adec√∫a los nombres generados a estos est√°ndares si los t√©rminos del correo t√©cnico son equivalentes o cercanos.";
 
     }
 
@@ -138,7 +138,7 @@ public class GetPrompt
 
         switch (dbType)
         {
-            case "Postgres (FunciÛn)":
+            case "Postgres (Funci√≥n)":
                 syntaxHelp = "La sintaxis debe ser una consulta SELECT: SELECT * FROM schema.mi_funcion(param1 => valor1, param2 => valor2);";
                 exampleCall = "SELECT * FROM mi_schema.fn_buscar_usuario(an_id_usuario => 123, as_nombre => 'juan');";
                 break;
@@ -147,46 +147,88 @@ public class GetPrompt
                 exampleCall = "CALL mi_schema.sp_actualizar_stock(an_id_producto => 99, an_cantidad => 50);";
                 break;
             case "Sybase (SP)":
-                syntaxHelp = "La sintaxis debe ser una llamada CALL con par·metros nombrados: CALL \"schema\".\"mi_sp\"(\"param1\" = valor1, \"param2\" = valor2);";
+                syntaxHelp = "La sintaxis debe ser una llamada CALL con par√°metros nombrados: CALL \"schema\".\"mi_sp\"(\"param1\" = valor1, \"param2\" = valor2);";
                 exampleCall = "CALL \"OCMAERP\".\"SP_SANCVAL_MANT\"(\"AN_COD_INTEXP\" = 790549, \"AS_NRO_RESO\" = '004', \"AD_FEC_MOVIMI\" = '2025-11-03');";
                 break;
             default:
-                syntaxHelp = "La sintaxis debe ser una llamada CALL con par·metros nombrados: CALL \"schema\".\"mi_sp\"(\"param1\" = valor1, \"param2\" = valor2);";
+                syntaxHelp = "La sintaxis debe ser una llamada CALL con par√°metros nombrados: CALL \"schema\".\"mi_sp\"(\"param1\" = valor1, \"param2\" = valor2);";
                 exampleCall = "CALL \"OCMAERP\".\"SP_SANCVAL_MANT\"(\"AN_COD_INTEXP\" = 790549, \"AS_NRO_RESO\" = '004', \"AD_FEC_MOVIMI\" = '2025-11-03');";
                 break;
         }
 
         return $"""
-        Eres un asistente experto en SQL. Tu tarea es convertir una cadena de par·metros de .NET en una consulta SQL ejecutable para depuraciÛn.
+        Eres un asistente experto en SQL. Tu tarea es convertir una cadena de par√°metros de .NET en una consulta SQL ejecutable para depuraci√≥n.
 
         **Tarea:**
-        1.  Recibir·s un nombre de Procedimiento/FunciÛn, un tipo de BD y una lista de par·metros de .NET.
+        1.  Recibir√°s un nombre de Procedimiento/Funci√≥n, un tipo de BD y una lista de par√°metros de .NET.
         2.  Debes generar el comando SQL para ejecutarlo.
 
         **Reglas Estrictas de Formateo:**
-        1.  **DetecciÛn de Tipos:**
-            - Si un valor es puramente numÈrico (ej: `50`, `0`, `790549`), tr·talo como un N⁄MERO (sin comillas).
-            - Si un valor es CUALQUIER OTRA COSA (ej: `004`, `DSDFSDSSFSD`, `24196~1...`, `LCORDOVA`, `U`), tr·talo como un STRING (con comillas simples: `'valor'`).
-            - Si un valor est· vacÌo (ej: `AS_DOCUMENTOS = ,`), tr·talo como un string vacÌo (`''`).
-            - Si un valor es una fecha/hora .NET (ej: `3/11/2025 00:00:00`), conviÈrtelo a formato `YYYY-MM-DD` como un string (ej: `'2025-11-03'`).
+        1.  **Detecci√≥n de Tipos:**
+            - Si un valor es puramente num√©rico (ej: `50`, `0`, `790549`), tr√°talo como un N√öMERO (sin comillas).
+            - Si un valor es CUALQUIER OTRA COSA (ej: `004`, `DSDFSDSSFSD`, `24196~1...`, `LCORDOVA`, `U`), tr√°talo como un STRING (con comillas simples: `'valor'`).
+            - Si un valor est√° vac√≠o (ej: `AS_DOCUMENTOS = ,`), tr√°talo como un string vac√≠o (`''`).
+            - Si un valor es una fecha/hora .NET (ej: `3/11/2025 00:00:00`), convi√©rtelo a formato `YYYY-MM-DD` como un string (ej: `'2025-11-03'`).
         2.  **Sintaxis SQL:**
-            - Sigue la sintaxis especÌfica para el tipo de BD.
+            - Sigue la sintaxis espec√≠fica para el tipo de BD.
             - {syntaxHelp}
             - Ejemplo de sintaxis: {exampleCall}
         3.  **Formato de Salida:**
-            - Devuelve ⁄NICAMENTE el bloque de cÛdigo SQL.
-            - No incluyas "Respuesta:", "AquÌ est· el SQL:", ni ` ```sql `.
-            - Formatea el SQL con saltos de lÌnea para que sea legible, como en el ejemplo del usuario.
+            - Devuelve √öNICAMENTE el bloque de c√≥digo SQL.
+            - No incluyas "Respuesta:", "Aqu√≠ est√° el SQL:", ni ` ```sql `.
+            - Formatea el SQL con saltos de l√≠nea para que sea legible, como en el ejemplo del usuario.
 
         **Datos de Entrada:**
-        -   **Procedimiento/FunciÛn:** `{procedureName}`
+        -   **Procedimiento/Funci√≥n:** `{procedureName}`
         -   **Tipo de BD:** `{dbType}`
-        -   **Par·metros .NET:**
+        -   **Par√°metros .NET:**
             ```
             {netParams}
             ```
 
         **Salida (Solo SQL):**
         """;
+    }
+
+    public static string ChatAssistant(string contextInfo, string conversationHistory, string userMessage)
+    {
+        return $@"
+Eres un asistente de desarrollo integrado en Chapi Assistant, una aplicaci√≥n WPF para gesti√≥n de proyectos y Git.
+
+TU PERSONALIDAD:
+- Hablas en espa√±ol de forma natural y amigable
+- Eres conciso pero √∫til
+- Usas emojis ocasionalmente para claridad
+- Eres experto en desarrollo de software, Git, arquitectura y buenas pr√°cticas
+
+TUS CAPACIDADES:
+- Analizar commits, branches y cambios de Git
+- Explicar la arquitectura y estructura de proyectos
+- Sugerir mejoras de c√≥digo y refactorizaciones
+- Ayudar con problemas de Git (conflictos, merges, etc.)
+- Generar c√≥digo siguiendo los patrones del proyecto
+- Responder preguntas sobre el proyecto actual
+
+REGLAS IMPORTANTES:
+1. Si no tienes suficiente informaci√≥n, pregunta espec√≠ficamente qu√© necesitas
+2. Si el usuario hace una pregunta ambigua, ofrece opciones claras
+3. Usa el contexto del proyecto para dar respuestas relevantes
+4. S√© directo: si algo no est√° en el contexto, dilo
+5. Mant√©n respuestas cortas (m√°x 200 palabras) a menos que se requiera m√°s detalle
+6. Si detectas que el usuario quiere hacer algo, sugiere los pasos concretos en base a lo que hace Chapi Assistant
+
+FORMATO DE RESPUESTA:
+- Usa markdown para c√≥digo: ```lenguaje
+- Usa listas para pasos o opciones
+- Resalta puntos importantes con **negrita**
+- Usa emojis con moderaci√≥n (1-2 por respuesta)
+
+{contextInfo}
+
+{conversationHistory}
+
+=== MENSAJE ACTUAL DEL USUARIO ===
+{userMessage}
+";
     }
 }

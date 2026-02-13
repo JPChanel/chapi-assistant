@@ -8,54 +8,85 @@
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="800">
     
-    <Grid>
+    <Grid Background="#1A1A1A">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Área de mensajes -->
         <ScrollViewer x:Name="ChatScrollViewer"
+                      Grid.Row="0"
                       VerticalScrollBarVisibility="Auto"
-                      Padding="8">
+                      Padding="16">
             <ItemsControl x:Name="MessagesItemsControl" ItemsSource="{Binding Messages}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Grid Margin="10,8">
+                        <Grid Margin="0,8">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" x:Name="ColAvatarLeft"/>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto" x:Name="ColAvatarRight"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
                             <!-- Avatar del Asistente (izquierda) -->
-                            <Border x:Name="AssistantAvatar" Grid.Column="0" Width="32" Height="32" Background="#3F51B5" CornerRadius="16" VerticalAlignment="Top" Margin="0,0,12,0">
-                                <materialDesign:PackIcon Kind="Robot" Foreground="White" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Border x:Name="AssistantAvatar" 
+                                    Grid.Column="0" 
+                                    Width="36" 
+                                    Height="36" 
+                                    Background="#3F51B5" 
+                                    CornerRadius="18" 
+                                    VerticalAlignment="Top" 
+                                    Margin="0,0,12,0">
+                                <materialDesign:PackIcon Kind="Robot" 
+                                                        Foreground="White" 
+                                                        Width="22" 
+                                                        Height="22" 
+                                                        HorizontalAlignment="Center" 
+                                                        VerticalAlignment="Center"/>
                             </Border>
 
                             <!-- Burbuja de Mensaje -->
                             <Border x:Name="MessageBubble" 
                                     Grid.Column="1" 
                                     Padding="16,12" 
-                                    CornerRadius="16"
+                                    CornerRadius="12,12,12,4"
                                     Background="#2A2A2A"
                                     BorderBrush="#3A3A3A"
                                     BorderThickness="1"
-                                    MaxWidth="850"
+                                    MaxWidth="650"
                                     HorizontalAlignment="Left">
                                 <StackPanel>
                                     <TextBlock x:Name="MessageText"
                                                Text="{Binding Text}"
                                                TextWrapping="Wrap"
-                                               TextAlignment="Justify"
                                                FontSize="14"
-                                               LineHeight="20"
+                                               LineHeight="22"
                                                Foreground="#E0E0E0"/>
-                                    <TextBlock Text="{Binding Timestamp}"
-                                               FontSize="9"
+                                    <TextBlock Text="{Binding FormattedTime}"
+                                               FontSize="10"
                                                HorizontalAlignment="Right"
                                                Opacity="0.5"
-                                               Margin="0,8,0,0"/>
+                                               Margin="0,6,0,0"/>
                                 </StackPanel>
                             </Border>
 
                             <!-- Avatar del Usuario (derecha) -->
-                            <Border x:Name="UserAvatar" Grid.Column="2" Width="32" Height="32" Background="#212121" CornerRadius="16" VerticalAlignment="Top" Margin="12,0,0,0" Visibility="Collapsed">
-                                <materialDesign:PackIcon Kind="Account" Foreground="#888" Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Border x:Name="UserAvatar" 
+                                    Grid.Column="2" 
+                                    Width="36" 
+                                    Height="36" 
+                                    Background="#212121" 
+                                    CornerRadius="18" 
+                                    VerticalAlignment="Top" 
+                                    Margin="12,0,0,0" 
+                                    Visibility="Collapsed">
+                                <materialDesign:PackIcon Kind="Account" 
+                                                        Foreground="#888" 
+                                                        Width="22" 
+                                                        Height="22" 
+                                                        HorizontalAlignment="Center" 
+                                                        VerticalAlignment="Center"/>
                             </Border>
                         </Grid>
                         <DataTemplate.Triggers>
@@ -65,17 +96,93 @@
                                 <Setter TargetName="MessageBubble" Property="HorizontalAlignment" Value="Right"/>
                                 <Setter TargetName="MessageBubble" Property="Background" Value="#311B92"/>
                                 <Setter TargetName="MessageBubble" Property="BorderThickness" Value="0"/>
+                                <Setter TargetName="MessageBubble" Property="CornerRadius" Value="12,12,4,12"/>
                                 <Setter TargetName="MessageText" Property="Foreground" Value="White"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding Author}" Value="Assistant">
-                                <Setter TargetName="AssistantAvatar" Property="Visibility" Value="Visible"/>
-                                <Setter TargetName="UserAvatar" Property="Visibility" Value="Collapsed"/>
-                                <Setter TargetName="MessageBubble" Property="HorizontalAlignment" Value="Left"/>
                             </DataTrigger>
                         </DataTemplate.Triggers>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
+
+        <!-- Área de input -->
+        <Border Grid.Row="1" 
+                Background="#242424" 
+                BorderBrush="#3A3A3A" 
+                BorderThickness="0,1,0,0"
+                Padding="16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- TextBox para escribir mensaje -->
+                <TextBox x:Name="MessageInput"
+                         Grid.Column="0"
+                         Text="{Binding CurrentMessage, UpdateSourceTrigger=PropertyChanged}"
+                         materialDesign:HintAssist.Hint="Escribe tu mensaje aquí..."
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         FontSize="14"
+                         Padding="12,10"
+                         VerticalAlignment="Center"
+                         MaxHeight="100"
+                         TextWrapping="Wrap"
+                         AcceptsReturn="False"
+                         Background="#1A1A1A"
+                         Foreground="#E0E0E0"
+                         BorderBrush="#3A3A3A">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding SendMessageCommand}"/>
+                    </TextBox.InputBindings>
+                </TextBox>
+
+                <!-- Indicador de carga -->
+                <ProgressBar Grid.Column="1"
+                             Width="32"
+                             Height="32"
+                             Margin="12,0"
+                             Style="{StaticResource MaterialDesignCircularProgressBar}"
+                             IsIndeterminate="True"
+                             Visibility="{Binding IsProcessing, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                <!-- Botón enviar -->
+                <Button Grid.Column="2"
+                        Command="{Binding SendMessageCommand}"
+                        Width="48"
+                        Height="48"
+                        Style="{StaticResource MaterialDesignFloatingActionButton}"
+                        Background="#3F51B5"
+                        BorderBrush="{x:Null}"
+                        ToolTip="Enviar mensaje (Enter)">
+                    <materialDesign:PackIcon Kind="Send" 
+                                            Width="24" 
+                                            Height="24"
+                                            Foreground="White"/>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Overlay de "sin proyecto" -->
+        <Border Grid.Row="0"
+                Background="#CC000000"
+                Visibility="Collapsed"
+                x:Name="NoProjectOverlay">
+            <StackPanel VerticalAlignment="Center" 
+                       HorizontalAlignment="Center">
+                <materialDesign:PackIcon Kind="FolderOpen" 
+                                        Width="64" 
+                                        Height="64" 
+                                        Foreground="#666"
+                                        HorizontalAlignment="Center"/>
+                <TextBlock Text="Selecciona un proyecto para comenzar"
+                          FontSize="16"
+                          Foreground="#999"
+                          Margin="0,16,0,0"
+                          HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>
+

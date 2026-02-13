@@ -54,6 +54,7 @@ namespace Chapi
         private Presentation.ViewModels.HistoryViewModel? _historyViewModel;
         private Presentation.ViewModels.ReleasesViewModel? _releasesViewModel;
         private Presentation.ViewModels.WorkspaceViewModel? _workspaceViewModel;
+        private Presentation.ViewModels.AssistantViewModel? _assistantViewModel;
         private readonly IGitRepository _gitRepository;
 
         public MainWindow()
@@ -66,6 +67,7 @@ namespace Chapi
             _changesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ChangesViewModel)) as Presentation.ViewModels.ChangesViewModel;
             _historyViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.HistoryViewModel)) as Presentation.ViewModels.HistoryViewModel;
             _releasesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ReleasesViewModel)) as Presentation.ViewModels.ReleasesViewModel;
+            _assistantViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.AssistantViewModel)) as Presentation.ViewModels.AssistantViewModel;
             // Manual injection for now as it's a new service
             _workspaceViewModel = new Presentation.ViewModels.WorkspaceViewModel(new Chapi.Infrastructure.Services.WorkspaceService());
 
@@ -73,6 +75,7 @@ namespace Chapi
             HistoryTab.DataContext = _historyViewModel;
             TagsTab.DataContext = _releasesViewModel;
             WorkspaceTab.DataContext = _workspaceViewModel;
+            AssistantViewControl.DataContext = _assistantViewModel;
 
             Msg.Assistant("👋 ¡Hey! Soy Chapi 🤖 Tu dev buddy para arquitectura.");
 
@@ -291,6 +294,7 @@ namespace Chapi
                             {
                                 await LoadHistoryAsync();
                                 await LoadWorkspaceAsync();
+                                await UpdateAssistantContextAsync();
                             }
                         });
 
@@ -393,6 +397,12 @@ namespace Chapi
         {
             if (string.IsNullOrEmpty(projectDirectory) || _workspaceViewModel == null) return;
             await _workspaceViewModel.InitializeAsync(projectDirectory);
+        }
+
+        private async Task UpdateAssistantContextAsync()
+        {
+            if (string.IsNullOrEmpty(projectDirectory) || _assistantViewModel == null) return;
+            await _assistantViewModel.UpdateProjectContextAsync(projectDirectory);
         }
 
         private async Task CheckBranchStatusAsync()
