@@ -58,13 +58,45 @@ public class ConversationManager
             if (!responseResult.IsSuccess)
                 return Result<ChatMessage>.Fail(responseResult.Error);
 
-            // Crear mensaje de respuesta
+            var aiResponse = responseResult.Data!;
             var assistantMessage = new ChatMessage
             {
-                Text = responseResult.Data!,
+                Text = aiResponse,
                 Author = MessageAuthor.Assistant,
                 Timestamp = DateTime.Now
             };
+
+            // Detectar acción en la respuesta [[ACTION:{...}]]
+            if (aiResponse.Contains("[[ACTION:"))
+            {
+                try
+                {
+                    var start = aiResponse.IndexOf("[[ACTION:") + 9;
+                    var end = aiResponse.IndexOf("]]", start);
+                    if (end > start)
+                    {
+                        var jsonAction = aiResponse.Substring(start, end - start);
+                        var intentData = System.Text.Json.JsonSerializer.Deserialize<ActionData>(jsonAction, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        
+                        if (intentData != null)
+                        {
+                            assistantMessage.Action = new UserIntent
+                            {
+                                Type = MapIntentType(intentData.Type),
+                                Parameters = intentData.Params ?? new Dictionary<string, string>(),
+                                OriginalMessage = userMessage
+                            };
+
+                            // Limpiar el texto de la respuesta quitando el bloque de acción para que no se vea feo en la UI
+                            assistantMessage.Text = aiResponse.Replace($"[[ACTION:{jsonAction}]]", "").Trim();
+                        }
+                    }
+                }
+                catch
+                {
+                    // Si falla el parseo, simplemente no agregamos la acción
+                }
+            }
 
             _currentContext.ConversationHistory.Add(assistantMessage);
 
@@ -74,6 +106,25 @@ public class ConversationManager
         {
             return Result<ChatMessage>.Fail($"Error al procesar mensaje: {ex.Message}");
         }
+    }
+
+    private IntentType MapIntentType(string type)
+    {
+        return type.ToLower() switch
+        {
+            "commit" => IntentType.Commit,
+            "push" => IntentType.Push,
+            "pull" => IntentType.Pull,
+            "create_branch" => IntentType.CreateBranch,
+            "switch_branch" => IntentType.SwitchBranch,
+            _ => IntentType.Unknown
+        };
+    }
+
+    private class ActionData
+    {
+        public string Type { get; set; } = string.Empty;
+        public Dictionary<string, string>? Params { get; set; }
     }
 
     /// <summary>

@@ -24,7 +24,8 @@ public class ProjectContextBuilder
                 Technology = await DetectTechnologyAsync(projectPath),
                 MainFolders = GetMainFolders(projectPath),
                 RecentFiles = GetRecentFiles(projectPath),
-                Git = await BuildGitContextAsync(projectPath)
+                Git = await BuildGitContextAsync(projectPath),
+                Capabilities = DetectChapiCapabilities(projectPath)
             };
 
             return Result<ProjectContext>.Success(context);
@@ -132,7 +133,7 @@ public class ProjectContextBuilder
                 return null;
 
             using var repo = new Repository(projectPath);
-            
+
             var gitContext = new GitContext
             {
                 CurrentBranch = repo.Head.FriendlyName,
@@ -171,5 +172,51 @@ public class ProjectContextBuilder
         {
             return null;
         }
+    }
+    private ChapiCapabilities DetectChapiCapabilities(string projectPath)
+    {
+        var capabilities = new ChapiCapabilities();
+
+        try
+        {
+            // Si el proyecto actual es Chapi Assistant o tiene acceso a sus interfaces
+            // Aquí detectamos qué servicios están disponibles analizando el código o por estructura
+            var domainInterfacesPath = Path.Combine(projectPath, "Chapi", "Domain", "Interfaces");
+            var infraServicesPath = Path.Combine(projectPath, "Chapi", "Infrastructure", "Services");
+
+            if (Directory.Exists(domainInterfacesPath))
+            {
+                var interfaces = Directory.GetFiles(domainInterfacesPath, "I*.cs")
+                    .Select(Path.GetFileNameWithoutExtension)
+                    .ToList();
+                
+                capabilities.AvailableServices.AddRange(interfaces!);
+
+                capabilities.CanCommit = interfaces.Contains("IGitRepository");
+                capabilities.CanPush = interfaces.Contains("IGitRepository");
+                capabilities.CanPull = interfaces.Contains("IGitRepository");
+                capabilities.CanCreateBranch = interfaces.Contains("IGitRepository");
+                capabilities.CanMergeBranch = interfaces.Contains("IGitRepository");
+                capabilities.CanGenerateCode = interfaces.Contains("IAIClient") || interfaces.Contains("ITemplateService");
+                capabilities.CanAnalyzeArchitecture = interfaces.Contains("IRoslynService");
+            }
+            else
+            {
+                // Si no es el proyecto Chapi, asumimos capacidades básicas del asistente integrado
+                capabilities.CanCommit = true;
+                capabilities.CanPush = true;
+                capabilities.CanPull = true;
+                capabilities.CanCreateBranch = true;
+                capabilities.CanGenerateCode = true;
+            }
+        }
+        catch
+        {
+            // Default basic capabilities
+            capabilities.CanCommit = true;
+            capabilities.CanGenerateCode = true;
+        }
+
+        return capabilities;
     }
 }

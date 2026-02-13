@@ -21,6 +21,22 @@ public class ProjectContext
     public List<string> MainFolders { get; set; } = new();
     public GitContext? Git { get; set; }
     public List<string> RecentFiles { get; set; } = new();
+    public ChapiCapabilities Capabilities { get; set; } = new();
+}
+
+/// <summary>
+/// Capacidades disponibles en Chapi para ejecutar acciones
+/// </summary>
+public class ChapiCapabilities
+{
+    public bool CanCommit { get; set; }
+    public bool CanPush { get; set; }
+    public bool CanPull { get; set; }
+    public bool CanCreateBranch { get; set; }
+    public bool CanMergeBranch { get; set; }
+    public bool CanGenerateCode { get; set; }
+    public bool CanAnalyzeArchitecture { get; set; }
+    public List<string> AvailableServices { get; set; } = new();
 }
 
 /// <summary>

@@ -9,6 +9,7 @@ public class ChatMessage
     public MessageAuthor Author { get; set; } = MessageAuthor.Assistant;
     public DateTime Timestamp { get; set; } = DateTime.Now;
     public string FormattedTime => Timestamp.ToString("HH:mm");
+    public UserIntent? Action { get; set; }
 }
 
 /// <summary>

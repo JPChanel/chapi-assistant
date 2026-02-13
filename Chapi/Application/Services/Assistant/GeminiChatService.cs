@@ -18,8 +18,9 @@ public class GeminiChatService
         {
             var contextInfo = BuildContextInfo(context);
             var conversationHistory = BuildConversationHistory(context);
+            var capabilitiesInfo = BuildCapabilitiesInfo(context);
             
-            var fullPrompt = GetPrompt.ChatAssistant(contextInfo, conversationHistory, userMessage);
+            var fullPrompt = GetPrompt.ChatAssistant(contextInfo, conversationHistory, capabilitiesInfo, userMessage);
             var response = await AIClient.SendPromptAsync(fullPrompt);
 
             if (string.IsNullOrWhiteSpace(response))
@@ -109,6 +110,32 @@ public class GeminiChatService
         {
             var author = msg.Author == MessageAuthor.User ? "Usuario" : "Asistente";
             sb.AppendLine($"{author}: {msg.Text}");
+        }
+
+        return sb.ToString();
+    }
+
+    private string BuildCapabilitiesInfo(ConversationContext context)
+    {
+        if (context.CurrentProject == null)
+            return "No hay capacidades detectadas.";
+
+        var caps = context.CurrentProject.Capabilities;
+        var sb = new StringBuilder();
+        
+        if (caps.CanCommit) sb.AppendLine("- Puedo realizar commits locales");
+        if (caps.CanPush) sb.AppendLine("- Puedo subir cambios (push)");
+        if (caps.CanPull) sb.AppendLine("- Puedo descargar cambios (pull)");
+        if (caps.CanCreateBranch) sb.AppendLine("- Puedo crear nuevas ramas (branches)");
+        if (caps.CanMergeBranch) sb.AppendLine("- Puedo combinar ramas (merge)");
+        if (caps.CanGenerateCode) sb.AppendLine("- Puedo generar código fuente basándome en plantillas");
+        if (caps.CanAnalyzeArchitecture) sb.AppendLine("- Puedo analizar la arquitectura usando Roslyn");
+
+        if (caps.AvailableServices.Any())
+        {
+            sb.AppendLine("Servicios disponibles detectados:");
+            foreach (var service in caps.AvailableServices.Take(10))
+                sb.AppendLine($"  * {service}");
         }
 
         return sb.ToString();

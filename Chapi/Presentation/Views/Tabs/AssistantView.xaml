@@ -5,8 +5,13 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:Chapi.Presentation.Views"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:Chapi.Presentation.Converters"
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="800">
+
+    <UserControl.Resources>
+        <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+    </UserControl.Resources>
     
     <Grid Background="#1A1A1A">
         <Grid.RowDefinitions>
@@ -58,12 +63,27 @@
                                     HorizontalAlignment="Left">
                                 <StackPanel>
                                     <TextBlock x:Name="MessageText"
-                                               Text="{Binding Text}"
-                                               TextWrapping="Wrap"
+                                               Text="{Binding Text}" 
+                                               TextWrapping="Wrap" 
                                                FontSize="14"
                                                LineHeight="22"
                                                Foreground="#E0E0E0"/>
-                                    <TextBlock Text="{Binding FormattedTime}"
+
+                                    <!-- Acción Sugerida -->
+                                    <Button Margin="0,12,0,0"
+                                            HorizontalAlignment="Left"
+                                            Cursor="Hand"
+                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                            Command="{Binding DataContext.ExecuteActionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Visibility="{Binding Action, Converter={StaticResource NullToVisibilityConverter}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="AutoFix" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Ejecutar acción sugerida" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <TextBlock Text="{Binding FormattedTime}" 
                                                FontSize="10"
                                                HorizontalAlignment="Right"
                                                Opacity="0.5"
