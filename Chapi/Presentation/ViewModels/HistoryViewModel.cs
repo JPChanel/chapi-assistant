@@ -152,12 +152,16 @@ public class HistoryViewModel : ViewModelBase
         try
         {
             var commits = await _loadHistoryUseCase.ExecuteAsync(ProjectPath, _currentLimit);
+            var viewModels = commits.Select(MapToViewModel).ToList();
 
-            Commits.Clear();
-            foreach (var commit in commits)
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                Commits.Add(MapToViewModel(commit));
-            }
+                Commits.Clear();
+                foreach (var vm in viewModels)
+                {
+                    Commits.Add(vm);
+                }
+            });
         }
         finally
         {

@@ -118,6 +118,7 @@ public class ChangesViewModel : ViewModelBase
             System.Windows.Application.Current?.Dispatcher.InvokeAsync(async () =>
             {
                 await LoadChangesAsync();
+                await LoadMetadataAsync();
             });
         }
     }
@@ -138,6 +139,7 @@ public class ChangesViewModel : ViewModelBase
 
         _changesCache.Invalidate(ProjectPath);
         await LoadChangesAsync();
+        await LoadMetadataAsync();
     }
 
     #region Properties
@@ -167,9 +169,20 @@ public class ChangesViewModel : ViewModelBase
                 }
 
                 _ = LoadChangesAsync();
-                _ = LoadStashesAsync();
             }
         }
+    }
+
+    private async Task LoadMetadataAsync()
+    {
+        await LoadProfileAsync();
+        await LoadStashesAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        await LoadAuthStatusAsync();
+        await LoadGitUserEmailAsync();
     }
 
     /// <summary>
@@ -520,14 +533,13 @@ public class ChangesViewModel : ViewModelBase
             // Si se canceló durante la espera (ej: cambiamos de proyecto otra vez), salir
             if (token.IsCancellationRequested) return;
 
-            // Mapear a ViewModels (sin stats aún)
-            foreach (var fileChange in fileChanges)
+            // ⚡ OPTIMIZACIÓN: Añadir cambios por lotes para evitar saturar el hilo de UI
+            var viewModels = fileChanges.Select(fileChange => 
             {
-                var viewModel = MapToViewModel(fileChange);
-                viewModel.PropertyChanged += (s, e) =>
+                var vm = MapToViewModel(fileChange);
+                vm.PropertyChanged += (s, e) =>
                 {
                     if (_isMassUpdating) return;
-
                     if (e.PropertyName == nameof(ChangeItemViewModel.IsSelected))
                     {
                         OnPropertyChanged(nameof(AreAllSelected));
@@ -535,23 +547,32 @@ public class ChangesViewModel : ViewModelBase
                         (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
                     }
                 };
-                Changes.Add(viewModel);
-            }
+                return vm;
+            }).ToList();
 
-            OnPropertyChanged(nameof(AreAllSelected));
-            OnPropertyChanged(nameof(SelectedCount));
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                foreach (var vm in viewModels)
+                {
+                    Changes.Add(vm);
+                }
+                OnPropertyChanged(nameof(AreAllSelected));
+                OnPropertyChanged(nameof(SelectedCount));
+                IsLoading = false;
+            });
 
-            // Cargar stats en background (no bloquea la UI)
+            // Cargar stats en background solo si faltan (en WSL ya vienen incluidos)
             _ = LoadFileStatsInBackgroundAsync(token);
 
-            // Cargar stashes tambien
-            await LoadStashesAsync();
-
-            // Verificar estado de autenticacion
-            await LoadAuthStatusAsync();
-
-            // Cargar email del usuario de Git
-            await LoadGitUserEmailAsync();
+            // ⚡ OPTIMIZACIÓN: Cargar metadatos secundarios en paralelo
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await LoadMetadataAsync();
+                }
+                catch { }
+            }, token);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -588,6 +609,9 @@ public class ChangesViewModel : ViewModelBase
 
                 try
                 {
+                    // ⚡ OPTIMIZACIÓN: Si ya tenemos stats (común en WSL), no llamar al proceso Git
+                    if (file.Additions > 0 || file.Deletions > 0) continue;
+
                     var stats = await _gitRepository.GetFileStatsAsync(ProjectPath, file.FilePath);
                     file.Additions = stats.additions;
                     file.Deletions = stats.deletions;
@@ -718,7 +742,7 @@ public class ChangesViewModel : ViewModelBase
         if (IsUserLoggedIn)
         {
             // Leer configuración actual de default branch
-            var defaultBranch = await _gitRepository.GetConfigAsync("init.defaultBranch", global: true);
+            var defaultBranch = await _gitRepository.GetConfigAsync(ProjectPath, "init.defaultBranch", isGlobal: true);
             if (string.IsNullOrWhiteSpace(defaultBranch))
             {
                 defaultBranch = "main";
@@ -782,19 +806,19 @@ public class ChangesViewModel : ViewModelBase
                     // Guardar nombre
                     if (!string.IsNullOrWhiteSpace(dialog.UserName))
                     {
-                        await _gitRepository.SetConfigAsync("user.name", dialog.UserName, global: true);
+                        await _gitRepository.SetConfigAsync(ProjectPath, "user.name", dialog.UserName, isGlobal: true);
                     }
 
                     // Guardar email
                     if (!string.IsNullOrWhiteSpace(dialog.UserEmail))
                     {
-                        await _gitRepository.SetConfigAsync("user.email", dialog.UserEmail, global: true);
+                        await _gitRepository.SetConfigAsync(ProjectPath, "user.email", dialog.UserEmail, isGlobal: true);
                     }
 
                     // Guardar default branch
                     if (!string.IsNullOrWhiteSpace(dialog.DefaultBranch))
                     {
-                        await _gitRepository.SetConfigAsync("init.defaultBranch", dialog.DefaultBranch, global: true);
+                        await _gitRepository.SetConfigAsync(ProjectPath, "init.defaultBranch", dialog.DefaultBranch, isGlobal: true);
                     }
 
                     // Recargar configuración
@@ -854,8 +878,8 @@ public class ChangesViewModel : ViewModelBase
         try
         {
             // Obtener el email y nombre del usuario de Git configurado globalmente
-            var email = await _gitRepository.GetConfigAsync("user.email", global: true);
-            var name = await _gitRepository.GetConfigAsync("user.name", global: true);
+            var email = await _gitRepository.GetConfigAsync(ProjectPath, "user.email", isGlobal: true);
+            var name = await _gitRepository.GetConfigAsync(ProjectPath, "user.name", isGlobal: true);
 
             GitUserEmail = email ?? string.Empty;
             GitUserName = name ?? string.Empty;
@@ -880,25 +904,24 @@ public class ChangesViewModel : ViewModelBase
             var stashes = await _gitRepository.ListStashesAsync(ProjectPath);
             var currentBranch = await _gitRepository.GetCurrentBranchAsync(ProjectPath);
 
-            Stashes.Clear();
-            foreach (var stash in stashes)
+            var filteredStashes = stashes.Where(stash =>
+                string.IsNullOrEmpty(currentBranch) ||
+                stash.Message.Contains($"on {currentBranch}", StringComparison.OrdinalIgnoreCase)).ToList();
+
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                // Filtrar stashes por rama actual (estilo GitHub Desktop)
-                // Git por defecto pone "WIP on {rama}:" o "On {rama}:"
-                if (string.IsNullOrEmpty(currentBranch) ||
-                    stash.Message.Contains($"on {currentBranch}", StringComparison.OrdinalIgnoreCase))
-                {
-                    Stashes.Add(stash);
-                }
-            }
+                Stashes.Clear();
+                foreach (var stash in filteredStashes) Stashes.Add(stash);
+                OnPropertyChanged(nameof(HasStashes));
+            });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Stashes.Clear();
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => Stashes.Clear());
         }
         finally
         {
-            OnPropertyChanged(nameof(HasStashes));
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => OnPropertyChanged(nameof(HasStashes)));
         }
     }
 
@@ -913,6 +936,8 @@ public class ChangesViewModel : ViewModelBase
         try
         {
             var fileStatuses = await _gitRepository.GetFileStatusesForStashAsync(ProjectPath, SelectedStash.Name);
+            var viewModels = new List<ChangeItemViewModel>();
+
             foreach (var kvp in fileStatuses)
             {
                 var changeStatus = kvp.Value switch
@@ -934,12 +959,16 @@ public class ChangesViewModel : ViewModelBase
                 };
 
                 (viewModel.Icon, viewModel.Color) = GetIconAndColor(changeStatus);
-                StashedFiles.Add(viewModel);
+                viewModels.Add(viewModel);
             }
+
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                StashedFiles.Clear();
+                foreach (var vm in viewModels) StashedFiles.Add(vm);
+            });
         }
-        catch (Exception ex)
-        {
-        }
+        catch (Exception) { }
     }
 
     /// <summary>

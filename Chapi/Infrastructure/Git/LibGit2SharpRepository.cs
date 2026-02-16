@@ -603,13 +603,13 @@ public partial class LibGit2SharpRepository : IGitRepository
         });
     }
 
-    public async Task<string> GetConfigAsync(string key, bool global = false)
+    public async Task<string> GetConfigAsync(string projectPath, string key, bool isGlobal = false)
     {
         return await Task.Run(() =>
         {
             try
             {
-                if (global)
+                if (isGlobal)
                 {
                     // Configuración global desde .gitconfig
                     string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
@@ -618,16 +618,13 @@ public partial class LibGit2SharpRepository : IGitRepository
                     using var config = global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath);
                     return config.Get<string>(key)?.Value ?? string.Empty;
                 }
-                else
+                else if (!string.IsNullOrEmpty(projectPath))
                 {
-                    // Configuración local del repositorio (necesita projectPath)
-                    // Como no tenemos projectPath aquí, intentamos global
-                    string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
-                    if (!File.Exists(globalConfigPath)) return string.Empty;
-
-                    using var config = global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath);
-                    return config.Get<string>(key)?.Value ?? string.Empty;
+                    // Configuración local del repositorio
+                    using var repo = new Repository(projectPath);
+                    return repo.Config.Get<string>(key)?.Value ?? string.Empty;
                 }
+                return string.Empty;
             }
             catch (Exception ex)
             {
@@ -636,32 +633,46 @@ public partial class LibGit2SharpRepository : IGitRepository
         });
     }
 
-    public async Task<Result> SetConfigAsync(string key, string value, bool global = false)
+    public async Task<Result> SetConfigAsync(string projectPath, string key, string value, bool isGlobal = false)
     {
         return await Task.Run(() =>
         {
             try
             {
-                string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
-                using var config = global ? global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath) : null;
-                if (config == null) return Result.Fail("Configuración no disponible");
-                config.Set(key, value);
+                if (isGlobal)
+                {
+                    string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
+                    using var config = global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath);
+                    config.Set(key, value);
+                }
+                else if (!string.IsNullOrEmpty(projectPath))
+                {
+                    using var repo = new Repository(projectPath);
+                    repo.Config.Set(key, value);
+                }
                 return Result.Success();
             }
             catch (Exception ex) { return Result.Fail(ex.Message); }
         });
     }
 
-    public async Task<Result> UnsetConfigAsync(string key, bool global = false)
+    public async Task<Result> UnsetConfigAsync(string projectPath, string key, bool isGlobal = false)
     {
         return await Task.Run(() =>
         {
             try
             {
-                string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
-                using var config = global ? global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath) : null;
-                if (config == null) return Result.Fail("Configuración no disponible");
-                config.Unset(key);
+                if (isGlobal)
+                {
+                    string globalConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gitconfig");
+                    using var config = global::LibGit2Sharp.Configuration.BuildFrom(globalConfigPath);
+                    config.Unset(key);
+                }
+                else if (!string.IsNullOrEmpty(projectPath))
+                {
+                    using var repo = new Repository(projectPath);
+                    repo.Config.Unset(key);
+                }
                 return Result.Success();
             }
             catch (Exception ex) { return Result.Fail(ex.Message); }

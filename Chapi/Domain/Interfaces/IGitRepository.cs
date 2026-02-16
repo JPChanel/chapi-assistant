@@ -77,7 +77,7 @@ public interface IGitRepository
     Task<(int additions, int deletions)> GetFileStatsAsync(string projectPath, string filePath);
 
     // Config
-    Task<string> GetConfigAsync(string key, bool global = false);
-    Task<Result> SetConfigAsync(string key, string value, bool global = false);
-    Task<Result> UnsetConfigAsync(string key, bool global = false);
+    Task<string> GetConfigAsync(string projectPath, string key, bool isGlobal = false);
+    Task<Result> SetConfigAsync(string projectPath, string key, string value, bool isGlobal = false);
+    Task<Result> UnsetConfigAsync(string projectPath, string key, bool isGlobal = false);
 }

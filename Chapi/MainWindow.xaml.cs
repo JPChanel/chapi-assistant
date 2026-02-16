@@ -285,31 +285,38 @@ namespace Chapi
                 {
                     try
                     {
-                        // No necesitamos llamar a LoadChangesAsync de nuevo aquí porque ya se disparó al poner ProjectPath
                         if (token.IsCancellationRequested) return;
 
-                        await Dispatcher.InvokeAsync(async () =>
+                        // 1. Configurar ViewModels (Esto es rápido y debe hacerse en el Dispatcher)
+                        await Dispatcher.InvokeAsync(() =>
                         {
-                            if (!token.IsCancellationRequested)
-                            {
-                                await LoadHistoryAsync();
-                                await LoadWorkspaceAsync();
-                                await UpdateAssistantContextAsync();
-                            }
+                            if (token.IsCancellationRequested) return;
+                            if (_historyViewModel != null) _historyViewModel.ProjectPath = projectDirectory;
+                            if (_releasesViewModel != null) _releasesViewModel.ProjectPath = projectDirectory;
                         });
+
+                        // 2. Cargar datos pesados secuencialmente en background
+                        if (token.IsCancellationRequested) return;
+                        await LoadHistoryAsync(); // Ahora usa Batching internamente
+                        
+                        if (token.IsCancellationRequested) return;
+                        await LoadWorkspaceAsync();
+                        
+                        if (token.IsCancellationRequested) return;
+                        await UpdateAssistantContextAsync();
 
                         if (token.IsCancellationRequested) return;
-                        await Task.Delay(50, token);
+                        await Task.Delay(100, token); // Pausa mínima para dejar respirar a la UI
 
-                        await Dispatcher.InvokeAsync(async () =>
-                        {
-                            if (!token.IsCancellationRequested)
-                            {
-                                await LoadReleasesAsync();
-                                await CheckBranchStatusAsync();
-                                await DoFetchAsync(isSilent: true);
-                            }
-                        });
+                        // 3. Operaciones de red (Muy pesadas)
+                        if (token.IsCancellationRequested) return;
+                        await CheckBranchStatusAsync();
+
+                        if (token.IsCancellationRequested) return;
+                        await LoadReleasesAsync();
+
+                        if (token.IsCancellationRequested) return;
+                        await DoFetchAsync(isSilent: true); // Ahora Fetch está optimizado para WSL
                     }
                     catch (OperationCanceledException) { }
                     catch (Exception) { }
@@ -664,37 +671,55 @@ namespace Chapi
             }
         }
 
-        public async Task UpdateProjectStatusesAsync(List<ProjectViewModel>? projects = null)
+        public async Task UpdateProjectStatusesAsync(List<ProjectViewModel>? projects = null, bool includeFetch = true)
         {
-            if (!Dispatcher.CheckAccess())
-            {
-                await Dispatcher.InvokeAsync(async () => await UpdateProjectStatusesAsync(projects));
-                return;
-            }
-
             if (projects == null)
             {
-                if (ProjectsComboBox.ItemsSource is List<ProjectViewModel> list) projects = list;
+                if (ProjectsComboBox.ItemsSource is List<ProjectViewModel> list)
+                {
+                    // ⚡ OPTIMIZACIÓN: Si no se pasan proyectos, solo actualizar el actual para no saturar con Fetches
+                    projects = list.Where(p => p.FullPath == projectDirectory).ToList();
+                    if (!projects.Any()) return;
+                }
                 else return;
             }
 
             var useCase = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Projects.UpdateProjectIndicatorsUseCase>();
 
-            var tasks = projects.Select(proj => useCase.ExecuteAsync(proj.FullPath, (ahead, behind) =>
+            // Ejecutar en hilos de background, no en el Dispatcher
+            _ = Task.Run(async () =>
             {
-                Dispatcher.Invoke(() =>
+                var tasks = projects.Select(proj => 
                 {
-                    bool changed = proj.Ahead != ahead || proj.Behind != behind;
-                    proj.Ahead = ahead;
-                    proj.Behind = behind;
-                    if ((changed || proj.FullPath == projectDirectory) && proj.FullPath == projectDirectory && !ProjectsComboBox.IsDropDownOpen)
+                    // Si includeFetch es false, solo pedir los contadores actuales (rápido)
+                    if (!includeFetch)
                     {
-                        UpdateGitActionButton();
+                        return Task.Run(async () => {
+                            var counts = await _gitRepository.GetAheadBehindCountAsync(proj.FullPath);
+                            await Dispatcher.InvokeAsync(() => {
+                                proj.Ahead = counts.Ahead;
+                                proj.Behind = counts.Behind;
+                                if (proj.FullPath == projectDirectory) UpdateGitActionButton();
+                            });
+                        });
                     }
-                });
-            })).ToList();
+                    
+                    return useCase.ExecuteAsync(proj.FullPath, (ahead, behind) =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            proj.Ahead = ahead;
+                            proj.Behind = behind;
+                            if (proj.FullPath == projectDirectory && !ProjectsComboBox.IsDropDownOpen)
+                            {
+                                UpdateGitActionButton();
+                            }
+                        });
+                    });
+                }).ToList();
 
-            await Task.WhenAll(tasks);
+                await Task.WhenAll(tasks);
+            });
         }
 
         private void UpdateGitActionButton()

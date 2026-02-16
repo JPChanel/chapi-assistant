@@ -37,7 +37,8 @@ public class GitChangeWatcher : IDisposable
                              | NotifyFilters.LastWrite
                              | NotifyFilters.Size,
                 // Ignorar carpetas .git para evitar ruido
-                Filter = "*.*"
+                // Ver todos los archivos para detectar cambios en .git/refs y .git/logs
+                Filter = "*"
             };
 
             // Eventos de cambios
@@ -50,9 +51,7 @@ public class GitChangeWatcher : IDisposable
             _watchers[projectPath] = watcher;
 
         }
-        catch (Exception ex)
-        {
-        }
+        catch (Exception) { }
     }
 
     /// <summary>
@@ -70,13 +69,26 @@ public class GitChangeWatcher : IDisposable
 
     private void OnFileChanged(string projectPath, FileSystemEventArgs e)
     {
-        // Ignorar cambios en .git/
-        if (e.FullPath.Contains("\\.git\\") || e.FullPath.Contains("/.git/"))
-            return;
+        // Normalizar ruta para comparaciones
+        string path = e.FullPath.Replace('\\', '/');
+        bool isGitInternal = path.Contains("/.git/");
+        
+        if (isGitInternal)
+        {
+            // Detectar cambios en stashes, commits o el index
+            // .git/index, .git/refs/stash, .git/logs/refs/stash, .git/HEAD
+            bool isRelevant = path.EndsWith("/stash") || 
+                             path.EndsWith("/HEAD") ||
+                             path.Contains("/refs/heads/") ||
+                             path.EndsWith("/index");
 
-        // Ignorar archivos temporales y de sistema
-        var fileName = Path.GetFileName(e.FullPath);
-        if (fileName.StartsWith(".") || fileName.EndsWith(".tmp") || fileName.EndsWith("~"))
+            if (!isRelevant) return;
+        }
+
+        // Ignorar archivos temporales comunes y bloqueos
+        string fileName = Path.GetFileName(path);
+        if (fileName.EndsWith(".tmp") || fileName.EndsWith("~") || 
+            fileName.StartsWith("index.lock") || fileName.Contains(".lock"))
             return;
 
         // Debouncing: evitar múltiples notificaciones por el mismo cambio

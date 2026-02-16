@@ -70,9 +70,9 @@ namespace Chapi
             var services = new ServiceCollection();
 
             // Infrastructure - Git
-            // services.AddSingleton<GitCommandExecutor>(); // Removed
-            // services.AddSingleton<GitOutputParser>();    // Removed
-            services.AddSingleton<IGitRepository, Chapi.Infrastructure.Git.LibGit2SharpRepository>();
+            services.AddSingleton<Chapi.Infrastructure.Git.LibGit2SharpRepository>();
+            services.AddSingleton<Chapi.Infrastructure.Git.WslGitRepository>();
+            services.AddSingleton<IGitRepository, Chapi.Infrastructure.Git.GitRepositoryDispatcher>();
 
             // Configuración Auth
             services.Configure<Chapi.Infrastructure.Configuration.GitAuthConfig>(Configuration.GetSection("GitAuth"));
