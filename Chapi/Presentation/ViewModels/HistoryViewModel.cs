@@ -27,6 +27,7 @@ public class HistoryViewModel : ViewModelBase
     private string _commitDetailsInfo = string.Empty;
     private int _currentLimit = 100;
     private const int PageSize = 100;
+    private bool _canLoadMore;
 
     // ...
 
@@ -128,6 +129,12 @@ public class HistoryViewModel : ViewModelBase
         set => SetProperty(ref _commitDetailsInfo, value);
     }
 
+    public bool CanLoadMore
+    {
+        get => _canLoadMore;
+        set => SetProperty(ref _canLoadMore, value);
+    }
+
     #endregion
 
     #region Commands
@@ -152,7 +159,10 @@ public class HistoryViewModel : ViewModelBase
         try
         {
             var commits = await _loadHistoryUseCase.ExecuteAsync(ProjectPath, _currentLimit);
-            var viewModels = commits.Select(MapToViewModel).ToList();
+            var commitList = commits.ToList();
+            var viewModels = commitList.Select(MapToViewModel).ToList();
+
+            CanLoadMore = commitList.Count >= _currentLimit;
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {

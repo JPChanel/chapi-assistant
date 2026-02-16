@@ -181,6 +181,7 @@
                         Grid.Row="1"
                         Content="Cargar mas >>" 
                         Command="{Binding LoadMoreCommand}"
+                        Visibility="{Binding CanLoadMore, Converter={StaticResource BooleanToVisibilityConverter}}"
                         Style="{StaticResource MaterialDesignFlatButton}"
                         FontSize="10"
                         FontWeight="Bold"
