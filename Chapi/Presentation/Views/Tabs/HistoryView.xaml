@@ -153,14 +153,16 @@
                                         <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
                                              <materialDesign:PackIcon Kind="AccountCircleOutline" Width="14" Height="14" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                              <TextBlock Text="{Binding Author}" FontSize="11" Foreground="#999" VerticalAlignment="Center"/>
+                                             <TextBlock Text=" • " Foreground="#444" VerticalAlignment="Center"/>
+                                             <TextBlock Text="{Binding RelativeDate}" FontSize="10" Foreground="#666" FontStyle="Italic" VerticalAlignment="Center"/>
                                         </StackPanel>
                                         
-                                        <TextBlock Grid.Column="1" 
-                                                   Text="{Binding RelativeDate}" 
-                                                   FontSize="10" 
-                                                   Foreground="#666" 
-                                                   FontStyle="Italic" 
-                                                   VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Date, StringFormat={}{0:dd/MM/yyyy HH:mm}}" 
+                                                       FontSize="9" 
+                                                       Foreground="#555" 
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </Grid>
                                 </Grid>
                             </Border>

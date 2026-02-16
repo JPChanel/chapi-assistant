@@ -188,7 +188,7 @@ public class WslGitRepository : IGitRepository
                 { 
                     Hash = parts[0], 
                     Author = parts[2], 
-                    Date = DateTimeOffset.FromUnixTimeSeconds(ts).DateTime, 
+                    Date = DateTimeOffset.FromUnixTimeSeconds(ts).LocalDateTime, 
                     Message = parts[4], 
                     RelativeDate = parts.Length > 5 ? parts[5] : string.Empty,
                     Tags = new List<string>() 

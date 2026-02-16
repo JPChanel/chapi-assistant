@@ -3,6 +3,7 @@ using Chapi.Domain.Entities;
 using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
+using Chapi.Infrastructure.Common;
 using LibGit2Sharp;
 using System.IO;
 
@@ -66,7 +67,8 @@ public partial class LibGit2SharpRepository : IGitRepository
                     Hash = commit.Sha,
                     Message = commit.MessageShort,
                     Author = commit.Author.Name,
-                    Date = commit.Author.When.DateTime
+                    Date = commit.Author.When.DateTime,
+                    RelativeDate = TimeHelper.GetRelativeDate(commit.Author.When.DateTime)
                 });
             }
             catch (Exception ex)
@@ -101,6 +103,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                         Description = description,
                         Author = c.Author.Name,
                         Date = c.Author.When.DateTime,
+                        RelativeDate = TimeHelper.GetRelativeDate(c.Author.When.DateTime),
                         Tags = new List<string>()
                     };
 
