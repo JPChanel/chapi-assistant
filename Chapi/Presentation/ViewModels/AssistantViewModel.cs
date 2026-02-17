@@ -1,13 +1,13 @@
-﻿using System.Collections.ObjectModel;
-using System.Windows.Input;
-using Chapi.Application.Services.Assistant;
-using Chapi.Domain.Entities.Assistant;
-using Chapi.Infrastructure.Services;
-using Chapi.Domain.Interfaces;
-using Chapi.Domain.Enums;
+﻿using Chapi.Application.Services.Assistant;
 using Chapi.Application.UseCases.Git;
+using Chapi.Domain.Entities.Assistant;
+using Chapi.Domain.Enums;
+using Chapi.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Data;
+using System.Windows.Input;
 
 namespace Chapi.Presentation.ViewModels;
 
@@ -45,7 +45,7 @@ public class AssistantViewModel : ViewModelBase
     {
         _conversationManager = new ConversationManager();
         _capabilityRegistry = App.ServiceProvider.GetRequiredService<IAssistantCapabilityRegistry>();
-        
+
         // Habilitar sincronización para que la colección pueda ser modificada desde hilos secundarios
         BindingOperations.EnableCollectionSynchronization(Messages, _messagesLock);
 
@@ -122,7 +122,7 @@ public class AssistantViewModel : ViewModelBase
 
             if (historyVM != null) await historyVM.RefreshCommand.ExecuteAsync(null);
             if (changesVM != null) await changesVM.ForceRefreshAsync();
-            
+
             // Refrescar indicadores globales en el combo de proyectos y el botón Git (MainWindow)
             if (MainWindow.Instance != null)
             {
@@ -231,7 +231,7 @@ public class AssistantViewModel : ViewModelBase
 
             // Ejecutar según el tipo de UseCase (Mapeo dinámico a los ExecuteAsync existentes)
             await DispatchUseCaseAsync(useCase, intent, capability);
-            
+
             message.Action = null; // Quitar el botón de acción después de ejecutar
             await UpdateProjectContextAsync(_currentProjectPath, forceRefresh: true);
         }
@@ -253,25 +253,26 @@ public class AssistantViewModel : ViewModelBase
     {
         // Nota: Este despachador asume que los UseCases siguen la convención de tener un método ExecuteAsync
         // Se puede mejorar usando una interfaz común si todos los UseCases la implementaran (IUseCase)
-        
+
         switch (useCase)
         {
             case CommitChangesUseCase commitUC:
                 var summary = intent.Parameters.GetValueOrDefault("message", "Commit desde el Asistente");
                 var description = intent.Parameters.GetValueOrDefault("description", "");
                 var fullMsg = string.IsNullOrEmpty(description) ? summary : $"{summary}\n\n{description}";
-                
+
                 var context = _conversationManager.GetCurrentProjectContext();
                 var files = new List<string>();
-                if (context?.Git != null) {
+                if (context?.Git != null)
+                {
                     files.AddRange(context.Git.ModifiedFiles);
                     files.AddRange(context.Git.UntrackedFiles);
                 }
-                var cResult = await commitUC.ExecuteAsync(new CommitRequest 
-                { 
-                    ProjectPath = _currentProjectPath, 
-                    Message = fullMsg, 
-                    Files = files 
+                var cResult = await commitUC.ExecuteAsync(new CommitRequest
+                {
+                    ProjectPath = _currentProjectPath,
+                    Message = fullMsg,
+                    Files = files
                 });
                 lock (_messagesLock)
                 {
@@ -357,7 +358,128 @@ public class AssistantViewModel : ViewModelBase
                 var dResult = await discardUC.ExecuteAsync(_currentProjectPath);
                 lock (_messagesLock)
                 {
-                    Messages.Add(new ChatMessage { Text = dResult.IsSuccess ? $"✅ {capability.Name} completado." : $"❌ {dResult.Error}", Author = MessageAuthor.Assistant });
+                }
+                break;
+
+            case FetchChangesUseCase fetchUC:
+                var fResult = await fetchUC.ExecuteAsync(_currentProjectPath, isSilent: false);
+                lock (_messagesLock)
+                {
+                    Messages.Add(new ChatMessage { Text = fResult.IsSuccess ? $"✅ {capability.Name} completado." : $"❌ {fResult.Error}", Author = MessageAuthor.Assistant });
+                }
+                break;
+
+            case Chapi.Application.UseCases.Projects.CloneProjectUseCase cloneUC:
+                var repoUrl = intent.Parameters.GetValueOrDefault("url", "");
+                var parentDir = intent.Parameters.GetValueOrDefault("path", App.Configuration["AppConfig:DefaultWorkspace"] ?? "C:\\Proyectos");
+
+                if (string.IsNullOrEmpty(repoUrl))
+                {
+                    lock (_messagesLock) Messages.Add(new ChatMessage { Text = "❌ Falta la URL del repositorio.", Author = MessageAuthor.Assistant });
+                    break;
+                }
+
+                lock (_messagesLock) Messages.Add(new ChatMessage { Text = $"⏳ Clonando {repoUrl}...", Author = MessageAuthor.Assistant });
+
+                var cloneResult = await cloneUC.ExecuteAsync(repoUrl, parentDir);
+                if (cloneResult.IsSuccess)
+                {
+                    lock (_messagesLock)
+                    {
+                        Messages.Add(new ChatMessage { Text = $"✅ Clonado exitoso en {cloneResult.Data}. Cambiando contexto...", Author = MessageAuthor.Assistant });
+                    }
+                    await UpdateProjectContextAsync(cloneResult.Data, true);
+                }
+                else
+                {
+                    lock (_messagesLock)
+                    {
+                        Messages.Add(new ChatMessage { Text = $"❌ Error al clonar: {cloneResult.Error}", Author = MessageAuthor.Assistant });
+                    }
+                }
+                break;
+
+            case Chapi.Application.UseCases.Projects.CreateProjectUseCase createUC:
+                // 1. Validar nombre del proyecto (Obligatorio)
+                if (!intent.Parameters.TryGetValue("name", out var pName) || string.IsNullOrWhiteSpace(pName))
+                {
+                    lock (_messagesLock)
+                    {
+                        Messages.Add(new ChatMessage { Text = "📝 Para crear el proyecto necesito un nombre. ¿Cómo quieres llamarlo?", Author = MessageAuthor.Assistant });
+                    }
+                    break;
+                }
+
+                // 2. Determinar ruta (Configuración > Mis Documentos)
+                var defaultWorkspace = App.Configuration["AppConfig:DefaultWorkspace"];
+                if (string.IsNullOrEmpty(defaultWorkspace))
+                {
+                    defaultWorkspace = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "ChapiProjects");
+                }
+                var pPath = intent.Parameters.GetValueOrDefault("path", defaultWorkspace);
+
+                // 3. Template (Por defecto Clean Architecture, pero configurable)
+                var pTemplate = intent.Parameters.GetValueOrDefault("template", "https://github.com/Start-Z/CleanArchitecture-Template.git");
+
+                lock (_messagesLock) Messages.Add(new ChatMessage { Text = $"⏳ Creando proyecto '{pName}' en '{pPath}' usando plantilla Clean Architecture...", Author = MessageAuthor.Assistant });
+
+                var createReq = new Chapi.Application.UseCases.Projects.CreateProjectRequest(pName, pPath, pTemplate);
+                var createResult = await createUC.ExecuteAsync(createReq);
+
+                if (createResult.IsSuccess)
+                {
+                    lock (_messagesLock)
+                    {
+                        Messages.Add(new ChatMessage { Text = $"✅ Proyecto creado en {createResult.Data}. Cambiando contexto...", Author = MessageAuthor.Assistant });
+                    }
+                    await UpdateProjectContextAsync(createResult.Data, true);
+                }
+                else
+                {
+                    lock (_messagesLock)
+                    {
+                        Messages.Add(new ChatMessage { Text = $"❌ Error al crear proyecto: {createResult.Error}", Author = MessageAuthor.Assistant });
+                    }
+                }
+                break;
+
+            case Chapi.Application.UseCases.Projects.LoadProjectsUseCase listUC:
+                var listResult = await listUC.ExecuteAsync();
+                lock (_messagesLock)
+                {
+                    if (listResult.IsSuccess)
+                    {
+                        var fileList = string.Join("\n", listResult.Data.Select(p => $"• {p.Name} ({p.FullPath})"));
+                        Messages.Add(new ChatMessage { Text = $"📂 **Mis Proyectos**:\n{fileList}", Author = MessageAuthor.Assistant });
+                    }
+                    else
+                    {
+                        Messages.Add(new ChatMessage { Text = $"❌ Error al listar: {listResult.Error}", Author = MessageAuthor.Assistant });
+                    }
+                }
+                break;
+
+            case Chapi.Application.UseCases.Projects.AddProjectUseCase addProjectUC:
+                var addPath = intent.Parameters.GetValueOrDefault("path", "");
+                if (string.IsNullOrEmpty(addPath))
+                {
+                    lock (_messagesLock) Messages.Add(new ChatMessage { Text = "❌ Por favor indica la ruta de la carpeta.", Author = MessageAuthor.Assistant });
+                    break;
+                }
+                var addResult = await addProjectUC.ExecuteAsync(addPath);
+                lock (_messagesLock)
+                {
+                    Messages.Add(new ChatMessage { Text = addResult.IsSuccess ? $"✅ Proyecto agregado a la lista." : $"❌ {addResult.Error}", Author = MessageAuthor.Assistant });
+                }
+                break;
+
+            case Chapi.Application.UseCases.Projects.RemoveProjectUseCase removeProjectUC:
+                // Usamos la ruta actual si no se especifica otra
+                var remPath = intent.Parameters.GetValueOrDefault("path", _currentProjectPath);
+                var remResult = await removeProjectUC.ExecuteAsync(remPath);
+                lock (_messagesLock)
+                {
+                    Messages.Add(new ChatMessage { Text = remResult.IsSuccess ? $"✅ Proyecto removido de la lista." : $"❌ {remResult.Error}", Author = MessageAuthor.Assistant });
                 }
                 break;
 

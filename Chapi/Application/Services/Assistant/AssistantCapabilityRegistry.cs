@@ -117,6 +117,66 @@ public class AssistantCapabilityRegistry : IAssistantCapabilityRegistry
             Keywords = new[] { "switch", "checkout", "cambiar rama", "ir a la rama" },
             TargetUseCaseType = typeof(SwitchBranchUseCase)
         });
+
+        _capabilities.Add(new AssistantCapability
+        {
+            Id = "git.fetch",
+            Name = "Fetch Remoto",
+            Description = "Obtiene los últimos metadatos y commits del remoto sin fusionar.",
+            Category = CapabilityCategory.Git,
+            Keywords = new[] { "fetch", "traer info", "actualizar estado", "comprobar cambios" },
+            TargetUseCaseType = typeof(FetchChangesUseCase)
+        });
+
+        _capabilities.Add(new AssistantCapability
+        {
+            Id = "project.clone",
+            Name = "Clonar Proyecto",
+            Description = "Descarga un repositorio remoto a tu máquina local.",
+            Category = CapabilityCategory.Project,
+            Keywords = new[] { "clone", "clonar", "descargar repo", "bajar proyecto" },
+            TargetUseCaseType = typeof(Chapi.Application.UseCases.Projects.CloneProjectUseCase)
+        });
+
+        _capabilities.Add(new AssistantCapability
+        {
+            Id = "project.create",
+            Name = "Crear Proyecto",
+            Description = "Crea un nuevo proyecto desde cero o usando una plantilla.",
+            Category = CapabilityCategory.Project,
+            Keywords = new[] { "crear proyecto", "nuevo proyecto", "new project", "iniciar proyecto" },
+            TargetUseCaseType = typeof(Chapi.Application.UseCases.Projects.CreateProjectUseCase)
+        });
+
+        _capabilities.Add(new AssistantCapability
+        {
+             Id = "project.list",
+             Name = "Listar Proyectos",
+             Description = "Muestra una lista de los proyectos registrados en Chapi.",
+             Category = CapabilityCategory.Project,
+             Keywords = new[] { "listar proyectos", "ver proyectos", "mis proyectos", "cargar proyectos" },
+             TargetUseCaseType = typeof(Chapi.Application.UseCases.Projects.LoadProjectsUseCase)
+        });
+
+        _capabilities.Add(new AssistantCapability
+        {
+             Id = "project.add",
+             Name = "Agregar Proyecto Local",
+             Description = "Registra una carpeta existente como proyecto en Chapi.",
+             Category = CapabilityCategory.Project,
+             Keywords = new[] { "agregar proyecto", "importar proyecto", "añadir carpeta" },
+             TargetUseCaseType = typeof(Chapi.Application.UseCases.Projects.AddProjectUseCase)
+        });
+
+        _capabilities.Add(new AssistantCapability
+        {
+             Id = "project.remove",
+             Name = "Eliminar Proyecto",
+             Description = "Elimina un proyecto del registro de Chapi (no borra archivos).",
+             Category = CapabilityCategory.Project,
+             Keywords = new[] { "eliminar proyecto", "quitar proyecto", "borrar de lista", "olvidar proyecto" },
+             TargetUseCaseType = typeof(Chapi.Application.UseCases.Projects.RemoveProjectUseCase)
+        });
     }
 
     public IEnumerable<AssistantCapability> GetAllCapabilities() => _capabilities;

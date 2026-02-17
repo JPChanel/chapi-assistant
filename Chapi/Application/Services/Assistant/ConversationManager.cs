@@ -59,8 +59,14 @@ public class ConversationManager
             // Refrescar estado de Git antes de preguntar a la IA
             await RefreshGitContextAsync();
 
-            // Obtener respuesta de la IA
-            var responseResult = await _chatService.SendMessageAsync(userMessage, _currentContext);
+            // Obtener respuesta de la IA con timeout
+            var responseTask = _chatService.SendMessageAsync(userMessage, _currentContext);
+            // 90 segundos (1.5 min) de timeout para la IA
+            if (await Task.WhenAny(responseTask, Task.Delay(90000)) != responseTask)
+            {
+                return Result<ChatMessage>.Fail("La IA está tardando demasiado. Verifica tu conexión o intenta de nuevo.");
+            }
+            var responseResult = await responseTask;
 
             if (!responseResult.IsSuccess)
                 return Result<ChatMessage>.Fail(responseResult.Error);
@@ -178,10 +184,27 @@ public class ConversationManager
     {
         if (_currentContext?.CurrentProject == null) return;
         
-        var gitContext = await _contextBuilder.BuildGitContextAsync(_currentContext.CurrentProject.Path);
-        if (gitContext != null)
+        try
         {
-            _currentContext.CurrentProject.Git = gitContext;
+            // Envolver en timeout de 2 segundos para no bloquear la UI si Git está lento
+            var task = _contextBuilder.BuildGitContextAsync(_currentContext.CurrentProject.Path);
+            if (await Task.WhenAny(task, Task.Delay(2000)) == task)
+            {
+                var gitContext = await task;
+                if (gitContext != null)
+                {
+                    _currentContext.CurrentProject.Git = gitContext;
+                }
+            }
+            else
+            {
+                // Log timeout (opcional)
+                System.Diagnostics.Debug.WriteLine("Git context refresh timed out");
+            }
+        }
+        catch
+        {
+            // Ignorar errores en refresh silencioso
         }
     }
 }

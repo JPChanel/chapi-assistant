@@ -7,7 +7,8 @@ public enum CapabilityCategory
     Git,
     Navigation,
     AI,
-    System
+    System,
+    Project
 }
 
 public class AssistantCapability
