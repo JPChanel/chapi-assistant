@@ -2,21 +2,24 @@ using Chapi.Domain.Common;
 using Chapi.Domain.Entities.Assistant;
 using Chapi.Domain.Interfaces;
 using Chapi.Infrastructure.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text;
 
 namespace Chapi.Application.Services.Assistant;
 
 /// <summary>
-/// Servicio de chat inteligente con Gemini que interpreta intenciones y usa contexto del proyecto
+/// Servicio de chat inteligente que interpreta intenciones y usa contexto del proyecto
 /// </summary>
 public class GeminiChatService
 {
     private readonly IAssistantCapabilityRegistry _capabilityRegistry;
+    private readonly IServiceProvider _serviceProvider;
 
-    public GeminiChatService()
+    public GeminiChatService(IServiceProvider serviceProvider, IAssistantCapabilityRegistry capabilityRegistry)
     {
-        _capabilityRegistry = App.ServiceProvider.GetRequiredService<IAssistantCapabilityRegistry>();
+        _serviceProvider = serviceProvider;
+        _capabilityRegistry = capabilityRegistry;
     }
 
     public async Task<Result<string>> SendMessageAsync(
@@ -30,16 +33,27 @@ public class GeminiChatService
             var capabilitiesInfo = BuildCapabilitiesInfo();
             
             var fullPrompt = GetPrompt.ChatAssistant(contextInfo, conversationHistory, capabilitiesInfo, userMessage);
-            var response = await AIClient.SendPromptAsync(fullPrompt);
+            
+            // Obtener cliente dinámicamente para soportar cambios de configuración en caliente
+            var chatClient = _serviceProvider.GetRequiredService<IChatClient>();
+            
+            // Usar tipos explícitos para evitar ambigüedad con Chapi.Domain.Entities.Assistant.ChatMessage
+            var messages = new List<Microsoft.Extensions.AI.ChatMessage> 
+            { 
+                new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, fullPrompt) 
+            };
+            
+            var response = await chatClient.GetResponseAsync(messages);
+            var responseText = response.Messages.FirstOrDefault()?.Text;
 
-            if (string.IsNullOrWhiteSpace(response))
+            if (string.IsNullOrWhiteSpace(responseText))
                 return Result<string>.Fail("No se recibió respuesta de la IA");
 
-            return Result<string>.Success(response);
+            return Result<string>.Success(responseText);
         }
         catch (Exception ex)
         {
-            return Result<string>.Fail($"Error al comunicarse con Gemini: {ex.Message}");
+            return Result<string>.Fail($"Error al comunicarse con la IA: {ex.Message}");
         }
     }
 

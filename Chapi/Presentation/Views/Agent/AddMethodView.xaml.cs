@@ -1,9 +1,12 @@
-﻿using Chapi.Domain.Models;
+﻿using Chapi.Domain.Interfaces;
+using Chapi.Domain.Models;
 using Chapi.Infrastructure.AI;
 using Chapi.Infrastructure.Common;
 using Chapi.Infrastructure.Persistence.Rollbacks;
 using Chapi.Infrastructure.Roslyn;
 using Chapi.Infrastructure.Services;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -366,14 +369,22 @@ namespace Chapi.Presentation.Views.Agent
             string moduleName,
             string nombreMetodo, string dataBase, string tipoMetodo)
         {
-
-
-
             var prompt = GetPrompt.AnalyzeEmail(moduleName, nombreMetodo, emailContent, dataBase, tipoMetodo);
 
             try
             {
-                var aiResponse = await AIClient.SendPromptAsync(prompt);
+                // Usar cliente de IA dinámico
+                using var scope = App.ServiceProvider.CreateScope();
+                var chatClient = scope.ServiceProvider.GetRequiredService<IChatClient>();
+                
+                var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
+                var response = await chatClient.GetResponseAsync(messages);
+                var aiResponse = response.Messages.FirstOrDefault()?.Text;
+
+                if (string.IsNullOrWhiteSpace(aiResponse))
+                {
+                    throw new Exception("La IA no devolvió respuesta");
+                }
 
                 if (aiResponse.StartsWith("```json"))
                 {

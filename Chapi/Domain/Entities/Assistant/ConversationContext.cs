@@ -47,6 +47,7 @@ public class GitContext
     public string CurrentBranch { get; set; } = string.Empty;
     public List<CommitInfo> RecentCommits { get; set; } = new();
     public List<string> ModifiedFiles { get; set; } = new();
+    public List<string> ModifiedFilePaths { get; set; } = new(); // Rutas limpias para uso interno
     public List<string> UntrackedFiles { get; set; } = new();
     public int AheadBy { get; set; }
     public int BehindBy { get; set; }

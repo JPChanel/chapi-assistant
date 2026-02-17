@@ -1,5 +1,7 @@
+using Chapi.Application.UseCases.AI;
 using Chapi.Domain.Interfaces;
 using MaterialDesignThemes.Wpf;
+using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -47,36 +49,53 @@ namespace Chapi.Presentation.Views.Dialogs
 
                 StatusText.Text = "Generando resumen con IA...";
 
-                // 2. Llamar a la IA
-                // Usamos el mismo prompt de commits normales o uno slightly tweaked
-                var prompt = Chapi.Infrastructure.AI.GetPrompt.GitCommit(diff);
-                string jsonResponse = await Chapi.Infrastructure.AI.AIClient.SendPromptAsync(prompt);
+                // 2. Llamar a la IA usando el UseCase correspondiente
+                var useCase = App.ServiceProvider.GetRequiredService<GenerateCommitMessageUseCase>();
+                
+                // Nota: GenerateCommitMessageUseCase espera 'diff' como único argumento string
+                // y retorna un Result<CommitMessageResponse> o similar.
+                // Verificamos su firma en uso (normalmente ExecuteAsync(diff)).
+                // Adaptamos la llamada:
+                var result = await useCase.ExecuteAsync(diff);
 
-                if (!string.IsNullOrWhiteSpace(jsonResponse))
+                if (result.IsSuccess && !string.IsNullOrWhiteSpace(result.Data))
                 {
-                    try
+                    try 
                     {
-                        var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                        var commitMsg = System.Text.Json.JsonSerializer.Deserialize<Chapi.Domain.Entities.CommitMessageResponse>(jsonResponse, options);
-
-                        if (commitMsg != null && !string.IsNullOrWhiteSpace(commitMsg.Summary))
+                        var jsonResponse = result.Data;
+                        // Limpiar markdown si existe
+                        if (jsonResponse.StartsWith("```json"))
                         {
-                            // Formato consolidado para squash con prefijo SM:
-                            string fullMsg = $"SM: {commitMsg.Summary}\n\n{commitMsg.Description}".Trim();
-                            MessageTextBox.Text = fullMsg;
-                            StatusText.Text = "✅ Mensaje generado.";
+                            jsonResponse = jsonResponse.Replace("```json", "").Replace("```", "").Trim();
                         }
+                        
+                         var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                         var commitMsg = System.Text.Json.JsonSerializer.Deserialize<Chapi.Domain.Entities.CommitMessageResponse>(jsonResponse, options);
+
+                         if (commitMsg != null && !string.IsNullOrWhiteSpace(commitMsg.Summary))
+                         {
+                             // Formato consolidado para squash con prefijo SM:
+                             string fullMsg = $"SM: {commitMsg.Summary}\n\n{commitMsg.Description}".Trim();
+                             MessageTextBox.Text = fullMsg;
+                             StatusText.Text = "✅ Mensaje generado.";
+                         }
+                         else
+                         {
+                             // Fallback si la deserialización falla o devuelve nulo
+                             MessageTextBox.Text = $"SM: {jsonResponse}";
+                             StatusText.Text = "✅ Mensaje generado (formato libre).";
+                         }
                     }
                     catch
                     {
-                        // Fallback si no es JSON
-                        MessageTextBox.Text = $"SM: {jsonResponse}";
-                        StatusText.Text = "✅ Mensaje generado (formato libre).";
+                         // Fallback si no es JSON válido
+                         MessageTextBox.Text = $"SM: {result.Data}";
+                         StatusText.Text = "✅ Mensaje generado (formato libre).";
                     }
                 }
                 else
                 {
-                    StatusText.Text = "⚠️ La IA no devolvió respuesta.";
+                    StatusText.Text = $"⚠️ Error IA: {result.Error ?? "Sin respuesta"}";
                 }
             }
             catch (Exception ex)

@@ -1,4 +1,6 @@
-﻿using Chapi.Infrastructure.AI;
+﻿using Chapi.Application.UseCases.AI;
+using Chapi.Infrastructure.AI;
+using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -35,20 +37,18 @@ namespace Chapi.Presentation.Views.Agent
 
             try
             {
-                // 2. Crear el Prompt
-                var prompt = GetPrompt.GenerateSqlCall(spName, dbType, netParams);
-
-                // 3. Llamar a la IA
-                var sqlResult = await AIClient.SendPromptAsync(prompt);
+                // 3. Llamar a la IA usando el UseCase
+                var useCase = App.ServiceProvider.GetRequiredService<GenerateSqlQueryUseCase>();
+                var result = await useCase.ExecuteAsync(spName, dbType, netParams);
 
                 // 4. Mostrar resultado
-                if (string.IsNullOrWhiteSpace(sqlResult))
+                if (result.IsSuccess)
                 {
-                    TxtSqlOutput.Text = "Error: La IA no devolvió ningún resultado.";
+                    TxtSqlOutput.Text = result.Data;
                 }
                 else
                 {
-                    TxtSqlOutput.Text = sqlResult;
+                    TxtSqlOutput.Text = $"Error: {result.Error}";
                 }
             }
             catch (System.Exception ex)

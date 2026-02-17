@@ -89,6 +89,38 @@ namespace Chapi
             services.AddSingleton<IModuleGeneratorService, ModuleGeneratorService>();
             services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
             services.AddSingleton<IAssistantCapabilityRegistry, Chapi.Application.Services.Assistant.AssistantCapabilityRegistry>();
+            
+            // AI Services (Microsoft.Extensions.AI)
+            // AI Services (Microsoft.Extensions.AI)
+            services.AddTransient<Microsoft.Extensions.AI.IChatClient>(sp => 
+            {
+                var settings = Chapi.Infrastructure.Persistence.Settings.UserSettingsService.LoadSettings();
+                
+                // 1. Intentar proveedor preferido
+                if (settings.PreferredAiProvider == "OpenAI" && !string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
+                    return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
+                
+                if (settings.PreferredAiProvider == "Claude" && !string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
+                    return new Chapi.Infrastructure.AI.ClaudeChatClient(settings.ClaudeApiKey);
+                
+                if ((settings.PreferredAiProvider == "Gemini" || string.IsNullOrEmpty(settings.PreferredAiProvider)) && !string.IsNullOrWhiteSpace(settings.GeminiApiKey))
+                    return new Chapi.Infrastructure.AI.GeminiChatClient(settings.GeminiApiKey);
+
+                // 2. Fallback: Probar cualquiera disponible (Prioridad: Gemini > OpenAI > Claude)
+                if (!string.IsNullOrWhiteSpace(settings.GeminiApiKey))
+                    return new Chapi.Infrastructure.AI.GeminiChatClient(settings.GeminiApiKey);
+
+                if (!string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
+                    return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
+                
+                if (!string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
+                    return new Chapi.Infrastructure.AI.ClaudeChatClient(settings.ClaudeApiKey);
+
+
+
+                // Si llegamos aquí, no hay configuración válida
+                throw new InvalidOperationException("No se ha configurado ningún proveedor de IA (Gemini, OpenAI o Claude). Por favor ve a Configuración > IA.");
+            });
 
             // Application - Use Cases
             services.AddTransient<UseCases.CommitChangesUseCase>();
@@ -133,6 +165,15 @@ namespace Chapi
             services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddDomainMethodUseCase>();
             services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddInfrastructureMethodUseCase>();
 
+            // Application - AI Use Cases
+            services.AddTransient<Chapi.Application.UseCases.AI.GenerateCommitMessageUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.AI.SendChatMessageUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.AI.GenerateSqlQueryUseCase>();
+            
+            // Core Assistant Services (Singleton para mantener estado en la sesión)
+            services.AddSingleton<Chapi.Application.Services.Assistant.GeminiChatService>();
+            services.AddSingleton<Chapi.Application.Services.Assistant.ConversationManager>();
+
             // Application - Auth
             services.AddTransient<Chapi.Application.UseCases.Auth.LoginGitHubUseCase>();
 
@@ -140,11 +181,15 @@ namespace Chapi
             services.AddSingleton<ITemplateService, ProjectTemplateService>();
             services.AddSingleton<IProjectRepository, Chapi.Infrastructure.Persistence.Settings.ProjectSettingsRepository>();
 
+            // Infrastructure - Workspace
+            services.AddSingleton<Chapi.Application.Interfaces.Workspace.IWorkspaceService, Chapi.Infrastructure.Services.WorkspaceService>();
+
             // Presentation - ViewModels
             services.AddSingleton<Presentation.ViewModels.ChangesViewModel>();
             services.AddSingleton<Presentation.ViewModels.HistoryViewModel>();
             services.AddSingleton<Presentation.ViewModels.AssistantViewModel>();
             services.AddSingleton<Presentation.ViewModels.ReleasesViewModel>();
+            services.AddSingleton<Presentation.ViewModels.WorkspaceViewModel>();
             services.AddTransient<Presentation.ViewModels.LoginGitHubViewModel>();
             services.AddTransient<Presentation.ViewModels.GitProviderSelectionViewModel>();
             services.AddSingleton<Presentation.ViewModels.CloneRepositoryViewModel>();

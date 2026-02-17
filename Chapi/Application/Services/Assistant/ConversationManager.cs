@@ -1,7 +1,6 @@
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities.Assistant;
 using Chapi.Domain.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Chapi.Application.Services.Assistant;
 
@@ -15,11 +14,11 @@ public class ConversationManager
     private readonly IAssistantCapabilityRegistry _capabilityRegistry;
     private ConversationContext _currentContext;
 
-    public ConversationManager()
+    public ConversationManager(GeminiChatService chatService, IAssistantCapabilityRegistry capabilityRegistry)
     {
         _contextBuilder = new ProjectContextBuilder();
-        _chatService = new GeminiChatService();
-        _capabilityRegistry = App.ServiceProvider.GetRequiredService<IAssistantCapabilityRegistry>();
+        _chatService = chatService;
+        _capabilityRegistry = capabilityRegistry;
         _currentContext = new ConversationContext();
     }
 

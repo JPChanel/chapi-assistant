@@ -1,10 +1,17 @@
 using Chapi.Domain.Common;
-using Chapi.Infrastructure.AI;
+using Microsoft.Extensions.AI;
 
 namespace Chapi.Application.UseCases.AI;
 
 public class SendChatMessageUseCase
 {
+    private readonly IChatClient _chatClient;
+
+    public SendChatMessageUseCase(IChatClient chatClient)
+    {
+        _chatClient = chatClient;
+    }
+
     public async Task<Result<string>> ExecuteAsync(string userMessage, string? context = null)
     {
         try
@@ -16,12 +23,14 @@ public class SendChatMessageUseCase
                 ? userMessage
                 : $"{context}\n\nUsuario: {userMessage}";
 
-            var response = await AIClient.SendPromptAsync(prompt);
+            var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
+            var response = await _chatClient.GetResponseAsync(messages);
+            var responseText = response.Messages.FirstOrDefault()?.Text;
 
-            if (string.IsNullOrWhiteSpace(response))
+            if (string.IsNullOrWhiteSpace(responseText))
                 return Result<string>.Fail("No se recibió respuesta del asistente");
 
-            return Result<string>.Success(response);
+            return Result<string>.Success(responseText);
         }
         catch (Exception ex)
         {

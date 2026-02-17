@@ -1,10 +1,18 @@
 using Chapi.Domain.Common;
 using Chapi.Infrastructure.AI;
+using Microsoft.Extensions.AI;
 
 namespace Chapi.Application.UseCases.AI;
 
 public class GenerateCommitMessageUseCase
 {
+    private readonly IChatClient _chatClient;
+
+    public GenerateCommitMessageUseCase(IChatClient chatClient)
+    {
+        _chatClient = chatClient;
+    }
+
     public async Task<Result<string>> ExecuteAsync(string diffContent)
     {
         try
@@ -13,12 +21,19 @@ public class GenerateCommitMessageUseCase
                 return Result<string>.Fail("No hay cambios para generar mensaje");
 
             var prompt = GetPrompt.GitCommit(diffContent);
-            var response = await AIClient.SendPromptAsync(prompt);
+            
+            // Usar IChatClient de Microsoft.Extensions.AI
+            var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
+            var response = await _chatClient.GetResponseAsync(messages);
+            
+            // ChatResponse tiene Messages o Choices dependiendo de la version. 
+            // En nuestra implementacion de GeminiChatClient usamos ChatResponse con Messages.
+            var responseText = response.Messages.FirstOrDefault()?.Text;
 
-            if (string.IsNullOrWhiteSpace(response))
+            if (string.IsNullOrWhiteSpace(responseText))
                 return Result<string>.Fail("No se pudo generar el mensaje de commit");
 
-            return Result<string>.Success(response.Trim());
+            return Result<string>.Success(responseText.Trim());
         }
         catch (Exception ex)
         {

@@ -155,9 +155,16 @@ public class ProjectContextBuilder
 
             // Archivos modificados (Incluye Staged, Modified, Missing, Renamed, etc.)
             // Excluimos Ignored y Unaltered. Untracked va aparte.
-            gitContext.ModifiedFiles = status
+            var dirtyFiles = status
                 .Where(s => s.State != FileStatus.Ignored && s.State != FileStatus.Unaltered && s.State != FileStatus.NewInWorkdir)
+                .ToList();
+
+            gitContext.ModifiedFiles = dirtyFiles
                 .Select(s => $"{s.FilePath} ({s.State})")
+                .ToList();
+
+            gitContext.ModifiedFilePaths = dirtyFiles
+                .Select(s => s.FilePath)
                 .ToList();
 
             // Archivos untracked (NewInWorkdir)
@@ -203,7 +210,7 @@ public class ProjectContextBuilder
                 capabilities.CanPull = interfaces.Contains("IGitRepository");
                 capabilities.CanCreateBranch = interfaces.Contains("IGitRepository");
                 capabilities.CanMergeBranch = interfaces.Contains("IGitRepository");
-                capabilities.CanGenerateCode = interfaces.Contains("IAIClient") || interfaces.Contains("ITemplateService");
+                capabilities.CanGenerateCode = interfaces.Contains("IChatClient") || interfaces.Contains("ITemplateService");
                 capabilities.CanAnalyzeArchitecture = interfaces.Contains("IRoslynService");
             }
             else

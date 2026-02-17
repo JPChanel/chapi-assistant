@@ -5,7 +5,6 @@ using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Windows.Data;
 using System.Windows.Input;
 
@@ -41,10 +40,10 @@ public class AssistantViewModel : ViewModelBase
 
     private readonly object _messagesLock = new object();
 
-    public AssistantViewModel()
+    public AssistantViewModel(ConversationManager conversationManager, IAssistantCapabilityRegistry capabilityRegistry)
     {
-        _conversationManager = new ConversationManager();
-        _capabilityRegistry = App.ServiceProvider.GetRequiredService<IAssistantCapabilityRegistry>();
+        _conversationManager = conversationManager;
+        _capabilityRegistry = capabilityRegistry;
 
         // Habilitar sincronización para que la colección pueda ser modificada desde hilos secundarios
         BindingOperations.EnableCollectionSynchronization(Messages, _messagesLock);
@@ -64,13 +63,12 @@ public class AssistantViewModel : ViewModelBase
             Messages.Add(new ChatMessage
             {
                 Text = "👋 ¡Hola! Soy tu asistente de desarrollo.\n\n" +
-                       "Puedo ayudarte con:\n" +
-                       "• Explica la arquitectura de tu proyecto\n" +
-                       "• Analizar commits y cambios recientes\n" +
-                       "• Resolver dudas sobre Git\n" +
-                       "• Sugerir mejoras de código\n" +
-                       "• Generar código siguiendo tus patrones\n\n" +
-                       "¿En qué puedo ayudarte hoy? 🚀",
+                       "Estoy aquí para ayudarte con:\n" +
+                       "🔎 Explicar la arquitectura de tu proyecto\n" +
+                       "📝 Analizar commits y cambios recientes\n" +
+                       "🌿 Resolver dudas sobre Git y control de versiones\n" +
+                       "🤖 Ejecutar operaciones del asistente Chapi\n\n" +
+                       "Cuéntame, ¿qué necesitas hacer hoy? 🚀",
                 Author = MessageAuthor.Assistant,
                 Timestamp = DateTime.Now
             });
@@ -91,7 +89,6 @@ public class AssistantViewModel : ViewModelBase
 
         if (isNewProject)
         {
-            // Notificar cambio de proyecto solo si es nuevo
             var projectContext = _conversationManager.GetCurrentProjectContext();
             if (projectContext != null)
             {
@@ -109,7 +106,6 @@ public class AssistantViewModel : ViewModelBase
             }
         }
 
-        // Siempre refrescar las otras pestañas para mantener la coherencia
         await RefreshUIAsync();
     }
 
@@ -123,7 +119,6 @@ public class AssistantViewModel : ViewModelBase
             if (historyVM != null) await historyVM.RefreshCommand.ExecuteAsync(null);
             if (changesVM != null) await changesVM.ForceRefreshAsync();
 
-            // Refrescar indicadores globales en el combo de proyectos y el botón Git (MainWindow)
             if (MainWindow.Instance != null)
             {
                 await MainWindow.Instance.UpdateProjectStatusesAsync();
@@ -131,8 +126,6 @@ public class AssistantViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            // Error silencioso en refresco de UI para no interrumpir el flujo del asistente
-            System.Diagnostics.Debug.WriteLine($"Error al refrescar UI: {ex.Message}");
         }
     }
 
@@ -260,29 +253,48 @@ public class AssistantViewModel : ViewModelBase
                 var summary = intent.Parameters.GetValueOrDefault("message", "Commit desde el Asistente");
                 var description = intent.Parameters.GetValueOrDefault("description", "");
                 var fullMsg = string.IsNullOrEmpty(description) ? summary : $"{summary}\n\n{description}";
+                var shouldPush = intent.Parameters.GetValueOrDefault("push", "false").ToLower() == "true";
 
                 var context = _conversationManager.GetCurrentProjectContext();
                 var files = new List<string>();
                 if (context?.Git != null)
                 {
-                    files.AddRange(context.Git.ModifiedFiles);
+                    files.AddRange(context.Git.ModifiedFilePaths); // Usar rutas limpias
                     files.AddRange(context.Git.UntrackedFiles);
                 }
+                
                 var cResult = await commitUC.ExecuteAsync(new CommitRequest
                 {
                     ProjectPath = _currentProjectPath,
                     Message = fullMsg,
                     Files = files
                 });
+
                 lock (_messagesLock)
                 {
                     Messages.Add(new ChatMessage { Text = cResult.IsSuccess ? $"✅ {capability.Name} completado." : $"❌ {cResult.Error}", Author = MessageAuthor.Assistant });
                 }
+
+                if (cResult.IsSuccess && shouldPush)
+                {
+                    lock (_messagesLock) Messages.Add(new ChatMessage { Text = "🚀 Iniciando push automático...", Author = MessageAuthor.Assistant });
+                    
+                    var pushUC = App.ServiceProvider.GetService(typeof(PushChangesUseCase)) as PushChangesUseCase;
+                    if (pushUC != null)
+                    {
+                        var branch = context?.Git?.CurrentBranch ?? "main";
+                        var pushRes = await pushUC.ExecuteAsync(_currentProjectPath, branch);
+                        lock (_messagesLock)
+                        {
+                            Messages.Add(new ChatMessage { Text = pushRes.IsSuccess ? $"✅ Push completado." : $"❌ Error en Push: {pushRes.Error}", Author = MessageAuthor.Assistant });
+                        }
+                    }
+                }
                 break;
 
             case PushChangesUseCase pushUC:
-                var branch = _conversationManager.GetCurrentProjectContext()?.Git?.CurrentBranch ?? "main";
-                var pResult = await pushUC.ExecuteAsync(_currentProjectPath, branch);
+                var pushBranch = _conversationManager.GetCurrentProjectContext()?.Git?.CurrentBranch ?? "main";
+                var pResult = await pushUC.ExecuteAsync(_currentProjectPath, pushBranch);
                 lock (_messagesLock)
                 {
                     Messages.Add(new ChatMessage { Text = pResult.IsSuccess ? $"✅ {capability.Name} completado." : $"❌ {pResult.Error}", Author = MessageAuthor.Assistant });
@@ -370,24 +382,37 @@ public class AssistantViewModel : ViewModelBase
                 break;
 
             case Chapi.Application.UseCases.Projects.CloneProjectUseCase cloneUC:
-                var repoUrl = intent.Parameters.GetValueOrDefault("url", "");
-                var parentDir = intent.Parameters.GetValueOrDefault("path", App.Configuration["AppConfig:DefaultWorkspace"] ?? "C:\\Proyectos");
-
-                if (string.IsNullOrEmpty(repoUrl))
+                // 1. Validar URL del repositorio (Obligatorio)
+                if (!intent.Parameters.TryGetValue("url", out var repoUrl) || string.IsNullOrWhiteSpace(repoUrl))
                 {
-                    lock (_messagesLock) Messages.Add(new ChatMessage { Text = "❌ Falta la URL del repositorio.", Author = MessageAuthor.Assistant });
+                    lock (_messagesLock)
+                    {
+                        Messages.Add(new ChatMessage { Text = "🔗 Necesito la URL del repositorio para clonar. ¿Cuál es?", Author = MessageAuthor.Assistant });
+                    }
                     break;
                 }
 
-                lock (_messagesLock) Messages.Add(new ChatMessage { Text = $"⏳ Clonando {repoUrl}...", Author = MessageAuthor.Assistant });
+                // 2. Validar ruta destino (Obligatorio)
+                if (!intent.Parameters.TryGetValue("path", out var clonePath) || string.IsNullOrWhiteSpace(clonePath))
+                {
+                    lock (_messagesLock)
+                    {
+                        Messages.Add(new ChatMessage { Text = "📂 ¿En qué carpeta quieres que clone este repositorio?", Author = MessageAuthor.Assistant });
+                    }
+                    break;
+                }
 
-                var cloneResult = await cloneUC.ExecuteAsync(repoUrl, parentDir);
+                lock (_messagesLock) Messages.Add(new ChatMessage { Text = $"⏳ Clonando desde '{repoUrl}' en '{clonePath}'...", Author = MessageAuthor.Assistant });
+
+                var cloneResult = await cloneUC.ExecuteAsync(repoUrl, clonePath);
+
                 if (cloneResult.IsSuccess)
                 {
                     lock (_messagesLock)
                     {
                         Messages.Add(new ChatMessage { Text = $"✅ Clonado exitoso en {cloneResult.Data}. Cambiando contexto...", Author = MessageAuthor.Assistant });
                     }
+                    // Cambiar al nuevo proyecto fuera del lock
                     await UpdateProjectContextAsync(cloneResult.Data, true);
                 }
                 else
@@ -410,13 +435,15 @@ public class AssistantViewModel : ViewModelBase
                     break;
                 }
 
-                // 2. Determinar ruta (Configuración > Mis Documentos)
-                var defaultWorkspace = App.Configuration["AppConfig:DefaultWorkspace"];
-                if (string.IsNullOrEmpty(defaultWorkspace))
+                // 2. Validar ruta destino (Obligatorio)
+                if (!intent.Parameters.TryGetValue("path", out var pPath) || string.IsNullOrWhiteSpace(pPath))
                 {
-                    defaultWorkspace = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "ChapiProjects");
+                    lock (_messagesLock)
+                    {
+                        Messages.Add(new ChatMessage { Text = "📂 ¿En qué carpeta quieres que cree el proyecto?", Author = MessageAuthor.Assistant });
+                    }
+                    break;
                 }
-                var pPath = intent.Parameters.GetValueOrDefault("path", defaultWorkspace);
 
                 // 3. Template (Por defecto Clean Architecture, pero configurable)
                 var pTemplate = intent.Parameters.GetValueOrDefault("template", "https://github.com/Start-Z/CleanArchitecture-Template.git");

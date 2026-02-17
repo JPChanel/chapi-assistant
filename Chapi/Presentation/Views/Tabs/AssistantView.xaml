@@ -146,6 +146,7 @@
                          Style="{StaticResource MaterialDesignOutlinedTextBox}"
                          FontSize="14"
                          Padding="12,10"
+                         Margin="10"
                          VerticalAlignment="Center"
                          MaxHeight="100"
                          TextWrapping="Wrap"

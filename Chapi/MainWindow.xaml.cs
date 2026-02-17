@@ -68,8 +68,7 @@ namespace Chapi
             _historyViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.HistoryViewModel)) as Presentation.ViewModels.HistoryViewModel;
             _releasesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ReleasesViewModel)) as Presentation.ViewModels.ReleasesViewModel;
             _assistantViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.AssistantViewModel)) as Presentation.ViewModels.AssistantViewModel;
-            // Manual injection for now as it's a new service
-            _workspaceViewModel = new Presentation.ViewModels.WorkspaceViewModel(new Chapi.Infrastructure.Services.WorkspaceService());
+            _workspaceViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.WorkspaceViewModel)) as Presentation.ViewModels.WorkspaceViewModel;
 
             ChangesTab.DataContext = _changesViewModel;
             HistoryTab.DataContext = _historyViewModel;

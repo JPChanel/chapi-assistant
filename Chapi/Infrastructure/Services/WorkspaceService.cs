@@ -2,6 +2,8 @@ using Chapi.Application.Interfaces.Workspace;
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities.Workspace;
 using Chapi.Infrastructure.AI;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
@@ -12,6 +14,7 @@ public class WorkspaceService : IWorkspaceService
 {
     private readonly string _appDataPath;
     private readonly string _tipsCachePath;
+    private readonly IServiceProvider _serviceProvider;
 
     private class DailyTipsCache
     {
@@ -19,8 +22,9 @@ public class WorkspaceService : IWorkspaceService
         public List<string> Tips { get; set; } = new();
     }
 
-    public WorkspaceService()
+    public WorkspaceService(IServiceProvider serviceProvider)
     {
+        _serviceProvider = serviceProvider;
         _appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ChapiAssistant", "Workspaces");
         _tipsCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ChapiAssistant", "daily_tips.json");
 
@@ -221,14 +225,28 @@ public class WorkspaceService : IWorkspaceService
 
             var prompt = "Genera un JSON array de strings con 10 consejos cortos (máx 15 palabras), ingeniosos, modernos y útiles sobre desarrollo de software, clean code, arquitectura o vida dev. En español. Solo el JSON array puro.";
 
-            var response = await AIClient.SendPromptAsync(prompt);
+            // Use dynamic ChatClient resolution
+            using var scope = _serviceProvider.CreateScope();
+            var chatClient = scope.ServiceProvider.GetRequiredService<IChatClient>();
+            
+            var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
+            var response = await chatClient.GetResponseAsync(messages);
+            var responseText = response.Messages.FirstOrDefault()?.Text;
 
-            if (string.IsNullOrWhiteSpace(response)) return;
+            if (string.IsNullOrWhiteSpace(responseText)) return;
 
             // Clean up potentially wrapped JSON
-            response = response.Replace("```json", "").Replace("```", "").Trim();
+            responseText = responseText.Replace("```json", "").Replace("```", "").Trim();
+            
+            // Try to extract JSON array if wrapped in text
+            var startIndex = responseText.IndexOf('[');
+            var endIndex = responseText.LastIndexOf(']');
+            if (startIndex >= 0 && endIndex > startIndex)
+            {
+                responseText = responseText.Substring(startIndex, endIndex - startIndex + 1);
+            }
 
-            var tips = JsonSerializer.Deserialize<List<string>>(response);
+            var tips = JsonSerializer.Deserialize<List<string>>(responseText);
 
             if (tips != null && tips.Any())
             {

@@ -50,6 +50,8 @@ public class ChangesViewModel : ViewModelBase
 
     public event EventHandler? CommitCompleted;
 
+    private readonly Chapi.Application.UseCases.AI.GenerateCommitMessageUseCase _generateCommitMessageUseCase;
+
     public ChangesViewModel(
         LoadChangesUseCase loadChangesUseCase,
         CommitChangesUseCase commitChangesUseCase,
@@ -62,7 +64,8 @@ public class ChangesViewModel : ViewModelBase
         Domain.Interfaces.IGitRepository gitRepository,
         Domain.Interfaces.IGitAuthProviderFactory authFactory,
         Domain.Interfaces.ICredentialStorageService credentialStorage,
-        PushChangesUseCase pushChangesUseCase)
+        PushChangesUseCase pushChangesUseCase,
+        Chapi.Application.UseCases.AI.GenerateCommitMessageUseCase generateCommitMessageUseCase)
     {
         _loadChangesUseCase = loadChangesUseCase;
         _commitChangesUseCase = commitChangesUseCase;
@@ -76,6 +79,7 @@ public class ChangesViewModel : ViewModelBase
         _authFactory = authFactory;
         _credentialStorage = credentialStorage;
         _pushChangesUseCase = pushChangesUseCase;
+        _generateCommitMessageUseCase = generateCommitMessageUseCase;
 
         // Inicializar watcher y caché (como GitHub Desktop)
         _changeWatcher = new Chapi.Infrastructure.Git.GitChangeWatcher();
@@ -140,6 +144,62 @@ public class ChangesViewModel : ViewModelBase
         _changesCache.Invalidate(ProjectPath);
         await LoadChangesAsync();
         await LoadMetadataAsync();
+    }
+
+    private async Task GenerateCommitMessageAsync()
+    {
+        if (string.IsNullOrEmpty(ProjectPath)) return;
+        var selectedFiles = Changes.Where(c => c.IsSelected).Select(c => c.FilePath).ToList();
+        if (!selectedFiles.Any()) return;
+
+        IsGenerating = true;
+        try
+        {
+            // Obtener diff consolidado
+            var diffBuilder = new System.Text.StringBuilder();
+            foreach (var file in selectedFiles)
+            {
+                // TODO: Obtener solo staged changes si es posible, o diff local
+                var diff = await _gitRepository.GetDiffAsync(ProjectPath, file);
+                diffBuilder.AppendLine(diff);
+            }
+
+            var fullDiff = diffBuilder.ToString();
+            if (string.IsNullOrWhiteSpace(fullDiff)) return;
+
+            // Llamar a IA usando Use Case
+            var result = await _generateCommitMessageUseCase.ExecuteAsync(fullDiff);
+
+            if (result.IsSuccess)
+            {
+                var jsonResponse = result.Data;
+                try
+                {
+                    var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    var commitMsg = System.Text.Json.JsonSerializer.Deserialize<Chapi.Domain.Entities.CommitMessageResponse>(jsonResponse, options);
+                    if (commitMsg != null)
+                    {
+                        CommitSummary = commitMsg.Summary;
+                        CommitDescription = commitMsg.Description;
+                    }
+                }
+                catch
+                {
+                    // Fallback si no es JSON válido
+                    CommitSummary = jsonResponse;
+                    CommitDescription = string.Empty;
+                }
+            }
+            else
+            {
+                // Manejar error (opcional: mostrar en UI)
+                // CommitSummary = "Error generando mensaje";
+            }
+        }
+        finally
+        {
+            IsGenerating = false;
+        }
     }
 
     #region Properties
@@ -1291,54 +1351,7 @@ public class ChangesViewModel : ViewModelBase
         }
     }
 
-    private async Task GenerateCommitMessageAsync()
-    {
-        if (string.IsNullOrEmpty(ProjectPath)) return;
-        var selectedFiles = Changes.Where(c => c.IsSelected).Select(c => c.FilePath).ToList();
-        if (!selectedFiles.Any()) return;
 
-        IsGenerating = true;
-        try
-        {
-            // Obtener diff consolidado
-            var diffBuilder = new System.Text.StringBuilder();
-            foreach (var file in selectedFiles)
-            {
-                var diff = await _gitRepository.GetDiffAsync(ProjectPath, file);
-                diffBuilder.AppendLine(diff);
-            }
-
-            var fullDiff = diffBuilder.ToString();
-            if (string.IsNullOrWhiteSpace(fullDiff)) return;
-
-            // Llamar a IA (usando helper existente por ahora para no romper nada)
-            var prompt = Chapi.Infrastructure.AI.GetPrompt.GitCommit(fullDiff);
-            string jsonResponse = await Chapi.Infrastructure.AI.AIClient.SendPromptAsync(prompt);
-
-            if (!string.IsNullOrWhiteSpace(jsonResponse))
-            {
-                try
-                {
-                    var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    var commitMsg = System.Text.Json.JsonSerializer.Deserialize<Chapi.Domain.Entities.CommitMessageResponse>(jsonResponse, options);
-                    if (commitMsg != null)
-                    {
-                        CommitSummary = commitMsg.Summary;
-                        CommitDescription = commitMsg.Description;
-                    }
-                }
-                catch
-                {
-                    CommitSummary = jsonResponse;
-                    CommitDescription = string.Empty;
-                }
-            }
-        }
-        finally
-        {
-            IsGenerating = false;
-        }
-    }
 
 
     /// <summary>

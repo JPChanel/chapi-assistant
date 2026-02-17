@@ -416,74 +416,128 @@ namespace Chapi.Presentation.Views.Settings
 
 
         /// <summary>
-        /// Carga la API Key guardada en el PasswordBox
+        /// Carga las API Keys guardadas
         /// </summary>
         private void LoadApiKey()
         {
             var settings = UserSettingsService.LoadSettings();
+            
+            // Cargar Gemini
             if (!string.IsNullOrEmpty(settings.GeminiApiKey))
             {
-                txtApiKey.Password = settings.GeminiApiKey;
-                txtApiKey_Visible.Text = settings.GeminiApiKey;
-                HasApiKey = true;
+                txtGeminiKey.Password = settings.GeminiApiKey;
+                txtGeminiKey_Visible.Text = settings.GeminiApiKey;
             }
-            else
+
+            // Cargar OpenAI
+            if (!string.IsNullOrEmpty(settings.OpenAiApiKey))
             {
-                HasApiKey = false;
+                txtOpenAiKey.Password = settings.OpenAiApiKey;
+                txtOpenAiKey_Visible.Text = settings.OpenAiApiKey;
             }
+
+            // Cargar Claude
+            if (!string.IsNullOrEmpty(settings.ClaudeApiKey))
+            {
+                txtClaudeKey.Password = settings.ClaudeApiKey;
+                txtClaudeKey_Visible.Text = settings.ClaudeApiKey;
+            }
+
+            // Seleccionar proveedor preferido
+            switch (settings.PreferredAiProvider)
+            {
+                case "Gemini": cmbAiProvider.SelectedIndex = 0; break;
+                case "OpenAI": cmbAiProvider.SelectedIndex = 1; break;
+                case "Claude": cmbAiProvider.SelectedIndex = 2; break;
+                default: cmbAiProvider.SelectedIndex = 0; break;
+            }
+
+            UpdateApiKeyStatus();
+        }
+
+        private void UpdateApiKeyStatus()
+        {
+            var settings = UserSettingsService.LoadSettings();
+            string preferred = settings.PreferredAiProvider;
+            bool hasKey = false;
+
+            if (preferred == "Gemini" && !string.IsNullOrEmpty(settings.GeminiApiKey)) hasKey = true;
+            else if (preferred == "OpenAI" && !string.IsNullOrEmpty(settings.OpenAiApiKey)) hasKey = true;
+            else if (preferred == "Claude" && !string.IsNullOrEmpty(settings.ClaudeApiKey)) hasKey = true;
+
+            HasApiKey = hasKey;
         }
 
         /// <summary>
-        /// Guarda la API Key en el archivo user.api.settings.json
+        /// Guarda la configuración de IA
         /// </summary>
         private async void btnSaveApiKey_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                // Llama al método estático
                 var settings = UserSettingsService.LoadSettings();
-                if (chkShowApiKey.IsChecked == true)
-                {
-                    settings.GeminiApiKey = txtApiKey_Visible.Text;
-                }
-                else
-                {
-                    settings.GeminiApiKey = txtApiKey.Password;
-                }
-                settings.GeminiApiKey = txtApiKey.Password;
-                UserSettingsService.SaveSettings(settings);
-                HasApiKey = !string.IsNullOrEmpty(settings.GeminiApiKey);
 
-                txtStatus.Text = "¡API Key guardada! Reinicia Chapi para usarla.";
-                await DialogService.ShowConfirmDialog("Confirmación", "¡API Key guardada! Reinicia Chapi para usarla.", DialogVariant.Info, DialogType.Info);
+                // Guardar Gemini
+                settings.GeminiApiKey = chkShowGemini.IsChecked == true ? txtGeminiKey_Visible.Text : txtGeminiKey.Password;
+                
+                // Guardar OpenAI
+                settings.OpenAiApiKey = chkShowOpenAi.IsChecked == true ? txtOpenAiKey_Visible.Text : txtOpenAiKey.Password;
+
+                // Guardar Claude
+                settings.ClaudeApiKey = chkShowClaude.IsChecked == true ? txtClaudeKey_Visible.Text : txtClaudeKey.Password;
+
+                // Guardar Preferido
+                if (cmbAiProvider.SelectedItem is ComboBoxItem item)
+                {
+                    settings.PreferredAiProvider = item.Content.ToString() switch
+                    {
+                        "OpenAI" => "OpenAI",
+                        "Claude" => "Claude",
+                        _ => "Gemini"
+                    };
+                }
+
+                UserSettingsService.SaveSettings(settings);
+                UpdateApiKeyStatus();
+
+                txtStatus.Text = "¡Configuración de IA guardada! Reinicia Chapi para aplicar cambios.";
+                await DialogService.ShowConfirmDialog("Confirmación", "¡Configuración guardada! Reinicia Chapi para usar el nuevo proveedor.", DialogVariant.Info, DialogType.Info);
 
             }
             catch (Exception ex)
             {
-                txtStatus.Text = $"Error al guardar la Key: {ex.Message}";
+                txtStatus.Text = $"Error al guardar configuración IA: {ex.Message}";
             }
         }
-        /// <summary>
-        /// Muestra la clave (Ojo abierto)
-        /// </summary>
-        private void chkShowApiKey_Checked(object sender, RoutedEventArgs e)
+
+        #region Toggle Visibility Handlers
+
+        private void chkShowGemini_Checked(object sender, RoutedEventArgs e) => TogglePasswordVisibility(txtGeminiKey, txtGeminiKey_Visible, true);
+        private void chkShowGemini_Unchecked(object sender, RoutedEventArgs e) => TogglePasswordVisibility(txtGeminiKey, txtGeminiKey_Visible, false);
+
+        private void chkShowOpenAi_Checked(object sender, RoutedEventArgs e) => TogglePasswordVisibility(txtOpenAiKey, txtOpenAiKey_Visible, true);
+        private void chkShowOpenAi_Unchecked(object sender, RoutedEventArgs e) => TogglePasswordVisibility(txtOpenAiKey, txtOpenAiKey_Visible, false);
+
+        private void chkShowClaude_Checked(object sender, RoutedEventArgs e) => TogglePasswordVisibility(txtClaudeKey, txtClaudeKey_Visible, true);
+        private void chkShowClaude_Unchecked(object sender, RoutedEventArgs e) => TogglePasswordVisibility(txtClaudeKey, txtClaudeKey_Visible, false);
+
+        private void TogglePasswordVisibility(PasswordBox passwordBox, TextBox textBox, bool show)
         {
-            txtApiKey_Visible.Text = txtApiKey.Password;
-            txtApiKey_Visible.Visibility = Visibility.Visible;
-            txtApiKey.Visibility = Visibility.Collapsed;
-            txtApiKey_Visible.Foreground = Brushes.Green;
+            if (show)
+            {
+                textBox.Text = passwordBox.Password;
+                textBox.Visibility = Visibility.Visible;
+                passwordBox.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                passwordBox.Password = textBox.Text;
+                textBox.Visibility = Visibility.Collapsed;
+                passwordBox.Visibility = Visibility.Visible;
+            }
         }
 
-        /// <summary>
-        /// Oculta la clave (Ojo cerrado)
-        /// </summary>
-        private void chkShowApiKey_Unchecked(object sender, RoutedEventArgs e)
-        {
-            txtApiKey.Password = txtApiKey_Visible.Text;
-            txtApiKey_Visible.Visibility = Visibility.Collapsed;
-            txtApiKey.Visibility = Visibility.Visible;
-
-        }
+        #endregion
 
 
         /// <summary>
