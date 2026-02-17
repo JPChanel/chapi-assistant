@@ -9,8 +9,9 @@ public class GeminiChatClient : Microsoft.Extensions.AI.IChatClient
 
     private readonly string[] _models = new[]
     {
-        "gemini-2.5-flash", // Coincide con Model.Gemini25Flash
-        "gemini-2.0-flash", // Coincide con Model.Gemini20Flash
+        "gemini-3.0-flash",
+        "gemini-2.5-flash",
+        "gemma-3",
     };
 
     public GeminiChatClient(string apiKey)
@@ -29,12 +30,18 @@ public class GeminiChatClient : Microsoft.Extensions.AI.IChatClient
         {
             try
             {
+                // Timeout por modelo para evitar bloqueos largos (35s máx por intento)
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(35));
+
                 var googleAI = new GoogleAI(apiKey: _apiKey);
                 var model = googleAI.GenerativeModel(model: modelId);
-                
+
                 // Usar Streaming para evitar bloqueos en HTTP/2 (Fix connection hanging)
                 var fullResponse = new System.Text.StringBuilder();
-                await foreach (var chunk in model.GenerateContentStream(prompt, cancellationToken: cancellationToken))
+
+                // Usar el token con timeout específico para este intento
+                await foreach (var chunk in model.GenerateContentStream(prompt, cancellationToken: cts.Token))
                 {
                     if (chunk.Text != null)
                         fullResponse.Append(chunk.Text);
@@ -47,23 +54,27 @@ public class GeminiChatClient : Microsoft.Extensions.AI.IChatClient
                 var role = Microsoft.Extensions.AI.ChatRole.Assistant;
                 return new Microsoft.Extensions.AI.ChatResponse(new[] { new Microsoft.Extensions.AI.ChatMessage(role, text) });
             }
+            catch (OperationCanceledException)
+            {
+                if (cancellationToken.IsCancellationRequested) throw;
+                lastError = $"Timeout con modelo {modelId}";
+            }
             catch (Exception ex)
             {
-                lastError = ex.Message;
-                // Si es un error de cuota (429), intentar siguiente modelo inmediatamente
-                if (!ex.Message.Contains("429") && !ex.Message.Contains("Quota"))
-                {
-                     // Loguear o manejar otros errores si es necesario
-                }
+                lastError = HandleError(ex, modelId);
             }
         }
 
         throw new Exception($"Fallaron todos los modelos de Gemini. Último error: {lastError}");
     }
 
-    public async IAsyncEnumerable<Microsoft.Extensions.AI.ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<Microsoft.Extensions.AI.ChatMessage> chatMessages, Microsoft.Extensions.AI.ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<Microsoft.Extensions.AI.ChatResponseUpdate> GetStreamingResponseAsync(
+        IEnumerable<Microsoft.Extensions.AI.ChatMessage> chatMessages,
+        Microsoft.Extensions.AI.ChatOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        // Simulación: Llamar al síncrono y devolver un único update con todo el texto
+        // Revertido a modo "Fake Streaming" por estabilidad:
+        // Espera toda la respuesta y la devuelve de una vez.
         var response = await GetResponseAsync(chatMessages, options, cancellationToken);
 
         foreach (var message in response.Messages)
@@ -77,6 +88,15 @@ public class GeminiChatClient : Microsoft.Extensions.AI.IChatClient
                 FinishReason = response.FinishReason
             };
         }
+    }
+
+    private string HandleError(Exception ex, string modelId)
+    {
+        if (!ex.Message.Contains("429") && !ex.Message.Contains("Quota"))
+        {
+            return "⚠️ Se alcanzó el límite de cuota del modelo de IA. Verifica tu plan.";
+        }
+        return ex.Message;
     }
 
     public void Dispose()

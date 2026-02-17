@@ -148,29 +148,78 @@ public class AssistantViewModel : ViewModelBase
             });
         }
 
-        ScrollToBottom?.Invoke();
-
         IsProcessing = true;
 
         try
         {
-            // Procesar mensaje y obtener respuesta
-            var result = await _conversationManager.ProcessUserMessageAsync(userMessage);
+            // Variables locales para gestionar la respuesta
+            ChatMessage? assistantMessage = null;
+
+            // Procesar mensaje 
+            var result = await _conversationManager.ProcessUserMessageAsync(userMessage, token =>
+            {
+                // Este callback se ejecutará una sola vez con todo el texto (Fake Streaming)
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (assistantMessage == null)
+                    {
+                        // PRIMER TOKEN (o texto completo): Crear mensaje y mostrarlo
+                        assistantMessage = new ChatMessage
+                        {
+                            Author = MessageAuthor.Assistant,
+                            Text = token,
+                            Timestamp = DateTime.Now
+                        };
+
+                        lock (_messagesLock)
+                        {
+                            Messages.Add(assistantMessage);
+                        }
+                    }
+                    else
+                    {
+                        assistantMessage.Text += token; // Concatenar si hubiera más fragmentos
+                    }
+                    ScrollToBottom?.Invoke();
+                });
+            });
 
             lock (_messagesLock)
             {
-                if (result.IsSuccess && result.Data != null)
+                if (result.IsSuccess)
                 {
-                    Messages.Add(result.Data);
+                    // Si el callback no se ejecutó pero dio success (raro, pero posible si stream vacío)
+                    if (assistantMessage == null && !string.IsNullOrEmpty(result.Data.Text))
+                    {
+                        assistantMessage = result.Data;
+                        Messages.Add(assistantMessage);
+                    }
+                    else if (assistantMessage != null)
+                    {
+                        // Actualizar metadatos finales
+                        var finalMessage = result.Data;
+                        if (finalMessage != null)
+                        {
+                            assistantMessage.Action = finalMessage.Action;
+                        }
+                    }
                 }
                 else
                 {
-                    Messages.Add(new ChatMessage
+                    // Mostrar error
+                    if (assistantMessage != null)
                     {
-                        Text = $"❌ Error: {result.Error}",
-                        Author = MessageAuthor.Assistant,
-                        Timestamp = DateTime.Now
-                    });
+                        assistantMessage.Text += $"\n\n⚠️ Error: {result.Error}";
+                    }
+                    else
+                    {
+                        Messages.Add(new ChatMessage
+                        {
+                            Text = $"⚠️ Error: {result.Error ?? "Desconocido"}",
+                            Author = MessageAuthor.Assistant,
+                            Timestamp = DateTime.Now
+                        });
+                    }
                 }
             }
         }
@@ -180,7 +229,7 @@ public class AssistantViewModel : ViewModelBase
             {
                 Messages.Add(new ChatMessage
                 {
-                    Text = $"❌ Ocurrió un error inesperado. Por favor, intenta de nuevo.",
+                    Text = $"❌ Ocurrió un error inesperado: {ex.Message}",
                     Author = MessageAuthor.Assistant,
                     Timestamp = DateTime.Now
                 });
@@ -262,7 +311,7 @@ public class AssistantViewModel : ViewModelBase
                     files.AddRange(context.Git.ModifiedFilePaths); // Usar rutas limpias
                     files.AddRange(context.Git.UntrackedFiles);
                 }
-                
+
                 var cResult = await commitUC.ExecuteAsync(new CommitRequest
                 {
                     ProjectPath = _currentProjectPath,
@@ -278,7 +327,7 @@ public class AssistantViewModel : ViewModelBase
                 if (cResult.IsSuccess && shouldPush)
                 {
                     lock (_messagesLock) Messages.Add(new ChatMessage { Text = "🚀 Iniciando push automático...", Author = MessageAuthor.Assistant });
-                    
+
                     var pushUC = App.ServiceProvider.GetService(typeof(PushChangesUseCase)) as PushChangesUseCase;
                     if (pushUC != null)
                     {

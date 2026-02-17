@@ -41,7 +41,9 @@ public class ConversationManager
     /// <summary>
     /// Procesa un mensaje del usuario y obtiene respuesta de la IA
     /// </summary>
-    public async Task<Result<ChatMessage>> ProcessUserMessageAsync(string userMessage)
+    public async Task<Result<ChatMessage>> ProcessUserMessageAsync(
+        string userMessage, 
+        Action<string>? onTokenReceived = null)
     {
         try
         {
@@ -58,10 +60,10 @@ public class ConversationManager
             // Refrescar estado de Git antes de preguntar a la IA
             await RefreshGitContextAsync();
 
-            // Obtener respuesta de la IA con timeout
-            var responseTask = _chatService.SendMessageAsync(userMessage, _currentContext);
-            // 90 segundos (1.5 min) de timeout para la IA
-            if (await Task.WhenAny(responseTask, Task.Delay(90000)) != responseTask)
+            // Obtener respuesta de la IA con timeout y streaming
+            var responseTask = _chatService.SendMessageAsync(userMessage, _currentContext, onTokenReceived);
+            // 120 segundos (2 min) de timeout para la IA
+            if (await Task.WhenAny(responseTask, Task.Delay(120000)) != responseTask)
             {
                 return Result<ChatMessage>.Fail("La IA está tardando demasiado. Verifica tu conexión o intenta de nuevo.");
             }

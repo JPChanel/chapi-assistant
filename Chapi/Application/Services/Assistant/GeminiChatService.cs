@@ -24,7 +24,8 @@ public class GeminiChatService
 
     public async Task<Result<string>> SendMessageAsync(
         string userMessage, 
-        ConversationContext context)
+        ConversationContext context,
+        Action<string>? onTokenReceived = null)
     {
         try
         {
@@ -32,22 +33,37 @@ public class GeminiChatService
             var conversationHistory = BuildConversationHistory(context);
             var capabilitiesInfo = BuildCapabilitiesInfo();
             
+            // Optimización: Si el prompt es muy largo, indicar brevedad
             var fullPrompt = GetPrompt.ChatAssistant(contextInfo, conversationHistory, capabilitiesInfo, userMessage);
-            
-            // Obtener cliente dinámicamente para soportar cambios de configuración en caliente
+            if (fullPrompt.Length > 20000) 
+                fullPrompt += "\n\n(Contexto largo: Responde de forma concisa y directa)";
+
+            // Obtener cliente dinámicamente
             var chatClient = _serviceProvider.GetRequiredService<IChatClient>();
             
-            // Usar tipos explícitos para evitar ambigüedad con Chapi.Domain.Entities.Assistant.ChatMessage
             var messages = new List<Microsoft.Extensions.AI.ChatMessage> 
             { 
                 new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, fullPrompt) 
             };
             
-            var response = await chatClient.GetResponseAsync(messages);
-            var responseText = response.Messages.FirstOrDefault()?.Text;
+            var fullResponseBuilder = new StringBuilder();
+            
+            // Usar Streaming si hay callback, sino normal (aunque GeminiChatClient ya usa stream interno)
+            // Aquí forzamos el uso de la API de streaming de IChatClient para que el callback funcione
+            await foreach (var update in chatClient.GetStreamingResponseAsync(messages))
+            {
+                if (update.Contents.Count > 0 && update.Contents[0] is Microsoft.Extensions.AI.TextContent textContent && textContent.Text != null)
+                {
+                    var token = textContent.Text;
+                    fullResponseBuilder.Append(token);
+                    onTokenReceived?.Invoke(token);
+                }
+            }
+
+            var responseText = fullResponseBuilder.ToString();
 
             if (string.IsNullOrWhiteSpace(responseText))
-                return Result<string>.Fail("No se recibió respuesta de la IA");
+                return Result<string>.Fail("No se recibió respuesta de la IA (Stream vacío)");
 
             return Result<string>.Success(responseText);
         }
