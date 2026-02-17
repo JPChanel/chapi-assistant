@@ -6,6 +6,7 @@ namespace Chapi.Domain.Entities.Assistant;
 public class UserIntent
 {
     public IntentType Type { get; set; }
+    public string? CapabilityId { get; set; }
     public string OriginalMessage { get; set; } = string.Empty;
     public Dictionary<string, string> Parameters { get; set; } = new();
     public double Confidence { get; set; }

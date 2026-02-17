@@ -125,7 +125,7 @@ public class ProjectContextBuilder
         }
     }
 
-    private async Task<GitContext?> BuildGitContextAsync(string projectPath)
+    public async Task<GitContext?> BuildGitContextAsync(string projectPath)
     {
         try
         {
@@ -133,11 +133,12 @@ public class ProjectContextBuilder
                 return null;
 
             using var repo = new Repository(projectPath);
+            var status = repo.RetrieveStatus();
 
             var gitContext = new GitContext
             {
                 CurrentBranch = repo.Head.FriendlyName,
-                HasUncommittedChanges = repo.RetrieveStatus().IsDirty
+                HasUncommittedChanges = status.IsDirty
             };
 
             // Commits recientes
@@ -152,9 +153,14 @@ public class ProjectContextBuilder
                 })
                 .ToList();
 
-            // Archivos modificados
-            var status = repo.RetrieveStatus();
-            gitContext.ModifiedFiles = status.Modified.Select(m => m.FilePath).ToList();
+            // Archivos modificados (Incluye Staged, Modified, Missing, Renamed, etc.)
+            // Excluimos Ignored y Unaltered. Untracked va aparte.
+            gitContext.ModifiedFiles = status
+                .Where(s => s.State != FileStatus.Ignored && s.State != FileStatus.Unaltered && s.State != FileStatus.NewInWorkdir)
+                .Select(s => $"{s.FilePath} ({s.State})")
+                .ToList();
+
+            // Archivos untracked (NewInWorkdir)
             gitContext.UntrackedFiles = status.Untracked.Select(u => u.FilePath).ToList();
 
             // Ahead/Behind

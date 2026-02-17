@@ -1,6 +1,8 @@
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities.Assistant;
+using Chapi.Domain.Interfaces;
 using Chapi.Infrastructure.AI;
+using Microsoft.Extensions.DependencyInjection;
 using System.Text;
 
 namespace Chapi.Application.Services.Assistant;
@@ -10,6 +12,13 @@ namespace Chapi.Application.Services.Assistant;
 /// </summary>
 public class GeminiChatService
 {
+    private readonly IAssistantCapabilityRegistry _capabilityRegistry;
+
+    public GeminiChatService()
+    {
+        _capabilityRegistry = App.ServiceProvider.GetRequiredService<IAssistantCapabilityRegistry>();
+    }
+
     public async Task<Result<string>> SendMessageAsync(
         string userMessage, 
         ConversationContext context)
@@ -18,7 +27,7 @@ public class GeminiChatService
         {
             var contextInfo = BuildContextInfo(context);
             var conversationHistory = BuildConversationHistory(context);
-            var capabilitiesInfo = BuildCapabilitiesInfo(context);
+            var capabilitiesInfo = BuildCapabilitiesInfo();
             
             var fullPrompt = GetPrompt.ChatAssistant(contextInfo, conversationHistory, capabilitiesInfo, userMessage);
             var response = await AIClient.SendPromptAsync(fullPrompt);
@@ -115,27 +124,14 @@ public class GeminiChatService
         return sb.ToString();
     }
 
-    private string BuildCapabilitiesInfo(ConversationContext context)
+    private string BuildCapabilitiesInfo()
     {
-        if (context.CurrentProject == null)
-            return "No hay capacidades detectadas.";
-
-        var caps = context.CurrentProject.Capabilities;
         var sb = new StringBuilder();
+        sb.AppendLine("=== TUS CAPACIDADES (IDs DE ACCIÓN DISPONIBLES) ===");
         
-        if (caps.CanCommit) sb.AppendLine("- Puedo realizar commits locales");
-        if (caps.CanPush) sb.AppendLine("- Puedo subir cambios (push)");
-        if (caps.CanPull) sb.AppendLine("- Puedo descargar cambios (pull)");
-        if (caps.CanCreateBranch) sb.AppendLine("- Puedo crear nuevas ramas (branches)");
-        if (caps.CanMergeBranch) sb.AppendLine("- Puedo combinar ramas (merge)");
-        if (caps.CanGenerateCode) sb.AppendLine("- Puedo generar código fuente basándome en plantillas");
-        if (caps.CanAnalyzeArchitecture) sb.AppendLine("- Puedo analizar la arquitectura usando Roslyn");
-
-        if (caps.AvailableServices.Any())
+        foreach (var cap in _capabilityRegistry.GetAllCapabilities())
         {
-            sb.AppendLine("Servicios disponibles detectados:");
-            foreach (var service in caps.AvailableServices.Take(10))
-                sb.AppendLine($"  * {service}");
+            sb.AppendLine($"- ID: {cap.Id} | Descripción: {cap.Description}");
         }
 
         return sb.ToString();

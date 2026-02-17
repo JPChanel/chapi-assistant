@@ -88,6 +88,7 @@ namespace Chapi
             services.AddSingleton<INotificationService, MessageNotificationService>();
             services.AddSingleton<IModuleGeneratorService, ModuleGeneratorService>();
             services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
+            services.AddSingleton<IAssistantCapabilityRegistry, Chapi.Application.Services.Assistant.AssistantCapabilityRegistry>();
 
             // Application - Use Cases
             services.AddTransient<UseCases.CommitChangesUseCase>();

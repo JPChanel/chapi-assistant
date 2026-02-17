@@ -59,7 +59,7 @@
                                     Background="#2A2A2A"
                                     BorderBrush="#3A3A3A"
                                     BorderThickness="1"
-                                    MaxWidth="650"
+                                    MaxWidth="1100"
                                     HorizontalAlignment="Left">
                                 <StackPanel>
                                     <TextBlock x:Name="MessageText"

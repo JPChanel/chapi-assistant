@@ -207,7 +207,8 @@ REGLAS DE ACCIÓN:
 2. Para sugerir una acción, incluye AL FINAL de tu respuesta (después de tu explicación) un bloque con este formato exacto:
    [[ACTION:{{""type"":""tipo_accion"",""params"":{{""param1"":""valor1""}}}}]]
    Tipos: commit, push, pull, create_branch.
-3. Ejemplo para commit: [[ACTION:{{""type"":""commit"",""params"":{{""message"":""feat: mensaje sugerido""}}}}]]
+3. REGLA CRÍTICA PARA COMMIT: Siempre genera un mensaje profesional que siga el estándar **Conventional Commits** (tipo(alcance): resumen corto). Puedes añadir una 'description' opcional para más detalle.
+   - Ejemplo: [[ACTION:{{""type"":""commit"",""params"":{{""message"":""feat(git): implementar indicadores"",""description"":""Añade soporte para ahead/behind en el combo.""}}}}]]
 4. IMPORTANTE: Sólo sugiere la acción si el usuario la pidió o es el siguiente paso lógico. No realices acciones sin preguntar si el usuario no fue explícito.
 
 {contextInfo}

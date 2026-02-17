@@ -1,5 +1,7 @@
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities.Assistant;
+using Chapi.Domain.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Chapi.Application.Services.Assistant;
 
@@ -10,12 +12,14 @@ public class ConversationManager
 {
     private readonly ProjectContextBuilder _contextBuilder;
     private readonly GeminiChatService _chatService;
+    private readonly IAssistantCapabilityRegistry _capabilityRegistry;
     private ConversationContext _currentContext;
 
     public ConversationManager()
     {
         _contextBuilder = new ProjectContextBuilder();
         _chatService = new GeminiChatService();
+        _capabilityRegistry = App.ServiceProvider.GetRequiredService<IAssistantCapabilityRegistry>();
         _currentContext = new ConversationContext();
     }
 
@@ -51,6 +55,9 @@ public class ConversationManager
             };
 
             _currentContext.ConversationHistory.Add(userChatMessage);
+            
+            // Refrescar estado de Git antes de preguntar a la IA
+            await RefreshGitContextAsync();
 
             // Obtener respuesta de la IA
             var responseResult = await _chatService.SendMessageAsync(userMessage, _currentContext);
@@ -80,21 +87,36 @@ public class ConversationManager
                         
                         if (intentData != null)
                         {
+                            var capability = _capabilityRegistry.GetAllCapabilities()
+                                .FirstOrDefault(c => c.Id.Equals(intentData.Type, StringComparison.OrdinalIgnoreCase) || 
+                                                   c.Id.EndsWith(intentData.Type, StringComparison.OrdinalIgnoreCase));
+
                             assistantMessage.Action = new UserIntent
                             {
                                 Type = MapIntentType(intentData.Type),
+                                CapabilityId = capability?.Id,
                                 Parameters = intentData.Params ?? new Dictionary<string, string>(),
                                 OriginalMessage = userMessage
                             };
 
-                            // Limpiar el texto de la respuesta quitando el bloque de acción para que no se vea feo en la UI
                             assistantMessage.Text = aiResponse.Replace($"[[ACTION:{jsonAction}]]", "").Trim();
                         }
                     }
                 }
-                catch
+                catch { }
+            }
+            else 
+            {
+                // Si la IA no detectó acción, intentamos identificarla por palabras clave para mayor robustez
+                var capability = _capabilityRegistry.FindByIntent(userMessage);
+                if (capability != null)
                 {
-                    // Si falla el parseo, simplemente no agregamos la acción
+                     assistantMessage.Action = new UserIntent
+                     {
+                         Type = IntentType.Unknown,
+                         CapabilityId = capability.Id,
+                         OriginalMessage = userMessage
+                     };
                 }
             }
 
@@ -150,5 +172,16 @@ public class ConversationManager
     public ProjectContext? GetCurrentProjectContext()
     {
         return _currentContext.CurrentProject;
+    }
+
+    private async Task RefreshGitContextAsync()
+    {
+        if (_currentContext?.CurrentProject == null) return;
+        
+        var gitContext = await _contextBuilder.BuildGitContextAsync(_currentContext.CurrentProject.Path);
+        if (gitContext != null)
+        {
+            _currentContext.CurrentProject.Git = gitContext;
+        }
     }
 }
