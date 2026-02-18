@@ -19,6 +19,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="DiffPlex.Wpf" Version="1.9.0" />
+		<PackageReference Include="FluentFTP" Version="53.0.2" />
 		<PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="1.1.0" />
 		<PackageReference Include="LibGit2Sharp" Version="0.31.0" />
 		<PackageReference Include="MaterialDesignColors" Version="3.0.0" />

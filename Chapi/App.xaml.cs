@@ -154,6 +154,7 @@ namespace Chapi
             services.AddTransient<Chapi.Application.UseCases.Projects.CreateProjectUseCase>();
             services.AddTransient<Chapi.Application.UseCases.Projects.UpdateProjectIndicatorsUseCase>();
             services.AddTransient<Chapi.Application.UseCases.Projects.CloneProjectUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.Projects.DeployProjectReleaseUseCase>();
 
             // Application - Code Generation Use Cases
             services.AddTransient<Chapi.Application.UseCases.CodeGeneration.GenerateModuleUseCase>();

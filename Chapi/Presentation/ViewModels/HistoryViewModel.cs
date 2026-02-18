@@ -368,7 +368,7 @@ public class HistoryViewModel : ViewModelBase
         var (okMsg, message) = await DialogService.ShowInputDialog("Mensaje del Tag", "Ingresa un mensaje para el tag anotado:", tagName);
         if (!okMsg) return;
 
-        var result = await _createTagUseCase.ExecuteAsync(ProjectPath, tagName, message, commitHash);
+        var result = await _createTagUseCase.ExecuteAsync(ProjectPath, tagName, message, true, commitHash);
         if (result.IsSuccess)
         {
             await ReloadHistoryAsync();

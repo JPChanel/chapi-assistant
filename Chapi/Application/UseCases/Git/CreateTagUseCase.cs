@@ -24,7 +24,7 @@ public class CreateTagUseCase
     /// <param name="tagName">Nombre de la etiqueta</param>
     /// <param name="message">Mensaje de la etiqueta (anotada)</param>
     /// <param name="commitHash">Hash del commit (opcional, null = HEAD)</param>
-    public async Task<Result> ExecuteAsync(string projectPath, string tagName, string message, string? commitHash = null)
+    public async Task<Result> ExecuteAsync(string projectPath, string tagName, string message, bool pushToRemote = true, string? commitHash = null)
     {
         if (string.IsNullOrWhiteSpace(projectPath))
             return Result.Fail("La ruta del proyecto no puede estar vacia");
@@ -44,17 +44,20 @@ public class CreateTagUseCase
                 return result;
             }
 
-            // Intentar subir al remoto
-            _notificationService.ShowInfo($"Subiendo etiqueta '{tagName}' al remoto...");
-            var pushResult = await _gitRepo.PushTagAsync(projectPath, tagName);
+            if (pushToRemote)
+            {
+                // Intentar subir al remoto
+                _notificationService.ShowInfo($"Subiendo etiqueta '{tagName}' al remoto...");
+                var pushResult = await _gitRepo.PushTagAsync(projectPath, tagName);
 
-            if (pushResult.IsSuccess)
-            {
-                _notificationService.ShowSuccess($"✅ Etiqueta '{tagName}' creada y subida correctamente");
-            }
-            else
-            {
-                _notificationService.ShowWarning($"⚠️ Etiqueta creada localmente pero falló al subir: {pushResult.Error}");
+                if (pushResult.IsSuccess)
+                {
+                    _notificationService.ShowSuccess($"✅ Etiqueta '{tagName}' creada y subida correctamente");
+                }
+                else
+                {
+                    _notificationService.ShowWarning($"⚠️ Etiqueta creada localmente pero falló al subir: {pushResult.Error}");
+                }
             }
 
             return Result.Success();

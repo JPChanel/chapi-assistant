@@ -50,5 +50,42 @@ namespace Chapi.Infrastructure.Services
         {
             App.TrayIconManager.ShowNotification(title, message);
         }
+
+        public static async Task<(bool Confirmed, string TagName, string Message, bool IsRemote, bool IsLocal, string BuildAppName, string BuildAuthor, string LocalPath, string FtpUrl, string FtpUser, string FtpPassword)> ShowCreateReleaseDialog(
+            string defaultAppName = "", 
+            string defaultAuthor = "", 
+            string defaultLocalPath = "", 
+            string defaultFtpUrl = "", 
+            string defaultFtpUser = "")
+        {
+            var dialog = new CreateReleaseDialog();
+            
+            // Set defaults for Build Config & Destination
+            dialog.SetDefaults(defaultAppName, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser);
+
+            var result = await DialogHost.Show(dialog, App.GlobalDialogIdentifier);
+
+            if (bool.TryParse(result?.ToString(), out var boolResult) && boolResult)
+            {
+                // Si el usuario eligió carpeta, devolvemos la carpeta, si eligió FTP, devolvemos FTP.
+                // Limpiamos lo que no se seleccionó para evitar guardar basura.
+                string finalLocalPath = dialog.IsFolderTarget ? dialog.LocalPath : "";
+                string finalFtpUrl = !dialog.IsFolderTarget ? dialog.FtpUrl : ""; // Asumiendo IsFolderTarget false = FTP
+
+                return (true, 
+                        dialog.TagName ?? string.Empty, 
+                        dialog.Message ?? string.Empty, 
+                        dialog.IsRemote, 
+                        dialog.IsLocal, 
+                        dialog.AppName ?? string.Empty, 
+                        dialog.Author ?? string.Empty,
+                        finalLocalPath,
+                        finalFtpUrl,
+                        dialog.FtpUser,
+                        dialog.FtpPassword);
+            }
+
+            return (false, string.Empty, string.Empty, false, false, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
+        }
     }
 }

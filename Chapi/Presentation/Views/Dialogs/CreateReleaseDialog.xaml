@@ -1,0 +1,145 @@
+<UserControl x:Class="Chapi.Presentation.Views.Dialogs.CreateReleaseDialog"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d" 
+             d:DesignHeight="550" d:DesignWidth="500" Background="{DynamicResource MaterialDesignPaper}">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel>
+            <TextBlock Text="Nueva Release" Style="{StaticResource MaterialDesignHeadline5TextBlock}" FontWeight="Bold"/>
+            <TextBlock Text="Generar versión y desplegar" Style="{StaticResource MaterialDesignCaptionTextBlock}" Opacity="0.6"/>
+        </StackPanel>
+
+        <!-- Form -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,16,0,16">
+            <StackPanel>
+                
+                <!-- Tag & Message -->
+                <TextBox x:Name="TagNameBox"
+                         materialDesign:HintAssist.Hint="Nombre del Tag (ej: v1.0.5)"
+                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                         Margin="0,0,0,16"
+                         FontSize="15" FontWeight="SemiBold"
+                         TextChanged="TagNameBox_TextChanged"/>
+
+                <TextBox x:Name="MessageBox"
+                         materialDesign:HintAssist.Hint="Mensaje / Descripción"
+                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                         Margin="0,0,0,24"
+                         Height="80"
+                         AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Auto"
+                         TextWrapping="Wrap"/>
+
+                <!-- Deployment Targets -->
+                <TextBlock Text="Modo de Despliegue" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Margin="0,0,0,8"/>
+                
+                <Border BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}" CornerRadius="4" Padding="0">
+                    <StackPanel>
+                        <!-- Remoto -->
+                        <RadioButton x:Name="RadioRemote" GroupName="DeployMode" IsChecked="True" Margin="12"
+                                     Content="☁️ Remoto (Git Push)" 
+                                     ToolTip="Solo crea el tag y hace push al repositorio remoto."/>
+                        
+                        <Separator/>
+                        
+                        <!-- Local / Build -->
+                        <StackPanel Background="{DynamicResource MaterialDesignCardBackground}">
+                            <RadioButton x:Name="RadioLocal" GroupName="DeployMode" Margin="12"
+                                         Content="🚀 Local / Build Automático" 
+                                         ToolTip="Compila, empaqueta con Velopack y despliega localmente."/>
+                            
+                            <!-- Build Config Fields (Solo visible si Local is Checked) -->
+                            <StackPanel Margin="32,0,16,16" Visibility="{Binding IsChecked, ElementName=RadioLocal, Converter={StaticResource BoolToVis}}">
+                                
+                                <!-- Sección 1: Metadatos del Ejecutable -->
+                                <TextBlock Text="Detalles del Ejecutable" Style="{StaticResource MaterialDesignCaptionTextBlock}" FontWeight="Bold" Margin="0,0,0,8" Opacity="0.7"/>
+                                
+                                <TextBox x:Name="AppNameBox"
+                                         materialDesign:HintAssist.Hint="Nombre del Producto"
+                                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                         Margin="0,0,0,8"/>
+
+                                <TextBox x:Name="AuthorBox"
+                                         materialDesign:HintAssist.Hint="Autor / Empresa"
+                                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                         Margin="0,0,0,16"/>
+
+                                <!-- Sección 2: Destino de Publicación -->
+                                <TextBlock Text="Destino de Publicación" Style="{StaticResource MaterialDesignCaptionTextBlock}" FontWeight="Bold" Margin="0,8,0,8" Opacity="0.7"/>
+                                
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <RadioButton x:Name="RadioDestFolder" GroupName="DestMode" Content="Carpeta" IsChecked="True" Margin="0,0,16,0"/>
+                                    <RadioButton x:Name="RadioDestFtp" GroupName="DestMode" Content="FTP / SFTP"/>
+                                </StackPanel>
+
+                                <!-- Opción A: Carpeta Local -->
+                                <StackPanel Visibility="{Binding IsChecked, ElementName=RadioDestFolder, Converter={StaticResource BoolToVis}}">
+                                    <TextBox x:Name="LocalPathBox"
+                                             materialDesign:HintAssist.Hint="Ruta de la Carpeta (Local o Red)"
+                                             materialDesign:HintAssist.HelperText="Ej: Z:\Instaladores\MiApp o C:\Releases"
+                                             Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                             Margin="0,0,0,8"/>
+                                </StackPanel>
+                                
+                                <!-- Opción B: FTP -->
+                                <StackPanel Visibility="{Binding IsChecked, ElementName=RadioDestFtp, Converter={StaticResource BoolToVis}}">
+                                    <TextBox x:Name="FtpUrlBox"
+                                             materialDesign:HintAssist.Hint="URL Servidor FTP"
+                                             materialDesign:HintAssist.HelperText="Ej: ftp://mi-servidor.com/public_html/releases"
+                                             Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                             Margin="0,0,0,8"/>
+                                    
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="FtpUserBox" Grid.Column="0"
+                                                 materialDesign:HintAssist.Hint="Usuario"
+                                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                                 Margin="0,0,8,8"/>
+                                        
+                                        <PasswordBox x:Name="FtpPassBox" Grid.Column="1"
+                                                     materialDesign:HintAssist.Hint="Contraseña"
+                                                     Style="{StaticResource MaterialDesignFloatingHintPasswordBox}"
+                                                     Margin="8,0,0,8"/>
+                                    </Grid>
+                                </StackPanel>
+
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Actions -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Style="{StaticResource MaterialDesignFlatButton}"
+                    Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
+                    CommandParameter="False"
+                    Content="CANCELAR"
+                    Margin="0,0,8,0"/>
+            
+            <Button Style="{StaticResource MaterialDesignRaisedButton}"
+                    Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
+                    CommandParameter="True"
+                    Content="CREAR RELEASE">
+            </Button>
+        </StackPanel>
+    </Grid>
+</UserControl>
