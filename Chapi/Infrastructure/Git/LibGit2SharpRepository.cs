@@ -344,20 +344,32 @@ public partial class LibGit2SharpRepository : IGitRepository
 
                 var result = new List<string>();
                 
-                // 1. Ramas Locales
-                result.AddRange(localBranches.Select(b => b.FriendlyName));
+                // 1. Añadir ramas locales
+                var localNames = localBranches.Select(b => b.FriendlyName).ToList();
+                result.AddRange(localNames);
 
-                // 2. Ramas Remotas (que no estén ya trackeadas por una local)
+                // 2. Añadir ramas remotas SOLO si no existen localmente
                 foreach (var remote in remoteBranches)
                 {
-                    bool isTracked = localBranches.Any(l => l.TrackedBranch?.CanonicalName == remote.CanonicalName);
-                    if (!isTracked)
+                    var remoteName = remote.RemoteName;
+                    var fullRemoteName = remote.FriendlyName; // ej: origin/master
+                    
+                    // Extraer el nombre de la rama sin el remoto (ej: master)
+                    var branchSimpleName = fullRemoteName;
+                    if (!string.IsNullOrEmpty(remoteName) && fullRemoteName.StartsWith(remoteName + "/"))
                     {
-                        result.Add(remote.FriendlyName);
+                        branchSimpleName = fullRemoteName.Substring(remoteName.Length + 1);
+                    }
+
+                    // Si NO existe una rama local con ese nombre simple, mostrar la remota con su prefijo
+                    // Esto ayuda al usuario a identificar qué ramas están solo en el servidor.
+                    if (!localNames.Contains(branchSimpleName))
+                    {
+                        result.Add(fullRemoteName); 
                     }
                 }
 
-                return result;
+                return result.OrderBy(x => x).ToList();
             }
             catch
             {
@@ -406,6 +418,18 @@ public partial class LibGit2SharpRepository : IGitRepository
                         if (existingLocal != null)
                         {
                             branch = existingLocal;
+                            // 🔗 Auto-link: Si la local existe pero no trackea a la remota, las enlazamos
+                            if (branch.TrackedBranch == null)
+                            {
+                                // Buscar la remota equivalente (ej. origin/master para master)
+                                var remoteBranch = repo.Branches.FirstOrDefault(b => b.IsRemote && 
+                                    (b.FriendlyName == $"origin/{localName}" || b.FriendlyName.EndsWith("/" + localName)));
+                                
+                                if (remoteBranch != null)
+                                {
+                                    repo.Branches.Update(branch, b => b.UpstreamBranch = remoteBranch.CanonicalName);
+                                }
+                            }
                         }
                         else
                         {
@@ -415,10 +439,13 @@ public partial class LibGit2SharpRepository : IGitRepository
                         }
                     }
                 }
-                // Caso 2: No se encontró por nombre exacto (ej. usuario pide "master" pero solo existe "origin/master")
+                // Caso 2: No se encontró por nombre exacto, buscar en remotos (estilo GitHub Desktop)
                 else
                 {
-                    var remoteBranch = repo.Branches[$"origin/{branchName}"];
+                    // Intentamos buscar una rama remota que coincida con el nombre (priorizando origin)
+                    var remoteBranch = repo.Branches.FirstOrDefault(b => b.IsRemote && b.FriendlyName == $"origin/{branchName}")
+                                     ?? repo.Branches.FirstOrDefault(b => b.IsRemote && b.FriendlyName.EndsWith("/" + branchName));
+
                     if (remoteBranch != null)
                     {
                         branch = repo.CreateBranch(branchName, remoteBranch.Tip);
@@ -1055,7 +1082,21 @@ public partial class LibGit2SharpRepository : IGitRepository
             try
             {
                 using var repo = new Repository(projectPath);
-                return repo.Branches[branchName]?.TrackedBranch != null;
+                var branch = repo.Branches[branchName];
+                
+                // Si es una rama remota, ya está en el servidor
+                if (branch != null && branch.IsRemote) return true;
+                
+                // Si es local y tiene seguimiento, ya está en el servidor
+                if (branch != null && branch.TrackedBranch != null) return true;
+
+                // Búsqueda de respaldo: ¿Existe alguna rama remota con el mismo nombre?
+                // Esto maneja el caso donde la rama existe en el origin pero no está "enlazada" formalmente
+                string simpleName = branchName;
+                if (branchName.Contains("/")) simpleName = branchName.Split('/').Last();
+
+                return repo.Branches.Any(b => b.IsRemote && 
+                    (b.FriendlyName == $"origin/{simpleName}" || b.FriendlyName.EndsWith("/" + simpleName)));
             }
             catch
             {

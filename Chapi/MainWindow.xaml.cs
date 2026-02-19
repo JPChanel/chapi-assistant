@@ -364,6 +364,7 @@ namespace Chapi
                 if (switchResult.IsSuccess)
                 {
                     _currentlySelectedBranch = newBranch;
+                    await RefreshBranchesAsync();
                 }
                 else
                 {
@@ -703,15 +704,17 @@ namespace Chapi
                         });
                     }
                     
-                    return useCase.ExecuteAsync(proj.FullPath, (ahead, behind) =>
+                    return useCase.ExecuteAsync(proj.FullPath, async (ahead, behind) =>
                     {
-                        Dispatcher.Invoke(() =>
+                        await Dispatcher.InvokeAsync(async () =>
                         {
                             proj.Ahead = ahead;
                             proj.Behind = behind;
                             if (proj.FullPath == projectDirectory && !ProjectsComboBox.IsDropDownOpen)
                             {
                                 UpdateGitActionButton();
+                                await RefreshBranchesAsync();
+                                await CheckBranchStatusAsync();
                             }
                         });
                     });
