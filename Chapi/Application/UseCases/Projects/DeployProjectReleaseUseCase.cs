@@ -281,8 +281,6 @@ public class DeployProjectReleaseUseCase
         }
 
         return Result.Success();
-
-        return Result.Success();
     }
 
     private async Task<(bool Success, string Output)> RunCommandAsync(string command, string args, string workingDir, Action<string>? onLog = null, Dictionary<string, string>? envVars = null)

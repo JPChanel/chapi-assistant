@@ -86,7 +86,6 @@ public partial class LibGit2SharpRepository
                     return Result.Fail("Conflicto detectado durante Squash. Operación abortada.");
                 }
 
-                // Eliminamos MERGE_HEAD para convertirlo en un commit normal (Squash)
                 var mergeHeadPath = Path.Combine(repo.Info.Path, "MERGE_HEAD");
                 if (File.Exists(mergeHeadPath))
                 {
@@ -142,8 +141,6 @@ public partial class LibGit2SharpRepository
                 var identity = new Identity(signature.Name, signature.Email);
                 var options = new RebaseOptions();
 
-                // Iniciar Rebase: Current sobre Target
-                // Equivalente a: git checkout Current && git rebase Target
                 var result = repo.Rebase.Start(currentBranch, targetBranch, null, identity, options);
 
                 if (result.Status == RebaseStatus.Complete)
@@ -157,14 +154,12 @@ public partial class LibGit2SharpRepository
                 }
                 else
                 {
-                    // Estado inesperado
                     repo.Rebase.Abort();
                     return Result.Fail($"El rebase no se completó (Estado: {result.Status}). Operación abortada.");
                 }
             }
             catch (Exception ex)
             {
-                // Seguridad extra: intentar abortar si quedó a medias
                 try { using var r = new Repository(projectPath); r.Rebase.Abort(); } catch { }
                 return Result.Fail($"Error crítico en Rebase: {ex.Message}");
             }
@@ -179,7 +174,6 @@ public partial class LibGit2SharpRepository
             {
                 using var repo = new Repository(projectPath);
 
-                // 1. Verificar si hay cambios locales (Dirty State)
                 if (repo.RetrieveStatus().IsDirty)
                 {
                     return (true, "DIRTY_WORKTREE");

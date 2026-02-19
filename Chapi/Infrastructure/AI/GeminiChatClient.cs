@@ -73,8 +73,6 @@ public class GeminiChatClient : Microsoft.Extensions.AI.IChatClient
         Microsoft.Extensions.AI.ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        // Revertido a modo "Fake Streaming" por estabilidad:
-        // Espera toda la respuesta y la devuelve de una vez.
         var response = await GetResponseAsync(chatMessages, options, cancellationToken);
 
         foreach (var message in response.Messages)
@@ -101,7 +99,6 @@ public class GeminiChatClient : Microsoft.Extensions.AI.IChatClient
 
     public void Dispose()
     {
-        // No hay recursos persistentes que liberar aquí
     }
 
     public object? GetService(Type serviceType, object? serviceKey = null)
@@ -111,7 +108,6 @@ public class GeminiChatClient : Microsoft.Extensions.AI.IChatClient
 
     private string BuildPrompt(IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages)
     {
-        // Convertir historial de mensajes a un solo string prompt (formato simple)
         return string.Join("\n", messages.Select(m => m.Text));
     }
 
@@ -121,7 +117,6 @@ public class GeminiChatClient : Microsoft.Extensions.AI.IChatClient
         if (string.IsNullOrWhiteSpace(text)) return string.Empty;
         text = text.Trim();
 
-        // Limpieza de JSON en markdown
         if (text.StartsWith("```"))
         {
             int start = text.IndexOf("{");

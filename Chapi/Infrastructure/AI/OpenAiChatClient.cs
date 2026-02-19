@@ -43,7 +43,6 @@ public class OpenAiChatClient : IChatClient
 
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> chatMessages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        // Implementación simplificada sin streaming real por ahora, reutiliza la síncrona
         var response = await GetResponseAsync(chatMessages, options, cancellationToken);
         foreach (var message in response.Messages)
         {
@@ -65,7 +64,6 @@ public class OpenAiChatClient : IChatClient
         return serviceType.IsInstanceOfType(this) ? this : null;
     }
 
-    // Clases auxiliares para deserialización
     private class OpenAiResponse
     {
         [JsonPropertyName("choices")]

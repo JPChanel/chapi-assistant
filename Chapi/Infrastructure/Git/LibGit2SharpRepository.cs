@@ -294,10 +294,8 @@ public partial class LibGit2SharpRepository : IGitRepository
 
                 if (files == null || !files.Any())
                 {
-                    // Descartar cambios en archivos rastreados
                     repo.CheckoutPaths("HEAD", new[] { "*" }, options);
 
-                    // Limpiar archivos no rastreados (Manualmente ya que LibGit2Sharp no tiene Clean)
                     var status = repo.RetrieveStatus(new StatusOptions { IncludeIgnored = false });
                     foreach (var entry in status.Where(s => s.State == LibGit2Sharp.FileStatus.NewInWorkdir))
                     {
@@ -308,10 +306,8 @@ public partial class LibGit2SharpRepository : IGitRepository
                 }
                 else
                 {
-                    // Descartar cambios en archivos específicos
                     repo.CheckoutPaths("HEAD", files, options);
 
-                    // Eliminar archivos específicos si son nuevos (untracked)
                     foreach (var file in files)
                     {
                         var state = repo.RetrieveStatus(file);
@@ -343,7 +339,25 @@ public partial class LibGit2SharpRepository : IGitRepository
             try
             {
                 using var repo = new Repository(projectPath);
-                return repo.Branches.Where(b => !b.IsRemote).Select(b => b.FriendlyName).ToList();
+                var localBranches = repo.Branches.Where(b => !b.IsRemote).ToList();
+                var remoteBranches = repo.Branches.Where(b => b.IsRemote && !b.FriendlyName.EndsWith("/HEAD")).ToList();
+
+                var result = new List<string>();
+                
+                // 1. Ramas Locales
+                result.AddRange(localBranches.Select(b => b.FriendlyName));
+
+                // 2. Ramas Remotas (que no estén ya trackeadas por una local)
+                foreach (var remote in remoteBranches)
+                {
+                    bool isTracked = localBranches.Any(l => l.TrackedBranch?.CanonicalName == remote.CanonicalName);
+                    if (!isTracked)
+                    {
+                        result.Add(remote.FriendlyName);
+                    }
+                }
+
+                return result;
             }
             catch
             {
@@ -375,15 +389,38 @@ public partial class LibGit2SharpRepository : IGitRepository
             try
             {
                 using var repo = new Repository(projectPath);
+                
+                // Intenta buscar la rama por nombre exacto (puede ser local o remota "origin/rama")
                 var branch = repo.Branches[branchName];
 
-                // Si la rama no existe localmente, intentar buscarla en remotos y crearla
-                if (branch == null)
+                // Caso 1: La rama existe (ya sea local o remota explícita)
+                if (branch != null)
+                {
+                    // Si es una rama remota (ej. origin/feature), debemos crear la local correspondiente
+                    if (branch.IsRemote)
+                    {
+                        var remoteName = branch.RemoteName; 
+                        var localName = branch.FriendlyName.Substring(remoteName.Length + 1);
+
+                        var existingLocal = repo.Branches[localName];
+                        if (existingLocal != null)
+                        {
+                            branch = existingLocal;
+                        }
+                        else
+                        {
+                            branch = repo.CreateBranch(localName, branch.Tip);
+                            var remoteBranch = repo.Branches[branchName]; 
+                            repo.Branches.Update(branch, b => b.UpstreamBranch = remoteBranch.CanonicalName);
+                        }
+                    }
+                }
+                // Caso 2: No se encontró por nombre exacto (ej. usuario pide "master" pero solo existe "origin/master")
+                else
                 {
                     var remoteBranch = repo.Branches[$"origin/{branchName}"];
                     if (remoteBranch != null)
                     {
-                        // Crear rama local trackeando a la remota
                         branch = repo.CreateBranch(branchName, remoteBranch.Tip);
                         repo.Branches.Update(branch, b => b.UpstreamBranch = remoteBranch.CanonicalName);
                     }
@@ -393,22 +430,18 @@ public partial class LibGit2SharpRepository : IGitRepository
                     }
                 }
 
-                // Checkout
-                var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.None }; // None = Fail on conflict (default behaviors)
-
-                // Intentar checkout
+                var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.None }; 
                 Commands.Checkout(repo, branch, options);
 
-                if (repo.Head.FriendlyName != branchName)
+                if (repo.Head.FriendlyName != branch.FriendlyName)
                 {
-                    return Result.Fail($"No se pudo cambiar a '{branchName}'. Sigues en '{repo.Head.FriendlyName}'.");
+                    return Result.Fail($"No se pudo cambiar a '{branch.FriendlyName}'. Sigues en '{repo.Head.FriendlyName}'.");
                 }
 
                 return Result.Success();
             }
             catch (CheckoutConflictException)
             {
-                // Este es el caso clave: LibGit2Sharp lanza excepción si hay conflictos de checkout
                 return Result.Fail("CONFLICTO: Tienes cambios locales que serían sobrescritos por el cambio de rama. Por favor haz Commit o Stash antes de cambiar.");
             }
             catch (Exception ex)
@@ -460,18 +493,11 @@ public partial class LibGit2SharpRepository : IGitRepository
                 // 2. Borrar REMOTO
                 if (deleteRemote)
                 {
-                    // Necesitamos credenciales para push
                     var remote = repo.Network.Remotes["origin"];
                     if (remote != null)
                     {
-                        // Obtener credenciales (reutilizando logica interna si es posible o asumiendo que ya estan cacheadas por git credential manager)
-                        // LibGit2Sharp requiere explicitamente credenciales para Network operations si no es Public.
-                        // Por simplicidad, intentamos usar el helper GetCredentialsAsync
                         var creds = await GetCredentialsAsync(remote.Url);
-
                         var options = new PushOptions { CredentialsProvider = (_url, _user, _cred) => creds };
-
-                        // Push con refspec vacio para borrar: :refs/heads/branchName
                         repo.Network.Push(remote, $":refs/heads/{branchName}", options);
                     }
                 }
