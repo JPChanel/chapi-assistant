@@ -67,8 +67,13 @@
                                 <!-- Sección 1: Metadatos del Ejecutable -->
                                 <TextBlock Text="Detalles del Ejecutable" Style="{StaticResource MaterialDesignCaptionTextBlock}" FontWeight="Bold" Margin="0,0,0,8" Opacity="0.7"/>
                                 
+                                <TextBox x:Name="PackageIdBox"
+                                         materialDesign:HintAssist.Hint="ID del Paquete (Sin espacios, ej: ANC.MiApp)"
+                                         Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                         Margin="0,0,0,8"/>
+
                                 <TextBox x:Name="AppNameBox"
-                                         materialDesign:HintAssist.Hint="Nombre del Producto"
+                                         materialDesign:HintAssist.Hint="Nombre de Producto (Título del Icono)"
                                          Style="{StaticResource MaterialDesignFloatingHintTextBox}"
                                          Margin="0,0,0,8"/>
 

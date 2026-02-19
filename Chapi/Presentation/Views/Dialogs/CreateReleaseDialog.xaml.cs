@@ -22,6 +22,7 @@ namespace Chapi.Presentation.Views.Dialogs
         // Nuevos campos para Build Config
         // Nuevos campos para Configuración de Destino
         public string AppName => AppNameBox.Text;
+        public string PackageId => PackageIdBox.Text;
         public string Author => AuthorBox.Text;
         public string IconPath => IconPathBox.Text;
         public string SplashPath => SplashPathBox.Text;
@@ -34,9 +35,10 @@ namespace Chapi.Presentation.Views.Dialogs
         public string FtpPassword => FtpPassBox.Password;
 
         // Método para cargar datos iniciales
-        public void SetDefaults(string appName, string author, string localPath, string ftpUrl, string ftpUser, string iconPath = "", string splashPath = "")
+        public void SetDefaults(string appName, string packageId, string author, string localPath, string ftpUrl, string ftpUser, string iconPath = "", string splashPath = "")
         {
             AppNameBox.Text = appName;
+            PackageIdBox.Text = packageId;
             AuthorBox.Text = author;
             IconPathBox.Text = iconPath;
             SplashPathBox.Text = splashPath;

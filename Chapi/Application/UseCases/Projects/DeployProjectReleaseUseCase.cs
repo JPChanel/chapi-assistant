@@ -22,6 +22,7 @@ public class DeployProjectReleaseUseCase
         string tagName,
         Action<string>? onLog = null, // Log en Tiempo Real
         string? overrideAppName = null,
+        string? overridePackageId = null,
         string? overrideAuthor = null,
         string? overrideLocalPath = null,
         string? overrideFtpUrl = null,
@@ -51,15 +52,19 @@ public class DeployProjectReleaseUseCase
 
 
         // --- LÓGICA DE OVERRIDES DE BUILD ---
-        string projectId = !string.IsNullOrWhiteSpace(overrideAppName)
+        string appName = !string.IsNullOrWhiteSpace(overrideAppName)
             ? overrideAppName
             : (!string.IsNullOrWhiteSpace(config.Deployment.AppName) ? config.Deployment.AppName : Path.GetFileNameWithoutExtension(projectPath));
+
+        string packageId = !string.IsNullOrWhiteSpace(overridePackageId)
+            ? overridePackageId
+            : (!string.IsNullOrWhiteSpace(config.Deployment.PackageId) ? config.Deployment.PackageId : appName.Replace(" ", ""));
 
         string author = !string.IsNullOrWhiteSpace(overrideAuthor)
             ? overrideAuthor
             : (!string.IsNullOrWhiteSpace(config.Deployment.Author) ? config.Deployment.Author : "ANC");
 
-        Log($"ℹ️ Configuración Build: App={projectId}, Autor={author}");
+        Log($"ℹ️ Configuración Build: App={appName}, ID={packageId}, Autor={author}");
 
         string iconPath = !string.IsNullOrWhiteSpace(overrideIconPath) ? overrideIconPath : (config.Deployment.IconPath ?? "");
         string splashPath = !string.IsNullOrWhiteSpace(overrideSplashPath) ? overrideSplashPath : (config.Deployment.SplashPath ?? "");
@@ -97,7 +102,8 @@ public class DeployProjectReleaseUseCase
 
         // GUARDAR CONFIGURACIÓN PERMANENTE
         config.Deployment.IsEnabled = true;
-        config.Deployment.AppName = projectId;
+        config.Deployment.AppName = appName;
+        config.Deployment.PackageId = packageId;
         config.Deployment.Author = author;
         config.Deployment.LocalPath = finalDeploymentPath;
         config.Deployment.FtpUrl = finalFtpUrl;
@@ -106,6 +112,23 @@ public class DeployProjectReleaseUseCase
 
         Chapi.Infrastructure.Persistence.Settings.ProjectConfigurations.SaveConfig(projectPath, config);
         Log("💾 Configuración Guardada.");
+
+        //2.5. Auto-commit de configuración si cambió (Portabilidad automática) 
+        try
+        {
+            var changes = await _gitRepository.GetChangesAsync(projectPath);
+            var configChange = changes.FirstOrDefault(c => c.FilePath.EndsWith("chapi.config.json", StringComparison.OrdinalIgnoreCase));
+
+            if (configChange != null)
+            {
+                Log("📝 Registrando cambios de configuración en Git...");
+                await _gitRepository.CommitAsync(projectPath, "docs(deploy): actualizar configuración de despliegue Chapi", new[] { configChange.FilePath });
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"⚠️ Advertencia: No se pudo auto-commitear la configuración ({ex.Message}).");
+        }
 
         // --- INICIO DEL PROCESO DE BUILD ---
         string version = tagName.TrimStart('v', 'V');
@@ -128,16 +151,17 @@ public class DeployProjectReleaseUseCase
         }
         catch { }
 
-        // 4. Configurar Rutas de Build y Release
-        string publishDir = Path.Combine(solutionRoot, "bin", "Velopack");
-        string releaseDir = Path.Combine(solutionRoot, "bin", "Releases");
+        string safePackId = System.Text.RegularExpressions.Regex.Replace(packageId, @"[^a-zA-Z0-9_\-\.]", "");
+        string baseCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Chapi", "BuildCache", safePackId);
+        string publishDir = Path.Combine(baseCachePath, "publish");
+        string releaseDir = Path.Combine(baseCachePath, "releases");
 
         Log($"📂 Directorio de Build: {publishDir}");
+        Log($"📂 Directorio de Releases: {releaseDir}");
 
         // 4. Ejecutar dotnet publish
         if (Directory.Exists(publishDir)) Directory.Delete(publishDir, true);
 
-        // Identificar el csproj principal
         var csprojFiles = Directory.GetFiles(projectPath, "*.csproj", SearchOption.AllDirectories)
                .Where(f => !f.Contains("\\bin\\") && !f.Contains("\\obj\\") && !f.Contains("Test"))
                .ToArray();
@@ -164,13 +188,13 @@ public class DeployProjectReleaseUseCase
             Log($"⚠️ Referencias COM detectadas. Usando MSBuild: {msBuildExe}");
 
             // Argumentos MSBuild para Publish
-            var msBuildArgs = $"\"{mainCsproj}\" /t:Publish /p:Configuration=Release /p:Platform=x64 /p:PublishDir=\"{publishDir}\" /p:Version={version} /p:Authors=\"{author}\" /p:Product=\"{projectId}\"";
+            var msBuildArgs = $"\"{mainCsproj}\" /t:Publish /p:Configuration=Release /p:Platform=x64 /p:PublishDir=\"{publishDir}\" /p:Version={version} /p:Authors=\"{author}\" /p:Product=\"{appName}\"";
 
             buildResult = await RunCommandAsync(msBuildExe, msBuildArgs, projectPath, onLog);
         }
         else
         {
-            var publishArgs = $"publish \"{mainCsproj}\" -c Release -r win-x64 --self-contained -o \"{publishDir}\" -p:Version={version} -p:Authors=\"{author}\" -p:Product=\"{projectId}\"";
+            var publishArgs = $"publish \"{mainCsproj}\" -c Release -r win-x64 --self-contained -o \"{publishDir}\" -p:Version={version} -p:Authors=\"{author}\" -p:Product=\"{appName}\"";
             buildResult = await RunCommandAsync("dotnet", publishArgs, projectPath, onLog);
         }
 
@@ -180,18 +204,53 @@ public class DeployProjectReleaseUseCase
             return Result.Fail($"Error en compilación. Revisa el log para detalles.");
         }
 
+        // --- 4.5. Sincronizar Historial Remoto para evitar "Huérfanos de Historial" ---
+        Log("🔍 Sincronizando historial de releases remoto...");
+        if (!Directory.Exists(releaseDir)) Directory.CreateDirectory(releaseDir);
+
+        try
+        {
+            if (!string.IsNullOrEmpty(finalDeploymentPath))
+            {
+                string remoteReleasesPath = Path.Combine(finalDeploymentPath, "RELEASES");
+                if (File.Exists(remoteReleasesPath))
+                {
+                    Log("   > Importando manifest RELEASES desde red...");
+                    File.Copy(remoteReleasesPath, Path.Combine(releaseDir, "RELEASES"), true);
+                }
+            }
+            else if (!string.IsNullOrEmpty(finalFtpUrl))
+            {
+                Log("   > Consultando manifest RELEASES en FTP...");
+                var ftpUri = new Uri(finalFtpUrl);
+                using var client_sync = new AsyncFtpClient(ftpUri.Host, overrideFtpUser, overrideFtpPass);
+                client_sync.Config.ValidateAnyCertificate = true;
+                await client_sync.Connect();
+
+                string remotePath = ftpUri.AbsolutePath.TrimEnd('/') + "/RELEASES";
+                if (await client_sync.FileExists(remotePath))
+                {
+                    Log("   > Descargando historial RELEASES activo...");
+                    await client_sync.DownloadFile(Path.Combine(releaseDir, "RELEASES"), remotePath, FtpLocalExists.Overwrite);
+                }
+                await client_sync.Disconnect();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"⚠️ Advertencia: No se pudo sincronizar el historial previo ({ex.Message}).");
+        }
+
         // 5. Ejecutar vpk pack
         Log($"📦 Ejecutando Velopack (vpk) sobre : {releaseDir}...");
 
-        // Sanitizar el ID del paquete (quitando espacios y caracteres inválidos) para Velopack/NuGet
-        string safePackId = System.Text.RegularExpressions.Regex.Replace(projectId, @"[^a-zA-Z0-9_\-\.]", "");
-        if (safePackId != projectId) Log($"ℹ️ ID Ajustado para Velopack: '{projectId}' -> '{safePackId}'");
+        if (safePackId != packageId) Log($"ℹ️ ID Ajustado para Velopack: '{packageId}' -> '{safePackId}'");
 
-        var vpkArgs = $"pack --packId \"{safePackId}\" --packVersion \"{version}\" --packAuthors \"{author}\" --packDir \"{publishDir}\" --mainExe \"{defaultProjectId}.exe\" --outputDir \"{releaseDir}\"";
+        var vpkArgs = $"pack --packId \"{safePackId}\" --packTitle \"{appName}\" --packVersion \"{version}\" --packAuthors \"{author}\" --packDir \"{publishDir}\" --mainExe \"{defaultProjectId}.exe\" --outputDir \"{releaseDir}\"";
 
         if (!string.IsNullOrEmpty(iconPath) && File.Exists(iconPath))
             vpkArgs += $" --icon \"{iconPath}\"";
-        
+
         if (!string.IsNullOrEmpty(splashPath) && File.Exists(splashPath))
             vpkArgs += $" --splashImage \"{splashPath}\"";
 

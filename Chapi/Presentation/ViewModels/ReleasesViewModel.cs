@@ -151,6 +151,7 @@ public class ReleasesViewModel : ViewModelBase
         // 0. Obtener configuración
         var currentConfig = Chapi.Infrastructure.Persistence.Settings.ProjectConfigurations.GetConfig(ProjectPath);
         string defaultAppName = !string.IsNullOrEmpty(currentConfig.Deployment?.AppName) ? currentConfig.Deployment.AppName : Path.GetFileNameWithoutExtension(ProjectPath);
+        string defaultPackageId = !string.IsNullOrEmpty(currentConfig.Deployment?.PackageId) ? currentConfig.Deployment.PackageId : defaultAppName.Replace(" ", "");
         string defaultAuthor = !string.IsNullOrEmpty(currentConfig.Deployment?.Author) ? currentConfig.Deployment.Author : "ANC";
         string defaultLocalPath = currentConfig.Deployment?.LocalPath ?? "";
         string defaultFtpUrl = currentConfig.Deployment?.FtpUrl ?? "";
@@ -159,8 +160,8 @@ public class ReleasesViewModel : ViewModelBase
         string defaultSplashPath = currentConfig.Deployment?.SplashPath ?? "";
 
         // 1. Mostrar Diálogo de Configuración
-        var (confirmed, tagName, message, isRemote, isLocal, buildAppName, buildAuthor, localPath, ftpUrl, ftpUser, ftpPass, iconPath, splashPath) =
-            await Infrastructure.Services.DialogService.ShowCreateReleaseDialog(defaultAppName, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser, defaultIconPath, defaultSplashPath);
+        var (confirmed, tagName, message, isRemote, isLocal, buildAppName, buildPackageId, buildAuthor, localPath, ftpUrl, ftpUser, ftpPass, iconPath, splashPath) =
+            await Infrastructure.Services.DialogService.ShowCreateReleaseDialog(defaultAppName, defaultPackageId, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser, defaultIconPath, defaultSplashPath);
 
         if (!confirmed || string.IsNullOrWhiteSpace(tagName)) return;
 
@@ -191,6 +192,7 @@ public class ReleasesViewModel : ViewModelBase
                         tagName, 
                         logVm.AddLog, 
                         buildAppName, 
+                        buildPackageId,
                         buildAuthor, 
                         localPath, 
                         ftpUrl, 
