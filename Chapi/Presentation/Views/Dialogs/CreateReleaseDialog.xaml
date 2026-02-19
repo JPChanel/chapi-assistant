@@ -75,7 +75,47 @@
                                 <TextBox x:Name="AuthorBox"
                                          materialDesign:HintAssist.Hint="Autor / Empresa"
                                          Style="{StaticResource MaterialDesignFloatingHintTextBox}"
-                                         Margin="0,0,0,16"/>
+                                         Margin="0,0,0,8"/>
+
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="40"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="IconPathBox" Grid.Column="0"
+                                             materialDesign:HintAssist.Hint="Ruta del Icono (.ico)"
+                                             Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                             TextChanged="ImagePathBox_TextChanged"/>
+                                    <Button Grid.Column="1" Style="{StaticResource MaterialDesignIconButton}" 
+                                            Click="SelectIcon_Click" Width="30" Height="30" Margin="4,12,0,0">
+                                        <materialDesign:PackIcon Kind="Folder" />
+                                    </Button>
+                                    <Border Grid.Column="2" Margin="4,12,0,0" Width="32" Height="32" 
+                                            BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}" CornerRadius="4">
+                                        <Image x:Name="IconPreview" Stretch="Uniform"/>
+                                    </Border>
+                                </Grid>
+
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="40"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="SplashPathBox" Grid.Column="0"
+                                             materialDesign:HintAssist.Hint="Ruta de Imagen Splash (.png/.jpg)"
+                                             Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                                             TextChanged="ImagePathBox_TextChanged"/>
+                                    <Button Grid.Column="1" Style="{StaticResource MaterialDesignIconButton}" 
+                                            Click="SelectSplash_Click" Width="30" Height="30" Margin="4,12,0,0">
+                                        <materialDesign:PackIcon Kind="Folder" />
+                                    </Button>
+                                    <Border Grid.Column="2" Margin="4,12,0,0" Width="32" Height="32" 
+                                            BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}" CornerRadius="4">
+                                        <Image x:Name="SplashPreview" Stretch="Uniform"/>
+                                    </Border>
+                                </Grid>
 
                                 <!-- Sección 2: Destino de Publicación -->
                                 <TextBlock Text="Destino de Publicación" Style="{StaticResource MaterialDesignCaptionTextBlock}" FontWeight="Bold" Margin="0,8,0,8" Opacity="0.7"/>

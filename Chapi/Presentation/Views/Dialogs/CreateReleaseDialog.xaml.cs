@@ -1,4 +1,9 @@
+using System;
+using System.IO;
+using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
+using Microsoft.Win32;
 
 namespace Chapi.Presentation.Views.Dialogs
 {
@@ -18,6 +23,8 @@ namespace Chapi.Presentation.Views.Dialogs
         // Nuevos campos para Configuración de Destino
         public string AppName => AppNameBox.Text;
         public string Author => AuthorBox.Text;
+        public string IconPath => IconPathBox.Text;
+        public string SplashPath => SplashPathBox.Text;
 
         public bool IsFolderTarget => RadioDestFolder.IsChecked == true;
         public string LocalPath => LocalPathBox.Text;
@@ -27,10 +34,12 @@ namespace Chapi.Presentation.Views.Dialogs
         public string FtpPassword => FtpPassBox.Password;
 
         // Método para cargar datos iniciales
-        public void SetDefaults(string appName, string author, string localPath, string ftpUrl, string ftpUser)
+        public void SetDefaults(string appName, string author, string localPath, string ftpUrl, string ftpUser, string iconPath = "", string splashPath = "")
         {
             AppNameBox.Text = appName;
             AuthorBox.Text = author;
+            IconPathBox.Text = iconPath;
+            SplashPathBox.Text = splashPath;
             
             // Prioridad: Si hay FTP URL, activar FTP, si no, Carpeta
             if (!string.IsNullOrEmpty(ftpUrl))
@@ -44,6 +53,8 @@ namespace Chapi.Presentation.Views.Dialogs
                 RadioDestFolder.IsChecked = true;
                 LocalPathBox.Text = localPath;
             }
+
+            UpdatePreviews();
         }
 
         private void TagNameBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -54,6 +65,67 @@ namespace Chapi.Presentation.Views.Dialogs
             {
                 MessageBox.Text = !string.IsNullOrWhiteSpace(tag) ? $"Release {tag}" : string.Empty;
             }
+        }
+
+        private void SelectIcon_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Filter = "Iconos (*.ico)|*.ico|Todos los archivos (*.*)|*.*",
+                Title = "Seleccionar Icono de Aplicación"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                IconPathBox.Text = dialog.FileName;
+                UpdatePreviews();
+            }
+        }
+
+        private void SelectSplash_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Filter = "Imágenes (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Todos los archivos (*.*)|*.*",
+                Title = "Seleccionar Imagen Splash"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                SplashPathBox.Text = dialog.FileName;
+                UpdatePreviews();
+            }
+        }
+
+        private void ImagePathBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            UpdatePreviews();
+        }
+
+        private void UpdatePreviews()
+        {
+            try
+            {
+                IconPreview.Source = LoadImage(IconPathBox.Text);
+                SplashPreview.Source = LoadImage(SplashPathBox.Text);
+            }
+            catch { }
+        }
+
+        private BitmapImage? LoadImage(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
+            try
+            {
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(path);
+                bitmap.CacheOption = BitmapCacheOption.OnLoad; // Evita bloqueo de archivo
+                bitmap.DecodePixelWidth = 32; // Optimizar para miniatura
+                bitmap.EndInit();
+                return bitmap;
+            }
+            catch { return null; }
         }
     }
 }

@@ -26,7 +26,9 @@ public class DeployProjectReleaseUseCase
         string? overrideLocalPath = null,
         string? overrideFtpUrl = null,
         string? overrideFtpUser = null,
-        string? overrideFtpPass = null)
+        string? overrideFtpPass = null,
+        string? overrideIconPath = null,
+        string? overrideSplashPath = null)
     {
         void Log(string msg) => onLog?.Invoke(msg);
 
@@ -58,6 +60,9 @@ public class DeployProjectReleaseUseCase
             : (!string.IsNullOrWhiteSpace(config.Deployment.Author) ? config.Deployment.Author : "ANC");
 
         Log($"ℹ️ Configuración Build: App={projectId}, Autor={author}");
+
+        string iconPath = !string.IsNullOrWhiteSpace(overrideIconPath) ? overrideIconPath : (config.Deployment.IconPath ?? "");
+        string splashPath = !string.IsNullOrWhiteSpace(overrideSplashPath) ? overrideSplashPath : (config.Deployment.SplashPath ?? "");
 
         // --- LÓGICA DE OVERRIDES DE DESTINO ---
         string localPath = !string.IsNullOrWhiteSpace(overrideLocalPath) ? overrideLocalPath : (config.Deployment.LocalPath ?? "");
@@ -96,6 +101,8 @@ public class DeployProjectReleaseUseCase
         config.Deployment.Author = author;
         config.Deployment.LocalPath = finalDeploymentPath;
         config.Deployment.FtpUrl = finalFtpUrl;
+        config.Deployment.IconPath = iconPath;
+        config.Deployment.SplashPath = splashPath;
 
         Chapi.Infrastructure.Persistence.Settings.ProjectConfigurations.SaveConfig(projectPath, config);
         Log("💾 Configuración Guardada.");
@@ -181,6 +188,12 @@ public class DeployProjectReleaseUseCase
         if (safePackId != projectId) Log($"ℹ️ ID Ajustado para Velopack: '{projectId}' -> '{safePackId}'");
 
         var vpkArgs = $"pack --packId \"{safePackId}\" --packVersion \"{version}\" --packAuthors \"{author}\" --packDir \"{publishDir}\" --mainExe \"{defaultProjectId}.exe\" --outputDir \"{releaseDir}\"";
+
+        if (!string.IsNullOrEmpty(iconPath) && File.Exists(iconPath))
+            vpkArgs += $" --icon \"{iconPath}\"";
+        
+        if (!string.IsNullOrEmpty(splashPath) && File.Exists(splashPath))
+            vpkArgs += $" --splashImage \"{splashPath}\"";
 
         var vpkEnv = new Dictionary<string, string>
         {

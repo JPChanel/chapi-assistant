@@ -19,6 +19,8 @@ public class DeploymentConfig
     public string FtpUrl { get; set; } = string.Empty;
     public string FtpUser { get; set; } = string.Empty;
     public string FtpPassword { get; set; } = string.Empty; // TODO: Encrypt in future
+    public string IconPath { get; set; } = string.Empty;
+    public string SplashPath { get; set; } = string.Empty;
 }
 
 public static class ProjectConfigurations

@@ -155,10 +155,12 @@ public class ReleasesViewModel : ViewModelBase
         string defaultLocalPath = currentConfig.Deployment?.LocalPath ?? "";
         string defaultFtpUrl = currentConfig.Deployment?.FtpUrl ?? "";
         string defaultFtpUser = "";
+        string defaultIconPath = currentConfig.Deployment?.IconPath ?? "";
+        string defaultSplashPath = currentConfig.Deployment?.SplashPath ?? "";
 
         // 1. Mostrar Diálogo de Configuración
-        var (confirmed, tagName, message, isRemote, isLocal, buildAppName, buildAuthor, localPath, ftpUrl, ftpUser, ftpPass) =
-            await Infrastructure.Services.DialogService.ShowCreateReleaseDialog(defaultAppName, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser);
+        var (confirmed, tagName, message, isRemote, isLocal, buildAppName, buildAuthor, localPath, ftpUrl, ftpUser, ftpPass, iconPath, splashPath) =
+            await Infrastructure.Services.DialogService.ShowCreateReleaseDialog(defaultAppName, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser, defaultIconPath, defaultSplashPath);
 
         if (!confirmed || string.IsNullOrWhiteSpace(tagName)) return;
 
@@ -193,7 +195,9 @@ public class ReleasesViewModel : ViewModelBase
                         localPath, 
                         ftpUrl, 
                         ftpUser, 
-                        ftpPass
+                        ftpPass,
+                        iconPath,
+                        splashPath
                     );
 
                     if (!deployResult.IsSuccess)
