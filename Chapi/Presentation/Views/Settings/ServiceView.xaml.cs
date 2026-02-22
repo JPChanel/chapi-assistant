@@ -226,15 +226,16 @@ namespace Chapi.Presentation.Views.Settings
                 // Dar tiempo a que se complete la descarga
                 await Task.Delay(1000);
 
-                txtStatus.Text = "La app se cerrará para completar la actualización.";
+                txtStatus.Text = "Reiniciando con la nueva versión...";
 
-                // Esperar un momento antes de aplicar
-                await Task.Delay(500);
+                // Liberar el Mutex ANTES de que Velopack lance la nueva instancia.
+                App.ReleaseMutex();
 
-                // Aplicar y salir (más confiable que restart)
-                _mgr.ApplyUpdatesAndExit(_updateInfo);
+                // ApplyUpdatesAndRestart: aplica los archivos y relanza automáticamente la nueva versión.
+                // Es más confiable que Exit porque Velopack no depende del usuario para volver a abrir.
+                _mgr.ApplyUpdatesAndRestart(_updateInfo);
 
-                // Si llegamos aquí, algo falló - forzar cierre
+                // Si llegamos aquí, algo falló - forzar cierre limpio
                 System.Windows.Application.Current.Shutdown();
             }
             catch (Exception ex)

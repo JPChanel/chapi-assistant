@@ -202,7 +202,13 @@ namespace Chapi
         [STAThread]
         private static void Main(string[] args)
         {
-            VelopackApp.Build().Run();
+            // IMPORTANTE: AutoApply=false para evitar que Velopack marque la sesión como
+            // "restarted=True". Ese flag hace que `ApplyUpdatesAndRestart` falle con
+            // "Pre-condition failed" y la actualización manual nunca se aplique.
+            // La actualización se controla manualmente desde ServiceView.
+            VelopackApp.Build()
+                .SetAutoApplyOnStartup(false)
+                .Run();
             App app = new();
             app.InitializeComponent();
             app.Run();
@@ -337,10 +343,16 @@ namespace Chapi
 
             });
         }
+        public static void ReleaseMutex()
+        {
+            try { _mutex?.ReleaseMutex(); } catch { }
+            try { _mutex?.Dispose(); } catch { }
+            _mutex = null;
+        }
+
         protected override void OnExit(ExitEventArgs e)
         {
-            _mutex?.ReleaseMutex();
-            _mutex?.Dispose();
+            ReleaseMutex();
             base.OnExit(e);
         }
     }
