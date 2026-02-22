@@ -167,7 +167,7 @@ public class DeployProjectReleaseUseCase
                .ToArray();
 
         if (csprojFiles.Length == 0) return Result.Fail("No se encontraron archivos .csproj válidos.");
-        string mainCsproj = csprojFiles.OrderBy(f => f.Length).First();
+        string mainCsproj = FindMainCsproj(solutionRoot, csprojFiles, Log);
         defaultProjectId = Path.GetFileNameWithoutExtension(mainCsproj);
 
         Log($"🔨 Ejecutando compilación sobre {Path.GetFileName(mainCsproj)}...");
@@ -411,6 +411,102 @@ public class DeployProjectReleaseUseCase
             onLog?.Invoke($"EXCEPTION: {ex.Message}");
             return (false, ex.Message);
         }
+    }
+
+    private string FindMainCsproj(string solutionRoot, string[] csprojFiles, Action<string> log)
+    {
+        // Estrategia 1: parsear .sln o .slnx y cruzar con OutputType=WinExe/Exe
+        try
+        {
+            var slnFile = Directory.GetFiles(solutionRoot, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+            var slnxFile = Directory.GetFiles(solutionRoot, "*.slnx", SearchOption.TopDirectoryOnly).FirstOrDefault();
+
+            IEnumerable<string>? candidatesFromSolution = null;
+
+            if (slnFile != null)
+                candidatesFromSolution = ParseSlnProjects(slnFile, solutionRoot);
+            else if (slnxFile != null)
+                candidatesFromSolution = ParseSlnxProjects(slnxFile, solutionRoot);
+
+            if (candidatesFromSolution != null)
+            {
+                var solutionCsprojs = candidatesFromSolution
+                    .Where(p => csprojFiles.Any(f => string.Equals(f, p, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+
+                var exeProject = solutionCsprojs.FirstOrDefault(p => IsExecutableProject(p));
+                if (exeProject != null)
+                {
+                    log($"✅ Proyecto principal detectado desde solución: {Path.GetFileName(exeProject)}");
+                    return exeProject;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            log($"⚠️ No se pudo parsear la solución: {ex.Message}");
+        }
+
+        // Estrategia 2: buscar OutputType=WinExe o Exe entre todos los .csproj encontrados
+        var exeByOutputType = csprojFiles.FirstOrDefault(p => IsExecutableProject(p));
+        if (exeByOutputType != null)
+        {
+            log($"✅ Proyecto principal detectado por OutputType: {Path.GetFileName(exeByOutputType)}");
+            return exeByOutputType;
+        }
+
+        // Estrategia 3: fallback - ruta más corta (comportamiento anterior)
+        var fallback = csprojFiles.OrderBy(f => f.Length).First();
+        log($"⚠️ No se detectó proyecto principal exacto, usando fallback: {Path.GetFileName(fallback)}");
+        return fallback;
+    }
+
+    private IEnumerable<string> ParseSlnProjects(string slnPath, string solutionRoot)
+    {
+        var lines = File.ReadAllLines(slnPath);
+        var regex = new System.Text.RegularExpressions.Regex(
+            @"Project\(""[^""]+""\)\s*=\s*""[^""]+"",\s*""([^""]+\.csproj)""",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        foreach (var line in lines)
+        {
+            var match = regex.Match(line);
+            if (match.Success)
+            {
+                var relativePath = match.Groups[1].Value.Replace('\\', Path.DirectorySeparatorChar);
+                var fullPath = Path.GetFullPath(Path.Combine(solutionRoot, relativePath));
+                if (File.Exists(fullPath))
+                    yield return fullPath;
+            }
+        }
+    }
+
+    private IEnumerable<string> ParseSlnxProjects(string slnxPath, string solutionRoot)
+    {
+        var doc = System.Xml.Linq.XDocument.Load(slnxPath);
+        foreach (var projectElement in doc.Descendants("Project"))
+        {
+            var path = projectElement.Attribute("Path")?.Value;
+            if (!string.IsNullOrEmpty(path) && path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            {
+                var fullPath = Path.GetFullPath(Path.Combine(solutionRoot, path.Replace('/', Path.DirectorySeparatorChar)));
+                if (File.Exists(fullPath))
+                    yield return fullPath;
+            }
+        }
+    }
+
+    private bool IsExecutableProject(string csprojPath)
+    {
+        try
+        {
+            var content = File.ReadAllText(csprojPath);
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                content,
+                @"<OutputType>\s*(WinExe|Exe)\s*</OutputType>",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+        catch { return false; }
     }
 
     private string? _msBuildPath;
