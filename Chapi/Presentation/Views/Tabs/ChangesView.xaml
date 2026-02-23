@@ -81,7 +81,7 @@
                                 <materialDesign:PackIcon Kind="SourceCommit" Foreground="Aqua" VerticalAlignment="Center" Margin="0,0,8,0" Width="16" Height="16"/>
                                 <TextBlock Text="Cambios" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" Foreground="White" Opacity="1"/>
                                 <Border Background="{DynamicResource MaterialDesignSelection}" CornerRadius="4" Padding="4,1" Margin="8,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock x:Name="txtChangesCountSide" Text="{Binding Changes.Count}" FontSize="10" FontWeight="Bold" Foreground="White" Opacity="0.9"/>
+                                    <TextBlock x:Name="txtChangesCountSide" Text="{Binding TotalChangesCount}" FontSize="10" FontWeight="Bold" Foreground="White" Opacity="0.9"/>
                                 </Border>
                                 <StackPanel Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center" x:Name="pnlTotalLineStats">
                                     <TextBlock Text="{Binding TotalAdditions, StringFormat='+{0}'}" 

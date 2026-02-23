@@ -269,6 +269,42 @@ public class WslGitRepository : IGitRepository
         return result.IsSuccess ? result.Data.Trim() : string.Empty;
     }
 
+    public async System.Threading.Tasks.Task<Chapi.Domain.Common.Result<Chapi.Domain.Models.GitRepositoryMetadata>> GetMetadataAsync(string projectPath)
+    {
+        // Comando consolidado para obtener todo de un golpe:
+        // config name | config email | remote url | current branch | ahead/behind
+        var command = "git -C {path} config user.name || echo \"\"; echo \"---\"; " +
+                      "git -C {path} config user.email || echo \"\"; echo \"---\"; " +
+                      "git -C {path} remote get-url origin 2>/dev/null || echo \"\"; echo \"---\"; " +
+                      "git -C {path} rev-parse --abbrev-ref HEAD 2>/dev/null || echo \"\"; echo \"---\"; " +
+                      "git -C {path} rev-list --left-right --count HEAD...HEAD@{u} 2>/dev/null || echo \"0\t0\"";
+
+        var result = await WslCommandExecutor.ExecuteAsync(projectPath, command);
+        if (!result.IsSuccess) return Result<GitRepositoryMetadata>.Fail(result.Error);
+
+        var m = new GitRepositoryMetadata();
+        var parts = result.Data.Split(new[] { "---\n", "---\r\n", "---" }, StringSplitOptions.None)
+                          .Select(p => p.Trim()).ToList();
+
+        if (parts.Count >= 5)
+        {
+            m.UserName = parts[0];
+            m.UserEmail = parts[1];
+            m.RemoteUrl = parts[2];
+            m.CurrentBranch = parts[3];
+
+            var abParts = parts[4].Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (abParts.Length >= 2 && int.TryParse(abParts[0], out int ahead) && int.TryParse(abParts[1], out int behind))
+            {
+                m.Ahead = ahead;
+                m.Behind = behind;
+                m.HasUpstream = true;
+            }
+        }
+
+        return Result<GitRepositoryMetadata>.Success(m);
+    }
+
     public bool IsGitInstalled() => true;
 
     #region Delegados (No Optimizados en esta clase)

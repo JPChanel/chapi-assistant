@@ -80,4 +80,5 @@ public interface IGitRepository
     Task<string> GetConfigAsync(string projectPath, string key, bool isGlobal = false);
     Task<Result> SetConfigAsync(string projectPath, string key, string value, bool isGlobal = false);
     Task<Result> UnsetConfigAsync(string projectPath, string key, bool isGlobal = false);
+    Task<Result<GitRepositoryMetadata>> GetMetadataAsync(string projectPath);
 }

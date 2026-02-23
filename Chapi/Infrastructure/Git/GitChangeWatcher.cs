@@ -13,7 +13,21 @@ public class GitChangeWatcher : IDisposable
     private readonly ConcurrentDictionary<string, DateTime> _lastChangeTime = new();
     private const int DEBOUNCE_MS = 500; // Esperar 500ms antes de notificar cambios
 
+    public bool IsSilenced { get; set; }
+
     public event EventHandler<string>? RepositoryChanged;
+
+    /// <summary>
+    /// Crea un objeto que silencia el watcher mientras exista.
+    /// </summary>
+    public IDisposable Silence() => new WatcherSilencer(this);
+
+    private class WatcherSilencer : IDisposable
+    {
+        private readonly GitChangeWatcher _watcher;
+        public WatcherSilencer(GitChangeWatcher watcher) { _watcher = watcher; _watcher.IsSilenced = true; }
+        public void Dispose() => _watcher.IsSilenced = false;
+    }
 
     /// <summary>
     /// Inicia el monitoreo de un repositorio.
@@ -69,6 +83,8 @@ public class GitChangeWatcher : IDisposable
 
     private void OnFileChanged(string projectPath, FileSystemEventArgs e)
     {
+        if (IsSilenced) return;
+
         // Normalizar ruta para comparaciones
         string path = e.FullPath.Replace('\\', '/');
         bool isGitInternal = path.Contains("/.git/");

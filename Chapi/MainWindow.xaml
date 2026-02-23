@@ -464,7 +464,7 @@
                                         VerticalAlignment="Center"
                                         Visibility="Visible">
                                     <TextBlock x:Name="txtChangesCount" 
-                                               Text="{Binding Changes.Count}" 
+                                               Text="{Binding TotalChangesCount}" 
                                                FontSize="11" 
                                                Foreground="White" 
                                                HorizontalAlignment="Center" 

@@ -152,6 +152,12 @@ public class GitRepositoryDispatcher : IGitRepository
         return await _libGit2.GetConfigAsync(projectPath, key, isGlobal);
     }
 
+    public async System.Threading.Tasks.Task<Chapi.Domain.Common.Result<Chapi.Domain.Models.GitRepositoryMetadata>> GetMetadataAsync(string projectPath)
+    {
+        if (IsWslPath(projectPath)) return await _wsl.GetMetadataAsync(projectPath);
+        return await _libGit2.GetMetadataAsync(projectPath);
+    }
+
     public bool IsGitInstalled() => true;
 
     #endregion

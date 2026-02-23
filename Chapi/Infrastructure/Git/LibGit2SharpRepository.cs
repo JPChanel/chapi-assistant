@@ -1068,6 +1068,41 @@ public partial class LibGit2SharpRepository : IGitRepository
 
     #region Misc
 
+    public async Task<Result<GitRepositoryMetadata>> GetMetadataAsync(string projectPath)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var config = repo.Config;
+                var remote = repo.Network.Remotes["origin"];
+                var head = repo.Head;
+
+                var m = new GitRepositoryMetadata
+                {
+                    UserName = config.Get<string>("user.name")?.Value ?? string.Empty,
+                    UserEmail = config.Get<string>("user.email")?.Value ?? string.Empty,
+                    RemoteUrl = remote?.Url ?? string.Empty,
+                    CurrentBranch = head.FriendlyName
+                };
+
+                if (head.IsTracking)
+                {
+                    m.Ahead = head.TrackingDetails.AheadBy ?? 0;
+                    m.Behind = head.TrackingDetails.BehindBy ?? 0;
+                    m.HasUpstream = true;
+                }
+
+                return Result<GitRepositoryMetadata>.Success(m);
+            }
+            catch (Exception ex)
+            {
+                return Result<GitRepositoryMetadata>.Fail($"Error al obtener metadatos: {ex.Message}");
+            }
+        });
+    }
+
     public bool IsGitInstalled()
     {
         // Con LibGit2Sharp, "git" está embebido en la app.

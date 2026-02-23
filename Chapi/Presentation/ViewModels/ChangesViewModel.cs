@@ -45,6 +45,8 @@ public class ChangesViewModel : ViewModelBase
     private bool _isMassUpdating;
     private bool _isStashViewVisible;
     private bool _isGenerating;
+    private int _ahead;
+    private int _behind;
     private bool _isSyncing;
     private CancellationTokenSource? _loadCts;
 
@@ -228,6 +230,13 @@ public class ChangesViewModel : ViewModelBase
                     _changeWatcher.WatchRepository(value);
                 }
 
+                // Limpiar contadores solo si el proyecto cambió físicamente
+                TotalAdditions = 0;
+                TotalDeletions = 0;
+                Ahead = 0;
+                Behind = 0;
+                OnPropertyChanged(nameof(TotalChangesCount));
+
                 _ = LoadChangesAsync();
             }
         }
@@ -235,14 +244,51 @@ public class ChangesViewModel : ViewModelBase
 
     private async Task LoadMetadataAsync()
     {
-        await LoadProfileAsync();
-        await LoadStashesAsync();
-    }
+        try
+        {
+            var result = await _gitRepository.GetMetadataAsync(ProjectPath);
+            if (result.IsSuccess)
+            {
+                var m = result.Data;
+                
+                // Actualizar perfil
+                GitUserName = m.UserName;
+                GitUserEmail = m.UserEmail;
+                
+                // Actualizar indicadores de sincronización
+                Ahead = m.Ahead;
+                Behind = m.Behind;
+                
+                // Actualizar Auth Status
+                AuthenticatedProvider = _authFactory.DetectProviderFromUrl(m.RemoteUrl);
+                IsAuthenticated = AuthenticatedProvider != Chapi.Domain.Enums.GitProvider.Unknown;
+                
+                var cred = await _credentialStorage.GetCredentialAsync(AuthenticatedProvider.ToString());
+                if (cred.HasValue)
+                {
+                    AuthenticatedUserName = cred.Value.username;
+                    IsUserLoggedIn = true;
+                }
+                else
+                {
+                    AuthenticatedUserName = "Conectar";
+                    IsUserLoggedIn = false;
+                }
 
-    private async Task LoadProfileAsync()
-    {
-        await LoadAuthStatusAsync();
-        await LoadGitUserEmailAsync();
+                // Forzar actualización de iconos y colores
+                OnPropertyChanged(nameof(ProviderIcon));
+                OnPropertyChanged(nameof(ProviderColor));
+
+                // Pre-cargar avatar si es necesario
+                if (IsUserLoggedIn && AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.GitLab && !string.IsNullOrWhiteSpace(AuthenticatedUserName))
+                {
+                    _ = Chapi.Domain.Services.AvatarCacheService.Instance.GetGitLabAvatarUrlAsync(AuthenticatedUserName);
+                }
+            }
+        }
+        catch { }
+        
+        await LoadStashesAsync();
     }
 
     /// <summary>
@@ -263,10 +309,36 @@ public class ChangesViewModel : ViewModelBase
         private set => SetProperty(ref _totalDeletions, value);
     }
 
+    /// <summary>
+    /// Total de lineas eliminadas.
+    /// </summary>
+    public int TotalChangesCount => Changes.Count;
+
+    public int Ahead
+    {
+        get => _ahead;
+        set => SetProperty(ref _ahead, value);
+    }
+
+    public int Behind
+    {
+        get => _behind;
+        set => SetProperty(ref _behind, value);
+    }
+
     public bool IsSyncing
     {
         get => _isSyncing;
         set => SetProperty(ref _isSyncing, value);
+    }
+
+    /// <summary>
+    /// Indica si se esta generando un mensaje de commit con IA.
+    /// </summary>
+    public bool IsGenerating
+    {
+        get => _isGenerating;
+        set => SetProperty(ref _isGenerating, value);
     }
 
     /// <summary>
@@ -389,14 +461,6 @@ public class ChangesViewModel : ViewModelBase
         }
     }
 
-    /// <summary>
-    /// Indica si se esta generando un mensaje de commit con IA.
-    /// </summary>
-    public bool IsGenerating
-    {
-        get => _isGenerating;
-        set => SetProperty(ref _isGenerating, value);
-    }
 
     // Auth Properties
     private string _authenticatedUserName;
@@ -497,10 +561,8 @@ public class ChangesViewModel : ViewModelBase
                 AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.Unknown ||
                 string.IsNullOrWhiteSpace(AuthenticatedUserName))
             {
-                // No está logueado o no hay provider válido
-                // Para GitHub, podemos usar GitUserName como fallback
-                // Para GitLab, NO usamos fallback (requiere username real sin espacios)
-                return string.Empty;
+                // Fallback al nombre de Git local si no hay sesión iniciada
+                return !string.IsNullOrWhiteSpace(GitUserName) ? GitUserName : string.Empty;
             }
 
             // Retornar el username autenticado (que coincide con el provider del proyecto)
@@ -544,11 +606,11 @@ public class ChangesViewModel : ViewModelBase
 
         IsSyncing = true;
 
-        // Resetear totales para evitar que se "peguen" de otros proyectos
+        // Resetear solo la lista, mantener totales previos para evitar parpadeo
         Changes.Clear();
-        TotalAdditions = 0;
-        TotalDeletions = 0;
+        OnPropertyChanged(nameof(TotalChangesCount));
 
+        using var silencer = _changeWatcher.Silence();
         try
         {
             if (_changesCache.TryGetChanges(ProjectPath, out var cachedChanges, out var cachedAdditions, out var cachedDeletions))
@@ -576,13 +638,13 @@ public class ChangesViewModel : ViewModelBase
                 TotalDeletions = cachedDeletions;
                 OnPropertyChanged(nameof(AreAllSelected));
                 OnPropertyChanged(nameof(SelectedCount));
+                OnPropertyChanged(nameof(TotalChangesCount));
 
                 IsSyncing = false;
 
                 // Cargar otras cosas en background
                 _ = LoadStashesAsync();
-                _ = LoadAuthStatusAsync();
-                _ = LoadGitUserEmailAsync();
+                _ = LoadMetadataAsync();
 
                 return;
             }
@@ -618,6 +680,7 @@ public class ChangesViewModel : ViewModelBase
                 }
                 OnPropertyChanged(nameof(AreAllSelected));
                 OnPropertyChanged(nameof(SelectedCount));
+                OnPropertyChanged(nameof(TotalChangesCount));
                 IsLoading = false;
             });
 
@@ -738,61 +801,6 @@ public class ChangesViewModel : ViewModelBase
         };
     }
 
-    private async Task LoadAuthStatusAsync()
-    {
-        IsAuthenticated = false;
-        AuthenticatedUserName = string.Empty;
-        AuthenticatedProvider = Chapi.Domain.Enums.GitProvider.Unknown;
-        IsUserLoggedIn = false;
-
-        if (string.IsNullOrEmpty(ProjectPath)) return;
-
-        try
-        {
-            var remoteUrl = await _gitRepository.GetRemoteUrlAsync(ProjectPath);
-            if (string.IsNullOrEmpty(remoteUrl)) return;
-
-            Chapi.Domain.Enums.GitProvider provider = Chapi.Domain.Enums.GitProvider.Unknown;
-            if (remoteUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase)) provider = Chapi.Domain.Enums.GitProvider.GitHub;
-            else if (remoteUrl.Contains("gitlab.com", StringComparison.OrdinalIgnoreCase)) provider = Chapi.Domain.Enums.GitProvider.GitLab;
-
-            if (provider == Chapi.Domain.Enums.GitProvider.Unknown) return;
-
-            AuthenticatedProvider = provider;
-            IsAuthenticated = true;
-
-            var cred = await _credentialStorage.GetCredentialAsync(provider.ToString());
-
-            if (cred.HasValue)
-            {
-                AuthenticatedUserName = cred.Value.username;
-                IsUserLoggedIn = true;
-            }
-            else
-            {
-                AuthenticatedUserName = "Conectar";
-                IsUserLoggedIn = false;
-            }
-
-            OnPropertyChanged(nameof(ProviderIcon));
-            OnPropertyChanged(nameof(ProviderColor));
-
-            // Pre-cargar el avatar de GitLab si está autenticado
-            if (IsUserLoggedIn &&
-                AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.GitLab &&
-                !string.IsNullOrWhiteSpace(AuthenticatedUserName) &&
-                AuthenticatedUserName != "Conectar")
-            {
-                _ = Task.Run(async () =>
-                 {
-                     await Chapi.Domain.Services.AvatarCacheService.Instance.GetGitLabAvatarUrlAsync(AuthenticatedUserName);
-                 });
-            }
-        }
-        catch (Exception ex)
-        {
-        }
-    }
 
     private async Task ConnectAccountAsync()
     {
@@ -854,7 +862,7 @@ public class ChangesViewModel : ViewModelBase
                 );
 
                 // Recargar estado
-                await LoadAuthStatusAsync();
+                _ = LoadMetadataAsync();
                 return;
             }
 
@@ -882,7 +890,7 @@ public class ChangesViewModel : ViewModelBase
                     }
 
                     // Recargar configuración
-                    await LoadGitUserEmailAsync();
+                    _ = LoadMetadataAsync();
                 }
                 catch (Exception ex)
                 {
@@ -904,7 +912,7 @@ public class ChangesViewModel : ViewModelBase
             if (result.IsSuccess)
             {
                 // Recargar el estado para mostrar el usuario logueado
-                await LoadAuthStatusAsync();
+                _ = LoadMetadataAsync();
 
                 // Pre-cargar el avatar para evitar "vibración" al cambiar de proyecto
                 if (AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.GitLab &&
@@ -931,26 +939,6 @@ public class ChangesViewModel : ViewModelBase
         }
     }
 
-    private async Task LoadGitUserEmailAsync()
-    {
-        if (string.IsNullOrEmpty(ProjectPath)) return;
-
-        try
-        {
-            // Obtener el email y nombre del usuario de Git configurado globalmente
-            var email = await _gitRepository.GetConfigAsync(ProjectPath, "user.email", isGlobal: true);
-            var name = await _gitRepository.GetConfigAsync(ProjectPath, "user.name", isGlobal: true);
-
-            GitUserEmail = email ?? string.Empty;
-            GitUserName = name ?? string.Empty;
-
-        }
-        catch (Exception ex)
-        {
-            GitUserEmail = string.Empty;
-            GitUserName = string.Empty;
-        }
-    }
 
     /// <summary>
     /// Carga la lista de stashes.
