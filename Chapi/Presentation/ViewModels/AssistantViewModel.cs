@@ -3,6 +3,7 @@ using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities.Assistant;
 using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
+using Chapi.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.ObjectModel;
 using System.Windows.Data;
@@ -54,6 +55,28 @@ public class AssistantViewModel : ViewModelBase
 
         // Mensaje de bienvenida
         AddWelcomeMessage();
+
+        // Escuchar mensajes globales (Notificaciones de infraestructura)
+        MessageHelper.Instance.MessageAdded += (helperMsg) =>
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                lock (_messagesLock)
+                {
+                    // Evitar duplicados si el mensaje ya viene del asistente (aunque helper suele ser para sistema)
+                    if (Messages.Any(m => m.Text == helperMsg.Text && m.Timestamp.ToString("HH:mm") == helperMsg.Timestamp))
+                        return;
+
+                    Messages.Add(new Domain.Entities.Assistant.ChatMessage
+                    {
+                        Text = helperMsg.Text,
+                        Author = helperMsg.Author == "User" ? Domain.Entities.Assistant.MessageAuthor.User : Domain.Entities.Assistant.MessageAuthor.Assistant,
+                        Timestamp = DateTime.Now // O parsear helperMsg.Timestamp si es necesario
+                    });
+                }
+                ScrollToBottom?.Invoke();
+            });
+        };
     }
 
     private void AddWelcomeMessage()

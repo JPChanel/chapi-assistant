@@ -7,6 +7,7 @@ public class MessageHelper : INotifyPropertyChanged
 {
     private static MessageHelper _instance;
     public static MessageHelper Instance => _instance ??= new MessageHelper();
+    public event Action<ChatMessage> MessageAdded;
 
     private ObservableCollection<ChatMessage> _messages = new();
     public ObservableCollection<ChatMessage> Messages
@@ -23,13 +24,14 @@ public class MessageHelper : INotifyPropertyChanged
     {
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
         {
-            Messages.Add(new ChatMessage
+            var msg = new ChatMessage
             {
                 Author = "User",
                 Text = text,
                 Timestamp = DateTime.Now.ToString("HH:mm")
-            });
-
+            };
+            Messages.Add(msg);
+            MessageAdded?.Invoke(msg);
             ScrollRequested?.Invoke(this, EventArgs.Empty);
         });
     }
@@ -38,12 +40,14 @@ public class MessageHelper : INotifyPropertyChanged
     {
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
         {
-            Messages.Add(new ChatMessage
+            var msg = new ChatMessage
             {
                 Author = "Assistant",
                 Text = text,
                 Timestamp = DateTime.Now.ToString("HH:mm")
-            });
+            };
+            Messages.Add(msg);
+            MessageAdded?.Invoke(msg);
             ScrollRequested?.Invoke(this, EventArgs.Empty);
         });
 
