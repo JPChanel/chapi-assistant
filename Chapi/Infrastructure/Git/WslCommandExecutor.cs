@@ -20,11 +20,11 @@ public static class WslCommandExecutor
                 if (string.IsNullOrEmpty(distro)) 
                     return Result<string>.Fail("La ruta proporcionada no pertenece a un sistema de archivos WSL.");
 
-                // El comando final se ejecuta como: wsl -d Ubuntu -- git -C /home/user/... stash push -m "msg"
+                // Añadir GIT_TERMINAL_PROMPT=0 para evitar bloqueos por solicitudes de credenciales
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "wsl.exe",
-                    Arguments = $"-d {distro} -- {gitCommand.Replace("{path}", linuxPath)}",
+                    Arguments = $"-d {distro} -- env GIT_TERMINAL_PROMPT=0 {gitCommand.Replace("{path}", linuxPath)}",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -33,12 +33,27 @@ public static class WslCommandExecutor
                     StandardErrorEncoding = Encoding.UTF8
                 };
 
-                using var process = Process.Start(startInfo);
-                if (process == null) return Result<string>.Fail("No se pudo iniciar el proceso WSL.");
+                using var process = new Process { StartInfo = startInfo };
+                var outputBuilder = new StringBuilder();
+                var errorBuilder = new StringBuilder();
 
-                var output = process.StandardOutput.ReadToEnd();
-                var error = process.StandardError.ReadToEnd();
-                process.WaitForExit();
+                process.OutputDataReceived += (s, e) => { if (e.Data != null) outputBuilder.AppendLine(e.Data); };
+                process.ErrorDataReceived += (s, e) => { if (e.Data != null) errorBuilder.AppendLine(e.Data); };
+
+                if (!process.Start()) return Result<string>.Fail("No se pudo iniciar el proceso WSL.");
+
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                // Añadir un timeout de seguridad de 30 segundos
+                if (!process.WaitForExit(30000))
+                {
+                    process.Kill();
+                    return Result<string>.Fail("El comando WSL superó el tiempo de espera (30s).");
+                }
+
+                var output = outputBuilder.ToString().TrimEnd();
+                var error = errorBuilder.ToString().TrimEnd();
 
                 if (process.ExitCode != 0)
                 {

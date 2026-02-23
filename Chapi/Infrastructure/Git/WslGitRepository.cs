@@ -12,6 +12,39 @@ namespace Chapi.Infrastructure.Git;
 /// </summary>
 public class WslGitRepository : IGitRepository
 {
+    private readonly IGitAuthProviderFactory _authFactory;
+    private readonly ICredentialStorageService _credentialStorage;
+
+    public WslGitRepository(
+        IGitAuthProviderFactory authFactory,
+        ICredentialStorageService credentialStorage)
+    {
+        _authFactory = authFactory;
+        _credentialStorage = credentialStorage;
+    }
+
+    private async Task<string?> GetAccessTokenAsync(string remoteUrl)
+    {
+        var provider = _authFactory.DetectProviderFromUrl(remoteUrl);
+        if (provider == GitProvider.Unknown) return null;
+
+        var cred = await _credentialStorage.GetCredentialAsync(provider.ToString());
+        if (!cred.HasValue) return null;
+
+        return cred.Value.token;
+    }
+
+    private string InjectTokenIntoUrl(string url, string token)
+    {
+        if (string.IsNullOrEmpty(token)) return url;
+        
+        // Formato esperado: https://gitlab.com/user/repo.git -> https://oauth2:TOKEN@gitlab.com/user/repo.git
+        if (url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return "https://oauth2:" + token + "@" + url.Substring(8);
+        }
+        return url;
+    }
     public async Task<Result> StashChangesAsync(string projectPath, string message, IEnumerable<string>? files = null)
     {
         var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} stash push -u -m \"{message}\"");
@@ -50,7 +83,8 @@ public class WslGitRepository : IGitRepository
         {
             if (line.Length < 4) continue;
             string statusPart = line.Substring(0, 2);
-            string filePath = line.Substring(3).Trim('"').Replace('/', Path.DirectorySeparatorChar);
+            // Tomamos todo a partir del índice 3, que es donde empieza el archivo tras 'XY '
+            string filePath = line.Substring(3).Trim('"').Trim().Replace('/', Path.DirectorySeparatorChar);
             ChangeStatus status = ChangeStatus.Modified;
             if (statusPart.Contains('A') || statusPart.Contains('?')) status = ChangeStatus.Added;
             else if (statusPart.Contains('D')) status = ChangeStatus.Deleted;
@@ -166,7 +200,16 @@ public class WslGitRepository : IGitRepository
 
     public async Task<Result> FetchAsync(string projectPath)
     {
-        var result = await WslCommandExecutor.ExecuteAsync(projectPath, "git -C {path} fetch --prune");
+        var remoteUrl = await GetRemoteUrlAsync(projectPath);
+        var token = await GetAccessTokenAsync(remoteUrl);
+        
+        string target = "origin";
+        if (!string.IsNullOrEmpty(token))
+        {
+            target = InjectTokenIntoUrl(remoteUrl, token);
+        }
+
+        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} fetch {target} --prune");
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 
@@ -245,13 +288,38 @@ public class WslGitRepository : IGitRepository
     public Task<Result> RestoreFileFromStashAsync(string projectPath, string stashName, string filePath) => throw new NotImplementedException();
     public async Task<Result> PushAsync(string projectPath, string branch, bool force = false)
     {
-        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} push origin {branch} {(force ? "-f" : "")}");
+        var remoteUrl = await GetRemoteUrlAsync(projectPath);
+        var token = await GetAccessTokenAsync(remoteUrl);
+        
+        string target = "origin";
+        if (!string.IsNullOrEmpty(token))
+        {
+            target = InjectTokenIntoUrl(remoteUrl, token);
+        }
+
+        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} push {target} {branch} {(force ? "-f" : "")}");
+        
+        if (result.IsSuccess)
+        {
+            // Sincronizar ramas de seguimiento para que la UI de Git (y git status) reflejen el éxito
+            await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} fetch {target} {branch}");
+        }
+
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 
     public async Task<Result> PullAsync(string projectPath, string branch)
     {
-        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} pull origin {branch}");
+        var remoteUrl = await GetRemoteUrlAsync(projectPath);
+        var token = await GetAccessTokenAsync(remoteUrl);
+
+        string target = "origin";
+        if (!string.IsNullOrEmpty(token))
+        {
+            target = InjectTokenIntoUrl(remoteUrl, token);
+        }
+
+        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} pull {target} {branch}");
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
     public Task<Result> SetRemoteUrlAsync(string projectPath, string remoteName, string url) => throw new NotImplementedException();
