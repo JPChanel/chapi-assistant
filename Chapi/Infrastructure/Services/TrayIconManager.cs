@@ -6,7 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 namespace Chapi
 {
-    public class TrayIconManager
+    public class TrayIconManager : IDisposable
     {
         private TaskbarIcon taskbarIcon;
         private MainWindow mainWindow;
@@ -26,6 +26,11 @@ namespace Chapi
             taskbarIcon.TrayMouseDoubleClick += (s, e) => RestoreWindow();
             // Evento un solo clic
             taskbarIcon.TrayLeftMouseUp += (s, e) => RestoreWindow();
+        }
+
+        public void Dispose()
+        {
+            taskbarIcon?.Dispose();
         }
 
         private void RestoreWindow()

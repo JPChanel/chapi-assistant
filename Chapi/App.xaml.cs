@@ -352,6 +352,8 @@ namespace Chapi
 
         protected override void OnExit(ExitEventArgs e)
         {
+            TrayIconManager?.Dispose();
+            NetworkWatcher?.Dispose();
             ReleaseMutex();
             base.OnExit(e);
         }

@@ -3,7 +3,7 @@ using System.Net.NetworkInformation;
 
 namespace Chapi.Infrastructure.Services;
 
-public class NetworkWatcherService
+public class NetworkWatcherService : IDisposable
 {
     private bool _isApplying = false;
     public static event Action OnProxyConfigChanged;
@@ -16,6 +16,11 @@ public class NetworkWatcherService
         _gitRepository = gitRepository;
         NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
         Task.Run(CheckNetworkAndApplyProxy);
+    }
+
+    public void Dispose()
+    {
+        NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
     }
     /// <summary>
     /// Este método se dispara AUTOMÁTICAMENTE cuando Windows

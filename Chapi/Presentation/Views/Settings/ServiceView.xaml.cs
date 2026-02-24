@@ -228,15 +228,23 @@ namespace Chapi.Presentation.Views.Settings
 
                 txtStatus.Text = "Reiniciando con la nueva versión...";
 
+                // Asegurar cierre real de MainWindow y limpieza de recursos
+                if (System.Windows.Application.Current.MainWindow is MainWindow mw)
+                {
+                    // 1. Limpieza de recursos internos (Timers, Watchers)
+                    mw.ForceShutdown();
+                    // 2. Limpieza de "fantasmas" externos (WSL, SQL Server, etc)
+                    mw.KillExternalBlockers();
+                }
+
                 // Liberar el Mutex ANTES de que Velopack lance la nueva instancia.
                 App.ReleaseMutex();
 
                 // ApplyUpdatesAndRestart: aplica los archivos y relanza automáticamente la nueva versión.
-                // Es más confiable que Exit porque Velopack no depende del usuario para volver a abrir.
                 _mgr.ApplyUpdatesAndRestart(_updateInfo);
 
-                // Si llegamos aquí, algo falló - forzar cierre limpio
-                System.Windows.Application.Current.Shutdown();
+                // Si llegamos aquí, forzar la salida inmediata
+                Environment.Exit(0);
             }
             catch (Exception ex)
             {

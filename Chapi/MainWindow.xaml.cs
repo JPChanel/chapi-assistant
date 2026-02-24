@@ -38,6 +38,7 @@ namespace Chapi
         private bool _isGitInstalled = false;
         private System.Windows.Threading.DispatcherTimer _fetchTimer;
         private CancellationTokenSource? _projectSwitchCts;
+        private bool _isShuttingDown = false;
 
         public string AppVersion { get; private set; }
         public string ServiceStatusText => "Activo";
@@ -1488,8 +1489,76 @@ namespace Chapi
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            if (_isShuttingDown)
+            {
+                CleanupResources();
+                return;
+            }
+
             e.Cancel = true;
             Hide();
+        }
+
+        public void ForceShutdown()
+        {
+            _isShuttingDown = true;
+            System.Windows.Application.Current.Shutdown();
+        }
+
+        private void CleanupResources()
+        {
+            _debounceTimer?.Dispose();
+            if (_fetchTimer != null)
+            {
+                _fetchTimer.Stop();
+            }
+            _fileWatcher?.Dispose();
+        }
+
+        public void KillExternalBlockers()
+        {
+            try
+            {
+                string appPath = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
+                // Escapar la ruta para PowerShell
+                string escapedPath = appPath.Replace("'", "''");
+
+                // Script de PowerShell para encontrar procesos con handles en la carpeta actual
+                // Filtramos por procesos conocidos por causar problemas (wslhost, sqlservr, conhost, git)
+                string script = $@"
+                    $path = '{escapedPath}'
+                    $processes = Get-Process | Where-Object {{ $_.Name -match 'wslhost|sqlservr|conhost|git|Update' }}
+                    foreach ($p in $processes) {{
+                        try {{
+                            $hasHandle = $false
+                            # Usamos el comando 'handle' de Sysinternals si estuviera, 
+                            # pero como fallback buscamos procesos cuyo CWD o módulos estén ahí
+                            if ($p.MainModule.FileName -like ""$path*"" -or $p.StartInfo.WorkingDirectory -like ""$path*"") {{
+                                $hasHandle = $true
+                            }}
+                            if ($hasHandle) {{
+                                Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+                            }}
+                        }} catch {{ }}
+                    }}
+                    # Caso especial para WSL: matamos todas las instancias de wslhost si detectamos bloqueos
+                    if (Get-Process -Name 'wslhost' -ErrorAction SilentlyContinue) {{
+                         wsl.exe --shutdown
+                    }}
+                ";
+
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{script.Replace("\"", "\\\"")}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = Process.Start(startInfo);
+                process?.WaitForExit(5000); // Esperar máximo 5 segundos
+            }
+            catch (Exception) { /* Fallback silencioso */ }
         }
     }
 }
