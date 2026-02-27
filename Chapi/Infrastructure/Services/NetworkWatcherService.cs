@@ -60,9 +60,6 @@ public class NetworkWatcherService : IDisposable
                 }
             }
 
-            var currentDomain = IPGlobalProperties.GetIPGlobalProperties().DomainName;
-            bool isOfficeDomain = currentDomain.EndsWith(_corporateDomain, StringComparison.OrdinalIgnoreCase);
-
             // REGLA 1: Si estamos en Wi-Fi (o el usuario lo deshabilitó)
             if (isWifiActive || !settings.ProxyEnabled)
             {
@@ -73,8 +70,8 @@ public class NetworkWatcherService : IDisposable
                     configChanged = true;
                 }
             }
-            // REGLA 2: Si estamos en Ethernet Y en la oficina Y el usuario lo habilitó
-            else if (!isWifiActive && isOfficeDomain && settings.ProxyEnabled)
+            // REGLA 2: Si no estamos en Wi-Fi y el usuario habilitó el proxy explícitamente
+            else if (settings.ProxyEnabled)
             {
                 if (string.IsNullOrWhiteSpace(settings.ProxyUrl))
                 {
@@ -87,16 +84,6 @@ public class NetworkWatcherService : IDisposable
                 {
                     await _gitRepository.SetConfigAsync(string.Empty, "http.proxy", proxyUrlToApply, isGlobal: true);
                     await _gitRepository.SetConfigAsync(string.Empty, "https.proxy", proxyUrlToApply, isGlobal: true);
-                    configChanged = true;
-                }
-            }
-            // REGLA 3: Si estamos en Ethernet pero en casa
-            else
-            {
-                if (!string.IsNullOrEmpty(currentGitProxy))
-                {
-                    await _gitRepository.UnsetConfigAsync(string.Empty, "http.proxy", isGlobal: true);
-                    await _gitRepository.UnsetConfigAsync(string.Empty, "https.proxy", isGlobal: true);
                     configChanged = true;
                 }
             }

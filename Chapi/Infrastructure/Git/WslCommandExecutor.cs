@@ -10,7 +10,7 @@ namespace Chapi.Infrastructure.Git;
 /// </summary>
 public static class WslCommandExecutor
 {
-    public static async Task<Result<string>> ExecuteAsync(string windowsPath, string gitCommand)
+    public static async Task<Result<string>> ExecuteAsync(string windowsPath, string gitCommand, int timeoutMilliseconds = 60000)
     {
         return await Task.Run(() =>
         {
@@ -20,11 +20,31 @@ public static class WslCommandExecutor
                 if (string.IsNullOrEmpty(distro)) 
                     return Result<string>.Fail("La ruta proporcionada no pertenece a un sistema de archivos WSL.");
 
+                // Configurar entorno de Proxy para procesos Linux si está habilitado en Chapi
+                string proxyEnv = "";
+                var settings = Infrastructure.Persistence.Settings.UserSettingsService.LoadSettings();
+                if (settings.ProxyEnabled && !string.IsNullOrWhiteSpace(settings.ProxyUrl))
+                {
+                    var url = settings.ProxyUrl;
+                    string scheme = "http";
+                    if (url.StartsWith("http://")) url = url.Substring(7);
+                    else if (url.StartsWith("https://")) { scheme = "https"; url = url.Substring(8); }
+                    
+                    string auth = "";
+                    if (!string.IsNullOrWhiteSpace(settings.ProxyUser) && !string.IsNullOrWhiteSpace(settings.ProxyPass))
+                    {
+                        auth = $"{settings.ProxyUser}:{settings.ProxyPass}@";
+                    }
+                    string fullProxy = $"{scheme}://{auth}{url}";
+                    proxyEnv = $"env http_proxy=\"{fullProxy}\" https_proxy=\"{fullProxy}\" ALL_PROXY=\"{fullProxy}\" ";
+                }
+
                 // Añadir GIT_TERMINAL_PROMPT=0 para evitar bloqueos por solicitudes de credenciales
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "wsl.exe",
-                    Arguments = $"-d {distro} -- env GIT_TERMINAL_PROMPT=0 {gitCommand.Replace("{path}", linuxPath)}",
+                    Arguments = $"-d {distro} -- {proxyEnv}env GIT_TERMINAL_PROMPT=0 {gitCommand.Replace("{path}", linuxPath)}",
+
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -45,19 +65,23 @@ public static class WslCommandExecutor
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
 
-                // Añadir un timeout de seguridad de 30 segundos
-                if (!process.WaitForExit(30000))
+                // Añadir un timeout de seguridad configurable
+                if (!process.WaitForExit(timeoutMilliseconds))
                 {
                     process.Kill();
-                    return Result<string>.Fail("El comando WSL superó el tiempo de espera (30s).");
+                    return Result<string>.Fail($"El comando WSL superó el tiempo de espera ({(timeoutMilliseconds/1000)}s).");
                 }
 
                 var output = outputBuilder.ToString().TrimEnd();
                 var error = errorBuilder.ToString().TrimEnd();
 
-                if (process.ExitCode != 0)
+                // Git a veces escribe en stderr para advertencias, pero si incluye 'fatal:' o 'error:', FALLÓ
+                bool hasFatalErrorInStderr = error.Contains("fatal:", StringComparison.OrdinalIgnoreCase) || 
+                                             error.Contains("error:", StringComparison.OrdinalIgnoreCase);
+
+                if (process.ExitCode != 0 || hasFatalErrorInStderr)
                 {
-                    var finalError = !string.IsNullOrWhiteSpace(error) ? error : "Error de ejecución en WSL.";
+                    var finalError = !string.IsNullOrWhiteSpace(error) ? error : (hasFatalErrorInStderr ? error : "Error de ejecución en WSL.");
                     
                     // Mejorar detección de problemas de autenticación
                     if (finalError.Contains("Authentication failed", StringComparison.OrdinalIgnoreCase) || 

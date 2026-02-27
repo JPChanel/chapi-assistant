@@ -210,7 +210,8 @@ public class WslGitRepository : IGitRepository
             target = InjectTokenIntoUrl(remoteUrl, token);
         }
 
-        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} fetch {target} --prune");
+        // Deshabilitar credential helper temporalmente para evitar cuelgues, y asignar 2 min de timeout
+        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} -c credential.helper= fetch {target} --prune", 120000);
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 
@@ -316,10 +317,43 @@ public class WslGitRepository : IGitRepository
     public Task<Result> StageFilesAsync(string projectPath, IEnumerable<string> files) => throw new NotImplementedException();
     public Task<Result> UnstageFilesAsync(string projectPath, IEnumerable<string> files) => throw new NotImplementedException();
     public Task<Result> DiscardChangesAsync(string projectPath, IEnumerable<string>? files = null) => throw new NotImplementedException();
-    public Task<IEnumerable<string>> GetBranchesAsync(string projectPath) => throw new NotImplementedException();
-    public Task<Result> SwitchBranchAsync(string projectPath, string branchName) => throw new NotImplementedException();
-    public Task<Result> CreateBranchAsync(string projectPath, string branchName, string? fromCommitOrBranch = null) => throw new NotImplementedException();
-    public Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false, bool deleteRemote = false) => throw new NotImplementedException();
+    public async Task<IEnumerable<string>> GetBranchesAsync(string projectPath)
+    {
+        // Obtener ramas locales y remotas (origin/)
+        var result = await WslCommandExecutor.ExecuteAsync(projectPath, "git -C {path} branch -a --format=\"%(refname:short)\"");
+        if (!result.IsSuccess) return Enumerable.Empty<string>();
+
+        return result.Data.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                          .Select(b => b.Trim())
+                          .Where(b => !b.EndsWith("/HEAD"))
+                          .ToList();
+    }
+
+    public async Task<Result> SwitchBranchAsync(string projectPath, string branchName)
+    {
+        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} checkout \"{branchName}\"");
+        return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+    }
+
+    public async Task<Result> CreateBranchAsync(string projectPath, string branchName, string? fromCommitOrBranch = null)
+    {
+        string source = string.IsNullOrEmpty(fromCommitOrBranch) ? "" : $" \"{fromCommitOrBranch}\"";
+        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} checkout -b \"{branchName}\"{source}");
+        return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+    }
+
+    public async Task<Result> DeleteBranchAsync(string projectPath, string branchName, bool force = false, bool deleteRemote = false)
+    {
+        string flag = force ? "-D" : "-d";
+        var localResult = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} branch {flag} \"{branchName}\"");
+        
+        if (localResult.IsSuccess && deleteRemote)
+        {
+            await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} push origin --delete \"{branchName}\"");
+        }
+
+        return localResult.IsSuccess ? Result.Success() : Result.Fail(localResult.Error);
+    }
     public Task<Result> MergeBranchAsync(string projectPath, string sourceBranch, bool fastForward = true) => throw new NotImplementedException();
     public Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranch, string? commitMessage = null) => throw new NotImplementedException();
     public Task<Result> RebaseBranchAsync(string projectPath, string targetBranch) => throw new NotImplementedException();
@@ -337,12 +371,13 @@ public class WslGitRepository : IGitRepository
             target = InjectTokenIntoUrl(remoteUrl, token);
         }
 
-        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} push {target} {branch} {(force ? "-f" : "")}");
+        // Deshabilitar credential helper temporalmente para evitar cuelgues, y asignar 2 min de timeout
+        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} -c credential.helper= push {target} {branch} {(force ? "-f" : "")}", 120000);
         
         if (result.IsSuccess)
         {
             // Sincronizar ramas de seguimiento para que la UI de Git (y git status) reflejen el éxito
-            await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} fetch {target} {branch}");
+            await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} -c credential.helper= fetch {target} {branch}", 120000);
         }
 
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
@@ -359,7 +394,8 @@ public class WslGitRepository : IGitRepository
             target = InjectTokenIntoUrl(remoteUrl, token);
         }
 
-        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} pull {target} {branch}");
+        // Deshabilitar credential helper temporalmente para evitar cuelgues, y asignar 2 min de timeout
+        var result = await WslCommandExecutor.ExecuteAsync(projectPath, $"git -C {{path}} -c credential.helper= pull {target} {branch}", 120000);
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
     public Task<Result> SetRemoteUrlAsync(string projectPath, string remoteName, string url) => throw new NotImplementedException();

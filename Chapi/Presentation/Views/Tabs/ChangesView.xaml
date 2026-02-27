@@ -234,7 +234,7 @@
                                      MaxHeight="150"
                                      TextWrapping="Wrap"
                                      AcceptsReturn="True"
-                                     VerticalScrollBarVisibility="Auto"
+                                     VerticalScrollBarVisibility="Hidden"
                                      Text="{Binding CommitDescription, UpdateSourceTrigger=PropertyChanged}"
                                      Margin="0,0,0,10"
                                      Style="{StaticResource MaterialDesignOutlinedTextBox}"/>

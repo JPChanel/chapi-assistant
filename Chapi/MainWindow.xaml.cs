@@ -254,31 +254,40 @@ namespace Chapi
 
             try
             {
-                // Carga inicial rápida de ramas
+                // 1. Prioridad Máxima: Obtener la rama activa y metadatos básicos de un golpe (Muy rápido en WSL)
+                var metadataResult = await _gitRepository.GetMetadataAsync(projectDirectory);
+                if (token.IsCancellationRequested) return;
+
+                if (metadataResult.IsSuccess)
+                {
+                    var metadata = metadataResult.Data;
+                    _currentlySelectedBranch = metadata.CurrentBranch;
+                    
+                    // Asegurar que la rama actual esté en el combo aunque la lista completa no haya cargado
+                    BranchesComboBox.ItemsSource = new List<string> { metadata.CurrentBranch };
+                    BranchesComboBox.SelectedItem = metadata.CurrentBranch;
+                    
+                    UpdateGitActionButton();
+                    
+                    if (metadata.Ahead > 0)
+                    {
+                        Msg.Assistant($"🚀 Tienes {metadata.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
+                    }
+                }
+
+                // 2. Carga secundaria: Listado completo de todas las ramas (incluyendo remotas)
                 var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
                 var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
                 if (token.IsCancellationRequested) return;
 
-                string activeBranch = await _gitRepository.GetCurrentBranchAsync(projectDirectory);
-                if (token.IsCancellationRequested) return;
-
-                if (!string.IsNullOrEmpty(activeBranch) && !branches.Contains(activeBranch))
+                // Combinar la rama actual detectada con la lista completa
+                if (!string.IsNullOrEmpty(_currentlySelectedBranch) && !branches.Contains(_currentlySelectedBranch))
                 {
-                    branches.Add(activeBranch);
+                    branches.Insert(0, _currentlySelectedBranch);
                 }
 
                 BranchesComboBox.ItemsSource = branches;
-                if (!string.IsNullOrEmpty(activeBranch))
-                {
-                    _currentlySelectedBranch = activeBranch;
-                    BranchesComboBox.SelectedItem = activeBranch;
-                    UpdateGitActionButton();
-
-                    if (selectedProject.Ahead > 0)
-                    {
-                        Msg.Assistant($"🚀 Tienes {selectedProject.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
-                    }
-                }
+                BranchesComboBox.SelectedItem = _currentlySelectedBranch;
 
                 // Cargas pesadas en segundo plano con validación de token
                 _ = Task.Run(async () =>

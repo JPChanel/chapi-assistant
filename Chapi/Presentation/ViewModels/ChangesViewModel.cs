@@ -607,6 +607,14 @@ public class ChangesViewModel : ViewModelBase
 
         IsSyncing = true;
 
+        // PARALELISMO: Lanzar carga de stashes y perfil de usuario inmediatamente
+        // Esto permite que el avatar y nombre carguen sin esperar a la lista de cambios en WSL
+        _ = Task.Run(async () =>
+        {
+            try { await LoadMetadataAsync(); } catch { }
+        }, token);
+        _ = LoadStashesAsync();
+
         // Resetear solo si el proyecto es nuevo o está vacío, 
         // de lo contrario mantener los cambios actuales hasta que lleguen los nuevos (evita parpadeo)
         bool isFullReload = Changes.Count == 0;
@@ -651,11 +659,6 @@ public class ChangesViewModel : ViewModelBase
                 OnPropertyChanged(nameof(TotalChangesCount));
 
                 IsSyncing = false;
-
-                // Cargar otras cosas en background
-                _ = LoadStashesAsync();
-                _ = LoadMetadataAsync();
-
                 return;
             }
 
@@ -698,16 +701,6 @@ public class ChangesViewModel : ViewModelBase
 
             // Cargar stats en background solo si faltan (en WSL ya vienen incluidos)
             _ = LoadFileStatsInBackgroundAsync(token);
-
-            // ⚡ OPTIMIZACIÓN: Cargar metadatos secundarios en paralelo
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await LoadMetadataAsync();
-                }
-                catch { }
-            }, token);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)

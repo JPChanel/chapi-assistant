@@ -118,21 +118,22 @@ public class GitRepositoryDispatcher : IGitRepository
 
     public async Task<Result> PushAsync(string projectPath, string branch, bool force = false)
     {
-        if (IsWslPath(projectPath)) return await _wsl.PushAsync(projectPath, branch, force);
+        // Fuerza el uso de Windows Nativo para operaciones de red (evita cuelgues de credenciales en WSL)
         return await _libGit2.PushAsync(projectPath, branch, force);
     }
 
     public async Task<Result> PullAsync(string projectPath, string branch)
     {
-        if (IsWslPath(projectPath)) return await _wsl.PullAsync(projectPath, branch);
+        // Fuerza el uso de Windows Nativo para operaciones de red
         return await _libGit2.PullAsync(projectPath, branch);
     }
 
     public async Task<Result> FetchAsync(string projectPath)
     {
-        if (IsWslPath(projectPath)) return await _wsl.FetchAsync(projectPath);
+        // Fuerza el uso de Windows Nativo para operaciones de red
         return await _libGit2.FetchAsync(projectPath);
     }
+
 
     public async Task<IEnumerable<string>> GetFilesChangedInCommitAsync(string projectPath, string hash)
     {
