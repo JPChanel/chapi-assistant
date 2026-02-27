@@ -137,7 +137,8 @@ public class WslGitRepository : IGitRepository
 
     public async Task<string> GetCurrentBranchAsync(string projectPath)
     {
-        var result = await WslCommandExecutor.ExecuteAsync(projectPath, "git -C {path} rev-parse --abbrev-ref HEAD");
+        // git symbolic-ref -q HEAD devuelve el nombre de la rama si existe, de lo contrario falla (detached)
+        var result = await WslCommandExecutor.ExecuteAsync(projectPath, "git -C {path} symbolic-ref -q --short HEAD || git -C {path} rev-parse --short HEAD");
         return result.IsSuccess ? result.Data.Trim() : string.Empty;
     }
 
@@ -276,7 +277,8 @@ public class WslGitRepository : IGitRepository
         var command = "git -C {path} config user.name || echo \"\"; echo \"---\"; " +
                       "git -C {path} config user.email || echo \"\"; echo \"---\"; " +
                       "git -C {path} remote get-url origin 2>/dev/null || echo \"\"; echo \"---\"; " +
-                      "git -C {path} rev-parse --abbrev-ref HEAD 2>/dev/null || echo \"\"; echo \"---\"; " +
+                      "git -C {path} symbolic-ref -q --short HEAD || git -C {path} rev-parse --short HEAD; echo \"---\"; " +
+                      "git -C {path} symbolic-ref -q HEAD >/dev/null && echo \"false\" || echo \"true\"; echo \"---\"; " +
                       "git -C {path} rev-list --left-right --count HEAD...HEAD@{u} 2>/dev/null || echo \"0\t0\"";
 
         var result = await WslCommandExecutor.ExecuteAsync(projectPath, command);
@@ -286,14 +288,16 @@ public class WslGitRepository : IGitRepository
         var parts = result.Data.Split(new[] { "---\n", "---\r\n", "---" }, StringSplitOptions.None)
                           .Select(p => p.Trim()).ToList();
 
-        if (parts.Count >= 5)
+        if (parts.Count >= 6)
         {
             m.UserName = parts[0];
             m.UserEmail = parts[1];
             m.RemoteUrl = parts[2];
             m.CurrentBranch = parts[3];
+            m.IsDetached = parts[4] == "true";
+            if (m.IsDetached) m.DetachedHeadSha = parts[3];
 
-            var abParts = parts[4].Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            var abParts = parts[5].Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
             if (abParts.Length >= 2 && int.TryParse(abParts[0], out int ahead) && int.TryParse(abParts[1], out int behind))
             {
                 m.Ahead = ahead;

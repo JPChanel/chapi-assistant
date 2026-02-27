@@ -343,7 +343,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                 var remoteBranches = repo.Branches.Where(b => b.IsRemote && !b.FriendlyName.EndsWith("/HEAD")).ToList();
 
                 var result = new List<string>();
-                
+
                 // 1. Añadir ramas locales
                 var localNames = localBranches.Select(b => b.FriendlyName).ToList();
                 result.AddRange(localNames);
@@ -353,7 +353,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                 {
                     var remoteName = remote.RemoteName;
                     var fullRemoteName = remote.FriendlyName; // ej: origin/master
-                    
+
                     // Extraer el nombre de la rama sin el remoto (ej: master)
                     var branchSimpleName = fullRemoteName;
                     if (!string.IsNullOrEmpty(remoteName) && fullRemoteName.StartsWith(remoteName + "/"))
@@ -365,7 +365,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                     // Esto ayuda al usuario a identificar qué ramas están solo en el servidor.
                     if (!localNames.Contains(branchSimpleName))
                     {
-                        result.Add(fullRemoteName); 
+                        result.Add(fullRemoteName);
                     }
                 }
 
@@ -385,7 +385,8 @@ public partial class LibGit2SharpRepository : IGitRepository
             try
             {
                 using var repo = new Repository(projectPath);
-                return repo.Head.FriendlyName;
+                var isDetached = repo.Info.IsHeadDetached;
+                return isDetached ? repo.Head.Tip.Sha.Substring(0, 7) : repo.Head.FriendlyName;
             }
             catch
             {
@@ -401,7 +402,7 @@ public partial class LibGit2SharpRepository : IGitRepository
             try
             {
                 using var repo = new Repository(projectPath);
-                
+
                 // Intenta buscar la rama por nombre exacto (puede ser local o remota "origin/rama")
                 var branch = repo.Branches[branchName];
 
@@ -411,7 +412,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                     // Si es una rama remota (ej. origin/feature), debemos crear la local correspondiente
                     if (branch.IsRemote)
                     {
-                        var remoteName = branch.RemoteName; 
+                        var remoteName = branch.RemoteName;
                         var localName = branch.FriendlyName.Substring(remoteName.Length + 1);
 
                         var existingLocal = repo.Branches[localName];
@@ -422,9 +423,9 @@ public partial class LibGit2SharpRepository : IGitRepository
                             if (branch.TrackedBranch == null)
                             {
                                 // Buscar la remota equivalente (ej. origin/master para master)
-                                var remoteBranch = repo.Branches.FirstOrDefault(b => b.IsRemote && 
+                                var remoteBranch = repo.Branches.FirstOrDefault(b => b.IsRemote &&
                                     (b.FriendlyName == $"origin/{localName}" || b.FriendlyName.EndsWith("/" + localName)));
-                                
+
                                 if (remoteBranch != null)
                                 {
                                     repo.Branches.Update(branch, b => b.UpstreamBranch = remoteBranch.CanonicalName);
@@ -434,7 +435,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                         else
                         {
                             branch = repo.CreateBranch(localName, branch.Tip);
-                            var remoteBranch = repo.Branches[branchName]; 
+                            var remoteBranch = repo.Branches[branchName];
                             repo.Branches.Update(branch, b => b.UpstreamBranch = remoteBranch.CanonicalName);
                         }
                     }
@@ -457,7 +458,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                     }
                 }
 
-                var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.None }; 
+                var options = new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.None };
                 Commands.Checkout(repo, branch, options);
 
                 if (repo.Head.FriendlyName != branch.FriendlyName)
@@ -1079,12 +1080,15 @@ public partial class LibGit2SharpRepository : IGitRepository
                 var remote = repo.Network.Remotes["origin"];
                 var head = repo.Head;
 
+                var isDetached = repo.Info.IsHeadDetached;
                 var m = new GitRepositoryMetadata
                 {
                     UserName = config.Get<string>("user.name")?.Value ?? string.Empty,
                     UserEmail = config.Get<string>("user.email")?.Value ?? string.Empty,
                     RemoteUrl = remote?.Url ?? string.Empty,
-                    CurrentBranch = head.FriendlyName
+                    CurrentBranch = isDetached ? head.Tip.Sha.Substring(0, 7) : head.FriendlyName,
+                    IsDetached = isDetached,
+                    DetachedHeadSha = isDetached ? head.Tip.Sha.Substring(0, 7) : null
                 };
 
                 if (head.IsTracking)
@@ -1118,10 +1122,10 @@ public partial class LibGit2SharpRepository : IGitRepository
             {
                 using var repo = new Repository(projectPath);
                 var branch = repo.Branches[branchName];
-                
+
                 // Si es una rama remota, ya está en el servidor
                 if (branch != null && branch.IsRemote) return true;
-                
+
                 // Si es local y tiene seguimiento, ya está en el servidor
                 if (branch != null && branch.TrackedBranch != null) return true;
 
@@ -1130,7 +1134,7 @@ public partial class LibGit2SharpRepository : IGitRepository
                 string simpleName = branchName;
                 if (branchName.Contains("/")) simpleName = branchName.Split('/').Last();
 
-                return repo.Branches.Any(b => b.IsRemote && 
+                return repo.Branches.Any(b => b.IsRemote &&
                     (b.FriendlyName == $"origin/{simpleName}" || b.FriendlyName.EndsWith("/" + simpleName)));
             }
             catch

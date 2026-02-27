@@ -57,7 +57,17 @@ public static class WslCommandExecutor
 
                 if (process.ExitCode != 0)
                 {
-                    return Result<string>.Fail(!string.IsNullOrWhiteSpace(error) ? error : "Error de ejecución en WSL.");
+                    var finalError = !string.IsNullOrWhiteSpace(error) ? error : "Error de ejecución en WSL.";
+                    
+                    // Mejorar detección de problemas de autenticación
+                    if (finalError.Contains("Authentication failed", StringComparison.OrdinalIgnoreCase) || 
+                        finalError.Contains("Permission denied", StringComparison.OrdinalIgnoreCase) ||
+                        finalError.Contains("fatal: could not read Password", StringComparison.OrdinalIgnoreCase))
+                    {
+                        finalError = "Error de autenticación Git. Por favor, verifica tus credenciales o token en Chapi. " + finalError;
+                    }
+
+                    return Result<string>.Fail(finalError);
                 }
 
                 return Result<string>.Success(output);

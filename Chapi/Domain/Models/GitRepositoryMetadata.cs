@@ -9,6 +9,8 @@ public class GitRepositoryMetadata
     public string UserEmail { get; set; } = string.Empty;
     public string RemoteUrl { get; set; } = string.Empty;
     public string CurrentBranch { get; set; } = string.Empty;
+    public bool IsDetached { get; set; }
+    public string? DetachedHeadSha { get; set; }
     public int Ahead { get; set; }
     public int Behind { get; set; }
     public bool HasUpstream { get; set; }

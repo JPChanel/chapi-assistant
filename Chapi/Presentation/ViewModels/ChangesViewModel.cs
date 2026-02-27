@@ -49,6 +49,7 @@ public class ChangesViewModel : ViewModelBase
     private int _behind;
     private bool _isSyncing;
     private CancellationTokenSource? _loadCts;
+    private DateTime _lastRefreshTime = DateTime.MinValue;
 
     public event EventHandler? CommitCompleted;
 
@@ -606,9 +607,14 @@ public class ChangesViewModel : ViewModelBase
 
         IsSyncing = true;
 
-        // Resetear solo la lista, mantener totales previos para evitar parpadeo
-        Changes.Clear();
-        OnPropertyChanged(nameof(TotalChangesCount));
+        // Resetear solo si el proyecto es nuevo o está vacío, 
+        // de lo contrario mantener los cambios actuales hasta que lleguen los nuevos (evita parpadeo)
+        bool isFullReload = Changes.Count == 0;
+        if (isFullReload)
+        {
+            Changes.Clear();
+            OnPropertyChanged(nameof(TotalChangesCount));
+        }
 
         using var silencer = _changeWatcher.Silence();
         try
@@ -616,23 +622,27 @@ public class ChangesViewModel : ViewModelBase
             if (_changesCache.TryGetChanges(ProjectPath, out var cachedChanges, out var cachedAdditions, out var cachedDeletions))
             {
 
-                // Usar datos del caché
-                foreach (var fileChange in cachedChanges)
+                // Actualizar de forma atómica para evitar duplicados si es un refresco
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    var viewModel = MapToViewModel(fileChange);
-                    viewModel.PropertyChanged += (s, e) =>
+                    Changes.Clear();
+                    foreach (var fileChange in cachedChanges)
                     {
-                        if (_isMassUpdating) return;
-
-                        if (e.PropertyName == nameof(ChangeItemViewModel.IsSelected))
+                        var viewModel = MapToViewModel(fileChange);
+                        viewModel.PropertyChanged += (s, e) =>
                         {
-                            OnPropertyChanged(nameof(AreAllSelected));
-                            OnPropertyChanged(nameof(SelectedCount));
-                            (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
-                        }
-                    };
-                    Changes.Add(viewModel);
-                }
+                            if (_isMassUpdating) return;
+
+                            if (e.PropertyName == nameof(ChangeItemViewModel.IsSelected))
+                            {
+                                OnPropertyChanged(nameof(AreAllSelected));
+                                OnPropertyChanged(nameof(SelectedCount));
+                                (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+                            }
+                        };
+                        Changes.Add(viewModel);
+                    }
+                });
 
                 TotalAdditions = cachedAdditions;
                 TotalDeletions = cachedDeletions;
@@ -674,6 +684,8 @@ public class ChangesViewModel : ViewModelBase
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
+                // Actualizar la lista de forma atómica (limpiar y añadir en el mismo ciclo de Dispatcher)
+                Changes.Clear();
                 foreach (var vm in viewModels)
                 {
                     Changes.Add(vm);
@@ -935,6 +947,7 @@ public class ChangesViewModel : ViewModelBase
         }
         finally
         {
+            _lastRefreshTime = DateTime.Now;
             IsLoading = false;
         }
     }
@@ -1450,6 +1463,22 @@ public class ChangesViewModel : ViewModelBase
             ChangeStatus.Conflict => (PackIconKind.AlertOctagon, Brushes.Red),
             _ => (PackIconKind.FileQuestion, Brushes.Gray)
         };
+    }
+
+    /// <summary>
+    /// Forzar un refresco si es necesario (ej: al recuperar foco).
+    /// Evita refrescar si hubo uno hace menos de 5 segundos para prevenir bucles.
+    /// </summary>
+    public async Task RefreshIfNecessaryAsync()
+    {
+        if (string.IsNullOrEmpty(ProjectPath)) return;
+        
+        var diff = DateTime.Now - _lastRefreshTime;
+        if (diff.TotalSeconds > 5)
+        {
+            _changesCache.Invalidate(ProjectPath);
+            await LoadChangesAsync();
+        }
     }
 
     /// <summary>

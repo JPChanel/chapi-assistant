@@ -1541,10 +1541,8 @@ namespace Chapi
                             }}
                         }} catch {{ }}
                     }}
-                    # Caso especial para WSL: matamos todas las instancias de wslhost si detectamos bloqueos
-                    if (Get-Process -Name 'wslhost' -ErrorAction SilentlyContinue) {{
-                         wsl.exe --shutdown
-                    }}
+                    # Caso especial para WSL eliminado por ser demasiado agresivo.
+                    # Se reemplaza por refresco por foco en OnActivated.
                 ";
 
                 var startInfo = new ProcessStartInfo
@@ -1559,6 +1557,17 @@ namespace Chapi
                 process?.WaitForExit(5000); // Esperar máximo 5 segundos
             }
             catch (Exception) { /* Fallback silencioso */ }
+        }
+
+        protected override async void OnActivated(EventArgs e)
+        {
+            base.OnActivated(e);
+            
+            // Si la pestaña de cambios está activa, refrescar si es necesario (Focus Sync)
+            if (GitTabs.SelectedItem == ChangesTab && _changesViewModel != null)
+            {
+                await _changesViewModel.RefreshIfNecessaryAsync();
+            }
         }
     }
 }

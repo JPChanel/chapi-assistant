@@ -231,6 +231,7 @@
                             <TextBox x:Name="txtCommitDescription"
                                      materialDesign:HintAssist.Hint="Descripcion (opcional)"
                                      MinHeight="80"
+                                     MaxHeight="150"
                                      TextWrapping="Wrap"
                                      AcceptsReturn="True"
                                      VerticalScrollBarVisibility="Auto"
