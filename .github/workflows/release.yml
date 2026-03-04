@@ -34,21 +34,20 @@ jobs:
           $TagName = $env:GITHUB_REF_NAME
           $Version = $TagName.Substring(1)
           echo "TAG_VERSION=$Version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      # 7. Compila tu aplicación (como lo hacías localmente)
-      - name: 5. Publicar la aplicación (dotnet publish)
-        run: dotnet publish Chapi/Chapi.csproj -c Release --self-contained -r win-x64 -o ".\publish-output" /p:Version=${{ env.TAG_VERSION }}
-      # 7b. Incrustar Git en la publicación (como dugite en GitHub Desktop)
-      # windows-latest ya tiene Git en C:\Program Files\Git
-      # Lo copiamos directo al output para que Velopack lo incluya en el paquete
-      - name: 5b. Incrustar Git embebido en el paquete
+      # 7a. Inyectar Git en el código fuente ANTES de compilar
+      # windows-latest ya tiene Git global, lo copiamos a la carpeta del proyecto
+      # para que MSBuild lo empaquete como contenido dependiente de la app.
+      - name: 4b. Incrustar Git embebido en el proyecto
         shell: pwsh
         run: |
           $src = "C:\Program Files\Git"
-          $dst = ".\publish-output\git"
-          Write-Host "[Chapi] Copiando Git desde: $src"
+          $dst = ".\Chapi\git"
+          Write-Host "[Chapi] Copiando Git desde: $src a $dst"
           xcopy /E /I /Y "$src" "$dst"
-          Write-Host "[Chapi] ✅ Git embebido incluido en el paquete"
+          Write-Host "[Chapi] ✅ Git embebido inyectado en código fuente"
+      # 7b. Compila tu aplicación (como lo hacías localmente)
+      - name: 5. Publicar la aplicación (dotnet publish)
+        run: dotnet publish Chapi/Chapi.csproj -c Release --self-contained -r win-x64 -o ".\publish-output" /p:Version=${{ env.TAG_VERSION }}
       # 8. Empaqueta con VeloPack (como lo hacías localmente)
       - name: 6. Empaquetar con VeloPack (vpk pack)
         run: vpk pack --packId ChapiAssistant --packVersion ${{ env.TAG_VERSION }} --packDir ".\publish-output" --mainExe Chapi.exe -o "Releases"
