@@ -55,6 +55,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Compile Remove="git\**" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<None Update="appsettings.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
