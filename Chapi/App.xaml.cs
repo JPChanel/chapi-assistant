@@ -70,9 +70,8 @@ namespace Chapi
             var services = new ServiceCollection();
 
             // Infrastructure - Git
-            services.AddSingleton<Chapi.Infrastructure.Git.LibGit2SharpRepository>();
-            services.AddSingleton<Chapi.Infrastructure.Git.WslGitRepository>();
-            services.AddSingleton<IGitRepository, Chapi.Infrastructure.Git.GitRepositoryDispatcher>();
+            // Motor CLI (git.exe) único: mismo modelo que GitHub Desktop con dugite
+            services.AddSingleton<IGitRepository, Chapi.Infrastructure.Git.GitCliRepository>();
 
             // Configuración Auth
             services.Configure<Chapi.Infrastructure.Configuration.GitAuthConfig>(Configuration.GetSection("GitAuth"));

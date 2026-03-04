@@ -31,10 +31,7 @@ namespace Chapi
         public static MainWindow Instance { get; private set; }
 
         private List<string> _repositories = new List<string>();
-        private FileSystemWatcher _fileWatcher;
-        private System.Threading.Timer _debounceTimer;
         private readonly object _lock = new object();
-        private bool _isReloadingChanges = false;
         private bool _isGitInstalled = false;
         private System.Windows.Threading.DispatcherTimer _fetchTimer;
         private CancellationTokenSource? _projectSwitchCts;
@@ -79,7 +76,6 @@ namespace Chapi
 
             Msg.Assistant("👋 ¡Hey! Soy Chapi 🤖 Tu dev buddy para arquitectura.");
 
-            _debounceTimer = new System.Threading.Timer(OnDebounceTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);
             Task.Run(CheckForUpdates);
             LoadVersion();
 
@@ -200,34 +196,7 @@ namespace Chapi
             });
         }
 
-        private void OnDebounceTimerElapsed(object state)
-        {
-            lock (_lock) { if (_isReloadingChanges) return; _isReloadingChanges = true; }
-            Dispatcher.InvokeAsync(async () =>
-            {
-                try { await LoadChangesAsync(); }
-                finally { lock (_lock) { _isReloadingChanges = false; } }
-            });
-        }
-
-        private void OnFileSystemChanged(object sender, FileSystemEventArgs e)
-        {
-            if (projectDirectory == null || e.FullPath.Contains(".git")) return;
-            _debounceTimer?.Change(500, Timeout.Infinite);
-        }
-
-        private void InitializeFileSystemWatcher(string path)
-        {
-            if (_fileWatcher != null) { _fileWatcher.EnableRaisingEvents = false; _fileWatcher.Dispose(); }
-            if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
-
-            _fileWatcher = new FileSystemWatcher(path) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName };
-            _fileWatcher.Changed += OnFileSystemChanged;
-            _fileWatcher.Created += OnFileSystemChanged;
-            _fileWatcher.Deleted += OnFileSystemChanged;
-            _fileWatcher.Renamed += (s, ev) => OnFileSystemChanged(s, ev);
-            _fileWatcher.EnableRaisingEvents = true;
-        }
+        // El monitoreo del sistema de archivos ahora lo gestiona ChangesViewModel._changeWatcher
 
         private async void ProjectsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -243,10 +212,8 @@ namespace Chapi
             // Limpieza visual inmediata en el ViewModel de cambios
             if (_changesViewModel != null)
             {
-                _changesViewModel.ProjectPath = projectDirectory; // Esto ya dispara LoadChangesAsync interno que ahora limpia la lista
+                _changesViewModel.ProjectPath = projectDirectory; // Esto ya dispara LoadChangesAsync interno
             }
-
-            InitializeFileSystemWatcher(projectDirectory);
 
             if (!_isGitInstalled) return;
 
@@ -262,13 +229,13 @@ namespace Chapi
                 {
                     var metadata = metadataResult.Data;
                     _currentlySelectedBranch = metadata.CurrentBranch;
-                    
+
                     // Asegurar que la rama actual esté en el combo aunque la lista completa no haya cargado
                     BranchesComboBox.ItemsSource = new List<string> { metadata.CurrentBranch };
                     BranchesComboBox.SelectedItem = metadata.CurrentBranch;
-                    
+
                     UpdateGitActionButton();
-                    
+
                     if (metadata.Ahead > 0)
                     {
                         Msg.Assistant($"🚀 Tienes {metadata.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
@@ -305,12 +272,12 @@ namespace Chapi
                         });
 
                         // 2. Cargar datos pesados secuencialmente en background
-                        if (token.IsCancellationRequested) return;
-                        await LoadHistoryAsync(); // Ahora usa Batching internamente
+                        // NOTA: Los ViewModels de Historia y Cambios ya inician su carga automáticamente 
+                        // al asignarles la propiedad ProjectPath arriba.
                         
                         if (token.IsCancellationRequested) return;
                         await LoadWorkspaceAsync();
-                        
+
                         if (token.IsCancellationRequested) return;
                         await UpdateAssistantContextAsync();
 
@@ -323,9 +290,9 @@ namespace Chapi
 
                         if (token.IsCancellationRequested) return;
                         await LoadReleasesAsync();
-
-                        if (token.IsCancellationRequested) return;
-                        await DoFetchAsync(isSilent: true); // Ahora Fetch está optimizado para WSL
+                        
+                        // No hacemos Fetch automático aquí al cambiar de proyecto para evitar bucles.
+                        // Solo se hará periódicamente por el timer o manualmente.
                     }
                     catch (OperationCanceledException) { }
                     catch (Exception) { }
@@ -368,22 +335,30 @@ namespace Chapi
                     stashChanges = result.ToString() == "stash";
                 }
 
-                var useCase = App.ServiceProvider.GetService(typeof(UseCases.SwitchBranchUseCase)) as UseCases.SwitchBranchUseCase;
-                var switchResult = await useCase.ExecuteAsync(projectDirectory, newBranch, stashChanges);
-
-                if (switchResult.IsSuccess)
+                try
                 {
-                    _currentlySelectedBranch = newBranch;
-                    await RefreshBranchesAsync();
+                    var useCase = App.ServiceProvider.GetService(typeof(UseCases.SwitchBranchUseCase)) as UseCases.SwitchBranchUseCase;
+                    var switchResult = await useCase.ExecuteAsync(projectDirectory, newBranch, stashChanges);
+
+                    if (switchResult.IsSuccess)
+                    {
+                        _currentlySelectedBranch = newBranch;
+                        await RefreshBranchesAsync();
+                    }
+                    else
+                    {
+                        BranchesComboBox.SelectedItem = _currentlySelectedBranch;
+                        await DialogService.ShowConfirmDialog("No se pudo cambiar de rama", switchResult.Error, DialogVariant.Error, DialogType.Info);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
                     BranchesComboBox.SelectedItem = _currentlySelectedBranch;
-                    await DialogService.ShowConfirmDialog("No se pudo cambiar de rama", switchResult.Error, DialogVariant.Error, DialogType.Info);
+                    await DialogService.ShowConfirmDialog("Error al cambiar de rama", $"Excepción inesperada:\n{ex.Message}", DialogVariant.Error, DialogType.Info);
                 }
             });
 
-            await LoadChangesAsync();
+            // No call to LoadChangesAsync() needed here: ChangesViewModel automatically reloads when ProjectPath changes up above.
             await LoadHistoryAsync();
             await CheckBranchStatusAsync();
             await UpdateProjectStatusesAsync();
@@ -392,7 +367,7 @@ namespace Chapi
         private async Task LoadChangesAsync()
         {
             if (string.IsNullOrEmpty(projectDirectory) || _changesViewModel == null) return;
-            _changesViewModel.ProjectPath = projectDirectory;
+            // Solo forzar refresco si es necesario, de lo contrario dejar que el watcher del VM lo gestione
             await _changesViewModel.LoadChangesAsync();
         }
 
@@ -674,20 +649,17 @@ namespace Chapi
             if (useCase != null)
             {
                 await useCase.ExecuteAsync(projectDirectory, isSilent);
-                await LoadChangesAsync();
-
-                // Actualizar indicadores despues del fetch
-                await UpdateProjectStatusesAsync();
+                // NOTA: No llamamos a LoadChangesAsync() aquí porque el FileSystemWatcher detectará el Fetch
+                // y lo hará automáticamente a través de ChangesViewModel.
             }
         }
 
-        public async Task UpdateProjectStatusesAsync(List<ProjectViewModel>? projects = null, bool includeFetch = true)
+        public async Task UpdateProjectStatusesAsync(List<ProjectViewModel>? projects = null)
         {
             if (projects == null)
             {
                 if (ProjectsComboBox.ItemsSource is List<ProjectViewModel> list)
                 {
-                    // ⚡ OPTIMIZACIÓN: Si no se pasan proyectos, solo actualizar el actual para no saturar con Fetches
                     projects = list.Where(p => p.FullPath == projectDirectory).ToList();
                     if (!projects.Any()) return;
                 }
@@ -699,24 +671,11 @@ namespace Chapi
             // Ejecutar en hilos de background, no en el Dispatcher
             _ = Task.Run(async () =>
             {
-                var tasks = projects.Select(proj => 
+                var tasks = projects.Select(proj =>
                 {
-                    // Si includeFetch es false, solo pedir los contadores actuales (rápido)
-                    if (!includeFetch)
+                    return useCase.ExecuteAsync(proj.FullPath, (ahead, behind) =>
                     {
-                        return Task.Run(async () => {
-                            var counts = await _gitRepository.GetAheadBehindCountAsync(proj.FullPath);
-                            await Dispatcher.InvokeAsync(() => {
-                                proj.Ahead = counts.Ahead;
-                                proj.Behind = counts.Behind;
-                                if (proj.FullPath == projectDirectory) UpdateGitActionButton();
-                            });
-                        });
-                    }
-                    
-                    return useCase.ExecuteAsync(proj.FullPath, async (ahead, behind) =>
-                    {
-                        await Dispatcher.InvokeAsync(async () =>
+                        Dispatcher.InvokeAsync(async () =>
                         {
                             proj.Ahead = ahead;
                             proj.Behind = behind;
@@ -1557,12 +1516,10 @@ namespace Chapi
 
         private void CleanupResources()
         {
-            _debounceTimer?.Dispose();
             if (_fetchTimer != null)
             {
                 _fetchTimer.Stop();
             }
-            _fileWatcher?.Dispose();
         }
 
         public void KillExternalBlockers()
@@ -1609,12 +1566,26 @@ namespace Chapi
             catch (Exception) { /* Fallback silencioso */ }
         }
 
+        private DateTime _lastActivationRefresh = DateTime.MinValue;
+
         protected override async void OnActivated(EventArgs e)
         {
             base.OnActivated(e);
-            
-            // Si la pestaña de cambios está activa, refrescar si es necesario (Focus Sync)
-            if (GitTabs.SelectedItem == ChangesTab && _changesViewModel != null)
+
+            if (!string.IsNullOrEmpty(projectDirectory) &&
+                (projectDirectory.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) ||
+                 projectDirectory.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase)))
+            {
+                if ((DateTime.Now - _lastActivationRefresh).TotalSeconds > 2)
+                {
+                    _lastActivationRefresh = DateTime.Now;
+                    if (_changesViewModel != null)
+                    {
+                        await _changesViewModel.ForceRefreshAsync();
+                    }
+                }
+            }
+            else if (GitTabs.SelectedItem == ChangesTab && _changesViewModel != null)
             {
                 await _changesViewModel.RefreshIfNecessaryAsync();
             }

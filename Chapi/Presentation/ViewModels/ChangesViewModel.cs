@@ -124,8 +124,8 @@ public class ChangesViewModel : ViewModelBase
             // Ejecutar en el UI thread para evitar errores de cross-thread
             System.Windows.Application.Current?.Dispatcher.InvokeAsync(async () =>
             {
+                // Solo llamamos a LoadChangesAsync, que internamente llamará a LoadMetadataAsync
                 await LoadChangesAsync();
-                await LoadMetadataAsync();
             });
         }
     }
@@ -146,7 +146,6 @@ public class ChangesViewModel : ViewModelBase
 
         _changesCache.Invalidate(ProjectPath);
         await LoadChangesAsync();
-        await LoadMetadataAsync();
     }
 
     private async Task GenerateCommitMessageAsync()
@@ -213,6 +212,9 @@ public class ChangesViewModel : ViewModelBase
     public ObservableCollection<ChangeItemViewModel> Changes { get; }
 
     /// <summary>
+    private IDisposable? _manualSilencer;
+
+    /// <summary>
     /// Ruta del proyecto actual.
     /// </summary>
     public string ProjectPath
@@ -222,59 +224,77 @@ public class ChangesViewModel : ViewModelBase
         {
             if (SetProperty(ref _projectPath, value))
             {
+                // Silenciar el watcher durante la transición para evitar que los comandos de MainWindow o la carga inicial lo disparen
+                _manualSilencer?.Dispose();
+                _manualSilencer = _changeWatcher.Silence();
+
                 CommitSummary = string.Empty;
                 CommitDescription = string.Empty;
 
-                // Iniciar monitoreo del nuevo proyecto (como GitHub Desktop)
+                // Iniciar monitoreo del nuevo proyecto
                 if (!string.IsNullOrWhiteSpace(value))
                 {
                     _changeWatcher.WatchRepository(value);
                 }
 
-                // Limpiar contadores solo si el proyecto cambió físicamente
+                // Limpiar contadores
                 TotalAdditions = 0;
                 TotalDeletions = 0;
                 Ahead = 0;
                 Behind = 0;
                 OnPropertyChanged(nameof(TotalChangesCount));
 
+                // Lanzar carga inicial
                 _ = LoadChangesAsync();
+
+                // Programar el fin del silencio manual después de un tiempo prudencial o cuando Load termine
+                // Esto protege los comandos Git que corran en paralelo en MainWindow
+                Task.Run(async () =>
+                {
+                    await Task.Delay(3000); // 3 segundos de gracia para que MainWindow termine sus comandos
+                    _manualSilencer?.Dispose();
+                    _manualSilencer = null;
+                });
             }
         }
     }
 
-    private async Task LoadMetadataAsync()
+    private async Task LoadMetadataAsync(CancellationToken token = default)
     {
         try
         {
             var result = await _gitRepository.GetMetadataAsync(ProjectPath);
+            if (token.IsCancellationRequested) return;
+
             if (result.IsSuccess)
             {
                 var m = result.Data;
-                
+
                 // Actualizar perfil
                 GitUserName = m.UserName;
                 GitUserEmail = m.UserEmail;
-                
+
                 // Actualizar indicadores de sincronización
                 Ahead = m.Ahead;
                 Behind = m.Behind;
-                
+
                 // Actualizar Auth Status
                 AuthenticatedProvider = _authFactory.DetectProviderFromUrl(m.RemoteUrl);
                 IsAuthenticated = AuthenticatedProvider != Chapi.Domain.Enums.GitProvider.Unknown;
-                
-                var cred = await _credentialStorage.GetCredentialAsync(AuthenticatedProvider.ToString());
-                if (cred.HasValue)
+
+                var credResult = await _credentialStorage.GetCredentialAsync(AuthenticatedProvider.ToString());
+                if (credResult.HasValue)
                 {
-                    AuthenticatedUserName = cred.Value.username;
+                    AuthenticatedUserName = credResult.Value.username;
                     IsUserLoggedIn = true;
                 }
-                else
+                else if (AuthenticatedProvider != Chapi.Domain.Enums.GitProvider.Unknown)
                 {
+                    // Solo resetear si realmente el proveedor es válido pero no hay credenciales
                     AuthenticatedUserName = "Conectar";
                     IsUserLoggedIn = false;
                 }
+                // Si el proveedor es Desconocido, no tocamos el estado actual para evitar parpadeo
 
                 // Forzar actualización de iconos y colores
                 OnPropertyChanged(nameof(ProviderIcon));
@@ -288,8 +308,8 @@ public class ChangesViewModel : ViewModelBase
             }
         }
         catch { }
-        
-        await LoadStashesAsync();
+
+        await LoadStashesAsync(token);
     }
 
     /// <summary>
@@ -601,19 +621,30 @@ public class ChangesViewModel : ViewModelBase
     {
         if (string.IsNullOrWhiteSpace(ProjectPath))
             return;
+
+        // Throttle: Evitar recargas masivas en menos de 1.5 segundos
+        // Importante: No saltar este control si Changes.Count == 0, ya que eso causa bucles en proyectos vacíos.
+        var now = DateTime.Now;
+        if ((now - _lastRefreshTime).TotalMilliseconds < 1500)
+        {
+            return;
+        }
+        _lastRefreshTime = now;
+
         _loadCts?.Cancel();
         _loadCts = new CancellationTokenSource();
         var token = _loadCts.Token;
 
         IsSyncing = true;
 
+        using var silencer = _changeWatcher.Silence();
+
         // PARALELISMO: Lanzar carga de stashes y perfil de usuario inmediatamente
-        // Esto permite que el avatar y nombre carguen sin esperar a la lista de cambios en WSL
-        _ = Task.Run(async () =>
+        // Ahora dentro del silenciador para evitar que sus comandos git activen el watcher
+        var metadataTask = Task.Run(async () =>
         {
-            try { await LoadMetadataAsync(); } catch { }
+            try { await LoadMetadataAsync(token); } catch { }
         }, token);
-        _ = LoadStashesAsync();
 
         // Resetear solo si el proyecto es nuevo o está vacío, 
         // de lo contrario mantener los cambios actuales hasta que lleguen los nuevos (evita parpadeo)
@@ -624,7 +655,6 @@ public class ChangesViewModel : ViewModelBase
             OnPropertyChanged(nameof(TotalChangesCount));
         }
 
-        using var silencer = _changeWatcher.Silence();
         try
         {
             if (_changesCache.TryGetChanges(ProjectPath, out var cachedChanges, out var cachedAdditions, out var cachedDeletions))
@@ -662,14 +692,10 @@ public class ChangesViewModel : ViewModelBase
                 return;
             }
 
-            // Usar el Use Case para obtener cambios (ahora es MUCHO más rápido)
             var fileChanges = await _loadChangesUseCase.ExecuteAsync(ProjectPath);
 
-            // Si se canceló durante la espera (ej: cambiamos de proyecto otra vez), salir
             if (token.IsCancellationRequested) return;
-
-            // ⚡ OPTIMIZACIÓN: Añadir cambios por lotes para evitar saturar el hilo de UI
-            var viewModels = fileChanges.Select(fileChange => 
+            var viewModels = fileChanges.Select(fileChange =>
             {
                 var vm = MapToViewModel(fileChange);
                 vm.PropertyChanged += (s, e) =>
@@ -687,7 +713,6 @@ public class ChangesViewModel : ViewModelBase
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                // Actualizar la lista de forma atómica (limpiar y añadir en el mismo ciclo de Dispatcher)
                 Changes.Clear();
                 foreach (var vm in viewModels)
                 {
@@ -699,7 +724,6 @@ public class ChangesViewModel : ViewModelBase
                 IsLoading = false;
             });
 
-            // Cargar stats en background solo si faltan (en WSL ya vienen incluidos)
             _ = LoadFileStatsInBackgroundAsync(token);
         }
         catch (OperationCanceledException) { }
@@ -708,6 +732,8 @@ public class ChangesViewModel : ViewModelBase
         }
         finally
         {
+            try { await metadataTask; } catch { }
+
             if (_loadCts?.Token == token)
             {
                 _loadCts = null;
@@ -724,11 +750,9 @@ public class ChangesViewModel : ViewModelBase
     {
         try
         {
-            // Variables locales para acumular (evita race conditions)
             int totalAdd = 0;
             int totalDel = 0;
 
-            // Cargar stats de los primeros 20 archivos visibles primero (prioridad)
             var visibleFiles = Changes.Take(20).ToList();
 
             foreach (var file in visibleFiles)
@@ -737,25 +761,20 @@ public class ChangesViewModel : ViewModelBase
 
                 try
                 {
-                    // ⚡ OPTIMIZACIÓN: Si ya tenemos stats (común en WSL), no llamar al proceso Git
                     if (file.Additions > 0 || file.Deletions > 0) continue;
 
                     var stats = await _gitRepository.GetFileStatsAsync(ProjectPath, file.FilePath);
                     file.Additions = stats.additions;
                     file.Deletions = stats.deletions;
 
-                    // Acumular en variables locales
                     totalAdd += stats.additions;
                     totalDel += stats.deletions;
                 }
                 catch { }
             }
 
-            // Actualizar totales después de los primeros 20
             TotalAdditions = totalAdd;
             TotalDeletions = totalDel;
-
-            // Luego cargar el resto en background
             var remainingFiles = Changes.Skip(20).ToList();
             foreach (var file in remainingFiles)
             {
@@ -767,7 +786,6 @@ public class ChangesViewModel : ViewModelBase
                     file.Additions = stats.additions;
                     file.Deletions = stats.deletions;
 
-                    // Actualizar totales
                     TotalAdditions += stats.additions;
                     TotalDeletions += stats.deletions;
                 }
@@ -949,17 +967,22 @@ public class ChangesViewModel : ViewModelBase
     /// <summary>
     /// Carga la lista de stashes.
     /// </summary>
-    private async Task LoadStashesAsync()
+    private async Task LoadStashesAsync(CancellationToken token = default)
     {
         if (string.IsNullOrEmpty(ProjectPath)) return;
 
         try
         {
             var stashes = await _gitRepository.ListStashesAsync(ProjectPath);
+            if (token.IsCancellationRequested) return;
+
             var currentBranch = await _gitRepository.GetCurrentBranchAsync(ProjectPath);
+            if (token.IsCancellationRequested) return;
 
             var filteredStashes = stashes.Where(stash =>
                 string.IsNullOrEmpty(currentBranch) ||
+                stash.Branch.EndsWith(currentBranch, StringComparison.OrdinalIgnoreCase) ||
+                stash.Branch.Equals("unknown", StringComparison.OrdinalIgnoreCase) ||
                 stash.Message.Contains($"on {currentBranch}", StringComparison.OrdinalIgnoreCase)).ToList();
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
@@ -1037,16 +1060,10 @@ public class ChangesViewModel : ViewModelBase
         {
             string oldText = string.Empty;
             string newText = string.Empty;
-
-            // 1. Obtener contenido antiguo (HEAD)
-            // Si el archivo es Nuevo, oldText debe ser vacio.
             if (SelectedChange.ShortStatus != "A" && SelectedChange.ShortStatus != "?")
             {
                 try { oldText = await _gitRepository.GetFileContentAsync(ProjectPath, "HEAD", SelectedChange.FilePath); } catch { }
             }
-
-            // 2. Obtener contenido nuevo (File System)
-            // Si el archivo es Borrado, newText debe ser vacio.
             if (SelectedChange.ShortStatus != "D")
             {
                 string fullPath = Path.Combine(ProjectPath, SelectedChange.FilePath);
@@ -1055,8 +1072,6 @@ public class ChangesViewModel : ViewModelBase
                     newText = await File.ReadAllTextAsync(fullPath);
                 }
             }
-
-            // 3. Generar Diff
             GenerateDiff(oldText, newText);
         }
         catch (Exception ex)
@@ -1076,7 +1091,6 @@ public class ChangesViewModel : ViewModelBase
         {
             string newText = await _gitRepository.GetFileContentAsync(ProjectPath, SelectedStash.Name, SelectedStashedFile.FilePath);
             string oldText = string.Empty;
-            // Intentar leer pariente
             try { oldText = await _gitRepository.GetFileContentAsync(ProjectPath, $"{SelectedStash.Name}^1", SelectedStashedFile.FilePath); } catch { }
 
             GenerateDiff(oldText, newText);
@@ -1155,6 +1169,7 @@ public class ChangesViewModel : ViewModelBase
             Files = selectedFiles
         };
 
+        using var silencer = _changeWatcher.Silence();
         var result = await _commitChangesUseCase.ExecuteAsync(request);
 
         if (result.IsSuccess)
@@ -1162,13 +1177,15 @@ public class ChangesViewModel : ViewModelBase
             CommitSummary = string.Empty;
             CommitDescription = string.Empty;
 
-            // Invalidar caché para forzar recarga desde Git
             _changesCache.Invalidate(ProjectPath);
 
             await LoadChangesAsync();
 
-            // Notificar que se completo el commit para que el historial se actualice
             CommitCompleted?.Invoke(this, EventArgs.Empty);
+        }
+        else
+        {
+            await DialogService.ShowConfirmDialog("Error al crear commit", result.Error, DialogVariant.Error, DialogType.Info);
         }
     }
 
@@ -1192,11 +1209,16 @@ public class ChangesViewModel : ViewModelBase
 
         if (!confirmed) return;
 
+        using var silencer = _changeWatcher.Silence();
         var result = await _discardChangesUseCase.ExecuteAsync(ProjectPath, new[] { item.FilePath });
         if (result.IsSuccess)
         {
             _changesCache.Invalidate(ProjectPath);
             await LoadChangesAsync();
+        }
+        else
+        {
+            await DialogService.ShowConfirmDialog("Error al descartar", result.Error, DialogVariant.Error, DialogType.Info);
         }
     }
 
@@ -1212,11 +1234,16 @@ public class ChangesViewModel : ViewModelBase
         if (!confirmed) return;
 
         var allFiles = Changes.Select(c => c.FilePath).ToArray();
+        using var silencer = _changeWatcher.Silence();
         var result = await _discardChangesUseCase.ExecuteAsync(ProjectPath, allFiles);
         if (result.IsSuccess)
         {
             _changesCache.Invalidate(ProjectPath);
             await LoadChangesAsync();
+        }
+        else
+        {
+            await DialogService.ShowConfirmDialog("Error al descartar todo", result.Error, DialogVariant.Error, DialogType.Info);
         }
     }
 
@@ -1241,11 +1268,16 @@ public class ChangesViewModel : ViewModelBase
 
         if (!confirmed) return;
 
+        using var silencer = _changeWatcher.Silence();
         var result = await _stashChangesUseCase.ExecuteAsync(ProjectPath, message, filesToStash);
         if (result.IsSuccess)
         {
             _changesCache.Invalidate(ProjectPath);
             await LoadChangesAsync();
+        }
+        else
+        {
+            await DialogService.ShowConfirmDialog("Error al guardar stash", result.Error, DialogVariant.Error, DialogType.Info);
         }
     }
 
@@ -1258,6 +1290,7 @@ public class ChangesViewModel : ViewModelBase
         var match = System.Text.RegularExpressions.Regex.Match(stash.Name, @"\{(\d+)\}");
         if (match.Success) index = int.Parse(match.Groups[1].Value);
 
+        using var silencer = _changeWatcher.Silence();
         var result = await _stashPopUseCase.ExecuteAsync(ProjectPath, index);
         if (result.IsSuccess)
         {
@@ -1280,6 +1313,7 @@ public class ChangesViewModel : ViewModelBase
         {
             // git checkout stash@{n} -- <filepath>
             // git checkout stash@{n} -- <filepath>
+            using var silencer = _changeWatcher.Silence();
             var result = await _gitRepository.RestoreFileFromStashAsync(ProjectPath, SelectedStash.Name, item.FilePath);
             if (!result.IsSuccess)
             {
@@ -1317,6 +1351,7 @@ public class ChangesViewModel : ViewModelBase
         var match = System.Text.RegularExpressions.Regex.Match(stash.Name, @"\{(\d+)\}");
         if (match.Success) index = int.Parse(match.Groups[1].Value);
 
+        using var silencer = _changeWatcher.Silence();
         var result = await _stashDropUseCase.ExecuteAsync(ProjectPath, index);
         if (result.IsSuccess)
         {
@@ -1337,6 +1372,7 @@ public class ChangesViewModel : ViewModelBase
 
         if (!confirmed) return;
 
+        using var silencer = _changeWatcher.Silence();
         var result = await _stashClearUseCase.ExecuteAsync(ProjectPath);
         if (result.IsSuccess)
         {
@@ -1465,7 +1501,7 @@ public class ChangesViewModel : ViewModelBase
     public async Task RefreshIfNecessaryAsync()
     {
         if (string.IsNullOrEmpty(ProjectPath)) return;
-        
+
         var diff = DateTime.Now - _lastRefreshTime;
         if (diff.TotalSeconds > 5)
         {

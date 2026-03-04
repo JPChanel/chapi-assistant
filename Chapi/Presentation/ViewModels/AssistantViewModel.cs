@@ -136,6 +136,11 @@ public class AssistantViewModel : ViewModelBase
     {
         try
         {
+            // NOTA: Se comentan estos refrescos redundantes. 
+            // MainWindow ya se encarga de actualizar los ViewModels al cambiar de proyecto.
+            // Forzar el refresco aquí causa bucles de I/O innecesarios con el FileSystemWatcher.
+            
+            /*
             var historyVM = App.ServiceProvider.GetService<HistoryViewModel>();
             var changesVM = App.ServiceProvider.GetService<ChangesViewModel>();
 
@@ -146,6 +151,7 @@ public class AssistantViewModel : ViewModelBase
             {
                 await MainWindow.Instance.UpdateProjectStatusesAsync();
             }
+            */
         }
         catch (Exception ex)
         {

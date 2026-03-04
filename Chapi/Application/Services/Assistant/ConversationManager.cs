@@ -14,9 +14,12 @@ public class ConversationManager
     private readonly IAssistantCapabilityRegistry _capabilityRegistry;
     private ConversationContext _currentContext;
 
-    public ConversationManager(GeminiChatService chatService, IAssistantCapabilityRegistry capabilityRegistry)
+    public ConversationManager(
+        IGitRepository gitRepository,
+        GeminiChatService chatService, 
+        IAssistantCapabilityRegistry capabilityRegistry)
     {
-        _contextBuilder = new ProjectContextBuilder();
+        _contextBuilder = new ProjectContextBuilder(gitRepository);
         _chatService = chatService;
         _capabilityRegistry = capabilityRegistry;
         _currentContext = new ConversationContext();

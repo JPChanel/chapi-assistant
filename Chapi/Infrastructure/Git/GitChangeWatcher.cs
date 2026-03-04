@@ -11,22 +11,28 @@ public class GitChangeWatcher : IDisposable
 {
     private readonly ConcurrentDictionary<string, FileSystemWatcher> _watchers = new();
     private readonly ConcurrentDictionary<string, DateTime> _lastChangeTime = new();
-    private const int DEBOUNCE_MS = 500; // Esperar 500ms antes de notificar cambios
+    private const int DEBOUNCE_MS = 1000; // Esperar 1 segundo antes de notificar cambios
 
-    public bool IsSilenced { get; set; }
+    private int _silenceCount = 0;
+    public bool IsSilenced => _silenceCount > 0;
 
     public event EventHandler<string>? RepositoryChanged;
 
     /// <summary>
     /// Crea un objeto que silencia el watcher mientras exista.
+    /// Soporta anidamiento y llamadas paralelas mediante contador de referencias.
     /// </summary>
     public IDisposable Silence() => new WatcherSilencer(this);
 
     private class WatcherSilencer : IDisposable
     {
         private readonly GitChangeWatcher _watcher;
-        public WatcherSilencer(GitChangeWatcher watcher) { _watcher = watcher; _watcher.IsSilenced = true; }
-        public void Dispose() => _watcher.IsSilenced = false;
+        public WatcherSilencer(GitChangeWatcher watcher) 
+        { 
+            _watcher = watcher; 
+            System.Threading.Interlocked.Increment(ref _watcher._silenceCount); 
+        }
+        public void Dispose() => System.Threading.Interlocked.Decrement(ref _watcher._silenceCount);
     }
 
     /// <summary>
@@ -92,7 +98,16 @@ public class GitChangeWatcher : IDisposable
         if (isGitInternal)
         {
             // Detectar cambios en stashes, commits o el index
-            // .git/index, .git/refs/stash, .git/logs/refs/stash, .git/HEAD
+            // Ignoramos archivos temporales y ruidosos como logs, FETCH_HEAD o ORIG_HEAD
+            if (path.Contains("/logs/") || 
+                path.EndsWith("/FETCH_HEAD") || 
+                path.EndsWith("/ORIG_HEAD") ||
+                path.EndsWith("/COMMIT_EDITMSG") ||
+                path.EndsWith(".lock"))
+            {
+                return;
+            }
+
             bool isRelevant = path.EndsWith("/stash") || 
                              path.EndsWith("/HEAD") ||
                              path.Contains("/refs/heads/") ||

@@ -15,16 +15,10 @@ public class UpdateProjectIndicatorsUseCase
     {
         try
         {
-            // 1. Obtener indicadores locales primero (Rápido)
-            var initialCounts = await _gitRepository.GetAheadBehindCountAsync(projectPath);
-            onUpdated?.Invoke(initialCounts.Ahead, initialCounts.Behind);
-
-            // 2. Fetch silencioso en segundo plano (Lento)
-            await _gitRepository.FetchAsync(projectPath);
-
-            // 3. Volver a obtener indicadores tras el fetch
-            var finalCounts = await _gitRepository.GetAheadBehindCountAsync(projectPath);
-            onUpdated?.Invoke(finalCounts.Ahead, finalCounts.Behind);
+            // Solo obtener indicadores locales (Rápido)
+            // No hacemos Fetch aquí para evitar bucles con el FileSystemWatcher
+            var counts = await _gitRepository.GetAheadBehindCountAsync(projectPath);
+            onUpdated?.Invoke(counts.Ahead, counts.Behind);
         }
         catch (Exception ex)
         {

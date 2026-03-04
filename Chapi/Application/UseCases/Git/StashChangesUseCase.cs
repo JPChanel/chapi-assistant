@@ -37,7 +37,10 @@ public class StashChangesUseCase
 
             var result = await _gitRepo.StashChangesAsync(projectPath, message, files);
             if (!result.IsSuccess)
+            {
+                _notificationService.ShowError($"❌ Error al guardar en stash: {result.Error}");
                 return result;
+            }
 
             _notificationService.ShowSuccess("✅ Cambios guardados en stash");
             return Result.Success();
