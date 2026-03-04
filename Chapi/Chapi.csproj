@@ -64,6 +64,7 @@
 		<None Update="Presentation\Assets\icon.ico">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
+		<None Update="git\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<!-- ─── Git Embebido: Desarrollo Local ───────────────────────────────────

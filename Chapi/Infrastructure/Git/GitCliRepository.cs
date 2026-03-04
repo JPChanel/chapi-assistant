@@ -26,6 +26,8 @@ public class GitCliRepository : IGitRepository
         _credentialStorage = credentialStorage;
     }
 
+    private static readonly System.Threading.SemaphoreSlim _repoRootSemaphore = new(1, 1);
+
     private async Task<string> GetRepoRootAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) 
@@ -34,21 +36,34 @@ public class GitCliRepository : IGitRepository
         if (_cachedRepoRoot != null && path.StartsWith(_cachedRepoRoot, StringComparison.OrdinalIgnoreCase))
             return _cachedRepoRoot;
 
-        var result = await GitProcessExecutor.RunAsync(path, "rev-parse", "--show-toplevel");
-        if (result.IsSuccess)
+        await _repoRootSemaphore.WaitAsync();
+        try
         {
-            var detected = result.Data.Trim();
-            // Git rev-parse puede devolver rutas tipo Linux (/d/ruta) en algunos entornos.
-            // Las normalizamos a formato Windows real.
-            if (detected.Length >= 2 && detected[0] == '/' && char.IsLetter(detected[1]) && (detected.Length == 2 || detected[2] == '/'))
+            if (_cachedRepoRoot != null && path.StartsWith(_cachedRepoRoot, StringComparison.OrdinalIgnoreCase))
+                return _cachedRepoRoot;
+
+            var result = await GitProcessExecutor.RunAsync(path, "rev-parse", "--show-toplevel");
+            if (result.IsSuccess && !string.IsNullOrWhiteSpace(result.Data))
             {
-                detected = detected[1] + ":" + detected.Substring(2);
+                var detected = result.Data.Trim();
+                
+                // Git rev-parse puede devolver rutas tipo Linux (/d/ruta) en algunos entornos.
+                // Las normalizamos a formato Windows real.
+                if (detected.Length >= 2 && detected[0] == '/' && char.IsLetter(detected[1]) && (detected.Length == 2 || detected[2] == '/'))
+                {
+                    detected = detected[1] + ":" + detected.Substring(2);
+                }
+                
+                _cachedRepoRoot = Path.GetFullPath(detected.Replace('/', Path.DirectorySeparatorChar));
+                return _cachedRepoRoot;
             }
-            
-            _cachedRepoRoot = Path.GetFullPath(detected.Replace('/', Path.DirectorySeparatorChar));
-            return _cachedRepoRoot;
+
+            return Path.GetFullPath(path);
         }
-        return Path.GetFullPath(path);
+        finally
+        {
+            _repoRootSemaphore.Release();
+        }
     }
 
     // Atajo para correr git siempre en la raíz del repositorio
@@ -833,8 +848,15 @@ public class GitCliRepository : IGitRepository
 
     public async Task<IEnumerable<GitTagItem>> GetTagsAsync(string projectPath)
     {
+        // %(refname:short): nombre del tag
+        // %(*objectname:short): hash corto del commit padre
+        // %(creatordate:unix): fecha del tag
+        // %(contents:subject): mensaje del tag (anotación)
+        // %(*contents:subject): título del commit
+        // %(*contents:body): descripción del commit (limitado, mejor lo eliminamos de línea para no romper el formato, usaremos subject)
+        
         var result = await Git(projectPath, "tag", "--list", "--sort=-creatordate",
-            "--format=%(refname:short)|%(objectname:short)|%(creatordate:unix)|%(subject)");
+            "--format=%(refname:short)|%(*objectname:short)|%(creatordate:unix)|%(contents:subject)|%(*contents:subject)|%(*authorname)");
         if (!result.IsSuccess) return Enumerable.Empty<GitTagItem>();
 
         var tags = new List<GitTagItem>();
@@ -842,11 +864,21 @@ public class GitCliRepository : IGitRepository
         {
             var parts = line.Split('|');
             if (parts.Length < 1) continue;
+            
+            // Si es un tag ligero (no anotado), %(contents:subject) es igual a %(*contents:subject).
+            // Filtramos la redundancia.
+            var tagMsg = parts.Length > 3 ? parts[3] : string.Empty;
+            var commitMsg = parts.Length > 4 ? parts[4] : string.Empty;
+            
+            if (tagMsg == commitMsg) tagMsg = string.Empty;
+
             tags.Add(new GitTagItem
             {
                 TagName = parts[0],
                 CommitHash = parts.Length > 1 ? parts[1] : string.Empty,
-                TagMessage = parts.Length > 3 ? parts[3] : string.Empty,
+                TagMessage = tagMsg,
+                CommitMessage = commitMsg,
+                AuthorName = parts.Length > 5 ? parts[5] : string.Empty,
                 RelativeDate = parts.Length > 2 && long.TryParse(parts[2], out var ts)
                     ? DateTimeOffset.FromUnixTimeSeconds(ts).LocalDateTime.ToShortDateString()
                     : "Unknown"

@@ -221,49 +221,59 @@ namespace Chapi
 
             try
             {
-                // 1. Prioridad Máxima: Obtener la rama activa y metadatos básicos de un golpe (Muy rápido en WSL)
-                var metadataResult = await _gitRepository.GetMetadataAsync(projectDirectory);
-                if (token.IsCancellationRequested) return;
-
-                if (metadataResult.IsSuccess)
-                {
-                    var metadata = metadataResult.Data;
-                    _currentlySelectedBranch = metadata.CurrentBranch;
-
-                    // Asegurar que la rama actual esté en el combo aunque la lista completa no haya cargado
-                    BranchesComboBox.ItemsSource = new List<string> { metadata.CurrentBranch };
-                    BranchesComboBox.SelectedItem = metadata.CurrentBranch;
-
-                    UpdateGitActionButton();
-
-                    if (metadata.Ahead > 0)
-                    {
-                        Msg.Assistant($"🚀 Tienes {metadata.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
-                    }
-                }
-
-                // 2. Carga secundaria: Listado completo de todas las ramas (incluyendo remotas)
-                var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
-                var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
-                if (token.IsCancellationRequested) return;
-
-                // Combinar la rama actual detectada con la lista completa
-                if (!string.IsNullOrEmpty(_currentlySelectedBranch) && !branches.Contains(_currentlySelectedBranch))
-                {
-                    branches.Insert(0, _currentlySelectedBranch);
-                }
-
-                BranchesComboBox.ItemsSource = branches;
-                BranchesComboBox.SelectedItem = _currentlySelectedBranch;
-
-                // Cargas pesadas en segundo plano con validación de token
+                // Mover todo el peso logico al pool de hilos para no congelar la UI visualmente
                 _ = Task.Run(async () =>
                 {
                     try
                     {
+                        // 1. Prioridad Máxima: Obtener la rama activa y metadatos básicos de un golpe (Muy rápido)
+                        var metadataResult = await _gitRepository.GetMetadataAsync(projectDirectory);
                         if (token.IsCancellationRequested) return;
 
-                        // 1. Configurar ViewModels (Esto es rápido y debe hacerse en el Dispatcher)
+                        if (metadataResult.IsSuccess)
+                        {
+                            var metadata = metadataResult.Data;
+                            _currentlySelectedBranch = metadata.CurrentBranch;
+
+                            await Dispatcher.InvokeAsync(() =>
+                            {
+                                // Asegurar que la rama actual esté en el combo aunque la lista completa no haya cargado
+                                BranchesComboBox.ItemsSource = new List<string> { metadata.CurrentBranch };
+                                BranchesComboBox.SelectedItem = metadata.CurrentBranch;
+
+                                UpdateGitActionButton();
+
+                                if (metadata.Ahead > 0)
+                                {
+                                    Msg.Assistant($"🚀 Tienes {metadata.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
+                                }
+                            });
+                        }
+
+                        // 2. Carga secundaria: Listado completo de todas las ramas (incluyendo remotas)
+                        var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
+                        // getBranchesUseCase puede devolver nulo si IServiceProvider falla
+                        if (getBranchesUseCase != null)
+                        {
+                            var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
+                            if (token.IsCancellationRequested) return;
+
+                            // Combinar la rama actual detectada con la lista completa
+                            if (!string.IsNullOrEmpty(_currentlySelectedBranch) && !branches.Contains(_currentlySelectedBranch))
+                            {
+                                branches.Insert(0, _currentlySelectedBranch);
+                            }
+
+                            await Dispatcher.InvokeAsync(() =>
+                            {
+                                BranchesComboBox.ItemsSource = branches;
+                                BranchesComboBox.SelectedItem = _currentlySelectedBranch;
+                            });
+                        }
+
+                        if (token.IsCancellationRequested) return;
+
+                        // 3. Configurar ViewModels (Esto es rápido y debe hacerse en el Dispatcher)
                         await Dispatcher.InvokeAsync(() =>
                         {
                             if (token.IsCancellationRequested) return;
@@ -271,10 +281,10 @@ namespace Chapi
                             if (_releasesViewModel != null) _releasesViewModel.ProjectPath = projectDirectory;
                         });
 
-                        // 2. Cargar datos pesados secuencialmente en background
+                        // 4. Cargar datos pesados secuencialmente en background
                         // NOTA: Los ViewModels de Historia y Cambios ya inician su carga automáticamente 
                         // al asignarles la propiedad ProjectPath arriba.
-                        
+
                         if (token.IsCancellationRequested) return;
                         await LoadWorkspaceAsync();
 
@@ -284,13 +294,13 @@ namespace Chapi
                         if (token.IsCancellationRequested) return;
                         await Task.Delay(100, token); // Pausa mínima para dejar respirar a la UI
 
-                        // 3. Operaciones de red (Muy pesadas)
+                        // 5. Operaciones de red (Muy pesadas)
                         if (token.IsCancellationRequested) return;
                         await CheckBranchStatusAsync();
 
                         if (token.IsCancellationRequested) return;
                         await LoadReleasesAsync();
-                        
+
                         // No hacemos Fetch automático aquí al cambiar de proyecto para evitar bucles.
                         // Solo se hará periódicamente por el timer o manualmente.
                     }
@@ -300,7 +310,7 @@ namespace Chapi
             }
             catch (Exception ex)
             {
-
+                Msg.Assistant("❌ Error cambiando de proyecto: " + ex.Message);
             }
         }
 
