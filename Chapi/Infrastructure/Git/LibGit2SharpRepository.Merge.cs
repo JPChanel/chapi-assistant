@@ -1,4 +1,5 @@
 using Chapi.Domain.Common;
+using Chapi.Domain.Entities;
 using LibGit2Sharp;
 using System.IO;
 
@@ -41,8 +42,9 @@ public partial class LibGit2SharpRepository
 
                 if (mergeResult.Status == MergeStatus.Conflicts)
                 {
-                    repo.Reset(LibGit2Sharp.ResetMode.Hard);
-                    return Result.Fail("Conflicto de fusión detectado. La operación fue abortada.");
+                    // Modificación: No hacemos Hard Reset, dejamos el repositorio en estado de "Merging"
+                    // para que el usuario pueda resolver visualmente los conflictos.
+                    return Result.Fail("CONFLICTO_DETECTADO");
                 }
 
                 return Result.Success();
@@ -212,6 +214,110 @@ public partial class LibGit2SharpRepository
             catch (Exception ex)
             {
                 return (true, $"Error verificando conflictos: {ex.Message}");
+            }
+        });
+    }
+
+    public Task<IEnumerable<GitConflict>> GetMergeConflictsAsync(string projectPath)
+    {
+        return Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var conflicts = new List<GitConflict>();
+
+                if (repo.Index.Conflicts.Any())
+                {
+                    foreach (var conflict in repo.Index.Conflicts)
+                    {
+                        var filePath = conflict.Ancestor?.Path ?? conflict.Ours?.Path ?? conflict.Theirs?.Path;
+                        if (string.IsNullOrEmpty(filePath)) continue;
+
+                        var absolutePath = Path.Combine(projectPath, filePath);
+                        var gc = new GitConflict { FilePath = filePath };
+
+                        if (File.Exists(absolutePath))
+                        {
+                            var lines = File.ReadAllLines(absolutePath);
+                            gc.Blocks = ParseConflictBlocks(lines);
+                        }
+
+                        conflicts.Add(gc);
+                    }
+                }
+
+                return conflicts.AsEnumerable();
+            }
+            catch (Exception)
+            {
+                return Enumerable.Empty<GitConflict>();
+            }
+        });
+    }
+
+    private List<ConflictBlock> ParseConflictBlocks(string[] lines)
+    {
+        var blocks = new List<ConflictBlock>();
+        ConflictBlock? currentBlock = null;
+        bool inLocal = false;
+        bool inIncoming = false;
+        var localSb = new System.Text.StringBuilder();
+        var incomingSb = new System.Text.StringBuilder();
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            
+            if (line.StartsWith("<<<<<<<"))
+            {
+                currentBlock = new ConflictBlock { StartLine = i + 1 };
+                inLocal = true;
+                inIncoming = false;
+                localSb.Clear();
+                incomingSb.Clear();
+            }
+            else if (line.StartsWith("=======") && currentBlock != null)
+            {
+                inLocal = false;
+                inIncoming = true;
+            }
+            else if (line.StartsWith(">>>>>>>") && currentBlock != null)
+            {
+                currentBlock.EndLine = i + 1;
+                currentBlock.LocalContent = localSb.ToString().TrimEnd('\r', '\n');
+                currentBlock.IncomingContent = incomingSb.ToString().TrimEnd('\r', '\n');
+                blocks.Add(currentBlock);
+                currentBlock = null;
+                inLocal = false;
+                inIncoming = false;
+            }
+            else if (currentBlock != null)
+            {
+                if (inLocal) localSb.AppendLine(line);
+                else if (inIncoming) incomingSb.AppendLine(line);
+            }
+        }
+
+        return blocks;
+    }
+
+    public Task<Result> ResolveConflictAsync(string projectPath, string filePath, string resolvedContent)
+    {
+        return Task.Run(() =>
+        {
+            try
+            {
+                using var repo = new Repository(projectPath);
+                var absolutePath = Path.Combine(projectPath, filePath);
+                File.WriteAllText(absolutePath, resolvedContent);
+                
+                Commands.Stage(repo, filePath);
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                return Result.Fail($"Error resolviendo conflicto en {filePath}: {ex.Message}");
             }
         });
     }

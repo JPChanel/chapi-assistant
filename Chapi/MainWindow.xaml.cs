@@ -1366,6 +1366,11 @@ namespace Chapi
                     }
                     else
                     {
+                        if (result.Error == "CONFLICTO_DETECTADO")
+                        {
+                            await HandleMergeConflictsAsync();
+                            return; // Terminamos la operacion actual y abrimos la resolucion.
+                        }
                         throw new Exception(result.Error);
                     }
                 }
@@ -1456,6 +1461,11 @@ namespace Chapi
                 await LoadHistoryAsync();
                 await UpdateProjectStatusesAsync();
                 _ = DoFetchAsync(isSilent: true);
+
+                if (!result.IsSuccess && result.Error == "CONFLICTO_DETECTADO")
+                {
+                    await HandleMergeConflictsAsync();
+                }
             });
         }
 
@@ -1469,6 +1479,37 @@ namespace Chapi
         {
             e.Handled = true;
             GitActionsComboBox.IsDropDownOpen = true;
+        }
+
+        private async Task HandleMergeConflictsAsync()
+        {
+            try
+            {
+                var getConflictsUC = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Git.GetConflictsUseCase>();
+                var resolveConflictUC = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Git.ResolveConflictUseCase>();
+
+                var viewModel = new Chapi.Presentation.ViewModels.ConflictResolutionViewModel(projectDirectory, getConflictsUC, resolveConflictUC);
+                await viewModel.LoadConflictsAsync();
+
+                if (viewModel.Conflicts.Any())
+                {
+                    var dialog = new Chapi.Presentation.Views.Dialogs.ConflictResolutionDialog(viewModel);
+                    await DialogService.ShowDialog(dialog);
+
+                    // Recargar luego de (posible) resolucion
+                    await LoadChangesAsync();
+                    await LoadHistoryAsync();
+                    await UpdateProjectStatusesAsync();
+                }
+                else
+                {
+                    Msg.Assistant("No se encontraron conflictos a revisar o ya están resueltos.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Msg.Assistant($"Error abriendo ventana de conflictos: {ex.Message}");
+            }
         }
         #endregion
 

@@ -145,6 +145,8 @@ namespace Chapi
             services.AddTransient<UseCases.AssociateGitUseCase>();
             services.AddTransient<UseCases.DeleteTagUseCase>();
             services.AddTransient<UseCases.GetCommitStatsUseCase>();
+            services.AddTransient<UseCases.GetConflictsUseCase>();
+            services.AddTransient<UseCases.ResolveConflictUseCase>();
 
             // Application - Project Use Cases
             services.AddTransient<Chapi.Application.UseCases.Projects.AddProjectUseCase>();

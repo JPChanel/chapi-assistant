@@ -62,7 +62,14 @@ public class PullChangesUseCase
         }
         else
         {
-            _notifications.ShowError($"❌ Error al hacer pull: {result.Error}");
+            if (result.Error == "CONFLICTO_DETECTADO")
+            {
+                _notifications.ShowWarning("Conflictos detectados. Por favor, resuélvelos en la ventana correspondiente.");
+            }
+            else
+            {
+                _notifications.ShowError($"❌ Error al hacer pull: {result.Error}");
+            }
         }
 
         return result;

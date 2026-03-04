@@ -427,5 +427,7 @@ public class WslGitRepository : IGitRepository
     public Task<Dictionary<string, List<string>>> GetTagCommitMapAsync(string projectPath) => throw new NotImplementedException();
     public Task<string> GetDiffAsync(string projectPath, string file, string? revision = null) => throw new NotImplementedException();
     public Task<string> GetBranchDiffAsync(string projectPath, string sourceBranch, string targetBranch) => throw new NotImplementedException();
+    public Task<IEnumerable<GitConflict>> GetMergeConflictsAsync(string projectPath) => throw new NotImplementedException();
+    public Task<Result> ResolveConflictAsync(string projectPath, string filePath, string resolvedContent) => throw new NotImplementedException();
     #endregion
 }

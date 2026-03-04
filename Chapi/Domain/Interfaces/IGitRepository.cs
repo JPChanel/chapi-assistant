@@ -34,6 +34,10 @@ public interface IGitRepository
     Task<(bool hasConflicts, string message)> CheckMergeConflictsAsync(string projectPath, string sourceBranch);
     Task<Result> ResetAsync(string projectPath, string target, ResetMode mode);
     Task<Result> RestoreFileFromStashAsync(string projectPath, string stashName, string filePath);
+    
+    // Conflicts
+    Task<IEnumerable<GitConflict>> GetMergeConflictsAsync(string projectPath);
+    Task<Result> ResolveConflictAsync(string projectPath, string filePath, string resolvedContent);
 
     // Remote
     Task<Result> PushAsync(string projectPath, string branch, bool force = false);

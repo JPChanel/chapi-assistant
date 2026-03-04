@@ -177,8 +177,10 @@ public class GitRepositoryDispatcher : IGitRepository
     public Task<Result> SquashMergeBranchAsync(string projectPath, string sourceBranch, string? commitMessage = null) => _libGit2.SquashMergeBranchAsync(projectPath, sourceBranch, commitMessage);
     public Task<Result> RebaseBranchAsync(string projectPath, string targetBranch) => _libGit2.RebaseBranchAsync(projectPath, targetBranch);
     public Task<(bool hasConflicts, string message)> CheckMergeConflictsAsync(string projectPath, string sourceBranch) => _libGit2.CheckMergeConflictsAsync(projectPath, sourceBranch);
-    public Task<Result> ResetAsync(string projectPath, string target, ResetMode mode) => _libGit2.ResetAsync(projectPath, target, mode);
+    public Task<Result> ResetAsync(string projectPath, string target, Chapi.Domain.Enums.ResetMode mode) => _libGit2.ResetAsync(projectPath, target, mode);
     public Task<Result> RestoreFileFromStashAsync(string projectPath, string stashName, string filePath) => _libGit2.RestoreFileFromStashAsync(projectPath, stashName, filePath);
+    public Task<IEnumerable<GitConflict>> GetMergeConflictsAsync(string projectPath) => _libGit2.GetMergeConflictsAsync(projectPath);
+    public Task<Result> ResolveConflictAsync(string projectPath, string filePath, string resolvedContent) => _libGit2.ResolveConflictAsync(projectPath, filePath, resolvedContent);
     public Task<Result> SetRemoteUrlAsync(string projectPath, string remoteName, string url) => _libGit2.SetRemoteUrlAsync(projectPath, remoteName, url);
     public Task<string> GetCommitParentHashAsync(string projectPath, string hash) => _libGit2.GetCommitParentHashAsync(projectPath, hash);
     public Task<Dictionary<string, (int Additions, int Deletions)>> GetCommitNumStatAsync(string projectPath, string hash) => _libGit2.GetCommitNumStatAsync(projectPath, hash);
