@@ -58,26 +58,27 @@ public class DocumentationViewModel : INotifyPropertyChanged
         GenerateSectionCommand = new AsyncRelayCommand(_ => GenerateSectionAsync(), _ => CanGenerate());
         GenerateAllSectionsCommand = new AsyncRelayCommand(_ => GenerateAllSectionsAsync(), _ => CanGenerate());
         RefreshPreviewCommand = new AsyncRelayCommand(_ => RefreshPreviewAsync());
-        ApplyTemplateCommand = new RelayCommand<DocTemplate>(t => ApplyTemplate(t));
+        ApplyTemplateCommand = new AsyncRelayCommand<DocTemplate>(t => ApplyTemplateAsync(t));
         SelectSectionCommand = new RelayCommand<DocSection>(s => SelectedSection = s);
         RemoveSectionCommand = new RelayCommand<DocSection>(RemoveSection);
         ChangeDiagramFormatCommand = new RelayCommand<string>(ChangeDiagramFormat);
 
         // Carga plantilla inicial
-        ApplyTemplate(DocTemplate.ModeloSoftware);
+        _ = ApplyTemplateAsync(DocTemplate.ModeloSoftware);
     }
 
 
     private async Task OpenSessionAsync(DocumentSession session)
     {
         if (session == null) return;
-        
+
         try
         {
             _isLoading = true;
             StatusMessage = $"Cargando '{session.Title}'...";
-            
+
             _session = session;
+            CurrentTemplate = session.Template;
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
@@ -86,13 +87,22 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 {
                     Sections.Add(section);
                 }
-                
-                SelectedSection = Sections.FirstOrDefault();
+
+                // Actualizar campo privado para evitar disparar el setter y RefreshPreview prematuro
+                _selectedSection = Sections.FirstOrDefault();
+
+                // Notificar cambios manualmente
+                OnPropertyChanged(nameof(SelectedSection));
+                OnPropertyChanged(nameof(IsTextSection));
+                OnPropertyChanged(nameof(IsDiagramSection));
+                OnPropertyChanged(nameof(IsImageSection));
                 OnPropertyChanged(nameof(Session));
+                OnPropertyChanged(nameof(Sections));
+
                 await RefreshPreviewAsync();
             });
 
-            StatusMessage = "✅ Sesión cargada correctamente.";
+            StatusMessage = $"✅ '{session.Title}' recuperado correctamente.";
         }
         catch (Exception ex)
         {
@@ -173,7 +183,12 @@ public class DocumentationViewModel : INotifyPropertyChanged
         set { _generateAll = value; OnPropertyChanged(); }
     }
 
-    public DocTemplate CurrentTemplate { get; private set; }
+    private DocTemplate _currentTemplate;
+    public DocTemplate CurrentTemplate
+    {
+        get => _currentTemplate;
+        private set { _currentTemplate = value; OnPropertyChanged(); }
+    }
 
     // Expuesto para que el code-behind pueda navegar el WebView
     internal IKrokiDiagramService KrokiService { get; }
@@ -194,26 +209,83 @@ public class DocumentationViewModel : INotifyPropertyChanged
 
     // ─── Command Implementations ───────────────────────────────────────────────
 
-    public void ApplyTemplate(DocTemplate template)
+    public async Task ApplyTemplateAsync(DocTemplate template)
     {
-        CurrentTemplate = template;
-        Sections.Clear();
+        if (_isLoading) return;
 
-        var (title, sections) = _applyTemplate.Execute(template);
-        _session.Title = title;
-        _session.Template = template;
+        // 1. Evitar reset si ya estamos en esta plantilla y hay contenido
+        if (_session.Template == template && Sections.Any()) return;
 
-        int i = 1;
-        foreach (var section in sections)
+        // 2. Guardar progreso actual antes de cambiar
+        if (Sections.Any())
         {
-            section.Order = i++;
-            Sections.Add(section);
+            await SaveAsync();
         }
 
-        SyncSectionsToSession();
-        SelectedSection = Sections.FirstOrDefault();
-        OnPropertyChanged(nameof(Session));
-        if (!_isLoading) _ = RefreshPreviewAsync();
+        // 3. Buscar si existe una sesión guardada para ESTA plantilla en ESTE proyecto
+        try
+        {
+            var sessions = await _persistence.GetAllAsync(_session.ProjectName);
+            var existing = sessions.FirstOrDefault(s => s.Template == template);
+
+            if (existing != null)
+            {
+                await OpenSessionAsync(existing);
+                return;
+            }
+        }
+        catch { /* Fallback a creación de nueva si falla la búsqueda */ }
+
+        // 4. Si no existe, aplicar la plantilla base (Creación limpia)
+        StatusMessage = $"🆕 Iniciando nueva sesión: {template}";
+        ApplyTemplateInternal(template);
+    }
+
+    private void ApplyTemplateInternal(DocTemplate template)
+    {
+        _isLoading = true;
+        try
+        {
+            // Preservar contexto del proyecto antes de crear nueva sesión
+            var projectName = _session.ProjectName;
+            var projectPath = _session.ProjectPath;
+
+            _session = new DocumentSession
+            {
+                Id = Guid.NewGuid().ToString(), // Identidad única obligatoria
+                ProjectName = projectName,
+                ProjectPath = projectPath,
+                Template = template
+            };
+
+            CurrentTemplate = template;
+            Sections.Clear();
+
+            var (title, sections) = _applyTemplate.Execute(template);
+            _session.Title = title;
+
+            int i = 1;
+            foreach (var section in sections)
+            {
+                section.Order = i++;
+                Sections.Add(section);
+            }
+
+            SyncSectionsToSession();
+            _selectedSection = Sections.FirstOrDefault();
+
+            OnPropertyChanged(nameof(SelectedSection));
+            OnPropertyChanged(nameof(IsTextSection));
+            OnPropertyChanged(nameof(IsDiagramSection));
+            OnPropertyChanged(nameof(IsImageSection));
+            OnPropertyChanged(nameof(Session));
+
+            _ = RefreshPreviewAsync();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
     private void RemoveSection(DocSection? section)
@@ -236,8 +308,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
 
     private Task NewDocumentAsync()
     {
-        _session = new DocumentSession();
-        ApplyTemplate(CurrentTemplate);
+        ApplyTemplateInternal(CurrentTemplate);
         StatusMessage = "Nuevo documento creado.";
         return Task.CompletedTask;
     }
@@ -315,8 +386,6 @@ public class DocumentationViewModel : INotifyPropertyChanged
             {
                 SelectedSection = section;
                 StatusMessage = $"🤖 Generando '{section.Title}' ({current}/{total})...";
-                // Aquí el RefreshPreviewAsync se llama dentro del loop del Use Case si pasamos un Action asíncrono
-                // Pero como el Use Case espera Action, lo manejamos sincronamente o cambiamos a Func<Task>
             });
 
             StatusMessage = "✅ Documento completo generado.";
@@ -427,25 +496,34 @@ public class DocumentationViewModel : INotifyPropertyChanged
     public async Task SetProjectContextAsync(string projectName, string projectPath)
     {
         if (_isLoading) return;
-        
-        _session.ProjectName = projectName;
-        _session.ProjectPath = projectPath;
+
+        // Limpieza profunda preventiva
+        _session = new DocumentSession
+        {
+            ProjectName = projectName,
+            ProjectPath = projectPath
+        };
         _projectContext = string.Empty;
 
-        try 
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            Sections.Clear();
+            PreviewHtml = string.Empty;
+        });
+
+        try
         {
             var sessions = await _persistence.GetAllAsync(projectName);
             var latest = sessions.FirstOrDefault();
             if (latest != null)
             {
                 await OpenSessionAsync(latest);
+                // Asegurar que el CurrentTemplate se sincronice con la sesión cargada
+                CurrentTemplate = latest.Template;
             }
             else
             {
-                // Si no hay sesión previa, forzamos un estado limpio o plantilla base
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => {
-                    ApplyTemplate(DocTemplate.ModeloSoftware);
-                });
+                await ApplyTemplateAsync(DocTemplate.ModeloSoftware);
             }
         }
         catch (Exception ex)

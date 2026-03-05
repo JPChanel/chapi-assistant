@@ -1,5 +1,8 @@
 using System.ComponentModel;
+using System.IO;
+using System.IO.Compression;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Chapi.Domain.Documentation;
 
@@ -33,13 +36,47 @@ public class DocSection : INotifyPropertyChanged
     public string DiagramCode
     {
         get => _diagramCode;
-        set { _diagramCode = value; OnPropertyChanged(); }
+        set 
+        { 
+            _diagramCode = value; 
+            OnPropertyChanged(); 
+            OnPropertyChanged(nameof(DiagramUrl));
+        }
     }
 
     public DiagramFormat DiagramFormat
     {
         get => _diagramFormat;
-        set { _diagramFormat = value; OnPropertyChanged(); }
+        set 
+        { 
+            _diagramFormat = value; 
+            OnPropertyChanged(); 
+            OnPropertyChanged(nameof(DiagramUrl));
+        }
+    }
+
+    public string DiagramUrl
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(DiagramCode)) return string.Empty;
+            try
+            {
+                var format = DiagramFormat == DiagramFormat.Mermaid ? "mermaid" : "plantuml";
+                var bytes = Encoding.UTF8.GetBytes(DiagramCode);
+                using var output = new MemoryStream();
+                using (var deflater = new ZLibStream(output, CompressionLevel.Optimal))
+                {
+                    deflater.Write(bytes, 0, bytes.Length);
+                }
+                var base64 = Convert.ToBase64String(output.ToArray())
+                    .Replace('+', '-')
+                    .Replace('/', '_')
+                    .TrimEnd('=');
+                return $"https://kroki.io/{format}/svg/{base64}";
+            }
+            catch { return string.Empty; }
+        }
     }
 
     // Para secciones de tipo Image — imagen en base64

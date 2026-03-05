@@ -12,6 +12,7 @@
         <conv:SectionTypeIconConverter x:Key="SectionTypeIconConverter"/>
         <conv:InverseBooleanConverter x:Key="InvBool"/>
         <conv:InverseBooleanToVisibilityConverter x:Key="InvBoolToVis"/>
+        <conv:StringToVisibilityConverter x:Key="StringToVisInv" Inverse="True"/>
     </UserControl.Resources>
 
     <!-- Layout raíz: Sidebar + Contenido principal -->
@@ -69,12 +70,13 @@
                                         </StackPanel>
                                     </Border>
                                     <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
+                                        <DataTrigger Binding="{Binding CurrentTemplate}" Value="{x:Static doc:DocTemplate.ModeloSoftware}">
                                             <Setter TargetName="Bd" Property="Background" Value="#4F46E5"/>
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#6366F1"/>
-                                        </Trigger>
-                                        <Trigger Property="IsPressed" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="#4338CA"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#818CF8"/>
+                                            <Setter TargetName="Bd" Property="BorderThickness" Value="2"/>
+                                        </DataTrigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#334155"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -97,12 +99,13 @@
                                         </StackPanel>
                                     </Border>
                                     <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
+                                        <DataTrigger Binding="{Binding CurrentTemplate}" Value="{x:Static doc:DocTemplate.DisenoSistema}">
                                             <Setter TargetName="Bd" Property="Background" Value="#4F46E5"/>
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#6366F1"/>
-                                        </Trigger>
-                                        <Trigger Property="IsPressed" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="#4338CA"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#818CF8"/>
+                                            <Setter TargetName="Bd" Property="BorderThickness" Value="2"/>
+                                        </DataTrigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#334155"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -413,7 +416,39 @@
                                                                              CaretBrush="#818CF8"
                                                                              BorderThickness="0"
                                                                              TextChanged="DiagramEditor_TextChanged"/>
-                                                                </StackPanel>
+                                                                 </StackPanel>
+                                                             </Border>
+
+                                                            <!-- Vista previa de Kroki.io (Automática) -->
+                                                            <Border Background="#1E293B" CornerRadius="10" 
+                                                                    Padding="10" Margin="0,0,0,12"
+                                                                    BorderBrush="#334155" BorderThickness="1">
+                                                                <Grid MinHeight="100">
+                                                                    <!-- Placeholder cuando no hay código -->
+                                                                    <TextBlock Text="Esperando código de diagrama..." 
+                                                                               Foreground="#64748B" FontSize="11"
+                                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                               Visibility="{Binding DiagramUrl, Converter={StaticResource StringToVisInv}}"/>
+                                                                    
+                                                                    <!-- Imagen del diagrama -->
+                                                                    <Image Source="{Binding DiagramUrl}" 
+                                                                           Stretch="Uniform"
+                                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                           RenderOptions.BitmapScalingMode="HighQuality">
+                                                                        <Image.Style>
+                                                                            <Style TargetType="Image">
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding DiagramUrl}" Value="">
+                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                    </DataTrigger>
+                                                                                    <DataTrigger Binding="{Binding DiagramUrl}" Value="{x:Null}">
+                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Image.Style>
+                                                                    </Image>
+                                                                </Grid>
                                                             </Border>
                                                         </StackPanel>
 
