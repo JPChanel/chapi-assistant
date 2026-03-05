@@ -6,7 +6,6 @@
         xmlns:local="clr-namespace:Chapi"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:views="clr-namespace:Chapi.Presentation.Views.Tabs"
-        xmlns:diffPlex="clr-namespace:DiffPlex.Wpf.Controls;assembly=DiffPlex.Wpf"
         xmlns:converters="clr-namespace:Chapi.Presentation.Converters"
         mc:Ignorable="d"
         Title="Chapi Assistance"
@@ -509,6 +508,19 @@
                          </TabItem.HeaderTemplate>
                          <views:WorkspaceView x:Name="WorkspaceViewControl"/>
                      </TabItem>
+
+                    <!-- ─── Tab Documentación ─────────────────────────────────── -->
+                    <TabItem x:Name="DocumentationTab">
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal" Margin="10,0">
+                                <materialDesign:PackIcon Kind="BookOpenOutline" Width="18" Height="18"
+                                                         Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Documentación" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </TabItem.Header>
+                        <views:DocumentationView x:Name="DocumentationViewControl"/>
+                    </TabItem>
+
                     <TabItem x:Name="TagsTab">
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">

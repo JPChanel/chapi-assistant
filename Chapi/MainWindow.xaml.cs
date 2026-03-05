@@ -53,6 +53,7 @@ namespace Chapi
         private Presentation.ViewModels.ReleasesViewModel? _releasesViewModel;
         private Presentation.ViewModels.WorkspaceViewModel? _workspaceViewModel;
         private Presentation.ViewModels.AssistantViewModel? _assistantViewModel;
+        private Presentation.ViewModels.DocumentationViewModel? _documentationViewModel;
         private readonly IGitRepository _gitRepository;
 
         public MainWindow()
@@ -67,12 +68,14 @@ namespace Chapi
             _releasesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ReleasesViewModel)) as Presentation.ViewModels.ReleasesViewModel;
             _assistantViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.AssistantViewModel)) as Presentation.ViewModels.AssistantViewModel;
             _workspaceViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.WorkspaceViewModel)) as Presentation.ViewModels.WorkspaceViewModel;
+            _documentationViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.DocumentationViewModel)) as Presentation.ViewModels.DocumentationViewModel;
 
             ChangesTab.DataContext = _changesViewModel;
             HistoryTab.DataContext = _historyViewModel;
             TagsTab.DataContext = _releasesViewModel;
             WorkspaceTab.DataContext = _workspaceViewModel;
             AssistantViewControl.DataContext = _assistantViewModel;
+            DocumentationViewControl.DataContext = _documentationViewModel;
 
             Msg.Assistant("👋 ¡Hey! Soy Chapi 🤖 Tu dev buddy para arquitectura.");
 
@@ -403,8 +406,9 @@ namespace Chapi
 
         private async Task UpdateAssistantContextAsync()
         {
-            if (string.IsNullOrEmpty(projectDirectory) || _assistantViewModel == null) return;
-            await _assistantViewModel.UpdateProjectContextAsync(projectDirectory);
+            if (string.IsNullOrEmpty(projectDirectory)) return;
+            if (_assistantViewModel != null) await _assistantViewModel.UpdateProjectContextAsync(projectDirectory);
+            if (_documentationViewModel != null) await _documentationViewModel.SetProjectContextAsync(new DirectoryInfo(projectDirectory).Name, projectDirectory);
         }
 
         private async Task CheckBranchStatusAsync()

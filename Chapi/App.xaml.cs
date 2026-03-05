@@ -88,20 +88,20 @@ namespace Chapi
             services.AddSingleton<IModuleGeneratorService, ModuleGeneratorService>();
             services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
             services.AddSingleton<IAssistantCapabilityRegistry, Chapi.Application.Services.Assistant.AssistantCapabilityRegistry>();
-            
+
             // AI Services (Microsoft.Extensions.AI)
             // AI Services (Microsoft.Extensions.AI)
-            services.AddTransient<Microsoft.Extensions.AI.IChatClient>(sp => 
+            services.AddTransient<Microsoft.Extensions.AI.IChatClient>(sp =>
             {
                 var settings = Chapi.Infrastructure.Persistence.Settings.UserSettingsService.LoadSettings();
-                
+
                 // 1. Intentar proveedor preferido
                 if (settings.PreferredAiProvider == "OpenAI" && !string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
                     return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
-                
+
                 if (settings.PreferredAiProvider == "Claude" && !string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
                     return new Chapi.Infrastructure.AI.ClaudeChatClient(settings.ClaudeApiKey);
-                
+
                 if ((settings.PreferredAiProvider == "Gemini" || string.IsNullOrEmpty(settings.PreferredAiProvider)) && !string.IsNullOrWhiteSpace(settings.GeminiApiKey))
                     return new Chapi.Infrastructure.AI.GeminiChatClient(settings.GeminiApiKey);
 
@@ -111,7 +111,7 @@ namespace Chapi
 
                 if (!string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
                     return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
-                
+
                 if (!string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
                     return new Chapi.Infrastructure.AI.ClaudeChatClient(settings.ClaudeApiKey);
 
@@ -171,7 +171,7 @@ namespace Chapi
             services.AddTransient<Chapi.Application.UseCases.AI.GenerateCommitMessageUseCase>();
             services.AddTransient<Chapi.Application.UseCases.AI.SendChatMessageUseCase>();
             services.AddTransient<Chapi.Application.UseCases.AI.GenerateSqlQueryUseCase>();
-            
+
             // Core Assistant Services (Singleton para mantener estado en la sesión)
             services.AddSingleton<Chapi.Application.Services.Assistant.GeminiChatService>();
             services.AddSingleton<Chapi.Application.Services.Assistant.ConversationManager>();
@@ -195,6 +195,27 @@ namespace Chapi
             services.AddTransient<Presentation.ViewModels.LoginGitHubViewModel>();
             services.AddTransient<Presentation.ViewModels.GitProviderSelectionViewModel>();
             services.AddSingleton<Presentation.ViewModels.CloneRepositoryViewModel>();
+
+            // ─── Documentation Module ────────────────────────────────────────────────
+            // HttpClient ya está registrado arriba como Singleton (línea ~81), no duplicar
+            services.AddSingleton<Chapi.Application.Interfaces.IKrokiDiagramService,
+                Chapi.Infrastructure.Documentation.KrokiDiagramService>();
+            services.AddSingleton<Chapi.Application.Interfaces.IDocumentPersistenceService,
+                Chapi.Infrastructure.Documentation.AppDataDocPersistenceService>();
+            services.AddSingleton<Chapi.Application.Interfaces.IDocumentExportService,
+                Chapi.Infrastructure.Documentation.OpenXmlExportService>();
+            services.AddSingleton<Chapi.Application.Interfaces.IDocSynthesizerService,
+                Chapi.Infrastructure.Documentation.GeminiDocSynthesizer>();
+
+            // Application - Documentation Use Cases
+            services.AddTransient<Chapi.Application.UseCases.Documentation.ApplyTemplateUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.Documentation.ExportDocumentUseCase>();
+
+            // Application - AI Use Cases
+            services.AddTransient<Chapi.Application.UseCases.AI.GenerateDocumentSectionUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.AI.GenerateAllDocumentSectionsUseCase>();
+
+            services.AddSingleton<Presentation.ViewModels.DocumentationViewModel>();
 
             ServiceProvider = services.BuildServiceProvider();
         }
