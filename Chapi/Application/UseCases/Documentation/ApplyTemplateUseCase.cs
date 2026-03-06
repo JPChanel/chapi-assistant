@@ -20,78 +20,40 @@ public class ApplyTemplateUseCase
 
     private static IEnumerable<DocSection> GetModeloSoftwareSections() =>
     [
-        new DocSection { Title = "Introducción", Type = DocSectionType.Text },
-        new DocSection { Title = "Objetivos", Type = DocSectionType.Text },
-        new DocSection { Title = "Alcance", Type = DocSectionType.Text },
-        new DocSection
-        {
-            Title = "Diagrama de Paquetes",
-            Type = DocSectionType.Diagram,
-            DiagramFormat = DiagramFormat.Mermaid,
-            DiagramCode = "graph LR\n  A[Presentación] --> B[Aplicación]\n  B --> C[Dominio]\n  B --> D[Infraestructura]"
-        },
-        new DocSection
-        {
-            Title = "Diagrama de Actores",
-            Type = DocSectionType.Diagram,
-            DiagramFormat = DiagramFormat.PlantUml,
-            DiagramCode = "@startuml\nactor Usuario\nactor Administrador\n@enduml"
-        },
-        new DocSection
-        {
-            Title = "Casos de Uso",
-            Type = DocSectionType.Diagram,
-            DiagramFormat = DiagramFormat.PlantUml,
-            DiagramCode = "@startuml\nactor Usuario\nusecase \"Iniciar Sesión\" as UC1\nUsuario --> UC1\n@enduml"
-        },
-        new DocSection
-        {
-            Title = "Diagrama de Actividad",
-            Type = DocSectionType.Diagram,
-            DiagramFormat = DiagramFormat.Mermaid,
-            DiagramCode = "flowchart TD\n  A([Inicio]) --> B[Acción]\n  B --> C([Fin])"
-        },
-        new DocSection
-        {
-            Title = "Diagrama de Secuencia",
-            Type = DocSectionType.Diagram,
-            DiagramFormat = DiagramFormat.Mermaid,
-            DiagramCode = "sequenceDiagram\n  Usuario->>Sistema: Solicitud\n  Sistema-->>Usuario: Respuesta"
-        },
+        new DocSection { Order = 1, Title = "Introducción", Type = DocSectionType.Text },
+        new DocSection { Order = 2, Title = "Objetivos", Type = DocSectionType.Text },
+        new DocSection { Order = 3, Title = "Alcance", Type = DocSectionType.Text },
+        new DocSection { Order = 4, Title = "Diagrama de Paquetes / Vista Lógica", Type = DocSectionType.Text },
+        new DocSection { Order = 5, Title = "4.1 Listado de paquetes", Type = DocSectionType.Table },
+        new DocSection { Order = 6, Title = "4.2 Presentación", Type = DocSectionType.Image },
+        new DocSection { Order = 7, Title = "4.3 Especificación de paquetes", Type = DocSectionType.Table },
+        new DocSection { Order = 8, Title = "Diagrama de Actores", Type = DocSectionType.Text },
+        new DocSection { Order = 9, Title = "5.1 Listado de actores", Type = DocSectionType.Table },
+        new DocSection { Order = 10, Title = "5.2 Diagrama de actores", Type = DocSectionType.Image },
+        new DocSection { Order = 11, Title = "Diagrama de Casos de Uso", Type = DocSectionType.Text },
+        new DocSection { Order = 12, Title = "6.1 Listado de Casos de Uso", Type = DocSectionType.Table },
+        new DocSection { Order = 13, Title = "6.2 Especificación de Casos de Uso", Type = DocSectionType.Table },
+        new DocSection { Order = 14, Title = "Diagrama de Actividad", Type = DocSectionType.Diagram },
+        new DocSection { Order = 15, Title = "Diagrama de Secuencia", Type = DocSectionType.Diagram },
+        new DocSection { Order = 16, Title = "Diagrama de Estados", Type = DocSectionType.Diagram },
     ];
 
     private static IEnumerable<DocSection> GetDisenoSistemaSections() =>
     [
-        new DocSection { Title = "Introducción", Type = DocSectionType.Text },
-        new DocSection { Title = "Objetivos", Type = DocSectionType.Text },
-        new DocSection { Title = "Alcance", Type = DocSectionType.Text },
-        new DocSection { Title = "Arquitectura del Sistema", Type = DocSectionType.Text },
-        new DocSection
-        {
-            Title = "Diagrama de Componentes",
-            Type = DocSectionType.Diagram,
-            DiagramFormat = DiagramFormat.PlantUml,
-            DiagramCode = "@startuml\ncomponent [Frontend]\ncomponent [Backend]\ncomponent [Base de Datos]\n[Frontend] --> [Backend]\n[Backend] --> [Base de Datos]\n@enduml"
-        },
-        new DocSection
-        {
-            Title = "Diagrama de Clases",
-            Type = DocSectionType.Diagram,
-            DiagramFormat = DiagramFormat.Mermaid,
-            DiagramCode = "classDiagram\n  class Entidad {\n    +id: int\n    +nombre: string\n  }"
-        },
-        new DocSection
-        {
-            Title = "Diagrama Entidad - Relación",
-            Type = DocSectionType.Diagram,
-            DiagramFormat = DiagramFormat.Mermaid,
-            DiagramCode = "erDiagram\n  USUARIO ||--o{ PEDIDO : realiza\n  PEDIDO ||--|{ ITEM : contiene"
-        },
-        new DocSection
-        {
-            Title = "Diccionario de Datos",
-            Type = DocSectionType.Table,
-            Content = "| Campo | Tipo | PK | Descripción |\n|---|---|---|---|\n| id | INT | ✅ | Identificador único |"
-        },
+        new DocSection { Order = 1, Title = "Introducción", Type = DocSectionType.Text },
+        new DocSection { Order = 2, Title = "Objetivos", Type = DocSectionType.Text },
+        new DocSection { Order = 3, Title = "Alcance", Type = DocSectionType.Text },
+        new DocSection { Order = 4, Title = "Arquitectura del Sistema", Type = DocSectionType.Text },
+        new DocSection { Order = 5, Title = "4.1 Descripción de capas", Type = DocSectionType.Table },
+        new DocSection { Order = 6, Title = "Diagrama de Componentes", Type = DocSectionType.Text },
+        new DocSection { Order = 7, Title = "5.1 Diagrama de componentes", Type = DocSectionType.Image },
+        new DocSection { Order = 8, Title = "5.2 Descripción de componentes", Type = DocSectionType.Table },
+        new DocSection { Order = 9, Title = "Diagrama de Clases", Type = DocSectionType.Text },
+        new DocSection { Order = 10, Title = "6.1 Diagrama de clases", Type = DocSectionType.Image },
+        new DocSection { Order = 11, Title = "6.2 Especificación de clases", Type = DocSectionType.Table },
+        new DocSection { Order = 12, Title = "Diagrama Entidad - Relación", Type = DocSectionType.Diagram },
+        new DocSection { Order = 13, Title = "Diccionario de Datos", Type = DocSectionType.Text },
+        new DocSection { Order = 14, Title = "8.1 Listado de tablas", Type = DocSectionType.Table },
+        new DocSection { Order = 15, Title = "8.2 Descripción de tablas", Type = DocSectionType.Table },
     ];
 }

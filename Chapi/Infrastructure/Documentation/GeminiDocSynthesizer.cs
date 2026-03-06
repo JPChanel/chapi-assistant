@@ -1,4 +1,6 @@
 using System.IO;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Chapi.Application.Interfaces;
 using Chapi.Domain.Documentation;
 using Microsoft.Extensions.AI;
@@ -38,6 +40,29 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
         var raw = response.Messages.FirstOrDefault()?.Text ?? string.Empty;
 
         return CleanDiagramCode(raw, format);
+    }
+
+    public async Task<Dictionary<string, string>> GenerateMetadataAsync(
+        IEnumerable<string> keys, string projectContext, string userPrompt, CancellationToken cancellationToken = default)
+    {
+        var jsonKeys = string.Join("\n", keys.Select(k => $"- {k}"));
+        var prompt = Chapi.Infrastructure.AI.GetPrompt.DocMetadata(jsonKeys, projectContext, userPrompt);
+        
+        var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
+        var response = await _chatClient.GetResponseAsync(messages, cancellationToken: cancellationToken);
+        var raw = response.Messages.FirstOrDefault()?.Text ?? "{}";
+
+        try
+        {
+            // Limpiar posibles bloques markdown del json
+            var cleanedJson = Regex.Replace(raw, @"^```(json)?|```$", "", RegexOptions.Multiline).Trim();
+            var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(cleanedJson);
+            return dict ?? new Dictionary<string, string>();
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, string>();
+        }
     }
 
     public async Task<string> AnalyzeProjectContextAsync(string projectPath, CancellationToken cancellationToken = default)

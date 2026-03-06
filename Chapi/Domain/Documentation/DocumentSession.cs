@@ -10,5 +10,6 @@ public class DocumentSession
     public DocTemplate Template { get; set; } = DocTemplate.ModeloSoftware;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime LastModifiedAt { get; set; } = DateTime.Now;
+    public Dictionary<string, string> Metadata { get; set; } = new();
     public List<DocSection> Sections { get; set; } = new();
 }

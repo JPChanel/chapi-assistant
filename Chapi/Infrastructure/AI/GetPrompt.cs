@@ -285,6 +285,28 @@ public class GetPrompt
         ";
     }
 
+    public static string DocMetadata(string jsonKeys, string projectContext, string userPrompt)
+    {
+        return $@"
+        Eres un arquitecto de software experto documentando sistemas.
+        Tu tarea es llenar una plantilla de metadatos JSON basada en el contexto del proyecto y la instrucción del usuario.
+
+        CONTEXTO:
+        {projectContext}
+
+        INSTRUCCIÓN:
+        {userPrompt}
+
+        INSTRUCCIONES CLAVES:
+        1. Devuelve ÚNICAMENTE un objeto JSON válido (sin etiquetas markdown como ```json).
+        2. El JSON debe contener EXACTAMENTE las claves proporcionadas en la lista a continuación, y como valor el contenido generado.
+        3. Para claves que contengan 'IMG' o 'DIAGRAMA' en su nombre (ej. IMG_ARQUITECTURA), el valor DEBE ser código válido Pura de PlantUML (sin bloques ```plantuml).
+
+        CLAVES REQUERIDAS (Genera el contenido óptimo para cada una):
+        {jsonKeys}
+        ";
+    }
+
     public static string DocAnalyzeContext(string structure, string configFiles)
     {
         return $@"

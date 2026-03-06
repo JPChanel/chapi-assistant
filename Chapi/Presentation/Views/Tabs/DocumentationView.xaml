@@ -10,9 +10,133 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <conv:SectionTypeIconConverter x:Key="SectionTypeIconConverter"/>
+        <conv:TemplateTitleConverter x:Key="TemplateTitleConverter"/>
         <conv:InverseBooleanConverter x:Key="InvBool"/>
         <conv:InverseBooleanToVisibilityConverter x:Key="InvBoolToVis"/>
         <conv:StringToVisibilityConverter x:Key="StringToVisInv" Inverse="True"/>
+
+        <!-- ✨ Estilos Premium (React-inspired) -->
+        <Style x:Key="WordPageStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Margin" Value="0,32"/>
+            <Setter Property="BorderBrush" Value="#cbd5e1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="64"/>
+            <Setter Property="MaxWidth" Value="850"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="TextElement.FontFamily" Value="Cambria, Georgia, serif"/>
+            <Setter Property="TextElement.FontSize" Value="13"/>
+            <Setter Property="TextElement.Foreground" Value="#1F2937"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="40" ShadowDepth="10" Opacity="0.18" Color="Black"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DocTagStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="#EFF6FF"/>
+            <Setter Property="Foreground" Value="#2563EB"/>
+            <Setter Property="BorderBrush" Value="#DBEAFE"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,2"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, monospace"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="MinWidth" Value="80"/>
+            <Setter Property="MinHeight" Value="22"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="border" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="0" VerticalAlignment="Center" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#2563EB"/>
+                                <Setter Property="BorderThickness" Value="1.5"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding DataContext.ShowTags, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="False">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="#94A3B8"/>
+                                <Setter Property="Opacity" Value="0.4"/>
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#111827"/>
+            <Setter Property="FontFamily" Value="Cambria, Georgia, serif"/>
+        </Style>
+
+        <Style x:Key="SectionNumberStyle" TargetType="TextBlock" BasedOn="{StaticResource SectionHeaderStyle}">
+            <Setter Property="Foreground" Value="#1E40AF"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+
+        <Style x:Key="BlockTagStyle" TargetType="TextBox" BasedOn="{StaticResource DocTagStyle}">
+            <Setter Property="Background" Value="#FEF9C3"/>
+            <Setter Property="BorderBrush" Value="#FEF08A"/>
+            <Setter Property="Foreground" Value="#A16207"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="MinWidth" Value="180"/>
+        </Style>
+
+        <!-- 🆕 Estilos para Sub-secciones y Contenedores Específicos -->
+        <Style x:Key="SubsectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="FontFamily" Value="Cambria, Georgia, serif"/>
+            <Setter Property="Margin" Value="0,16,0,12"/>
+        </Style>
+
+        <Style x:Key="SummaryBoxStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#FEF08A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+
+        <Style x:Key="DiagramBoxStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="Black"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+
+        <Style x:Key="LabelCellStyle" TargetType="Border">
+            <Setter Property="Background" Value="#F9FAFB"/>
+            <Setter Property="BorderBrush" Value="Black"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="12,10"/>
+        </Style>
+
+        <Style x:Key="ValueCellStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="Black"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="12,10"/>
+        </Style>
+
     </UserControl.Resources>
 
     <!-- Layout raíz: Sidebar + Contenido principal -->
@@ -23,57 +147,94 @@
         </Grid.ColumnDefinitions>
 
         <!-- ═══ SIDEBAR OSCURO ══════════════════════════════════════════════════ -->
-        <Border Grid.Column="0" Background="#0F172A">
+        <Border Grid.Column="0" Background="#0F172A" BorderBrush="#1E293B" BorderThickness="0,0,1,0">
             <DockPanel>
 
                 <!-- Header del sidebar -->
-                <Border DockPanel.Dock="Top" Background="#0A0F1E" Padding="20,18,20,16">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                            <Border Background="#4F46E5" CornerRadius="8" Padding="6" Margin="0,0,10,0"
-                                    VerticalAlignment="Center">
-                                <TextBlock Text="📄" FontSize="16" LineHeight="20"/>
-                            </Border>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="ChapiDocs" FontWeight="Black" FontSize="15"
-                                           Foreground="White" FontFamily="Segoe UI"/>
-                                <TextBlock Text="Arquitectura v2.0" FontSize="9" Foreground="#818CF8"
-                                           FontFamily="Cascadia Code, Consolas, monospace"/>
-                            </StackPanel>
+                <Border DockPanel.Dock="Top" Background="#0F172A" Padding="24,24,24,16" BorderBrush="#1E293B" BorderThickness="0,0,0,1">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Background="#2563EB" CornerRadius="8" Padding="8" Margin="0,0,12,0">
+                            <md:PackIcon Kind="FileDocument" Foreground="White" Width="20" Height="20"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="ChapiDocs Pro" FontWeight="Black" FontSize="16" Foreground="White"/>
+                            <TextBlock Text="Tag Engine v2.1" FontSize="10" Foreground="#94A3B8" FontWeight="Bold"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
+                <!-- Panel Inferior (Toggle + Botón Generar) -->
+                <Border DockPanel.Dock="Bottom" Background="#0F172A" Padding="16,16,16,24" BorderBrush="#1B2438" BorderThickness="0,1,0,0">
+                    <StackPanel>
+                        <!-- Toggle Mostrar Etiquetas -->
+                        <DockPanel Margin="8,0,8,16">
+                            <TextBlock Text="Mostrar Etiquetas" Foreground="#94A3B8" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                            <ToggleButton IsChecked="{Binding ShowTags}" HorizontalAlignment="Right" Cursor="Hand" BorderThickness="0" Background="Transparent" Padding="0" Width="40">
+                                <ToggleButton.Style>
+                                    <Style TargetType="ToggleButton">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ToggleButton">
+                                                    <Border x:Name="border" CornerRadius="10" Background="#334155" BorderBrush="#1E293B" BorderThickness="1" Height="20">
+                                                        <Ellipse x:Name="knob" Width="14" Height="14" Fill="#94A3B8" HorizontalAlignment="Left" Margin="2,0,0,0"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter TargetName="border" Property="Background" Value="#2563EB"/>
+                                                            <Setter TargetName="border" Property="BorderBrush" Value="#2563EB"/>
+                                                            <Setter TargetName="knob" Property="Fill" Value="White"/>
+                                                            <Setter TargetName="knob" Property="HorizontalAlignment" Value="Right"/>
+                                                            <Setter TargetName="knob" Property="Margin" Value="0,0,2,0"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ToggleButton.Style>
+                            </ToggleButton>
+                        </DockPanel>
+
+                        <!-- Botón Generar (Green) -->
+                        <Button Command="{Binding ExportWordCommand}" 
+                                Background="#16A34A" BorderBrush="#16A34A"
+                                md:ButtonAssist.CornerRadius="12"
+                                Height="48" FontWeight="Bold" Foreground="White" Cursor="Hand">
+                            <StackPanel Orientation="Horizontal">
+                                <md:PackIcon Kind="ContentSave" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Generar Documento" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
                 <!-- PLANTILLAS -->
-                <StackPanel DockPanel.Dock="Top" Margin="16,14,16,0">
-                    <TextBlock Text="PLANTILLAS BASE" FontSize="8" FontWeight="Bold"
-                               Foreground="#475569" Margin="2,0,0,8"
-                               FontFamily="Cascadia Code, Consolas, monospace"/>
-                    <Grid Height="46">
+                <StackPanel DockPanel.Dock="Top" Margin="16,20,16,0">
+                    <TextBlock Text="PLANTILLAS BASE" FontSize="10" FontWeight="Bold" Foreground="#475569" Margin="4,0,0,12" FontFamily="Cascadia Code, Consolas"/>
+                    <Grid Height="50">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <!-- Modelo Software -->
-                        <Button Grid.Column="0" Margin="0,0,4,0" Height="40"
-                                Command="{Binding ApplyTemplateCommand}"
-                                CommandParameter="{x:Static doc:DocTemplate.ModeloSoftware}"
-                                Cursor="Hand">
+                        <Button Grid.Column="0" Margin="0,0,4,0" Command="{Binding ApplyTemplateCommand}" CommandParameter="{x:Static doc:DocTemplate.ModeloSoftware}" Cursor="Hand">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" Background="#1E293B" CornerRadius="10"
-                                             BorderBrush="#334155" BorderThickness="1">
+                                    <Border x:Name="Bd" Background="#1E293B" CornerRadius="12" BorderBrush="#334155" BorderThickness="1">
                                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="📖" FontSize="16" Foreground="#CBD5E1"  HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                                            <TextBlock Text="Modelo Software" FontSize="9"  FontWeight="Bold"
-                                                       Foreground="#CBD5E1" HorizontalAlignment="Center"/>                                          
+                                            <md:PackIcon Kind="BookOpenOutline" x:Name="Icon" Foreground="#94A3B8" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                            <TextBlock Text="Modelo" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <DataTrigger Binding="{Binding CurrentTemplate}" Value="{x:Static doc:DocTemplate.ModeloSoftware}">
-                                            <Setter TargetName="Bd" Property="Background" Value="#4F46E5"/>
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#818CF8"/>
-                                            <Setter TargetName="Bd" Property="BorderThickness" Value="2"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#2563EB"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#3B82F6"/>
+                                            <Setter TargetName="Icon" Property="Foreground" Value="White"/>
+                                            <Setter TargetName="Bd" Property="Effect">
+                                                <Setter.Value>
+                                                    <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.3" Color="#2563EB"/>
+                                                </Setter.Value>
+                                            </Setter>
                                         </DataTrigger>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter TargetName="Bd" Property="Background" Value="#334155"/>
@@ -82,27 +243,25 @@
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
-                        <!-- Diseño Sistema -->
-                        <Button Grid.Column="1" Margin="4,0,0,0" Height="40"
-                                Command="{Binding ApplyTemplateCommand}"
-                                CommandParameter="{x:Static doc:DocTemplate.DisenoSistema}"
-                                Cursor="Hand">
+                        <Button Grid.Column="1" Margin="4,0,0,0" Command="{Binding ApplyTemplateCommand}" CommandParameter="{x:Static doc:DocTemplate.DisenoSistema}" Cursor="Hand">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" Background="#1E293B" CornerRadius="10"
-                                            BorderBrush="#334155" BorderThickness="1">
-                                        <StackPanel HorizontalAlignment="Center"  VerticalAlignment="Center">
-                                            <TextBlock Text="🏛️" FontSize="16" Foreground="#CBD5E1" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                                            <TextBlock Text="Diseño Sistema" FontSize="9" FontWeight="Bold"
-                                                       Foreground="#CBD5E1" HorizontalAlignment="Center"/>
-                                       
+                                    <Border x:Name="Bd" Background="#1E293B" CornerRadius="12" BorderBrush="#334155" BorderThickness="1">
+                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <md:PackIcon Kind="Drawing" x:Name="Icon" Foreground="#94A3B8" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                            <TextBlock Text="Diseño" FontSize="10" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <DataTrigger Binding="{Binding CurrentTemplate}" Value="{x:Static doc:DocTemplate.DisenoSistema}">
-                                            <Setter TargetName="Bd" Property="Background" Value="#4F46E5"/>
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#818CF8"/>
-                                            <Setter TargetName="Bd" Property="BorderThickness" Value="2"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#2563EB"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#3B82F6"/>
+                                            <Setter TargetName="Icon" Property="Foreground" Value="White"/>
+                                            <Setter TargetName="Bd" Property="Effect">
+                                                <Setter.Value>
+                                                    <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.3" Color="#2563EB"/>
+                                                </Setter.Value>
+                                            </Setter>
                                         </DataTrigger>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter TargetName="Bd" Property="Background" Value="#334155"/>
@@ -112,42 +271,30 @@
                             </Button.Template>
                         </Button>
                     </Grid>
+                    <TextBlock Text="ESTRUCTURA DEL DOCUMENTO" FontSize="10" FontWeight="Bold" Foreground="#475569" FontFamily="Cascadia Code, Consolas"/>
                 </StackPanel>
 
                 <!-- ESTRUCTURA -->
-                <DockPanel DockPanel.Dock="Top" Margin="18,16,12,6">
-                    <TextBlock DockPanel.Dock="Left" Text="ESTRUCTURA ACTUAL" FontSize="8"
-                               FontWeight="Bold" Foreground="#475569" VerticalAlignment="Center"
-                               FontFamily="Cascadia Code, Consolas, monospace"/>
-                </DockPanel>
+            
 
                 <!-- Lista de secciones -->
-                <ListBox DockPanel.Dock="Top"
-                         ItemsSource="{Binding Sections}"
-                         SelectedItem="{Binding SelectedSection}"
-                         Background="Transparent" BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         Margin="8,0,8,0"
-                         MaxHeight="380">
+                <ListBox ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}" Background="Transparent" BorderThickness="0" Margin="12,0">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="Padding" Value="0"/>
-                            <Setter Property="Margin" Value="0,2"/>
+                            <Setter Property="Background" Value="Transparent"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,2"/>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <Border x:Name="Bd" Background="Transparent" CornerRadius="8"
-                                                BorderThickness="1" BorderBrush="Transparent">
+                                        <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">
                                             <ContentPresenter/>
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="#4F46E5"/>
-                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#6366F1"/>
+                                                <Setter TargetName="Bd" Property="Background" Value="#1E293B"/>
                                             </Trigger>
                                             <Trigger Property="IsMouseOver" Value="True">
                                                 <Setter TargetName="Bd" Property="Background" Value="#1E293B"/>
+                                                <Setter TargetName="Bd" Property="Opacity" Value="0.7"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -157,121 +304,23 @@
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Grid Margin="10,7,6,7">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <!-- Icono tipo -->
-                                <TextBlock Grid.Column="0"
-                                           Text="{Binding Type, Converter={StaticResource SectionTypeIconConverter}}"
-                                           FontSize="11" Margin="0,0,7,0"
-                                           Foreground="#94A3B8" VerticalAlignment="Center"/>
-                                <!-- Título -->
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding Title}" Foreground="#CBD5E1"
-                                           FontSize="11" TextTrimming="CharacterEllipsis"
-                                           VerticalAlignment="Center"/>
-                                <!-- Botón eliminar -->
-                                <Button Grid.Column="2"
-                                        Margin="4,0,0,0"
-                                        Command="{Binding DataContext.RemoveSectionCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                        CommandParameter="{Binding}"
-                                        Cursor="Hand"
-                                        ToolTip="Eliminar sección">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="Bd" Background="Transparent"
-                                                    CornerRadius="4" Padding="4,2">
-                                                <TextBlock x:Name="Lbl" Text="✕"
-                                                           FontSize="10" FontWeight="Bold"
-                                                           Foreground="#475569"
-                                                           VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Bd" Property="Background" Value="#7F1D1D"/>
-                                                    <Setter TargetName="Lbl" Property="Foreground" Value="#FCA5A5"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <md:PackIcon Kind="{Binding Type, Converter={StaticResource SectionTypeIconConverter}}" Foreground="#475569" Width="14" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Title}" Foreground="#CBD5E1" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <Button Grid.Column="2" Command="{Binding DataContext.RemoveSectionCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}" Style="{StaticResource MaterialDesignIconButton}" Width="20" Height="20" Padding="0" Foreground="#475569">
+                                    <md:PackIcon Kind="Close" Width="12"/>
                                 </Button>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <!-- Botón Guardar y Exportar en la parte inferior -->
-                <StackPanel DockPanel.Dock="Bottom" Margin="12,0,12,14">
-                    <!-- Guardar -->
-                    <Button Command="{Binding SaveCommand}" Margin="0,0,0,6" Cursor="Hand">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="Bd" Background="#1E293B" CornerRadius="10"
-                                         BorderBrush="#334155" BorderThickness="1" >
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="💾" FontSize="12" Margin="0,0,6,0"/>
-                                        <TextBlock Text="GUARDAR" FontSize="10" FontWeight="Black"
-                                                   Foreground="#CBD5E1"
-                                                   FontFamily="Segoe UI"/>
-                                    </StackPanel>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="#2D3748"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                    </Button>
-
-                    <!-- Exportar Word -->
-                    <Button Command="{Binding ExportWordCommand}" Cursor="Hand">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="Bd" Background="#059669" CornerRadius="12"
-                                         BorderThickness="0" >
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="⬇" FontSize="14" Foreground="White" Margin="0,0,8,0"/>
-                                        <TextBlock Text="GENERAR ENTREGABLE" FontSize="10" FontWeight="Black"
-                                                   Foreground="White"
-                                                   FontFamily="Segoe UI"/>
-                                    </StackPanel>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="#047857"/>
-                                    </Trigger>
-                                    <Trigger Property="IsPressed" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="#065F46"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                    </Button>
-                </StackPanel>
-
-                <!-- Status bar pequeño -->
-                <Border DockPanel.Dock="Bottom" Padding="16,6" Background="#0A0F1E">
-                    <DockPanel>
-                        <ProgressBar DockPanel.Dock="Right" IsIndeterminate="True"
-                                     Width="60" Height="3"
-                                     Visibility="{Binding IsGenerating, Converter={StaticResource BoolToVis}}"
-                                     Foreground="#6366F1" Background="Transparent"/>
-                        <TextBlock Text="{Binding StatusMessage}" Foreground="#475569"
-                                   FontSize="10" VerticalAlignment="Center"
-                                   FontFamily="Cascadia Code, Consolas, monospace"
-                                   TextTrimming="CharacterEllipsis"/>
-                    </DockPanel>
-                </Border>
-
             </DockPanel>
         </Border>
 
         <!-- ═══ ÁREA PRINCIPAL: Hoja A4 + Editor + Consola AI ═══════════════════ -->
-        <Grid Grid.Column="1">
+        <Grid Grid.Column="1" Background="#E2E8F0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -280,186 +329,881 @@
             <!-- Fondo gris con la "hoja" A4 centrada -->
             <ScrollViewer Grid.Row="0"
                           VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Auto"
-                          Background="#CBD5E1"
+                          HorizontalScrollBarVisibility="Disabled"
                           PanningMode="Both">
-                <Grid HorizontalAlignment="Center" Margin="40,32,40,120">
+                <Grid Margin="10,40,10,120">
 
-                    <!-- Hoja A4 blanca (816px ≈ Letter width) -->
-                    <Border Width="816" MinHeight="1056"
-                            Background="White"
-                            BorderBrush="#94A3B8" BorderThickness="1">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="40" ShadowDepth="8" Opacity="0.18" Color="#000000"/>
-                        </Border.Effect>
-
+                    <!-- Hoja A4 blanca -->
+                    <Border Style="{StaticResource WordPageStyle}">
                         <Grid>
-                            <!-- Plano de fondo de cuadrícula sutil (líneas tipo papel) -->
-                            <Grid.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="White" Offset="0"/>
-                                    <GradientStop Color="#FAFBFF" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Grid.Background>
+                                <StackPanel>
+                                    <!-- 📄 ENCABEZADO PREMIUM (TIPO WORD) ════════════════════════════════ -->
+                                    <StackPanel Margin="0,0,0,48">
+                                        <Border BorderBrush="#1F2937" BorderThickness="0,1.5" Padding="0,12" Margin="0,0,0,24">
+                                            <TextBlock Text="{Binding CurrentTemplate, Converter={StaticResource TemplateTitleConverter}}" 
+                                                       FontSize="22" FontWeight="Bold" Foreground="#111827" 
+                                                       TextAlignment="Center" HorizontalAlignment="Center"
+                                                       FontFamily="Cambria, Georgia, serif" />
+                                        </Border>
+                                        
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
+                                            <TextBox Text="{Binding Session.Metadata[PROYECTO_CODIGO], Mode=TwoWay}" Style="{StaticResource DocTagStyle}"/>
+                                            <TextBlock Text=" : " FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" FontSize="16" Margin="8,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[PROYECTO_NOMBRE], Mode=TwoWay}" Style="{StaticResource DocTagStyle}"/>
+                                        </StackPanel>
+                                        
+                                        <TextBox Text="{Binding Session.Metadata[DOC_MES_ANIO], Mode=TwoWay}" 
+                                                 Style="{StaticResource DocTagStyle}" 
+                                                 HorizontalAlignment="Center" 
+                                                 FontSize="11" FontWeight="Bold" Margin="0,0,0,32"/>
+                                    </StackPanel>
 
-                            <DockPanel Margin="80,60,80,60">
+                                        <!-- ✍️ TABLA DE FIRMAS -->
+                                        <Border BorderBrush="Black" BorderThickness="1" Margin="0,0,0,40">
+                                            <Grid Background="White">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="48"/>
+                                                    <RowDefinition Height="48"/>
+                                                    <RowDefinition Height="48"/>
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="2*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                    <ColumnDefinition Width="1*"/>
+                                                </Grid.ColumnDefinitions>
 
-                                <!-- Encabezado del documento -->
-                                <Border DockPanel.Dock="Top"
-                                        BorderBrush="#1E293B" BorderThickness="0,0,0,3"
-                                        Padding="0,0,0,20" Margin="0,0,0,40">
-                                    <StackPanel>
-                                        <TextBox Text="{Binding Session.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 FontSize="32" FontWeight="Black"
-                                                 Foreground="#0F172A"
-                                                 Background="Transparent"
-                                                 BorderThickness="0"
-                                                 TextAlignment="Center"
-                                                 HorizontalAlignment="Stretch"
-                                                 FontFamily="Segoe UI"/>
-                                        <TextBlock Text="Documentación Técnica de Ingeniería — Versión 1.0"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   HorizontalAlignment="Center"
-                                                   Margin="0,8,0,0"
-                                                   FontStyle="Italic"
-                                                   FontFamily="Georgia, Times New Roman, serif"/>
+                                                <!-- Headers -->
+                                                <Border Grid.Row="0" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="12,10"><TextBlock Text="Nombres y Apellidos / Cargo" FontWeight="Bold" FontSize="12" FontFamily="Cambria"/></Border>
+                                                <Border Grid.Row="0" Grid.Column="1" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="12,10"><TextBlock Text="Firma" FontWeight="Bold" FontSize="12" FontFamily="Cambria" HorizontalAlignment="Center"/></Border>
+                                                <Border Grid.Row="0" Grid.Column="2" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="12,10"><TextBlock Text="Fecha" FontWeight="Bold" FontSize="12" FontFamily="Cambria" HorizontalAlignment="Center"/></Border>
+
+                                                <!-- Elaborado -->
+                                                <Border Grid.Row="1" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="12,10">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="Elaborado por: " FontStyle="Italic" VerticalAlignment="Center" FontSize="11" Foreground="#374151" Margin="0,0,8,0"/>
+                                                        <TextBox Text="{Binding Session.Metadata[ELAB_NOM], Mode=TwoWay}" Style="{StaticResource DocTagStyle}"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Grid.Row="1" Grid.Column="1" BorderBrush="Black" BorderThickness="0,0,1,1"/>
+                                                <Border Grid.Row="1" Grid.Column="2" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="8">
+                                                    <TextBox Text="{Binding Session.Metadata[ELAB_FECHA], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Center"/>
+                                                </Border>
+
+                                                <!-- Revisado -->
+                                                <Border Grid.Row="2" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="12,10">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="Revisado por: " FontStyle="Italic" VerticalAlignment="Center" FontSize="11" Foreground="#374151" Margin="0,0,8,0"/>
+                                                        <TextBox Text="{Binding Session.Metadata[REV_NOM], Mode=TwoWay}" Style="{StaticResource DocTagStyle}"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Grid.Row="2" Grid.Column="1" BorderBrush="Black" BorderThickness="0,0,1,1"/>
+                                                <Border Grid.Row="2" Grid.Column="2" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="8">
+                                                    <TextBox Text="{Binding Session.Metadata[REV_FECHA], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Center"/>
+                                                </Border>
+
+                                                <!-- Aprobado -->
+                                                <Border Grid.Row="3" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="Aprobado por: " FontStyle="Italic" VerticalAlignment="Center" FontSize="11" Foreground="#374151" Margin="0,0,8,0"/>
+                                                        <TextBox Text="{Binding Session.Metadata[APROB_NOM], Mode=TwoWay}" Style="{StaticResource DocTagStyle}"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Grid.Row="3" Grid.Column="1" BorderBrush="Black" BorderThickness="0,0,1,0"/>
+                                                <Border Grid.Row="3" Grid.Column="2" Padding="8">
+                                                    <TextBox Text="{Binding Session.Metadata[APROB_FECHA], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Center"/>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+
+
+                                        <!-- 📜 HISTORIAL DE VERSIONES -->
+                                        <StackPanel Margin="0,0,0,40">
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                <Border Background="#1E40AF" Width="4" Height="14" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                <md:PackIcon Kind="History" Foreground="#1E40AF" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBlock Text="HISTORIAL DE VERSIONES" FontSize="12" FontWeight="Bold" Foreground="#1E40AF" VerticalAlignment="Center" FontFamily="Cambria"/>
+                                            </StackPanel>
+                                            <Border BorderBrush="Black" BorderThickness="1">
+                                                <Grid Background="White">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1.2*"/><ColumnDefinition Width="0.6*"/><ColumnDefinition Width="1*"/><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="1*"/><ColumnDefinition Width="1.2*"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Headers -->
+                                                    <Border Grid.Row="0" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="4"><TextBlock Text="Fecha de Elaboración" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" FontFamily="Cambria"/></Border>
+                                                    <Border Grid.Row="0" Grid.Column="1" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="4"><TextBlock Text="Versión" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" FontFamily="Cambria"/></Border>
+                                                    <Border Grid.Row="0" Grid.Column="2" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="4"><TextBlock Text="Elaborado por" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" FontFamily="Cambria"/></Border>
+                                                    <Border Grid.Row="0" Grid.Column="3" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="4"><TextBlock Text="Descripción" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" FontFamily="Cambria"/></Border>
+                                                    <Border Grid.Row="0" Grid.Column="4" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="4"><TextBlock Text="Revisado por" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" FontFamily="Cambria"/></Border>
+                                                    <Border Grid.Row="0" Grid.Column="5" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="4"><TextBlock Text="Fecha de Revisión" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" FontFamily="Cambria"/></Border>
+
+                                                    <!-- Block Tags -->
+                                                    <Border Grid.Row="1" Grid.ColumnSpan="6" BorderBrush="Black" BorderThickness="0,0,0,1" Background="#0A2563EB" Padding="4">
+                                                        <TextBox Text="[BLOQUE_HISTORIAL_INICIO]" Style="{StaticResource BlockTagStyle}" FontSize="9"/>
+                                                    </Border>
+                                                    
+                                                    <Border Grid.Row="2" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="4"><TextBox Text="{Binding Session.Metadata[HIST_FECHA_ELAB], Mode=TwoWay}" Style="{StaticResource DocTagStyle}"/></Border>
+                                                    <Border Grid.Row="2" Grid.Column="1" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="4"><TextBox Text="{Binding Session.Metadata[HIST_VER], Mode=TwoWay}" Style="{StaticResource DocTagStyle}"/></Border>
+                                                    <Border Grid.Row="2" Grid.Column="2" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="4"><TextBox Text="{Binding Session.Metadata[HIST_ELAB], Mode=TwoWay}" Style="{StaticResource DocTagStyle}"/></Border>
+                                                    <Border Grid.Row="2" Grid.Column="3" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="4"><TextBox Text="{Binding Session.Metadata[HIST_DESC], Mode=TwoWay}" Style="{StaticResource DocTagStyle}"/></Border>
+                                                    <Border Grid.Row="2" Grid.Column="4" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="4"><TextBox Text="{Binding Session.Metadata[HIST_REV], Mode=TwoWay}" Style="{StaticResource DocTagStyle}"/></Border>
+                                                    <Border Grid.Row="2" Grid.Column="5" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="4"><TextBox Text="{Binding Session.Metadata[HIST_FECHA_REV], Mode=TwoWay}" Style="{StaticResource DocTagStyle}"/></Border>
+
+                                                    <Border Grid.Row="3" Grid.ColumnSpan="6" Background="#0A2563EB" Padding="4">
+                                                        <TextBox Text="[BLOQUE_HISTORIAL_FIN]" Style="{StaticResource BlockTagStyle}" FontSize="9"/>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </StackPanel>
+
+
+                                    <!-- 🔗 TABLA DE REFERENCIA -->
+                                    <Border BorderBrush="Black" BorderThickness="1" Margin="0,0,0,64">
+                                        <StackPanel Background="White">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="12,10"><TextBlock Text="Código" FontSize="11" FontWeight="Bold" FontFamily="Cambria"/></Border>
+                                                <Border Grid.Column="1" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="12,10">
+                                                    <TextBox Text="{Binding Session.Metadata[REF_CODIGO], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                </Border>
+                                            </Grid>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="12,10"><TextBlock Text="Sistema / Módulo / Aplicación" FontSize="11" FontWeight="Bold" FontFamily="Cambria"/></Border>
+                                                <Border Grid.Column="1" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="12,10">
+                                                    <TextBox Text="{Binding Session.Metadata[REF_SISTEMA], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                </Border>
+                                            </Grid>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10"><TextBlock Text="Documento(s) asociado(s)" FontSize="11" FontWeight="Bold" FontFamily="Cambria"/></Border>
+                                                <Border Grid.Column="1" Padding="12,10">
+                                                    <TextBox Text="{Binding Session.Metadata[REF_DOCS], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                </Border>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+
+                                <!-- Secciones del documento específicas -->
+                                <!-- ═══════ BODY: MODELO DE SOFTWARE ═══════════════════════════════ -->
+                                <StackPanel Visibility="{Binding IsModeloSoftware, Converter={StaticResource BoolToVis}}">
+
+                                    <!-- ── SECCIÓN 1: INTRODUCCIÓN ──────────────────────────────────── -->
+                                    <StackPanel Margin="0,32,0,16">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                            <TextBlock Text="1. " Style="{StaticResource SectionNumberStyle}"/>
+                                            <TextBlock Text="INTRODUCCIÓN" Style="{StaticResource SectionHeaderStyle}"/>
+                                        </StackPanel>
+                                        <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                    </StackPanel>
+                                    <TextBox Text="{Binding Session.Metadata[INTRODUCCION], Mode=TwoWay}"
+                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+
+                                    <!-- ── SECCIÓN 2: OBJETIVOS ──────────────────────────────────────── -->
+                                    <StackPanel Margin="0,8,0,16">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                            <TextBlock Text="2. " Style="{StaticResource SectionNumberStyle}"/>
+                                            <TextBlock Text="OBJETIVOS" Style="{StaticResource SectionHeaderStyle}"/>
+                                        </StackPanel>
+                                        <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                    </StackPanel>
+                                    <TextBox Text="{Binding Session.Metadata[OBJETIVOS], Mode=TwoWay}"
+                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+
+                                    <!-- ── SECCIÓN 3: ALCANCE ────────────────────────────────────────── -->
+                                    <StackPanel Margin="0,8,0,16">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                            <TextBlock Text="3. " Style="{StaticResource SectionNumberStyle}"/>
+                                            <TextBlock Text="ALCANCE" Style="{StaticResource SectionHeaderStyle}"/>
+                                        </StackPanel>
+                                        <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                    </StackPanel>
+                                    <TextBox Text="{Binding Session.Metadata[ALCANCE], Mode=TwoWay}"
+                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+
+
+                                    <!-- ── SECCIÓN 4: DIAGRAMA DE PAQUETES / VISTA LÓGICA ───────────── -->
+                                <StackPanel Margin="0,8,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="4. " Style="{StaticResource SectionNumberStyle}"/>
+                                        <TextBlock Text="DIAGRAMA DE PAQUETES / VISTA LÓGICA" Style="{StaticResource SectionHeaderStyle}"/>
+                                    </StackPanel>
+                                    <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                                <TextBox Text="{Binding Session.Metadata[PQ_VISTA_LOGICA_DESC], Mode=TwoWay}"
+                                         Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,16"
+                                         FontStyle="Italic"/>
+
+                                <!-- 4.1 Listado de paquetes -->
+                                <TextBlock Text="4.1  Listado de paquetes" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <Border Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="4" Padding="16,12" Margin="0,0,0,16">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                            <md:PackIcon Kind="TableLarge" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[TABLA_RESUMEN_PQ], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Genera tabla: N, PAQUETES" FontSize="9" FontStyle="Italic" Foreground="#6B7280" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Footer del documento -->
-                                <Border DockPanel.Dock="Bottom"
-                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                                        Padding="0,14,0,0" Margin="0,20,0,0">
+                                <!-- 4.2 Presentación -->
+                                <TextBlock Text="4.2  Presentación" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="180" Margin="0,0,0,16">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
+                                            <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[IMG_VISTA_LOGICA], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Diagrama de paquetes" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- 4.3 Especificación de paquetes -->
+                                <TextBlock Text="4.3  Especificación de paquetes" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_PQ_INICIO], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+
+                                <!-- 4.3.X Paquete individual -->
+                                <StackPanel Margin="16,0,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock Text="4.3.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
+                                        <TextBox Text="{Binding Session.Metadata[PQ_ID_NOM], Mode=TwoWay}"
+                                                 Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                    <Border BorderBrush="Black" BorderThickness="1">
+                                        <Grid Background="White">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                            <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Descripción" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[PQ_DESC], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+                                            <Border Grid.Row="1" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10" Background="#F9FAFB"><TextBlock Text="Clases" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="1" Grid.Column="1" Padding="12,10">
+                                                <TextBox Text="{Binding Session.Metadata[PQ_CLASES_LISTA], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_PQ_FIN], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
+
+                                <!-- ── SECCIÓN 5: DIAGRAMA DE ACTORES ────────────────────────────── -->
+                                <StackPanel Margin="0,8,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="5. " Style="{StaticResource SectionNumberStyle}"/>
+                                        <TextBlock Text="DIAGRAMA DE ACTORES" Style="{StaticResource SectionHeaderStyle}"/>
+                                    </StackPanel>
+                                    <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+
+                                <!-- 5.1 Listado de actores -->
+                                <TextBlock Text="5.1  Listado de actores" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <Border Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="4" Padding="16,12" Margin="0,0,0,16">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                            <md:PackIcon Kind="TableLarge" Foreground="#A16207" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[TABLA_ACTORES_LISTA], Mode=TwoWay}"
+                                                     Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Principales / Secundarios" FontSize="9" FontStyle="Italic" Foreground="#A16207" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- 5.2 Diagrama de actores -->
+                                <TextBlock Text="5.2  Diagrama de actores" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="180" Margin="0,0,0,32">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
+                                            <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[IMG_ACTORES], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Diagrama de actores del sistema" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ── SECCIÓN 6: DIAGRAMA DE CASOS DE USO ───────────────────────── -->
+                                <StackPanel Margin="0,8,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="6. " Style="{StaticResource SectionNumberStyle}"/>
+                                        <TextBlock Text="DIAGRAMA DE CASOS DE USO" Style="{StaticResource SectionHeaderStyle}"/>
+                                    </StackPanel>
+                                    <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+
+                                <!-- 6.1 Listado de Casos de Uso -->
+                                <TextBlock Text="6.1  Listado de Casos de Uso" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <Border Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="4" Padding="16,12" Margin="0,0,0,16">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                            <md:PackIcon Kind="TableLarge" Foreground="#A16207" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[TABLA_CU_LISTADO], Mode=TwoWay}"
+                                                     Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- 6.2 Especificación de CU -->
+                                <TextBlock Text="6.2  ESPECIFICACIÓN DE CASOS DE USO" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,4"/>
+                                <TextBlock Text="Diagrama de caso de uso" FontSize="11" FontStyle="Italic" FontWeight="Bold" Foreground="#6B7280" Margin="0,0,0,8" TextDecorations="Underline"/>
+                                <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="160" Margin="0,0,0,16">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
+                                            <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[IMG_CU_GENERAL], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Diagrama general de casos de uso" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_CU_INICIO], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+
+                                <!-- 6.2.X Caso de Uso individual — tabla completa de 9 filas -->
+                                <StackPanel Margin="0,0,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock Text="6.2.X " FontSize="14" FontWeight="Bold" FontFamily="Cambria" Foreground="#111827"/>
+                                        <TextBox Text="{Binding Session.Metadata[CU_ID], Mode=TwoWay}"
+                                                 Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,0,4,0"/>
+                                        <TextBlock Text=" : " FontSize="14" Foreground="#111827" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding Session.Metadata[CU_NOM], Mode=TwoWay}"
+                                                 Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="4,0,0,0"/>
+                                    </StackPanel>
+                                    <Border BorderBrush="Black" BorderThickness="1">
+                                        <Grid Background="White">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="160"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+
+                                            <!-- Descripción -->
+                                            <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Descripción" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[CU_DESC], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+
+                                            <!-- Actores -->
+                                            <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Actores" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[CU_ACTORES], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+
+                                            <!-- Precondiciones -->
+                                            <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Precondiciones" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[CU_PRE], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+
+                                            <!-- Flujo Básico -->
+                                            <Border Grid.Row="3" Grid.Column="0" Style="{StaticResource LabelCellStyle}" VerticalAlignment="Top"><TextBlock Text="Flujo Básico" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="3" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[CU_FLOW_BASE], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" TextWrapping="Wrap" AcceptsReturn="True" HorizontalAlignment="Left"/>
+                                            </Border>
+
+                                            <!-- Flujo Alternativo -->
+                                            <Border Grid.Row="4" Grid.Column="0" Style="{StaticResource LabelCellStyle}" VerticalAlignment="Top"><TextBlock Text="Flujo Alternativo" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="4" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[CU_FLOW_ALT], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" TextWrapping="Wrap" AcceptsReturn="True" HorizontalAlignment="Left"/>
+                                            </Border>
+
+                                            <!-- Post Condiciones -->
+                                            <Border Grid.Row="5" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Post Condiciones" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="5" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[CU_POST], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+
+                                            <!-- Restricciones -->
+                                            <Border Grid.Row="6" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Restricciones" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[CU_RESTRIC], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+
+                                            <!-- Casos de Uso Padre -->
+                                            <Border Grid.Row="7" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Casos de Uso Padre" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="7" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[CU_PADRE], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+
+                                            <!-- Prototipo -->
+                                            <Border Grid.Row="8" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10" Background="#F9FAFB" VerticalAlignment="Center">
+                                                <TextBlock Text="Prototipo" FontWeight="Bold" FontSize="11"/>
+                                            </Border>
+                                            <Border Grid.Row="8" Grid.Column="1" Padding="16,24">
+                                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                                        <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                        <TextBox Text="{Binding Session.Metadata[IMG_PROTOTIPO], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_CU_FIN], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
+
+                                <!-- ── SECCIÓN 7: DIAGRAMA DE ACTIVIDAD ──────────────────────────── -->
+                                <StackPanel Margin="0,8,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="7. " Style="{StaticResource SectionNumberStyle}"/>
+                                        <TextBlock Text="DIAGRAMA DE ACTIVIDAD" Style="{StaticResource SectionHeaderStyle}"/>
+                                    </StackPanel>
+                                    <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_ACT_INICIO], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,8"/>
+                                <!-- 7.X Actividad individual -->
+                                <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                            <TextBlock Text="7.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
+                                            <TextBox Text="{Binding Session.Metadata[CU_ID_ACT], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,0,4,0"/>
+                                            <TextBlock Text=" : " FontSize="12" Foreground="#374151" VerticalAlignment="Center"/>
+                                            <TextBox Text="{Binding Session.Metadata[CU_NOM_ACT], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="4,0,0,0"/>
+                                        </StackPanel>
+                                        <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MinHeight="120">
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
+                                                    <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                    <TextBox Text="{Binding Session.Metadata[IMG_ACTIVIDAD], Mode=TwoWay}"
+                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                </StackPanel>
+                                                <TextBlock Text="Diagrama de actividad" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_ACT_FIN], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
+
+                                <!-- ── SECCIÓN 8: DIAGRAMA DE SECUENCIA ──────────────────────────── -->
+                                <StackPanel Margin="0,8,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="8. " Style="{StaticResource SectionNumberStyle}"/>
+                                        <TextBlock Text="DIAGRAMA DE SECUENCIA" Style="{StaticResource SectionHeaderStyle}"/>
+                                    </StackPanel>
+                                    <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_SEQ_INICIO], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,8"/>
+                                <!-- 8.X Secuencia individual -->
+                                <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                            <TextBlock Text="8.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
+                                            <TextBox Text="{Binding Session.Metadata[CU_ID_SEQ], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,0,4,0"/>
+                                            <TextBlock Text=" : " FontSize="12" Foreground="#374151" VerticalAlignment="Center"/>
+                                            <TextBox Text="{Binding Session.Metadata[CU_NOM_SEQ], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="4,0,0,0"/>
+                                        </StackPanel>
+                                        <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MinHeight="120">
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
+                                                    <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                    <TextBox Text="{Binding Session.Metadata[IMG_SECUENCIA], Mode=TwoWay}"
+                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                </StackPanel>
+                                                <TextBlock Text="Diagrama de secuencia" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_SEQ_FIN], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
+
+                                <!-- ── SECCIÓN 9: DIAGRAMA DE ESTADOS ────────────────────────────── -->
+                                <StackPanel Margin="0,8,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="9. " Style="{StaticResource SectionNumberStyle}"/>
+                                        <TextBlock Text="DIAGRAMA DE ESTADOS" Style="{StaticResource SectionHeaderStyle}"/>
+                                    </StackPanel>
+                                    <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_EST_INICIO], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,8"/>
+                                <!-- 9.X Estado individual -->
+                                <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                            <TextBlock Text="9.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
+                                            <TextBox Text="{Binding Session.Metadata[CU_ID_EST], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,0,4,0"/>
+                                            <TextBlock Text=" : " FontSize="12" Foreground="#374151" VerticalAlignment="Center"/>
+                                            <TextBox Text="{Binding Session.Metadata[CU_NOM_EST], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="4,0,0,0"/>
+                                        </StackPanel>
+                                        <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MinHeight="120">
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
+                                                    <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                    <TextBox Text="{Binding Session.Metadata[IMG_ESTADO], Mode=TwoWay}"
+                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                </StackPanel>
+                                                <TextBlock Text="Diagrama de estados" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_EST_FIN], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
+
+                                </StackPanel>
+                                <!-- ══ FIN BODY: MODELO DE SOFTWARE ══════════════════════════════ -->
+
+                                <!-- ═══════ BODY: DISEÑO DEL SISTEMA DE INFORMACIÓN ═══════════════ -->
+                                <StackPanel Visibility="{Binding IsDisenoSistema, Converter={StaticResource BoolToVis}}">
+
+                                    <!-- ── SECCIÓN 1: INTRODUCCIÓN ──────────────────────────────────── -->
+                                    <StackPanel Margin="0,32,0,16">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                            <TextBlock Text="1. " Style="{StaticResource SectionNumberStyle}"/>
+                                            <TextBlock Text="INTRODUCCIÓN" Style="{StaticResource SectionHeaderStyle}"/>
+                                        </StackPanel>
+                                        <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                    </StackPanel>
+                                    <TextBox Text="{Binding Session.Metadata[INTRODUCCION], Mode=TwoWay}"
+                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+
+                                    <!-- ── SECCIÓN 2: OBJETIVOS ──────────────────────────────────────── -->
+                                    <StackPanel Margin="0,8,0,16">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                            <TextBlock Text="2. " Style="{StaticResource SectionNumberStyle}"/>
+                                            <TextBlock Text="OBJETIVOS" Style="{StaticResource SectionHeaderStyle}"/>
+                                        </StackPanel>
+                                        <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                    </StackPanel>
+                                    <TextBox Text="{Binding Session.Metadata[OBJETIVOS], Mode=TwoWay}"
+                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+
+                                    <!-- ── SECCIÓN 3: ALCANCE ────────────────────────────────────────── -->
+                                    <StackPanel Margin="0,8,0,16">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                            <TextBlock Text="3. " Style="{StaticResource SectionNumberStyle}"/>
+                                            <TextBlock Text="ALCANCE" Style="{StaticResource SectionHeaderStyle}"/>
+                                        </StackPanel>
+                                        <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                    </StackPanel>
+                                    <TextBox Text="{Binding Session.Metadata[ALCANCE], Mode=TwoWay}"
+                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+
+                                <!-- ── SECCIÓN 4: ARQUITECTURA DEL SISTEMA ───────────────────────── -->
+                                <StackPanel Margin="0,8,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="4. " Style="{StaticResource SectionNumberStyle}"/>
+                                        <TextBlock Text="ARQUITECTURA DEL SISTEMA" Style="{StaticResource SectionHeaderStyle}"/>
+                                    </StackPanel>
+                                    <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                                <TextBox Text="{Binding Session.Metadata[ARQ_DESC_GENERAL], Mode=TwoWay}"
+                                         Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                         FontStyle="Italic" Margin="0,6,0,16"/>
+                                <Border BorderBrush="Black" BorderThickness="2" Background="#F9FAFB" MinHeight="200" Margin="0,0,0,16">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
+                                            <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[IMG_ARQUITECTURA], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Modelo de Arquitectura" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- 4.1 Descripción de capas -->
+                                <TextBlock Text="4.1  Descripción de capas" FontSize="13" FontWeight="Bold" FontStyle="Italic" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_CAPAS_INICIO], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                                <Border Background="#F9FAFB" BorderBrush="Black" BorderThickness="1" Padding="16" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                            <TextBlock Text="Nombre: " FontWeight="Bold" FontSize="12"/>
+                                            <TextBox Text="{Binding Session.Metadata[CAPA_NOM], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Descripción: " FontStyle="Italic" FontSize="12"/>
+                                            <TextBox Text="{Binding Session.Metadata[CAPA_DESC], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_CAPAS_FIN], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
+
+                                <!-- ── SECCIÓN 5: DIAGRAMA DE COMPONENTES ────────────────────────── -->
+                                <StackPanel Margin="0,8,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="5. " Style="{StaticResource SectionNumberStyle}"/>
+                                        <TextBlock Text="DIAGRAMA DE COMPONENTES" Style="{StaticResource SectionHeaderStyle}"/>
+                                    </StackPanel>
+                                    <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+
+                                <!-- 5.1 Diagrama -->
+                                <TextBlock Text="5.1  Diagrama de componentes" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="160" Margin="0,0,0,16">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
+                                            <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[IMG_COMPONENTES], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Diagrama de componentes del sistema" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- 5.2 Descripción -->
+                                <TextBlock Text="5.2  Descripción de componentes" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_COMP_INICIO], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                                <Border Background="#F3F4F6" BorderBrush="#9CA3AF" BorderThickness="1" Padding="12,8" Margin="0,0,0,8">
+                                    <StackPanel Orientation="Horizontal">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                                            <TextBlock Text="Nombre: " FontWeight="Bold" FontSize="11" Foreground="#1E40AF" TextDecorations="Underline"/>
+                                            <TextBox Text="{Binding Session.Metadata[COMP_NOM], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Descripción: " FontStyle="Italic" FontSize="11"/>
+                                            <TextBox Text="{Binding Session.Metadata[COMP_DESC], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_COMP_FIN], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
+
+                                <!-- ── SECCIÓN 6: DIAGRAMA DE CLASES ─────────────────────────────── -->
+                                <StackPanel Margin="0,8,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="6. " Style="{StaticResource SectionNumberStyle}"/>
+                                        <TextBlock Text="DIAGRAMA DE CLASES" Style="{StaticResource SectionHeaderStyle}"/>
+                                    </StackPanel>
+                                    <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+
+                                <!-- 6.1 Diagrama -->
+                                <TextBlock Text="6.1  Diagrama de clases" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="160" Margin="0,0,0,16">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
+                                            <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[IMG_CLASES_SISTEMA], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Diagrama de clases del sistema" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- 6.2 Especificación de clases -->
+                                <TextBlock Text="6.2  Especificación de clases" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_CLASE_DET_INICIO], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                                <Border BorderBrush="Black" BorderThickness="1" Margin="0,0,0,16" Padding="16">
+                                    <StackPanel>
+                                        <Border Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="12,8" Margin="0,0,0,12">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Clase: " FontSize="15" FontWeight="Bold"/>
+                                                <TextBox Text="{Binding Session.Metadata[CLASE_TITULO], Mode=TwoWay}"
+                                                         Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Atributos" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[CLASE_ATRIB], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+                                            <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Operaciones" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[CLASE_OPER], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+                                            <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Agregación" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                <TextBox Text="{Binding Session.Metadata[CLASE_AGREG], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+                                            <Border Grid.Row="3" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10" Background="#F9FAFB"><TextBlock Text="Asociación" FontWeight="Bold" FontSize="11"/></Border>
+                                            <Border Grid.Row="3" Grid.Column="1" Padding="12,10">
+                                                <TextBox Text="{Binding Session.Metadata[CLASE_ASOC], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_CLASE_DET_FIN], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
+
+                                <!-- ── SECCIÓN 7: DIAGRAMA ENTIDAD-RELACIÓN ───────────────────────── -->
+                                <StackPanel Margin="0,8,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="7. " Style="{StaticResource SectionNumberStyle}"/>
+                                        <TextBlock Text="DIAGRAMA ENTIDAD - RELACIÓN" Style="{StaticResource SectionHeaderStyle}"/>
+                                    </StackPanel>
+                                    <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                                <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="200" Margin="0,0,0,32">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
+                                            <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[IMG_DER], Mode=TwoWay}"
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Diagrama Entidad-Relación" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ── SECCIÓN 8: DICCIONARIO DE DATOS ───────────────────────────── -->
+                                <StackPanel Margin="0,8,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <TextBlock Text="8. " Style="{StaticResource SectionNumberStyle}"/>
+                                        <TextBlock Text="DICCIONARIO DE DATOS" Style="{StaticResource SectionHeaderStyle}"/>
+                                    </StackPanel>
+                                    <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+
+                                <!-- 8.1 Listado de tablas -->
+                                <TextBlock Text="8.1  Listado de tablas" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <Border Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="4" Padding="16,12" Margin="0,0,0,16">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                            <md:PackIcon Kind="TableLarge" Foreground="#A16207" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                            <TextBox Text="{Binding Session.Metadata[TABLA_DICC_RESUMEN], Mode=TwoWay}"
+                                                     Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- 8.2 Descripción de tablas -->
+                                <TextBlock Text="8.2  Descripción de tablas" FontSize="13" FontWeight="Bold" FontStyle="Italic" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_DICC_TABLA_INICIO], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                                <StackPanel Margin="0,0,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock Text="Tabla X: " FontSize="13" FontWeight="Bold" FontFamily="Cambria" Foreground="#111827"/>
+                                        <TextBox Text="{Binding Session.Metadata[DICC_TABLA_TITULO], Mode=TwoWay}"
+                                                 Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                    <Border BorderBrush="Black" BorderThickness="1">
+                                        <Grid Background="White">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="120"/>
+                                                <ColumnDefinition Width="50"/>
+                                                <ColumnDefinition Width="2*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <!-- Header -->
+                                            <Border Grid.Row="0" Grid.Column="0" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6"><TextBlock Text="CAMPO" FontWeight="Bold" FontSize="9"/></Border>
+                                            <Border Grid.Row="0" Grid.Column="1" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6"><TextBlock Text="TIPO DE DATO" FontWeight="Bold" FontSize="9"/></Border>
+                                            <Border Grid.Row="0" Grid.Column="2" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6"><TextBlock Text="PK" FontWeight="Bold" FontSize="9" HorizontalAlignment="Center"/></Border>
+                                            <Border Grid.Row="0" Grid.Column="3" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="8,6"><TextBlock Text="DESCRIPCIÓN" FontWeight="Bold" FontSize="9"/></Border>
+                                            <!-- BLOQUE_COL_INICIO -->
+                                            <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Background="#EFF6FF" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="8,4">
+                                                <TextBox Text="{Binding Session.Metadata[BLOQUE_COL_INICIO], Mode=TwoWay}" Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Center" Margin="0"/>
+                                            </Border>
+                                            <!-- Fila de datos -->
+                                            <Border Grid.Row="2" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6">
+                                                <TextBox Text="{Binding Session.Metadata[COL_NOM], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" FontWeight="Bold"/>
+                                            </Border>
+                                            <Border Grid.Row="2" Grid.Column="1" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6">
+                                                <TextBox Text="{Binding Session.Metadata[COL_TIPO], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+                                            <Border Grid.Row="2" Grid.Column="2" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6">
+                                                <TextBox Text="{Binding Session.Metadata[COL_PK], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Center"/>
+                                            </Border>
+                                            <Border Grid.Row="2" Grid.Column="3" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="8,6">
+                                                <TextBox Text="{Binding Session.Metadata[COL_DESC], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                            </Border>
+                                            <!-- BLOQUE_COL_FIN -->
+                                            <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4" Background="#EFF6FF" Padding="8,4">
+                                                <TextBox Text="{Binding Session.Metadata[BLOQUE_COL_FIN], Mode=TwoWay}" Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Center" Margin="0"/>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_DICC_TABLA_FIN], Mode=TwoWay}"
+                                         Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,24"/>
+
+                                <!-- 8.3-8.7 Listados de objetos DB -->
+                                <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1" Margin="0,0,0,4" Padding="12,8">
                                     <Grid>
-                                        <TextBlock Text="MOD-SYS-EN-2025"
-                                                   FontSize="9" Foreground="#94A3B8"
-                                                   FontFamily="Cascadia Code, Consolas, monospace"
-                                                   FontWeight="Bold"
-                                                   HorizontalAlignment="Left"/>
-                                        <TextBlock Text="PROPIEDAD TÉCNICA RESTRINGIDA"
-                                                   FontSize="9" Foreground="#94A3B8"
-                                                   FontFamily="Cascadia Code, Consolas, monospace"
-                                                   FontWeight="Bold"
-                                                   HorizontalAlignment="Right"/>
+                                        <TextBlock Text="8.3  Listado de paquetes" FontWeight="Bold" FontSize="12" FontFamily="Cambria" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding Session.Metadata[TABLA_OBJ_PQ], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                </Border>
+                                <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1" Margin="0,0,0,4" Padding="12,8">
+                                    <Grid>
+                                        <TextBlock Text="8.4  Listado de procedimientos" FontWeight="Bold" FontSize="12" FontFamily="Cambria" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding Session.Metadata[TABLA_OBJ_PROC], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                </Border>
+                                <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1" Margin="0,0,0,4" Padding="12,8">
+                                    <Grid>
+                                        <TextBlock Text="8.5  Listado de vistas" FontWeight="Bold" FontSize="12" FontFamily="Cambria" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding Session.Metadata[TABLA_OBJ_VISTAS], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                </Border>
+                                <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1" Margin="0,0,0,4" Padding="12,8">
+                                    <Grid>
+                                        <TextBlock Text="8.6  Listado de funciones" FontWeight="Bold" FontSize="12" FontFamily="Cambria" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding Session.Metadata[TABLA_OBJ_FUNC], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                </Border>
+                                <Border Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1" Margin="0,0,0,32" Padding="12,8">
+                                    <Grid>
+                                        <TextBlock Text="8.7  Listado de índices" FontWeight="Bold" FontSize="12" FontFamily="Cambria" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding Session.Metadata[TABLA_OBJ_IDX], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Right"/>
                                     </Grid>
                                 </Border>
 
-                                <!-- Secciones del documento -->
-                                <ScrollViewer VerticalScrollBarVisibility="Disabled"
-                                              HorizontalScrollBarVisibility="Disabled">
-                                    <ItemsControl ItemsSource="{Binding Sections}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Margin="0,0,0,32"
-                                                        Padding="0">
-                                                    <StackPanel>
+                                </StackPanel>
+                                <!-- ══ FIN BODY: DISEÑO DEL SISTEMA ══════════════════════════════ -->
 
-                                                        <!-- Título de la sección -->
-                                                        <TextBox Text="{Binding Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                 FontSize="18" FontWeight="Black"
-                                                                 Foreground="#1E293B"
-                                                                 Background="Transparent"
-                                                                 BorderThickness="0,0,0,3"
-                                                                 BorderBrush="#4F46E5"
-                                                                 Padding="8,4,0,8"
-                                                                 Margin="0,0,0,14"
-                                                                 FontFamily="Segoe UI"/>
 
-                                                        <!-- Contenido Texto/Tabla -->
-                                                        <TextBox Text="{Binding Content, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                 Visibility="{Binding IsTextSection, Converter={StaticResource BoolToVis}}"
-                                                                 AcceptsReturn="True" AcceptsTab="True"
-                                                                 TextWrapping="Wrap"
-                                                                 MinHeight="80"
-                                                                 VerticalScrollBarVisibility="Auto"
-                                                                 FontFamily="Segoe UI" FontSize="13"
-                                                                 Foreground="#334155"
-                                                                 Background="Transparent"
-                                                                 BorderThickness="0"
-                                                                 Padding="2,0"
-                                                                 TextChanged="TextEditor_TextChanged"/>
+                                    <!-- Footer del documento (Word Style) -->
+                                    <Border BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,40,0,0">
+                                        <Grid>
+                                            <TextBlock Text="Chapi Assistant — Ingeniería de Software" FontSize="9" Foreground="#94A3B8" FontFamily="Cascadia Code, Consolas" FontWeight="Bold" HorizontalAlignment="Left"/>
+                                            <TextBlock Text="Página 1 de n" FontSize="9" Foreground="#94A3B8" FontFamily="Cascadia Code, Consolas" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Border>
 
-                                                        <!-- Diagrama: editor + preview -->
-                                                        <StackPanel Visibility="{Binding IsDiagramSection, Converter={StaticResource BoolToVis}}"
-                                                                    Margin="0,0,0,0">
-                                                            <!-- Editor de código de diagrama -->
-                                                            <Border Background="#0F172A" CornerRadius="10"
-                                                                    Padding="14" Margin="0,0,0,12">
-                                                                <StackPanel>
-                                                                    <DockPanel Margin="0,0,0,8">
-                                                                        <TextBlock DockPanel.Dock="Left"
-                                                                                   Text="EDITOR DE DIAGRAMA"
-                                                                                   FontSize="9" FontWeight="Bold"
-                                                                                   Foreground="#10B981"
-                                                                                   FontFamily="Cascadia Code, Consolas, monospace"
-                                                                                   VerticalAlignment="Center"/>
-                                                                        <ComboBox DockPanel.Dock="Right"
-
-                                                                                  Width="100"
-                                                                                  SelectedValue="{Binding DiagramFormat, Mode=TwoWay}"
-                                                                                  SelectedValuePath="Tag"
-                                                                                  Background="#1E293B"
-                                                                                  Foreground="White"
-                                                                                  FontSize="10">
-                                                                            <ComboBoxItem Content="MERMAID" Tag="{x:Static doc:DiagramFormat.Mermaid}"/>
-                                                                            <ComboBoxItem Content="PLANTUML" Tag="{x:Static doc:DiagramFormat.PlantUml}"/>
-                                                                        </ComboBox>
-                                                                    </DockPanel>
-                                                                    <TextBox Text="{Binding DiagramCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                             AcceptsReturn="True" AcceptsTab="True"
-                                                                             MinHeight="100"
-                                                                             TextWrapping="Wrap"
-                                                                             FontFamily="Cascadia Code, Consolas, monospace"
-                                                                             FontSize="12"
-                                                                             Foreground="#A5B4FC"
-                                                                             Background="Transparent"
-                                                                             CaretBrush="#818CF8"
-                                                                             BorderThickness="0"
-                                                                             TextChanged="DiagramEditor_TextChanged"/>
-                                                                 </StackPanel>
-                                                             </Border>
-
-                                                            <!-- Vista previa de Kroki.io (Automática) -->
-                                                            <Border Background="#1E293B" CornerRadius="10" 
-                                                                    Padding="10" Margin="0,0,0,12"
-                                                                    BorderBrush="#334155" BorderThickness="1">
-                                                                <Grid MinHeight="100">
-                                                                    <!-- Placeholder cuando no hay código -->
-                                                                    <TextBlock Text="Esperando código de diagrama..." 
-                                                                               Foreground="#64748B" FontSize="11"
-                                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                               Visibility="{Binding DiagramUrl, Converter={StaticResource StringToVisInv}}"/>
-                                                                    
-                                                                    <!-- Imagen del diagrama -->
-                                                                    <Image Source="{Binding DiagramUrl}" 
-                                                                           Stretch="Uniform"
-                                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                           RenderOptions.BitmapScalingMode="HighQuality">
-                                                                        <Image.Style>
-                                                                            <Style TargetType="Image">
-                                                                                <Style.Triggers>
-                                                                                    <DataTrigger Binding="{Binding DiagramUrl}" Value="">
-                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                                                    </DataTrigger>
-                                                                                    <DataTrigger Binding="{Binding DiagramUrl}" Value="{x:Null}">
-                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                                                    </DataTrigger>
-                                                                                </Style.Triggers>
-                                                                            </Style>
-                                                                        </Image.Style>
-                                                                    </Image>
-                                                                </Grid>
-                                                            </Border>
-                                                        </StackPanel>
-
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-
-                            </DockPanel>
+                                </StackPanel>
                         </Grid>
                     </Border>
 
@@ -474,8 +1218,8 @@
             <Border Grid.Row="1"
                     Background="#0F172A"
                     BorderBrush="#1E293B" BorderThickness="0,1,0,0"
-                    Padding="20,12">
-                <Grid>
+                    Padding="12,16">
+                <Grid MaxWidth="1000" HorizontalAlignment="Stretch">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
@@ -484,46 +1228,32 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Icono IA -->
-                    <Border Grid.Column="0"
-                            Background="#4F46E5" CornerRadius="10"
-                            Padding="10" Margin="0,0,12,0" VerticalAlignment="Center">
-                        <TextBlock Text="✨" FontSize="16"/>
+                    <Border Grid.Column="0" Background="#2563EB" CornerRadius="8" Padding="6" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <TextBlock Text="✨" Foreground="White" FontSize="18" VerticalAlignment="Center"/>
                     </Border>
 
-                    <!-- Input prompt -->
-                    <TextBox Grid.Column="1"
-                             x:Name="AiPromptBox"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             Foreground="#E2E8F0"
-                             CaretBrush="#818CF8"
-                             FontSize="13"
-                             VerticalAlignment="Center"
-                             FontFamily="Segoe UI"
-                             Tag="Escribe qué diagrama o sección quieres generar..."
-                             KeyDown="AiPromptBox_KeyDown">
-                        <TextBox.Style>
-                            <Style TargetType="TextBox">
-                                <Style.Triggers>
-                                    <Trigger Property="Text" Value="">
-                                        <Setter Property="Background">
-                                            <Setter.Value>
-                                                <VisualBrush Stretch="None" AlignmentX="Left">
-                                                    <VisualBrush.Visual>
-                                                        <TextBlock Text="Escribe qué diagrama o sección quieres generar..."
-                                                                   Foreground="#475569"
-                                                                   FontSize="13"
-                                                                   FontFamily="Segoe UI"/>
-                                                    </VisualBrush.Visual>
-                                                </VisualBrush>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBox.Style>
-                    </TextBox>
+                    <Grid Grid.Column="1">
+                        <TextBox x:Name="AiPromptBox"
+                                 Text="{Binding AiPrompt, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="White" FontSize="14" FontWeight="Medium"
+                                 VerticalContentAlignment="Center"
+                                 md:HintAssist.Hint="Escribe qué sección quieres generar o editar..."
+                                 md:HintAssist.Foreground="#475569"
+                                 md:HintAssist.HelperTextFontSize="12"
+                                 CaretBrush="White"
+                                 Visibility="{Binding IsGenerating, Converter={StaticResource InvBoolToVis}}"
+                                 KeyDown="AiPromptBox_KeyDown"/>
+                        
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   Foreground="#38BDF8"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   FontStyle="Italic"
+                                   Visibility="Visible"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </Grid>
 
                     <!-- Checkbox Generar Todo -->
                     <CheckBox Grid.Column="2"
@@ -538,50 +1268,46 @@
                     <!-- Sección seleccionada -->
                     <TextBlock Grid.Column="3"
                                Text="{Binding SelectedSection.Title, StringFormat='→ {0}', FallbackValue='→ sin sección'}"
-                               Foreground="#475569"
+                               Foreground="#6366F1"
                                FontSize="10"
+                               FontWeight="Bold"
                                Visibility="{Binding GenerateAll, Converter={StaticResource InvBoolToVis}}"
                                VerticalAlignment="Center"
-                               Margin="0,0,12,0"
+                               Margin="0,0,16,0"
                                FontFamily="Cascadia Code, Consolas, monospace"
                                TextTrimming="CharacterEllipsis"
                                MaxWidth="160"/>
 
-                    <!-- Botón Generar -->
-                    <Button Grid.Column="4"
+                    <Button Grid.Column="4" 
                             x:Name="AiGenerateButton"
                             Click="AiGenerateButton_Click"
-                            IsEnabled="{Binding IsGenerating, Converter={StaticResource InvBool}}"
+                            Background="White" Foreground="#0F172A"
+                            BorderThickness="0" md:ButtonAssist.CornerRadius="10"
+                            Padding="24,0" Height="40" FontWeight="Bold" FontSize="12"
                             Cursor="Hand">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="Bd"
-                                        Background="White" CornerRadius="10"
-                                        Padding="18,10"
-                                        BorderThickness="0">
-                                    <TextBlock x:Name="Lbl"
-                                               Text="Iniciar Análisis AI"
-                                               FontSize="11" FontWeight="Black"
-                                               Foreground="#0F172A"
-                                               FontFamily="Segoe UI"/>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="#6366F1"/>
-                                        <Setter TargetName="Lbl" Property="Foreground" Value="White"/>
-                                    </Trigger>
-                                    <Trigger Property="IsPressed" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="#4338CA"/>
-                                        <Setter TargetName="Lbl" Property="Foreground" Value="White"/>
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter TargetName="Bd" Property="Background" Value="#334155"/>
-                                        <Setter TargetName="Lbl" Property="Text" Value="Analizando..."/>
-                                        <Setter TargetName="Lbl" Property="Foreground" Value="#64748B"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFlatButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsGenerating}" Value="True">
+                                        <Setter Property="IsEnabled" Value="False"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Grid>
+                            <TextBlock Text="Iniciar Análisis AI"
+                                       Visibility="{Binding IsGenerating, Converter={StaticResource InvBoolToVis}}"
+                                       VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal"
+                                        Visibility="{Binding IsGenerating, Converter={StaticResource BoolToVis}}"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}" 
+                                             Value="0" IsIndeterminate="True" 
+                                             Width="16" Height="16" 
+                                             Foreground="#0F172A" Margin="0,0,8,0"/>
+                                <TextBlock Text="Analizando..." VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
                     </Button>
                 </Grid>
             </Border>

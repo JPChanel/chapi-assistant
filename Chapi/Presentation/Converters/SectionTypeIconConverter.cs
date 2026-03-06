@@ -2,21 +2,22 @@ using System.Globalization;
 using System.Windows.Data;
 using Chapi.Domain.Documentation;
 
-namespace Chapi.Presentation.Converters;
-
-public class SectionTypeIconConverter : IValueConverter
+namespace Chapi.Presentation.Converters
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public class SectionTypeIconConverter : IValueConverter
     {
-        return value is DocSectionType type ? type switch
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            DocSectionType.Diagram => "◈",
-            DocSectionType.Image   => "⊡",
-            DocSectionType.Table   => "≡",
-            _                      => "¶"
-        } : "¶";
-    }
+            return value is DocSectionType type ? type switch
+            {
+                DocSectionType.Diagram => "◈",
+                DocSectionType.Image   => "⊡",
+                DocSectionType.Table   => "≡",
+                _                      => "¶"
+            } : "¶";
+        }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        => throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
 }

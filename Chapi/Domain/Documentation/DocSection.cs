@@ -13,9 +13,16 @@ public class DocSection : INotifyPropertyChanged
     private string _imageBase64 = string.Empty;
     private string _title = string.Empty;
     private DiagramFormat _diagramFormat = DiagramFormat.Mermaid;
+    private Dictionary<string, string> _metadata = new();
 
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public int Order { get; set; }
+
+    public Dictionary<string, string> Metadata
+    {
+        get => _metadata;
+        set { _metadata = value; OnPropertyChanged(); }
+    }
 
     public string Title
     {
@@ -89,9 +96,13 @@ public class DocSection : INotifyPropertyChanged
     public string ImageMimeType { get; set; } = "image/png";
 
     // Helpers para XAML bindings dentro de DataTemplates
+    public string HintText { get; set; } = string.Empty;
     public bool IsTextSection => Type is DocSectionType.Text or DocSectionType.Table;
     public bool IsDiagramSection => Type == DocSectionType.Diagram;
     public bool IsImageSection => Type == DocSectionType.Image;
+    public bool IsTableSection => (Type == DocSectionType.Table || Title.Contains("Especificación", StringComparison.OrdinalIgnoreCase)) && !Title.Contains("Listado", StringComparison.OrdinalIgnoreCase);
+    public bool IsSummarySection => Title.Contains("Listado", StringComparison.OrdinalIgnoreCase) || Title.Contains("Descripción de capas", StringComparison.OrdinalIgnoreCase);
+    public bool IsSubSection => Title.Contains('.') && Title.Length > 0 && char.IsDigit(Title.TrimStart()[0]);
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)

@@ -1,16 +1,16 @@
 using System.IO;
+using System.Text.RegularExpressions;
 using Chapi.Application.Interfaces;
 using Chapi.Domain.Documentation;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using A = DocumentFormat.OpenXml.Drawing;
+using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 
 namespace Chapi.Infrastructure.Documentation;
 
-/// <summary>
-/// Exporta una DocumentSession a Word (.docx) usando DocumentFormat.OpenXml.
-/// Genera portada, índice y secciones con formato profesional.
-/// </summary>
 public class OpenXmlExportService : IDocumentExportService
 {
     private readonly IKrokiDiagramService _krokiService;
@@ -24,217 +24,282 @@ public class OpenXmlExportService : IDocumentExportService
     {
         try
         {
-            using var doc = WordprocessingDocument.Create(outputPath, WordprocessingDocumentType.Document);
-            var mainPart = doc.AddMainDocumentPart();
-            mainPart.Document = new Document();
-            var body = mainPart.Document.AppendChild(new Body());
+            // Determinar la plantilla base
+            string templatePath = GetTemplatePath(session.Template);
+            if (!File.Exists(templatePath)) return false;
 
-            // Estilos base
-            AddStyles(mainPart);
+            // Crear una copia de la plantilla
+            File.Copy(templatePath, outputPath, true);
 
-            // Portada
-            AddCoverPage(body, session);
-
-            // Secciones
-            int sectionNumber = 1;
-            foreach (var section in session.Sections.OrderBy(s => s.Order))
+            using (var doc = WordprocessingDocument.Open(outputPath, true))
             {
-                AddSectionHeading(body, $"{sectionNumber}. {section.Title}", 1);
+                var mainPart = doc.MainDocumentPart;
+                if (mainPart == null) return false;
 
-                switch (section.Type)
-                {
-                    case DocSectionType.Text:
-                    case DocSectionType.Table:
-                        AddMarkdownContent(body, section.Content);
-                        break;
+                // 1. Reemplazar tags globales (Metadata de sesión)
+                ReplaceGlobalTags(mainPart, session);
 
-                    case DocSectionType.Diagram:
-                        AddDiagramSection(body, mainPart, section);
-                        break;
+                // 1.5 Procesar imágenes globales (Kroki API)
+                await HandleImagesInContainerAsync(mainPart, mainPart.Document.Body, session.Metadata);
 
-                    case DocSectionType.Image:
-                        AddImageSection(body, mainPart, section);
-                        break;
-                }
+                // 2. Procesar Bloques Repetibles (Repeaters)
+                await ProcessBlocksAsync(mainPart, session);
 
-                sectionNumber++;
+                // 3. Reemplazar tags en secciones de contenido
+                ReplaceSectionTags(mainPart, session);
+
+                mainPart.Document.Save();
             }
 
-            // Configuración de página
-            body.AppendChild(new SectionProperties(
-                new PageSize { Width = 11906, Height = 16838 },
-                new PageMargin { Top = 1440, Right = 1080, Bottom = 1440, Left = 1080 }
-            ));
-
-            mainPart.Document.Save();
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            // Log error here if needed
             return false;
         }
+    }
+
+    private string GetTemplatePath(DocTemplate template)
+    {
+        var appDir = AppDomain.CurrentDomain.BaseDirectory;
+        var templateName = template == DocTemplate.ModeloSoftware ? "01.Modelo de Software.docx" : "02.Diseño del Sistema de Información.docx";
+        return Path.Combine(appDir, "PlantillaWord", templateName);
+    }
+
+    private void ReplaceGlobalTags(MainDocumentPart mainPart, DocumentSession session)
+    {
+        var root = mainPart.Document.Body;
+        if (root == null) return;
+
+        var tags = new Dictionary<string, string>(session.Metadata)
+        {
+            ["PROYECTO_NOMBRE"] = session.ProjectName,
+            ["PROYECTO_CODIGO"] = session.Id.Substring(0, 8), // O un campo real
+            ["DOC_VERSION"] = session.Version,
+            ["DOC_MES_ANIO"] = DateTime.Now.ToString("MMMM, yyyy")
+        };
+
+        ReplaceTagsInContainer(root, tags);
+        
+        // También en Headers y Footers
+        foreach (var headerPart in mainPart.HeaderParts) ReplaceTagsInContainer(headerPart.Header, tags);
+        foreach (var footerPart in mainPart.FooterParts) ReplaceTagsInContainer(footerPart.Footer, tags);
+    }
+
+    private async Task ProcessBlocksAsync(MainDocumentPart mainPart, DocumentSession session)
+    {
+        var body = mainPart.Document.Body;
+        if (body == null) return;
+
+        // Lista de tipos de bloques a procesar
+        var blockTypes = new[] { "PQ", "CU", "ACT", "SEQ", "EST", "CAPAS", "COMP", "CLASE_DET", "DICC_TABLA", "HISTORIAL" };
+
+        foreach (var type in blockTypes)
+        {
+            await ProcessRepeaterBlockAsync(mainPart, body, type, session);
+        }
+    }
+
+    private async Task ProcessRepeaterBlockAsync(MainDocumentPart mainPart, Body body, string blockType, DocumentSession session)
+    {
+        var startTag = $"[BLOQUE_{blockType}_INICIO]";
+        var endTag = $"[BLOQUE_{blockType}_FIN]";
+
+        while (true)
+        {
+            var startElement = FindElementWithText(body, startTag);
+            var endElement = FindElementWithText(body, endTag);
+
+            if (startElement == null || endElement == null) break;
+
+            // Extraer los elementos entre los tags
+            var templateElements = GetElementsBetween(startElement, endElement);
+            
+            // Determinar qué datos usar para este bloque
+            var itemsMetadata = GetMetadataForBlock(blockType, session);
+
+            // Eliminar los tags de la plantilla
+            startElement.Remove();
+            endElement.Remove();
+
+            if (itemsMetadata.Any())
+            {
+                var lastInserted = templateElements.LastOrDefault() ?? endElement;
+                
+                foreach (var metadata in itemsMetadata)
+                {
+                    // Clonar y rellenar
+                    foreach (var element in templateElements)
+                    {
+                        var clone = element.CloneNode(true);
+                        
+                        // Reemplazar tags en el clon
+                        ReplaceTagsInContainer(clone, metadata);
+                        
+                        // Manejo especial de imágenes en el bloque
+                        await HandleImagesInContainerAsync(mainPart, clone, metadata);
+
+                        body.InsertAfter(clone, lastInserted);
+                        lastInserted = clone;
+                    }
+                }
+            }
+
+            // Eliminar los elementos originales de la plantilla
+            foreach (var el in templateElements) el.Remove();
+        }
+    }
+
+    private List<OpenXmlElement> GetElementsBetween(OpenXmlElement start, OpenXmlElement end)
+    {
+        var elements = new List<OpenXmlElement>();
+        var current = start.NextSibling();
+        while (current != null && current != end)
+        {
+            elements.Add(current);
+            current = current.NextSibling();
+        }
+        return elements;
+    }
+
+    private OpenXmlElement? FindElementWithText(OpenXmlElement container, string text)
+    {
+        return container.Descendants<Text>()
+            .FirstOrDefault(t => t.Text.Contains(text))?
+            .Ancestors<Paragraph>().FirstOrDefault() ?? (OpenXmlElement?)
+               container.Descendants<Text>()
+            .FirstOrDefault(t => t.Text.Contains(text))?
+            .Ancestors<TableRow>().FirstOrDefault();
+    }
+
+    private void ReplaceTagsInContainer(OpenXmlElement container, Dictionary<string, string> tags)
+    {
+        var texts = container.Descendants<Text>().ToList();
+        foreach (var t in texts)
+        {
+            foreach (var tag in tags)
+            {
+                var fullTag = $"[{tag.Key}]";
+                if (t.Text.Contains(fullTag))
+                {
+                    t.Text = t.Text.Replace(fullTag, tag.Value ?? "");
+                }
+            }
+        }
+    }
+
+    private async Task HandleImagesInContainerAsync(MainDocumentPart mainPart, OpenXmlElement container, Dictionary<string, string> metadata)
+    {
+        var imageTags = container.Descendants<Text>().Where(t => t.Text.Contains("[IMG_") || t.Text.Contains("[DIAGRAMA_")).ToList();
+        foreach (var t in imageTags)
+        {
+            var match = Regex.Match(t.Text, @"\[(IMG_[^\]]+|DIAGRAMA_[^\]]+)\]");
+            if (match.Success)
+            {
+                var tagName = match.Groups[1].Value;
+                if (metadata.TryGetValue(tagName, out var diagramCode) && !string.IsNullOrWhiteSpace(diagramCode) && !diagramCode.StartsWith("["))
+                {
+                    try
+                    {
+                        var pngBytes = await _krokiService.RenderToPngAsync(diagramCode, "plantuml"); // Asumimos plantuml o inferimos del código
+                        if (pngBytes != null)
+                        {
+                            var imagePart = mainPart.AddImagePart(ImagePartType.Png);
+                            using (var stream = new MemoryStream(pngBytes))
+                            {
+                                imagePart.FeedData(stream);
+                            }
+
+                            string relationshipId = mainPart.GetIdOfPart(imagePart);
+                            
+                            // Tamaño aproximado 15cm x 10cm (en EMUs)
+                            long widthEmus = 5394960;
+                            long heightEmus = 3600000;
+                            
+                            var drawing = CreateImageDrawing(relationshipId, tagName, widthEmus, heightEmus);
+
+                            // Insertar Elemento Drawing y borrar el texto
+                            var parentRun = t.Parent as Run;
+                            if (parentRun != null)
+                            {
+                                parentRun.InsertAfterSelf(new Run(drawing));
+                            }
+                            t.Text = t.Text.Replace($"[{tagName}]", "");
+                        }
+                    }
+                    catch
+                    {
+                        t.Text = t.Text.Replace($"[{tagName}]", "(Error al cargar imagen generada)");
+                    }
+                }
+            }
+        }
+    }
+
+    private Drawing CreateImageDrawing(string relationshipId, string imageName, long widthEmus, long heightEmus)
+    {
+        return new Drawing(
+            new DW.Inline(
+                new DW.Extent() { Cx = widthEmus, Cy = heightEmus },
+                new DW.EffectExtent() { LeftEdge = 0L, TopEdge = 0L, RightEdge = 0L, BottomEdge = 0L },
+                new DW.DocProperties() { Id = (UInt32Value)1U, Name = imageName },
+                new DW.NonVisualGraphicFrameDrawingProperties(
+                    new A.GraphicFrameLocks() { NoChangeAspect = true }),
+                new A.Graphic(
+                    new A.GraphicData(
+                        new PIC.Picture(
+                            new PIC.NonVisualPictureProperties(
+                                new PIC.NonVisualDrawingProperties() { Id = (UInt32Value)0U, Name = imageName },
+                                new PIC.NonVisualPictureDrawingProperties()),
+                            new PIC.BlipFill(
+                                new A.Blip() { Embed = relationshipId, CompressionState = A.BlipCompressionValues.Print },
+                                new A.Stretch(new A.FillRectangle())),
+                            new PIC.ShapeProperties(
+                                new A.Transform2D(
+                                    new A.Offset() { X = 0L, Y = 0L },
+                                    new A.Extents() { Cx = widthEmus, Cy = heightEmus }),
+                                new A.PresetGeometry(new A.AdjustValueList()) { Preset = A.ShapeTypeValues.Rectangle }))
+                    ) { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" })
+            ) { DistanceFromTop = (UInt32Value)0U, DistanceFromBottom = (UInt32Value)0U, DistanceFromLeft = (UInt32Value)0U, DistanceFromRight = (UInt32Value)0U, EditId = "50D07946" });
+    }
+
+    private List<Dictionary<string, string>> GetMetadataForBlock(string blockType, DocumentSession session)
+    {
+        // Esta lógica mapea las secciones de la sesión a listas de metadata para los bloques
+        // Ej: BLOQUE_CU mapea a los casos de uso generados
+        var result = new List<Dictionary<string, string>>();
+
+        if (blockType == "CU")
+        {
+            return session.Sections
+                .Where(s => s.Title.Contains("CU") && s.Metadata.Any())
+                .Select(s => s.Metadata)
+                .ToList();
+        }
+        // ... otros mapeos
+        
+        return result;
+    }
+
+    private void ReplaceSectionTags(MainDocumentPart mainPart, DocumentSession session)
+    {
+        // Reemplazo final para secciones sueltas
+        var tags = session.Sections.ToDictionary(s => s.Title, s => s.Content);
+        ReplaceTagsInContainer(mainPart.Document.Body, tags);
     }
 
     public async Task<bool> ExportToMarkdownAsync(DocumentSession session, string outputPath)
     {
-        try
+        // Mantener implementación básica o mejorarla
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"# {session.Title}");
+        foreach (var section in session.Sections.OrderBy(s => s.Order))
         {
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"# {session.Title}");
-            sb.AppendLine($"_Versión {session.Version} — {session.CreatedAt:dd/MM/yyyy}_");
-            sb.AppendLine();
-
-            int num = 1;
-            foreach (var section in session.Sections.OrderBy(s => s.Order))
-            {
-                sb.AppendLine($"## {num}. {section.Title}");
-                sb.AppendLine();
-
-                if (section.Type is DocSectionType.Text or DocSectionType.Table)
-                {
-                    sb.AppendLine(section.Content);
-                }
-                else if (section.Type == DocSectionType.Diagram)
-                {
-                    var fence = section.DiagramFormat == DiagramFormat.Mermaid ? "mermaid" : "plantuml";
-                    sb.AppendLine($"```{fence}");
-                    sb.AppendLine(section.DiagramCode);
-                    sb.AppendLine("```");
-                }
-                sb.AppendLine();
-                num++;
-            }
-
-            await File.WriteAllTextAsync(outputPath, sb.ToString());
-            return true;
+            sb.AppendLine($"## {section.Title}");
+            sb.AppendLine(section.Content);
         }
-        catch
-        {
-            return false;
-        }
-    }
-
-    // ─── Helpers Word ──────────────────────────────────────────────────────────
-
-    private static void AddCoverPage(Body body, DocumentSession session)
-    {
-        AddParagraph(body, session.Title.ToUpper(), "Title");
-        AddParagraph(body, "Documentación Técnica de Ingeniería de Software", "Subtitle");
-        AddParagraph(body, $"Versión {session.Version}", "Subtitle");
-        AddParagraph(body, $"Proyecto: {session.ProjectName}", "Subtitle");
-        AddParagraph(body, session.CreatedAt.ToString("dd 'de' MMMM 'de' yyyy"), "Subtitle");
-        body.AppendChild(new Paragraph(new Run(new Break { Type = BreakValues.Page })));
-    }
-
-    private static void AddSectionHeading(Body body, string text, int level)
-    {
-        var style = level == 1 ? "Heading1" : level == 2 ? "Heading2" : "Heading3";
-        AddParagraph(body, text, style);
-    }
-
-    private static void AddMarkdownContent(Body body, string markdown)
-    {
-        if (string.IsNullOrWhiteSpace(markdown))
-        {
-            AddParagraph(body, "(Contenido pendiente)", "Normal");
-            return;
-        }
-
-        foreach (var line in markdown.Split('\n'))
-        {
-            var trimmed = line.Trim();
-            if (string.IsNullOrEmpty(trimmed)) continue;
-
-            if (trimmed.StartsWith("## ")) AddParagraph(body, trimmed[3..], "Heading2");
-            else if (trimmed.StartsWith("### ")) AddParagraph(body, trimmed[4..], "Heading3");
-            else if (trimmed.StartsWith("| ")) AddTableRow(body, trimmed);
-            else if (trimmed.StartsWith("- ") || trimmed.StartsWith("* "))
-                AddListItem(body, trimmed[2..]);
-            else
-                AddParagraph(body, trimmed.TrimStart('#').Trim(), "Normal");
-        }
-    }
-
-    private void AddDiagramSection(Body body, MainDocumentPart mainPart, DocSection section)
-    {
-        AddParagraph(body, $"[Diagrama: {section.Title}]", "Normal");
-        AddParagraph(body, $"Formato: {section.DiagramFormat}", "Caption");
-        if (!string.IsNullOrWhiteSpace(section.DiagramCode))
-        {
-            // Incluir el código como referencia
-            AddParagraph(body, section.DiagramCode, "Code");
-        }
-    }
-
-    private void AddImageSection(Body body, MainDocumentPart mainPart, DocSection section)
-    {
-        if (string.IsNullOrWhiteSpace(section.ImageBase64)) return;
-        try
-        {
-            var imageBytes = Convert.FromBase64String(section.ImageBase64);
-            var imgPart = mainPart.AddImagePart(ImagePartType.Png);
-            using var ms = new MemoryStream(imageBytes);
-            imgPart.FeedData(ms);
-        }
-        catch { }
-    }
-
-    private static void AddParagraph(Body body, string text, string style)
-    {
-        var para = new Paragraph();
-        var propRun = new ParagraphProperties(new ParagraphStyleId { Val = style });
-        para.AppendChild(propRun);
-        para.AppendChild(new Run(new Text(text) { Space = SpaceProcessingModeValues.Preserve }));
-        body.AppendChild(para);
-    }
-
-    private static void AddListItem(Body body, string text)
-    {
-        var para = new Paragraph(
-            new ParagraphProperties(
-                new NumberingProperties(
-                    new NumberingLevelReference { Val = 0 },
-                    new NumberingId { Val = 1 })),
-            new Run(new Text(text)));
-        body.AppendChild(para);
-    }
-
-    private static void AddTableRow(Body body, string markdownRow)
-    {
-        // Ignorar líneas separadoras de tabla Markdown (|---|---|)
-        if (markdownRow.Contains("---")) return;
-        var cells = markdownRow.Split('|')
-            .Where(c => !string.IsNullOrWhiteSpace(c))
-            .Select(c => c.Trim())
-            .ToArray();
-        if (cells.Length == 0) return;
-
-        var table = body.Elements<Table>().LastOrDefault() ?? CreateTable(body);
-        var row = new TableRow();
-        foreach (var cell in cells)
-        {
-            row.AppendChild(new TableCell(new Paragraph(new Run(new Text(cell)))));
-        }
-        table.AppendChild(row);
-    }
-
-    private static Table CreateTable(Body body)
-    {
-        var table = new Table(new TableProperties(
-            new TableBorders(
-                new TopBorder { Val = BorderValues.Single, Size = 4 },
-                new BottomBorder { Val = BorderValues.Single, Size = 4 },
-                new LeftBorder { Val = BorderValues.Single, Size = 4 },
-                new RightBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 })));
-        body.AppendChild(table);
-        return table;
-    }
-
-    private static void AddStyles(MainDocumentPart mainPart)
-    {
-        var stylesPart = mainPart.AddNewPart<StyleDefinitionsPart>();
-        stylesPart.Styles = new Styles();
+        await File.WriteAllTextAsync(outputPath, sb.ToString());
+        return true;
     }
 }

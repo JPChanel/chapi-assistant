@@ -11,8 +11,12 @@ public class StringToVisibilityConverter : IValueConverter
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         bool isEmpty = value == null || (value is string s && string.IsNullOrWhiteSpace(s));
+        bool doInverse = Inverse;
+
+        if (parameter?.ToString() == "Invert")
+            doInverse = !doInverse;
         
-        if (Inverse)
+        if (doInverse)
             return isEmpty ? Visibility.Visible : Visibility.Collapsed;
             
         return isEmpty ? Visibility.Collapsed : Visibility.Visible;

@@ -15,6 +15,11 @@ public interface IDocSynthesizerService
     Task<string> GenerateDiagramCodeAsync(string sectionTitle, DiagramFormat format, string projectContext, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Genera un diccionario de metadatos (tags) basado en un JSON pedido a la IA.
+    /// </summary>
+    Task<Dictionary<string, string>> GenerateMetadataAsync(IEnumerable<string> keys, string projectContext, string userPrompt, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Analiza la estructura de un proyecto y devuelve un resumen de contexto para la IA.
     /// </summary>
     Task<string> AnalyzeProjectContextAsync(string projectPath, CancellationToken cancellationToken = default);
