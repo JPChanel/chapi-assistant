@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.RegularExpressions;
 using Chapi.Application.Interfaces;
 using Chapi.Domain.Documentation;
@@ -14,6 +14,7 @@ namespace Chapi.Infrastructure.Documentation;
 public class OpenXmlExportService : IDocumentExportService
 {
     private readonly IKrokiDiagramService _krokiService;
+    private uint _nextDrawingId = 1;
 
     public OpenXmlExportService(IKrokiDiagramService krokiService)
     {
@@ -24,233 +25,190 @@ public class OpenXmlExportService : IDocumentExportService
     {
         try
         {
-            // Determinar la plantilla base
-            string templatePath = GetTemplatePath(session.Template);
+            var templatePath = GetTemplatePath(session.Template);
             if (!File.Exists(templatePath)) return false;
 
-            // Crear una copia de la plantilla
+            var outputDir = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrWhiteSpace(outputDir))
+                Directory.CreateDirectory(outputDir);
+
             File.Copy(templatePath, outputPath, true);
 
-            using (var doc = WordprocessingDocument.Open(outputPath, true))
+            using var doc = WordprocessingDocument.Open(outputPath, true);
+            var mainPart = doc.MainDocumentPart;
+            if (mainPart?.Document?.Body == null) return false;
+
+            var tags = BuildTagMap(session);
+
+            await HandleImagesInContainerAsync(mainPart, mainPart.Document.Body, tags);
+            foreach (var headerPart in mainPart.HeaderParts)
             {
-                var mainPart = doc.MainDocumentPart;
-                if (mainPart == null) return false;
-
-                // 1. Reemplazar tags globales (Metadata de sesión)
-                ReplaceGlobalTags(mainPart, session);
-
-                // 1.5 Procesar imágenes globales (Kroki API)
-                await HandleImagesInContainerAsync(mainPart, mainPart.Document.Body, session.Metadata);
-
-                // 2. Procesar Bloques Repetibles (Repeaters)
-                await ProcessBlocksAsync(mainPart, session);
-
-                // 3. Reemplazar tags en secciones de contenido
-                ReplaceSectionTags(mainPart, session);
-
-                mainPart.Document.Save();
+                if (headerPart.Header != null)
+                    await HandleImagesInContainerAsync(mainPart, headerPart.Header, tags);
+            }
+            foreach (var footerPart in mainPart.FooterParts)
+            {
+                if (footerPart.Footer != null)
+                    await HandleImagesInContainerAsync(mainPart, footerPart.Footer, tags);
             }
 
+            ReplaceTagsInContainer(mainPart.Document.Body, tags);
+            foreach (var headerPart in mainPart.HeaderParts)
+            {
+                if (headerPart.Header != null)
+                    ReplaceTagsInContainer(headerPart.Header, tags);
+            }
+            foreach (var footerPart in mainPart.FooterParts)
+            {
+                if (footerPart.Footer != null)
+                    ReplaceTagsInContainer(footerPart.Footer, tags);
+            }
+
+            mainPart.Document.Save();
             return true;
         }
-        catch (Exception ex)
+        catch
         {
-            // Log error here if needed
             return false;
         }
     }
 
-    private string GetTemplatePath(DocTemplate template)
+    private static string GetTemplatePath(DocTemplate template)
     {
         var appDir = AppDomain.CurrentDomain.BaseDirectory;
-        var templateName = template == DocTemplate.ModeloSoftware ? "01.Modelo de Software.docx" : "02.Diseño del Sistema de Información.docx";
-        return Path.Combine(appDir, "PlantillaWord", templateName);
+        var templateName = template == DocTemplate.ModeloSoftware
+            ? "01.Modelo de Software.docx"
+            : "02.Diseño del Sistema de Información.docx";
+
+        var directPath = Path.Combine(appDir, "PlantillaWord", templateName);
+        if (File.Exists(directPath)) return directPath;
+
+        var presentationPath = Path.Combine(appDir, "Presentation", "PlantillaWord", templateName);
+        return presentationPath;
     }
 
-    private void ReplaceGlobalTags(MainDocumentPart mainPart, DocumentSession session)
+    private static Dictionary<string, string> BuildTagMap(DocumentSession session)
     {
-        var root = mainPart.Document.Body;
-        if (root == null) return;
+        var tags = new Dictionary<string, string>(session.Metadata, StringComparer.OrdinalIgnoreCase);
 
-        var tags = new Dictionary<string, string>(session.Metadata)
+        // Nunca dejar placeholders crudos en el documento final.
+        foreach (var key in tags.Keys.ToList())
         {
-            ["PROYECTO_NOMBRE"] = session.ProjectName,
-            ["PROYECTO_CODIGO"] = session.Id.Substring(0, 8), // O un campo real
-            ["DOC_VERSION"] = session.Version,
-            ["DOC_MES_ANIO"] = DateTime.Now.ToString("MMMM, yyyy")
-        };
-
-        ReplaceTagsInContainer(root, tags);
-        
-        // También en Headers y Footers
-        foreach (var headerPart in mainPart.HeaderParts) ReplaceTagsInContainer(headerPart.Header, tags);
-        foreach (var footerPart in mainPart.FooterParts) ReplaceTagsInContainer(footerPart.Footer, tags);
-    }
-
-    private async Task ProcessBlocksAsync(MainDocumentPart mainPart, DocumentSession session)
-    {
-        var body = mainPart.Document.Body;
-        if (body == null) return;
-
-        // Lista de tipos de bloques a procesar
-        var blockTypes = new[] { "PQ", "CU", "ACT", "SEQ", "EST", "CAPAS", "COMP", "CLASE_DET", "DICC_TABLA", "HISTORIAL" };
-
-        foreach (var type in blockTypes)
-        {
-            await ProcessRepeaterBlockAsync(mainPart, body, type, session);
+            if (IsPendingPlaceholder(tags[key]))
+                tags[key] = string.Empty;
         }
+
+        SetIfMissing(tags, "PROYECTO_NOMBRE", session.ProjectName);
+        SetIfMissing(tags, "PROYECTO_CODIGO", string.IsNullOrWhiteSpace(session.Id) ? string.Empty : session.Id[..Math.Min(8, session.Id.Length)]);
+        SetIfMissing(tags, "DOC_VERSION", session.Version);
+        SetIfMissing(tags, "DOC_MES_ANIO", DateTime.Now.ToString("MMMM, yyyy"));
+
+        return tags;
     }
 
-    private async Task ProcessRepeaterBlockAsync(MainDocumentPart mainPart, Body body, string blockType, DocumentSession session)
+    private static void SetIfMissing(Dictionary<string, string> tags, string key, string value)
     {
-        var startTag = $"[BLOQUE_{blockType}_INICIO]";
-        var endTag = $"[BLOQUE_{blockType}_FIN]";
-
-        while (true)
-        {
-            var startElement = FindElementWithText(body, startTag);
-            var endElement = FindElementWithText(body, endTag);
-
-            if (startElement == null || endElement == null) break;
-
-            // Extraer los elementos entre los tags
-            var templateElements = GetElementsBetween(startElement, endElement);
-            
-            // Determinar qué datos usar para este bloque
-            var itemsMetadata = GetMetadataForBlock(blockType, session);
-
-            // Eliminar los tags de la plantilla
-            startElement.Remove();
-            endElement.Remove();
-
-            if (itemsMetadata.Any())
-            {
-                var lastInserted = templateElements.LastOrDefault() ?? endElement;
-                
-                foreach (var metadata in itemsMetadata)
-                {
-                    // Clonar y rellenar
-                    foreach (var element in templateElements)
-                    {
-                        var clone = element.CloneNode(true);
-                        
-                        // Reemplazar tags en el clon
-                        ReplaceTagsInContainer(clone, metadata);
-                        
-                        // Manejo especial de imágenes en el bloque
-                        await HandleImagesInContainerAsync(mainPart, clone, metadata);
-
-                        body.InsertAfter(clone, lastInserted);
-                        lastInserted = clone;
-                    }
-                }
-            }
-
-            // Eliminar los elementos originales de la plantilla
-            foreach (var el in templateElements) el.Remove();
-        }
+        if (!tags.TryGetValue(key, out var existing) || string.IsNullOrWhiteSpace(existing) || IsPendingPlaceholder(existing))
+            tags[key] = value;
     }
 
-    private List<OpenXmlElement> GetElementsBetween(OpenXmlElement start, OpenXmlElement end)
-    {
-        var elements = new List<OpenXmlElement>();
-        var current = start.NextSibling();
-        while (current != null && current != end)
-        {
-            elements.Add(current);
-            current = current.NextSibling();
-        }
-        return elements;
-    }
+    private static bool IsPendingPlaceholder(string value) =>
+        !string.IsNullOrWhiteSpace(value) && value.StartsWith("[") && value.EndsWith("]");
 
-    private OpenXmlElement? FindElementWithText(OpenXmlElement container, string text)
-    {
-        return container.Descendants<Text>()
-            .FirstOrDefault(t => t.Text.Contains(text))?
-            .Ancestors<Paragraph>().FirstOrDefault() ?? (OpenXmlElement?)
-               container.Descendants<Text>()
-            .FirstOrDefault(t => t.Text.Contains(text))?
-            .Ancestors<TableRow>().FirstOrDefault();
-    }
-
-    private void ReplaceTagsInContainer(OpenXmlElement container, Dictionary<string, string> tags)
+    private static void ReplaceTagsInContainer(OpenXmlElement container, Dictionary<string, string> tags)
     {
         var texts = container.Descendants<Text>().ToList();
-        foreach (var t in texts)
+        foreach (var text in texts)
         {
+            var current = text.Text;
             foreach (var tag in tags)
             {
                 var fullTag = $"[{tag.Key}]";
-                if (t.Text.Contains(fullTag))
-                {
-                    t.Text = t.Text.Replace(fullTag, tag.Value ?? "");
-                }
+                if (current.Contains(fullTag, StringComparison.Ordinal))
+                    current = current.Replace(fullTag, tag.Value ?? string.Empty, StringComparison.Ordinal);
             }
+            text.Text = current;
         }
     }
 
     private async Task HandleImagesInContainerAsync(MainDocumentPart mainPart, OpenXmlElement container, Dictionary<string, string> metadata)
     {
-        var imageTags = container.Descendants<Text>().Where(t => t.Text.Contains("[IMG_") || t.Text.Contains("[DIAGRAMA_")).ToList();
-        foreach (var t in imageTags)
+        var imageTexts = container.Descendants<Text>()
+            .Where(t => t.Text.Contains("[IMG_", StringComparison.Ordinal) || t.Text.Contains("[DIAGRAMA_", StringComparison.Ordinal))
+            .ToList();
+
+        foreach (var text in imageTexts)
         {
-            var match = Regex.Match(t.Text, @"\[(IMG_[^\]]+|DIAGRAMA_[^\]]+)\]");
-            if (match.Success)
+            var matches = Regex.Matches(text.Text, @"\[(IMG_[^\]]+|DIAGRAMA_[^\]]+)\]");
+            if (matches.Count == 0) continue;
+
+            foreach (Match match in matches)
             {
                 var tagName = match.Groups[1].Value;
-                if (metadata.TryGetValue(tagName, out var diagramCode) && !string.IsNullOrWhiteSpace(diagramCode) && !diagramCode.StartsWith("["))
+                if (!metadata.TryGetValue(tagName, out var diagramCode))
+                    continue;
+
+                if (string.IsNullOrWhiteSpace(diagramCode) || IsPendingPlaceholder(diagramCode))
+                    continue;
+
+                try
                 {
-                    try
-                    {
-                        var pngBytes = await _krokiService.RenderToPngAsync(diagramCode, "plantuml"); // Asumimos plantuml o inferimos del código
-                        if (pngBytes != null)
-                        {
-                            var imagePart = mainPart.AddImagePart(ImagePartType.Png);
-                            using (var stream = new MemoryStream(pngBytes))
-                            {
-                                imagePart.FeedData(stream);
-                            }
+                    var format = DetectDiagramFormat(diagramCode);
+                    var pngBytes = await _krokiService.RenderToPngAsync(diagramCode, format);
+                    if (pngBytes == null) continue;
 
-                            string relationshipId = mainPart.GetIdOfPart(imagePart);
-                            
-                            // Tamaño aproximado 15cm x 10cm (en EMUs)
-                            long widthEmus = 5394960;
-                            long heightEmus = 3600000;
-                            
-                            var drawing = CreateImageDrawing(relationshipId, tagName, widthEmus, heightEmus);
+                    var imagePart = mainPart.AddImagePart(ImagePartType.Png);
+                    using var stream = new MemoryStream(pngBytes);
+                    imagePart.FeedData(stream);
 
-                            // Insertar Elemento Drawing y borrar el texto
-                            var parentRun = t.Parent as Run;
-                            if (parentRun != null)
-                            {
-                                parentRun.InsertAfterSelf(new Run(drawing));
-                            }
-                            t.Text = t.Text.Replace($"[{tagName}]", "");
-                        }
-                    }
-                    catch
-                    {
-                        t.Text = t.Text.Replace($"[{tagName}]", "(Error al cargar imagen generada)");
-                    }
+                    var relationshipId = mainPart.GetIdOfPart(imagePart);
+                    var drawing = CreateImageDrawing(relationshipId, tagName, 5394960, 3600000, _nextDrawingId++);
+
+                    if (text.Parent is Run parentRun)
+                        parentRun.InsertAfterSelf(new Run(drawing));
+
+                    text.Text = text.Text.Replace($"[{tagName}]", string.Empty, StringComparison.Ordinal);
+                }
+                catch
+                {
+                    text.Text = text.Text.Replace($"[{tagName}]", "(Error al generar imagen)", StringComparison.Ordinal);
                 }
             }
         }
     }
 
-    private Drawing CreateImageDrawing(string relationshipId, string imageName, long widthEmus, long heightEmus)
+    private static string DetectDiagramFormat(string diagramCode)
+    {
+        var code = diagramCode.TrimStart();
+        if (code.StartsWith("@startuml", StringComparison.OrdinalIgnoreCase) ||
+            code.Contains("@enduml", StringComparison.OrdinalIgnoreCase))
+            return "plantuml";
+
+        if (code.StartsWith("graph ", StringComparison.OrdinalIgnoreCase) ||
+            code.StartsWith("flowchart ", StringComparison.OrdinalIgnoreCase) ||
+            code.StartsWith("sequenceDiagram", StringComparison.OrdinalIgnoreCase) ||
+            code.StartsWith("classDiagram", StringComparison.OrdinalIgnoreCase) ||
+            code.StartsWith("erDiagram", StringComparison.OrdinalIgnoreCase) ||
+            code.StartsWith("stateDiagram", StringComparison.OrdinalIgnoreCase))
+            return "mermaid";
+
+        return "plantuml";
+    }
+
+    private static Drawing CreateImageDrawing(string relationshipId, string imageName, long widthEmus, long heightEmus, uint drawingId)
     {
         return new Drawing(
             new DW.Inline(
                 new DW.Extent() { Cx = widthEmus, Cy = heightEmus },
                 new DW.EffectExtent() { LeftEdge = 0L, TopEdge = 0L, RightEdge = 0L, BottomEdge = 0L },
-                new DW.DocProperties() { Id = (UInt32Value)1U, Name = imageName },
+                new DW.DocProperties() { Id = drawingId, Name = imageName },
                 new DW.NonVisualGraphicFrameDrawingProperties(
                     new A.GraphicFrameLocks() { NoChangeAspect = true }),
                 new A.Graphic(
                     new A.GraphicData(
                         new PIC.Picture(
                             new PIC.NonVisualPictureProperties(
-                                new PIC.NonVisualDrawingProperties() { Id = (UInt32Value)0U, Name = imageName },
+                                new PIC.NonVisualDrawingProperties() { Id = 0U, Name = imageName },
                                 new PIC.NonVisualPictureDrawingProperties()),
                             new PIC.BlipFill(
                                 new A.Blip() { Embed = relationshipId, CompressionState = A.BlipCompressionValues.Print },
@@ -261,37 +219,18 @@ public class OpenXmlExportService : IDocumentExportService
                                     new A.Extents() { Cx = widthEmus, Cy = heightEmus }),
                                 new A.PresetGeometry(new A.AdjustValueList()) { Preset = A.ShapeTypeValues.Rectangle }))
                     ) { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" })
-            ) { DistanceFromTop = (UInt32Value)0U, DistanceFromBottom = (UInt32Value)0U, DistanceFromLeft = (UInt32Value)0U, DistanceFromRight = (UInt32Value)0U, EditId = "50D07946" });
-    }
-
-    private List<Dictionary<string, string>> GetMetadataForBlock(string blockType, DocumentSession session)
-    {
-        // Esta lógica mapea las secciones de la sesión a listas de metadata para los bloques
-        // Ej: BLOQUE_CU mapea a los casos de uso generados
-        var result = new List<Dictionary<string, string>>();
-
-        if (blockType == "CU")
-        {
-            return session.Sections
-                .Where(s => s.Title.Contains("CU") && s.Metadata.Any())
-                .Select(s => s.Metadata)
-                .ToList();
-        }
-        // ... otros mapeos
-        
-        return result;
-    }
-
-    private void ReplaceSectionTags(MainDocumentPart mainPart, DocumentSession session)
-    {
-        // Reemplazo final para secciones sueltas
-        var tags = session.Sections.ToDictionary(s => s.Title, s => s.Content);
-        ReplaceTagsInContainer(mainPart.Document.Body, tags);
+            )
+            {
+                DistanceFromTop = 0U,
+                DistanceFromBottom = 0U,
+                DistanceFromLeft = 0U,
+                DistanceFromRight = 0U,
+                EditId = "50D07946"
+            });
     }
 
     public async Task<bool> ExportToMarkdownAsync(DocumentSession session, string outputPath)
     {
-        // Mantener implementación básica o mejorarla
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"# {session.Title}");
         foreach (var section in session.Sections.OrderBy(s => s.Order))

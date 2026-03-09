@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="Chapi.Presentation.Views.Tabs.DocumentationView"
+<UserControl x:Class="Chapi.Presentation.Views.Tabs.DocumentationView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:wpf="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
@@ -14,6 +14,7 @@
         <conv:InverseBooleanConverter x:Key="InvBool"/>
         <conv:InverseBooleanToVisibilityConverter x:Key="InvBoolToVis"/>
         <conv:StringToVisibilityConverter x:Key="StringToVisInv" Inverse="True"/>
+        <conv:KrokiCodeToImageConverter x:Key="KrokiCodeToImageConverter"/>
 
         <!-- ✨ Estilos Premium (React-inspired) -->
         <Style x:Key="WordPageStyle" TargetType="Border">
@@ -194,6 +195,13 @@
                                 </ToggleButton.Style>
                             </ToggleButton>
                         </DockPanel>
+
+                        <CheckBox Content="Ver código Kroki"
+                                  IsChecked="{Binding ShowKrokiCode}"
+                                  Foreground="#94A3B8"
+                                  FontSize="11"
+                                  FontWeight="SemiBold"
+                                  Margin="8,0,8,12"/>
 
                         <!-- Botón Generar (Green) -->
                         <Button Command="{Binding ExportWordCommand}" 
@@ -562,8 +570,14 @@
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_VISTA_LOGICA], Mode=TwoWay}"
-                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                                     Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
                                         </StackPanel>
+                                        <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
+                                                BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                            <Image Source="{Binding Session.Metadata[IMG_VISTA_LOGICA], Converter={StaticResource KrokiCodeToImageConverter}}"
+                                                   Stretch="Uniform" MaxHeight="260"/>
+                                        </Border>
                                         <TextBlock Text="Diagrama de paquetes" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
@@ -628,8 +642,14 @@
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_ACTORES], Mode=TwoWay}"
-                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                                     Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
                                         </StackPanel>
+                                        <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
+                                                BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                            <Image Source="{Binding Session.Metadata[IMG_ACTORES], Converter={StaticResource KrokiCodeToImageConverter}}"
+                                                   Stretch="Uniform" MaxHeight="260"/>
+                                        </Border>
                                         <TextBlock Text="Diagrama de actores del sistema" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
@@ -663,8 +683,14 @@
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_CU_GENERAL], Mode=TwoWay}"
-                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                                     Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
                                         </StackPanel>
+                                        <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
+                                                BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                            <Image Source="{Binding Session.Metadata[IMG_CU_GENERAL], Converter={StaticResource KrokiCodeToImageConverter}}"
+                                                   Stretch="Uniform" MaxHeight="260"/>
+                                        </Border>
                                         <TextBlock Text="Diagrama general de casos de uso" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
@@ -756,8 +782,15 @@
                                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
                                                         <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                                        <TextBox Text="{Binding Session.Metadata[IMG_PROTOTIPO], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                        <TextBox Text="{Binding Session.Metadata[IMG_PROTOTIPO], Mode=TwoWay}"
+                                                                 Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                                                 Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
                                                     </StackPanel>
+                                                    <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
+                                                            BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White">
+                                                        <Image Source="{Binding Session.Metadata[IMG_PROTOTIPO], Converter={StaticResource KrokiCodeToImageConverter}}"
+                                                               Stretch="Uniform" MaxHeight="220"/>
+                                                    </Border>
                                                 </StackPanel>
                                             </Border>
                                         </Grid>
@@ -793,8 +826,14 @@
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                                     <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                                     <TextBox Text="{Binding Session.Metadata[IMG_ACTIVIDAD], Mode=TwoWay}"
-                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                                             Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
                                                 </StackPanel>
+                                                <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
+                                                        BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                                    <Image Source="{Binding Session.Metadata[IMG_ACTIVIDAD], Converter={StaticResource KrokiCodeToImageConverter}}"
+                                                           Stretch="Uniform" MaxHeight="260"/>
+                                                </Border>
                                                 <TextBlock Text="Diagrama de actividad" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                             </StackPanel>
                                         </Border>
@@ -829,8 +868,14 @@
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                                     <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                                     <TextBox Text="{Binding Session.Metadata[IMG_SECUENCIA], Mode=TwoWay}"
-                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                                             Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
                                                 </StackPanel>
+                                                <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
+                                                        BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                                    <Image Source="{Binding Session.Metadata[IMG_SECUENCIA], Converter={StaticResource KrokiCodeToImageConverter}}"
+                                                           Stretch="Uniform" MaxHeight="260"/>
+                                                </Border>
                                                 <TextBlock Text="Diagrama de secuencia" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                             </StackPanel>
                                         </Border>
@@ -865,8 +910,14 @@
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                                     <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                                     <TextBox Text="{Binding Session.Metadata[IMG_ESTADO], Mode=TwoWay}"
-                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                                             Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
                                                 </StackPanel>
+                                                <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
+                                                        BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                                    <Image Source="{Binding Session.Metadata[IMG_ESTADO], Converter={StaticResource KrokiCodeToImageConverter}}"
+                                                           Stretch="Uniform" MaxHeight="260"/>
+                                                </Border>
                                                 <TextBlock Text="Diagrama de estados" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                             </StackPanel>
                                         </Border>
@@ -930,8 +981,14 @@
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_ARQUITECTURA], Mode=TwoWay}"
-                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                                     Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
                                         </StackPanel>
+                                        <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
+                                                BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                            <Image Source="{Binding Session.Metadata[IMG_ARQUITECTURA], Converter={StaticResource KrokiCodeToImageConverter}}"
+                                                   Stretch="Uniform" MaxHeight="260"/>
+                                        </Border>
                                         <TextBlock Text="Modelo de Arquitectura" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
@@ -973,8 +1030,14 @@
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_COMPONENTES], Mode=TwoWay}"
-                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                                     Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
                                         </StackPanel>
+                                        <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
+                                                BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                            <Image Source="{Binding Session.Metadata[IMG_COMPONENTES], Converter={StaticResource KrokiCodeToImageConverter}}"
+                                                   Stretch="Uniform" MaxHeight="260"/>
+                                        </Border>
                                         <TextBlock Text="Diagrama de componentes del sistema" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
@@ -1016,8 +1079,14 @@
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_CLASES_SISTEMA], Mode=TwoWay}"
-                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                                     Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
                                         </StackPanel>
+                                        <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
+                                                BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                            <Image Source="{Binding Session.Metadata[IMG_CLASES_SISTEMA], Converter={StaticResource KrokiCodeToImageConverter}}"
+                                                   Stretch="Uniform" MaxHeight="260"/>
+                                        </Border>
                                         <TextBlock Text="Diagrama de clases del sistema" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
@@ -1076,8 +1145,14 @@
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_DER], Mode=TwoWay}"
-                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                     Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                                     Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
                                         </StackPanel>
+                                        <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
+                                                BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                            <Image Source="{Binding Session.Metadata[IMG_DER], Converter={StaticResource KrokiCodeToImageConverter}}"
+                                                   Stretch="Uniform" MaxHeight="260"/>
+                                        </Border>
                                         <TextBlock Text="Diagrama Entidad-Relación" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
@@ -1233,7 +1308,13 @@
                     </Border>
 
                     <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
                         <TextBox x:Name="AiPromptBox"
+                                 Grid.Row="0"
                                  Text="{Binding AiPrompt, UpdateSourceTrigger=PropertyChanged}"
                                  Background="Transparent" BorderThickness="0"
                                  Foreground="White" FontSize="14" FontWeight="Medium"
@@ -1243,15 +1324,17 @@
                                  md:HintAssist.HelperTextFontSize="12"
                                  CaretBrush="White"
                                  Visibility="{Binding IsGenerating, Converter={StaticResource InvBoolToVis}}"
-                                 KeyDown="AiPromptBox_KeyDown"/>
-                        
-                        <TextBlock Text="{Binding StatusMessage}"
+                                 KeyDown="AiPromptBox_KeyDown"
+                                 Margin="0,0,0,0"/>
+
+                        <TextBlock Grid.Row="1"
+                                   Text="{Binding StatusMessage}"
                                    Foreground="#38BDF8"
                                    FontSize="13"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center"
                                    FontStyle="Italic"
-                                   Visibility="Visible"
+                                   Visibility="{Binding IsGenerating, Converter={StaticResource BoolToVis}}"
                                    TextTrimming="CharacterEllipsis"/>
                     </Grid>
 

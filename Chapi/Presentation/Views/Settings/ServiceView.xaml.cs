@@ -455,9 +455,18 @@ namespace Chapi.Presentation.Views.Settings
             // Seleccionar proveedor preferido
             switch (settings.PreferredAiProvider)
             {
-                case "Gemini": cmbAiProvider.SelectedIndex = 0; break;
-                case "OpenAI": cmbAiProvider.SelectedIndex = 1; break;
-                case "Claude": cmbAiProvider.SelectedIndex = 2; break;
+                case "Gemini":
+                case "gemini":
+                    cmbAiProvider.SelectedIndex = 0;
+                    break;
+                case "OpenAI":
+                case "openai":
+                    cmbAiProvider.SelectedIndex = 1;
+                    break;
+                case "Claude":
+                case "claude":
+                    cmbAiProvider.SelectedIndex = 2;
+                    break;
                 default: cmbAiProvider.SelectedIndex = 0; break;
             }
 
@@ -498,19 +507,14 @@ namespace Chapi.Presentation.Views.Settings
                 // Guardar Preferido
                 if (cmbAiProvider.SelectedItem is ComboBoxItem item)
                 {
-                    settings.PreferredAiProvider = item.Content.ToString() switch
-                    {
-                        "OpenAI" => "OpenAI",
-                        "Claude" => "Claude",
-                        _ => "Gemini"
-                    };
+                    settings.PreferredAiProvider = NormalizeAiProvider(item.Content?.ToString());
                 }
 
                 UserSettingsService.SaveSettings(settings);
                 UpdateApiKeyStatus();
 
-                txtStatus.Text = "¡Configuración de IA guardada! Reinicia Chapi para aplicar cambios.";
-                await DialogService.ShowConfirmDialog("Confirmación", "¡Configuración guardada! Reinicia Chapi para usar el nuevo proveedor.", DialogVariant.Info, DialogType.Info);
+                txtStatus.Text = "¡Configuración de IA guardada y aplicada!";
+                await DialogService.ShowConfirmDialog("Confirmación", "¡Configuración guardada! El proveedor seleccionado se aplicará en las siguientes solicitudes.", DialogVariant.Info, DialogType.Info);
 
             }
             catch (Exception ex)
@@ -547,6 +551,16 @@ namespace Chapi.Presentation.Views.Settings
         }
 
         #endregion
+
+        private static string NormalizeAiProvider(string? raw)
+        {
+            var value = (raw ?? string.Empty).Trim();
+            if (value.Equals("OpenAI", StringComparison.OrdinalIgnoreCase) || value.Contains("OpenAI", StringComparison.OrdinalIgnoreCase))
+                return "OpenAI";
+            if (value.Equals("Claude", StringComparison.OrdinalIgnoreCase) || value.Contains("Claude", StringComparison.OrdinalIgnoreCase))
+                return "Claude";
+            return "Gemini";
+        }
 
 
         /// <summary>

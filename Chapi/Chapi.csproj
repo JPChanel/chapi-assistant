@@ -65,6 +65,9 @@
 		<None Update="appsettings.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
+		<None Update="Presentation\PlantillaWord\*.docx">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
 		<None Update="Presentation\Assets\icon.png">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>

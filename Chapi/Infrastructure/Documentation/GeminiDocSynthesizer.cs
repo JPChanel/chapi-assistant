@@ -1,23 +1,24 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Chapi.Application.Interfaces;
 using Chapi.Domain.Documentation;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Chapi.Infrastructure.Documentation;
 
 /// <summary>
-/// Sintetiza texto de secciones y código de diagramas usando Gemini AI.
-/// Usa el GeminiChatClient existente (IChatClient).
+/// Sintetiza texto de secciones y cÃ³digo de diagramas usando el proveedor IA configurado.
+/// Resuelve IChatClient en cada llamada para respetar cambios de proveedor (OpenAI/Gemini/Claude).
 /// </summary>
 public class GeminiDocSynthesizer : IDocSynthesizerService
 {
-    private readonly IChatClient _chatClient;
+    private readonly IServiceProvider _serviceProvider;
 
-    public GeminiDocSynthesizer(IChatClient chatClient)
+    public GeminiDocSynthesizer(IServiceProvider serviceProvider)
     {
-        _chatClient = chatClient;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<string> GenerateSectionContentAsync(
@@ -25,7 +26,7 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
     {
         var prompt = Chapi.Infrastructure.AI.GetPrompt.DocSection(sectionTitle, projectContext);
         var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
-        var response = await _chatClient.GetResponseAsync(messages, cancellationToken: cancellationToken);
+        var response = await GetChatClient().GetResponseAsync(messages, cancellationToken: cancellationToken);
         return response.Messages.FirstOrDefault()?.Text ?? string.Empty;
     }
 
@@ -36,7 +37,7 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
         var prompt = Chapi.Infrastructure.AI.GetPrompt.DocDiagram(sectionTitle, formatName, projectContext);
 
         var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
-        var response = await _chatClient.GetResponseAsync(messages, cancellationToken: cancellationToken);
+        var response = await GetChatClient().GetResponseAsync(messages, cancellationToken: cancellationToken);
         var raw = response.Messages.FirstOrDefault()?.Text ?? string.Empty;
 
         return CleanDiagramCode(raw, format);
@@ -47,14 +48,13 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
     {
         var jsonKeys = string.Join("\n", keys.Select(k => $"- {k}"));
         var prompt = Chapi.Infrastructure.AI.GetPrompt.DocMetadata(jsonKeys, projectContext, userPrompt);
-        
+
         var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
-        var response = await _chatClient.GetResponseAsync(messages, cancellationToken: cancellationToken);
+        var response = await GetChatClient().GetResponseAsync(messages, cancellationToken: cancellationToken);
         var raw = response.Messages.FirstOrDefault()?.Text ?? "{}";
 
         try
         {
-            // Limpiar posibles bloques markdown del json
             var cleanedJson = Regex.Replace(raw, @"^```(json)?|```$", "", RegexOptions.Multiline).Trim();
             var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(cleanedJson);
             return dict ?? new Dictionary<string, string>();
@@ -76,9 +76,12 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
         var prompt = Chapi.Infrastructure.AI.GetPrompt.DocAnalyzeContext(structure, configFiles);
 
         var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
-        var response = await _chatClient.GetResponseAsync(messages, cancellationToken: cancellationToken);
+        var response = await GetChatClient().GetResponseAsync(messages, cancellationToken: cancellationToken);
         return response.Messages.FirstOrDefault()?.Text ?? structure;
     }
+
+    private IChatClient GetChatClient() =>
+        _serviceProvider.GetRequiredService<IChatClient>();
 
     private static string BuildDirectoryTree(string path, int depth, string indent = "")
     {
@@ -90,12 +93,12 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
                 .Where(d => !ShouldSkip(Path.GetFileName(d)!))
                 .Take(15))
             {
-                sb.AppendLine($"{indent}📁 {Path.GetFileName(dir)}");
+                sb.AppendLine($"{indent}ðŸ“ {Path.GetFileName(dir)}");
                 sb.Append(BuildDirectoryTree(dir, depth - 1, indent + "  "));
             }
             foreach (var file in Directory.GetFiles(path).Take(10))
             {
-                sb.AppendLine($"{indent}📄 {Path.GetFileName(file)}");
+                sb.AppendLine($"{indent}ðŸ“„ {Path.GetFileName(file)}");
             }
         }
         catch { }
@@ -115,22 +118,22 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
             {
                 found.AddRange(Directory.GetFiles(path, pattern, SearchOption.AllDirectories)
                     .Take(3)
-                    .Select(f => Path.GetFileName(f)));
+                    .Select(Path.GetFileName)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))!);
             }
             catch { }
         }
-        return found.Count > 0 ? string.Join(", ", found.Distinct()) : "No se encontraron archivos de configuración";
+        return found.Count > 0 ? string.Join(", ", found.Distinct()) : "No se encontraron archivos de configuraciÃ³n";
     }
 
     private static string CleanDiagramCode(string raw, DiagramFormat format)
     {
         raw = raw.Trim();
-        // Eliminar bloques markdown si vienen
-        if (raw.StartsWith("```"))
+        if (raw.StartsWith("```", StringComparison.Ordinal))
         {
             var lines = raw.Split('\n').ToList();
             lines.RemoveAt(0);
-            if (lines.LastOrDefault()?.TrimStart().StartsWith("```") == true)
+            if (lines.LastOrDefault()?.TrimStart().StartsWith("```", StringComparison.Ordinal) == true)
                 lines.RemoveAt(lines.Count - 1);
             raw = string.Join('\n', lines).Trim();
         }

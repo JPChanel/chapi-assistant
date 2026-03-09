@@ -94,30 +94,45 @@ namespace Chapi
             services.AddTransient<Microsoft.Extensions.AI.IChatClient>(sp =>
             {
                 var settings = Chapi.Infrastructure.Persistence.Settings.UserSettingsService.LoadSettings();
+                var preferred = (settings.PreferredAiProvider ?? string.Empty).Trim();
 
-                // 1. Intentar proveedor preferido
-                if (settings.PreferredAiProvider == "OpenAI" && !string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
+                // 1) Si el usuario definió proveedor preferido, respetarlo estrictamente.
+                if (preferred.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
+                        throw new InvalidOperationException("Proveedor IA = OpenAI, pero falta OpenAI API Key en Configuración > IA.");
                     return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
+                }
 
-                if (settings.PreferredAiProvider == "Claude" && !string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
+                if (preferred.Equals("Claude", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
+                        throw new InvalidOperationException("Proveedor IA = Claude, pero falta Claude API Key en Configuración > IA.");
                     return new Chapi.Infrastructure.AI.ClaudeChatClient(settings.ClaudeApiKey);
+                }
 
-                if ((settings.PreferredAiProvider == "Gemini" || string.IsNullOrEmpty(settings.PreferredAiProvider)) && !string.IsNullOrWhiteSpace(settings.GeminiApiKey))
+                if (preferred.Equals("Gemini", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(settings.GeminiApiKey))
+                        throw new InvalidOperationException("Proveedor IA = Gemini, pero falta Gemini API Key en Configuración > IA.");
                     return new Chapi.Infrastructure.AI.GeminiChatClient(settings.GeminiApiKey);
+                }
 
-                // 2. Fallback: Probar cualquiera disponible (Prioridad: Gemini > OpenAI > Claude)
-                if (!string.IsNullOrWhiteSpace(settings.GeminiApiKey))
-                    return new Chapi.Infrastructure.AI.GeminiChatClient(settings.GeminiApiKey);
+                if (!string.IsNullOrWhiteSpace(preferred))
+                {
+                    throw new InvalidOperationException($"Proveedor IA desconocido: '{preferred}'. Usa Gemini, OpenAI o Claude.");
+                }
 
+                // 2) Fallback solo si no se eligió preferido.
                 if (!string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
                     return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
+
+                if (!string.IsNullOrWhiteSpace(settings.GeminiApiKey))
+                    return new Chapi.Infrastructure.AI.GeminiChatClient(settings.GeminiApiKey);
 
                 if (!string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
                     return new Chapi.Infrastructure.AI.ClaudeChatClient(settings.ClaudeApiKey);
 
-
-
-                // Si llegamos aquí, no hay configuración válida
                 throw new InvalidOperationException("No se ha configurado ningún proveedor de IA (Gemini, OpenAI o Claude). Por favor ve a Configuración > IA.");
             });
 
