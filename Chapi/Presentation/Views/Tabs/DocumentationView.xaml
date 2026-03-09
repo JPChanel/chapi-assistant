@@ -513,7 +513,14 @@
                                         <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
                                     </StackPanel>
                                     <TextBox Text="{Binding Session.Metadata[INTRODUCCION], Mode=TwoWay}"
-                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+                                             Style="{StaticResource DocTagStyle}"
+                                             HorizontalAlignment="Stretch"
+                                             TextWrapping="Wrap"
+                                             AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Disabled"
+                                             MinHeight="52"
+                                             Margin="0,6,0,24"/>
 
                                     <!-- ── SECCIÓN 2: OBJETIVOS ──────────────────────────────────────── -->
                                     <StackPanel Margin="0,8,0,16">
@@ -524,7 +531,14 @@
                                         <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
                                     </StackPanel>
                                     <TextBox Text="{Binding Session.Metadata[OBJETIVOS], Mode=TwoWay}"
-                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+                                             Style="{StaticResource DocTagStyle}"
+                                             HorizontalAlignment="Stretch"
+                                             TextWrapping="Wrap"
+                                             AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Disabled"
+                                             MinHeight="52"
+                                             Margin="0,6,0,24"/>
 
                                     <!-- ── SECCIÓN 3: ALCANCE ────────────────────────────────────────── -->
                                     <StackPanel Margin="0,8,0,16">
@@ -535,7 +549,14 @@
                                         <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
                                     </StackPanel>
                                     <TextBox Text="{Binding Session.Metadata[ALCANCE], Mode=TwoWay}"
-                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+                                             Style="{StaticResource DocTagStyle}"
+                                             HorizontalAlignment="Stretch"
+                                             TextWrapping="Wrap"
+                                             AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Disabled"
+                                             MinHeight="52"
+                                             Margin="0,6,0,24"/>
 
 
                                     <!-- ── SECCIÓN 4: DIAGRAMA DE PAQUETES / VISTA LÓGICA ───────────── -->
@@ -547,7 +568,14 @@
                                     <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
                                 </StackPanel>
                                 <TextBox Text="{Binding Session.Metadata[PQ_VISTA_LOGICA_DESC], Mode=TwoWay}"
-                                         Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,16"
+                                         Style="{StaticResource DocTagStyle}"
+                                         HorizontalAlignment="Stretch"
+                                         TextWrapping="Wrap"
+                                         AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto"
+                                         HorizontalScrollBarVisibility="Disabled"
+                                         MinHeight="52"
+                                         Margin="0,6,0,16"
                                          FontStyle="Italic"/>
 
                                 <!-- 4.1 Listado de paquetes -->
@@ -600,7 +628,14 @@
                                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                             <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Descripción" FontWeight="Bold" FontSize="11"/></Border>
                                             <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
-                                                <TextBox Text="{Binding Session.Metadata[PQ_DESC], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
+                                                <TextBox Text="{Binding Session.Metadata[PQ_DESC], Mode=TwoWay}"
+                                                         Style="{StaticResource DocTagStyle}"
+                                                         HorizontalAlignment="Stretch"
+                                                         TextWrapping="Wrap"
+                                                         AcceptsReturn="True"
+                                                         VerticalScrollBarVisibility="Auto"
+                                                         HorizontalScrollBarVisibility="Disabled"
+                                                         MinHeight="44"/>
                                             </Border>
                                             <Border Grid.Row="1" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10" Background="#F9FAFB"><TextBlock Text="Clases" FontWeight="Bold" FontSize="11"/></Border>
                                             <Border Grid.Row="1" Grid.Column="1" Padding="12,10">
@@ -941,7 +976,14 @@
                                         <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
                                     </StackPanel>
                                     <TextBox Text="{Binding Session.Metadata[INTRODUCCION], Mode=TwoWay}"
-                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+                                             Style="{StaticResource DocTagStyle}"
+                                             HorizontalAlignment="Stretch"
+                                             TextWrapping="Wrap"
+                                             AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Disabled"
+                                             MinHeight="52"
+                                             Margin="0,6,0,24"/>
 
                                     <!-- ── SECCIÓN 2: OBJETIVOS ──────────────────────────────────────── -->
                                     <StackPanel Margin="0,8,0,16">
@@ -952,7 +994,14 @@
                                         <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
                                     </StackPanel>
                                     <TextBox Text="{Binding Session.Metadata[OBJETIVOS], Mode=TwoWay}"
-                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+                                             Style="{StaticResource DocTagStyle}"
+                                             HorizontalAlignment="Stretch"
+                                             TextWrapping="Wrap"
+                                             AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Disabled"
+                                             MinHeight="52"
+                                             Margin="0,6,0,24"/>
 
                                     <!-- ── SECCIÓN 3: ALCANCE ────────────────────────────────────────── -->
                                     <StackPanel Margin="0,8,0,16">
@@ -963,7 +1012,14 @@
                                         <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
                                     </StackPanel>
                                     <TextBox Text="{Binding Session.Metadata[ALCANCE], Mode=TwoWay}"
-                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,24"/>
+                                             Style="{StaticResource DocTagStyle}"
+                                             HorizontalAlignment="Stretch"
+                                             TextWrapping="Wrap"
+                                             AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Disabled"
+                                             MinHeight="52"
+                                             Margin="0,6,0,24"/>
 
                                 <!-- ── SECCIÓN 4: ARQUITECTURA DEL SISTEMA ───────────────────────── -->
                                 <StackPanel Margin="0,8,0,16">
@@ -974,7 +1030,13 @@
                                     <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
                                 </StackPanel>
                                 <TextBox Text="{Binding Session.Metadata[ARQ_DESC_GENERAL], Mode=TwoWay}"
-                                         Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
+                                         Style="{StaticResource DocTagStyle}"
+                                         HorizontalAlignment="Stretch"
+                                         TextWrapping="Wrap"
+                                         AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto"
+                                         HorizontalScrollBarVisibility="Disabled"
+                                         MinHeight="52"
                                          FontStyle="Italic" Margin="0,6,0,16"/>
                                 <Border BorderBrush="Black" BorderThickness="2" Background="#F9FAFB" MinHeight="200" Margin="0,0,0,16">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">

@@ -117,30 +117,64 @@ public class OpenXmlExportService : IDocumentExportService
 
     private static void ReplaceTagsInContainer(OpenXmlElement container, Dictionary<string, string> tags)
     {
-        var texts = container.Descendants<Text>().ToList();
-        foreach (var text in texts)
+        // Word puede partir un placeholder entre varios w:t/runs.
+        // Procesamos por párrafo para reconstruir y reemplazar correctamente.
+        foreach (var paragraph in container.Descendants<Paragraph>())
         {
-            var current = text.Text;
-            foreach (var tag in tags)
+            var textNodes = paragraph.Descendants<Text>().ToList();
+            if (textNodes.Count == 0) continue;
+
+            var paragraphText = string.Concat(textNodes.Select(t => t.Text));
+            if (string.IsNullOrWhiteSpace(paragraphText)) continue;
+
+            var replacedAny = false;
+            var hasLongValue = false;
+            var replaced = Regex.Replace(
+                paragraphText,
+                @"\[(?<key>[A-Z0-9_]+)\]",
+                m =>
+                {
+                    var key = m.Groups["key"].Value;
+                    if (!tags.TryGetValue(key, out var value))
+                        return m.Value;
+
+                    replacedAny = true;
+
+                    // Los tags de imagen se manejan en HandleImagesInContainerAsync.
+                    if (key.StartsWith("IMG_", StringComparison.OrdinalIgnoreCase) ||
+                        key.StartsWith("DIAGRAMA_", StringComparison.OrdinalIgnoreCase))
+                        return string.Empty;
+
+                    value ??= string.Empty;
+                    if (value.Length >= 80)
+                        hasLongValue = true;
+
+                    return value;
+                },
+                RegexOptions.CultureInvariant);
+
+            if (!string.Equals(paragraphText, replaced, StringComparison.Ordinal))
             {
-                var fullTag = $"[{tag.Key}]";
-                if (current.Contains(fullTag, StringComparison.Ordinal))
-                    current = current.Replace(fullTag, tag.Value ?? string.Empty, StringComparison.Ordinal);
+                RewriteParagraphText(paragraph, replaced);
+                NormalizeParagraphFormatting(paragraph, justify: replacedAny && hasLongValue);
             }
-            text.Text = current;
         }
     }
 
     private async Task HandleImagesInContainerAsync(MainDocumentPart mainPart, OpenXmlElement container, Dictionary<string, string> metadata)
     {
-        var imageTexts = container.Descendants<Text>()
-            .Where(t => t.Text.Contains("[IMG_", StringComparison.Ordinal) || t.Text.Contains("[DIAGRAMA_", StringComparison.Ordinal))
-            .ToList();
-
-        foreach (var text in imageTexts)
+        foreach (var paragraph in container.Descendants<Paragraph>())
         {
-            var matches = Regex.Matches(text.Text, @"\[(IMG_[^\]]+|DIAGRAMA_[^\]]+)\]");
+            var textNodes = paragraph.Descendants<Text>().ToList();
+            if (textNodes.Count == 0) continue;
+
+            var paragraphText = string.Concat(textNodes.Select(t => t.Text));
+            if (string.IsNullOrWhiteSpace(paragraphText)) continue;
+
+            var matches = Regex.Matches(paragraphText, @"\[(IMG_[^\]]+|DIAGRAMA_[^\]]+)\]");
             if (matches.Count == 0) continue;
+
+            var updatedText = paragraphText;
 
             foreach (Match match in matches)
             {
@@ -164,17 +198,52 @@ public class OpenXmlExportService : IDocumentExportService
                     var relationshipId = mainPart.GetIdOfPart(imagePart);
                     var drawing = CreateImageDrawing(relationshipId, tagName, 5394960, 3600000, _nextDrawingId++);
 
-                    if (text.Parent is Run parentRun)
-                        parentRun.InsertAfterSelf(new Run(drawing));
-
-                    text.Text = text.Text.Replace($"[{tagName}]", string.Empty, StringComparison.Ordinal);
+                    // Insertar imagen en el mismo párrafo donde estaba el tag.
+                    paragraph.AppendChild(new Run(drawing));
+                    updatedText = updatedText.Replace($"[{tagName}]", string.Empty, StringComparison.Ordinal);
                 }
                 catch
                 {
-                    text.Text = text.Text.Replace($"[{tagName}]", "(Error al generar imagen)", StringComparison.Ordinal);
+                    updatedText = updatedText.Replace($"[{tagName}]", "(Error al generar imagen)", StringComparison.Ordinal);
                 }
             }
+
+            if (!string.Equals(updatedText, paragraphText, StringComparison.Ordinal))
+                RewriteParagraphText(paragraph, updatedText);
         }
+    }
+
+    private static void RewriteParagraphText(Paragraph paragraph, string value)
+    {
+        var textNodes = paragraph.Descendants<Text>().ToList();
+        if (textNodes.Count == 0)
+        {
+            paragraph.AppendChild(new Run(new Text(value) { Space = SpaceProcessingModeValues.Preserve }));
+            return;
+        }
+
+        textNodes[0].Text = value;
+        textNodes[0].Space = SpaceProcessingModeValues.Preserve;
+        for (var i = 1; i < textNodes.Count; i++)
+            textNodes[i].Text = string.Empty;
+    }
+
+    private static void NormalizeParagraphFormatting(Paragraph paragraph, bool justify)
+    {
+        // Quita formato inline del placeholder (hipervínculo/itálica/size custom).
+        foreach (var run in paragraph.Elements<Run>())
+            run.RunProperties = null;
+
+        paragraph.ParagraphProperties ??= new ParagraphProperties();
+        paragraph.ParagraphProperties.RemoveAllChildren<ParagraphMarkRunProperties>();
+
+        if (!justify) return;
+
+        var jc = paragraph.ParagraphProperties.GetFirstChild<Justification>();
+        if (jc == null)
+            paragraph.ParagraphProperties.Append(new Justification { Val = JustificationValues.Both });
+        else
+            jc.Val = JustificationValues.Both;
     }
 
     private static string DetectDiagramFormat(string diagramCode)
