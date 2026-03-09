@@ -1,6 +1,6 @@
 using Chapi.Application.UseCases.Git;
 using Chapi.Application.UseCases.Projects;
-using Chapi.Domain.Interfaces; // Agregado
+using Chapi.Domain.Interfaces; 
 using Chapi.Domain.Models;
 using Chapi.Presentation.Views.Dialogs;
 using System.Collections.ObjectModel;
@@ -16,7 +16,7 @@ public class ReleasesViewModel : ViewModelBase
     private readonly GetFilesChangedInCommitUseCase _getFilesChangedUseCase;
     private readonly GetCommitStatsUseCase _getCommitStatsUseCase;
     private readonly DeployProjectReleaseUseCase _deployProjectReleaseUseCase;
-    private readonly INotificationService _notificationService; // Campo nuevo
+    private readonly INotificationService _notificationService; 
     private string _projectPath = string.Empty;
     private bool _isLoading;
     private GitTagItem? _selectedRelease;
@@ -33,7 +33,7 @@ public class ReleasesViewModel : ViewModelBase
         GetFilesChangedInCommitUseCase getFilesChangedUseCase,
         GetCommitStatsUseCase getCommitStatsUseCase,
         DeployProjectReleaseUseCase deployProjectReleaseUseCase,
-        INotificationService notificationService) // Parámetro nuevo
+        INotificationService notificationService) 
     {
         _loadReleasesUseCase = loadReleasesUseCase;
         _createTagUseCase = createTagUseCase;

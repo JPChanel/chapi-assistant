@@ -65,8 +65,8 @@ public static class GitProcessExecutor
                 }
                 // Desactivar explícitamente cualquier credential helper del sistema (como GCM) para evitar popups
                 // Chapi maneja sus propias credenciales en memoria para esta sesión.
-                startInfo.ArgumentList.Insert(0, "-c");
-                startInfo.ArgumentList.Insert(1, "credential.helper=");
+                // startInfo.ArgumentList.Insert(0, "-c");
+                // startInfo.ArgumentList.Insert(1, "credential.helper=");
 
                 if (startInfo.Environment.ContainsKey("CHAPI_GIT_TOKEN"))
                 {
@@ -89,12 +89,13 @@ public static class GitProcessExecutor
                     File.WriteAllText(tempAskPass, scriptContent.ToString());
                     
                     startInfo.Environment["GIT_ASKPASS"] = tempAskPass;
-                    startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
+                    // startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
+                    startInfo.Environment["GIT_TERMINAL_PROMPT"] = "1";
                 }
                 else
                 {
-                    // Solo suprimir prompt si no hay token, para que git falle rápido si falta auth
-                    startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
+                    // Permitir prompt para que el usuario pueda autenticarse vía GCM/OAuth2
+                    startInfo.Environment["GIT_TERMINAL_PROMPT"] = "1";
                 }
 
                 using var process = new Process { StartInfo = startInfo };
