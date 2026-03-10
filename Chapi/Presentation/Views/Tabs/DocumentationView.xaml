@@ -1,4 +1,4 @@
-<UserControl x:Class="Chapi.Presentation.Views.Tabs.DocumentationView"
+﻿<UserControl x:Class="Chapi.Presentation.Views.Tabs.DocumentationView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:wpf="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
@@ -14,7 +14,7 @@
         <conv:InverseBooleanConverter x:Key="InvBool"/>
         <conv:InverseBooleanToVisibilityConverter x:Key="InvBoolToVis"/>
         <conv:StringToVisibilityConverter x:Key="StringToVisInv" Inverse="True"/>
-        <conv:KrokiCodeToImageConverter x:Key="KrokiCodeToImageConverter"/>
+        <conv:JsonArrayToDictionaryListConverter x:Key="JsonArrayToDictionaryListConverter"/>
 
         <!-- ✨ Estilos Premium (React-inspired) -->
         <Style x:Key="WordPageStyle" TargetType="Border">
@@ -40,14 +40,17 @@
             <Setter Property="Foreground" Value="#2563EB"/>
             <Setter Property="BorderBrush" Value="#DBEAFE"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="8,2"/>
-            <Setter Property="FontSize" Value="10"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, monospace"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontFamily" Value="Cambria, Georgia, serif"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="AcceptsReturn" Value="True"/>
+            <Setter Property="TextAlignment" Value="Justify"/>
+            <Setter Property="VerticalContentAlignment" Value="Top"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="MinWidth" Value="80"/>
-            <Setter Property="MinHeight" Value="22"/>
+            <Setter Property="MinHeight" Value="30"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -94,9 +97,19 @@
             <Setter Property="Background" Value="#FEF9C3"/>
             <Setter Property="BorderBrush" Value="#FEF08A"/>
             <Setter Property="Foreground" Value="#A16207"/>
+            <Setter Property="Padding" Value="8,2"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, monospace"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+            <Setter Property="AcceptsReturn" Value="False"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,0,0,8"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="MinWidth" Value="180"/>
+            <Setter Property="MinHeight" Value="22"/>
         </Style>
 
         <!-- 🆕 Estilos para Sub-secciones y Contenedores Específicos -->
@@ -136,6 +149,43 @@
             <Setter Property="BorderBrush" Value="Black"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
             <Setter Property="Padding" Value="12,10"/>
+        </Style>
+
+        <Style x:Key="KrokiModeButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="MinWidth" Value="82"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#334155"/>
+            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2,0"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Background" Value="#DBEAFE"/>
+                                <Setter Property="BorderBrush" Value="#93C5FD"/>
+                                <Setter Property="Foreground" Value="#1E40AF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="{x:Type conv:KrokiSvgBrowser}">
+            <Setter Property="ClipToBounds" Value="True"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
         </Style>
 
     </UserControl.Resources>
@@ -195,13 +245,6 @@
                                 </ToggleButton.Style>
                             </ToggleButton>
                         </DockPanel>
-
-                        <CheckBox Content="Ver código Kroki"
-                                  IsChecked="{Binding ShowKrokiCode}"
-                                  Foreground="#94A3B8"
-                                  FontSize="11"
-                                  FontWeight="SemiBold"
-                                  Margin="8,0,8,12"/>
 
                         <!-- Botón Generar (Green) -->
                         <Button Command="{Binding ExportWordCommand}" 
@@ -328,7 +371,7 @@
         </Border>
 
         <!-- ═══ ÁREA PRINCIPAL: Hoja A4 + Editor + Consola AI ═══════════════════ -->
-        <Grid Grid.Column="1" Background="#E2E8F0">
+        <Grid Grid.Column="1" Background="#E2E8F0" ClipToBounds="True">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -338,6 +381,7 @@
             <ScrollViewer Grid.Row="0"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
+                          ClipToBounds="True"
                           PanningMode="Both">
                 <Grid Margin="10,40,10,120">
 
@@ -514,7 +558,7 @@
                                     </StackPanel>
                                     <TextBox Text="{Binding Session.Metadata[INTRODUCCION], Mode=TwoWay}"
                                              Style="{StaticResource DocTagStyle}"
-                                             HorizontalAlignment="Stretch"
+                                             HorizontalAlignment="Center"
                                              TextWrapping="Wrap"
                                              AcceptsReturn="True"
                                              VerticalScrollBarVisibility="Auto"
@@ -594,7 +638,17 @@
                                 <!-- 4.2 Presentación -->
                                 <TextBlock Text="4.2  Presentación" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
                                 <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="180" Margin="0,0,0,16">
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                    <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="24">
+                                        <Border HorizontalAlignment="Center" Margin="0,0,0,8" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="16" Padding="3">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ToggleButton Content="Código"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}" Margin="0,0,4,0"/>
+                                                <ToggleButton Content="Vista previa"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay, Converter={StaticResource InvBool}}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}"/>
+                                            </StackPanel>
+                                        </Border>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_VISTA_LOGICA], Mode=TwoWay}"
@@ -603,8 +657,7 @@
                                         </StackPanel>
                                         <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                 BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
-                                            <Image Source="{Binding Session.Metadata[IMG_VISTA_LOGICA], Converter={StaticResource KrokiCodeToImageConverter}}"
-                                                   Stretch="Uniform" MaxHeight="260"/>
+                                            <conv:KrokiSvgBrowser DiagramCode="{Binding Session.Metadata[IMG_VISTA_LOGICA]}" Height="260" HorizontalAlignment="Stretch"/>
                                         </Border>
                                         <TextBlock Text="Diagrama de paquetes" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
@@ -616,7 +669,8 @@
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
 
                                 <!-- 4.3.X Paquete individual -->
-                                <StackPanel Margin="16,0,0,16">
+                                <StackPanel Margin="16,0,0,16"
+                                            Visibility="{Binding Session.Metadata[BLOQUE_PQ_ITEMS], Converter={StaticResource StringToVisInv}}">
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                         <TextBlock Text="4.3.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
                                         <TextBox Text="{Binding Session.Metadata[PQ_ID_NOM], Mode=TwoWay}"
@@ -644,6 +698,35 @@
                                         </Grid>
                                     </Border>
                                 </StackPanel>
+
+                                <!-- 4.3.X Bloque dinámico de paquetes -->
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_PQ_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_PQ_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="16,0,0,16">
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                    <TextBlock Text="4.3.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
+                                                    <TextBlock Text="{Binding [PQ_ID_NOM]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                                <Border BorderBrush="Black" BorderThickness="1">
+                                                    <Grid Background="White">
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                                        <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Descripción" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
+                                                            <TextBlock Text="{Binding [PQ_DESC]}" TextWrapping="Wrap" TextAlignment="Justify" Margin="2"/>
+                                                        </Border>
+                                                        <Border Grid.Row="1" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10" Background="#F9FAFB"><TextBlock Text="Clases" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="1" Grid.Column="1" Padding="12,10">
+                                                            <TextBlock Text="{Binding [PQ_CLASES_LISTA]}" TextWrapping="Wrap" Margin="2"/>
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
 
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_PQ_FIN], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
@@ -673,7 +756,17 @@
                                 <!-- 5.2 Diagrama de actores -->
                                 <TextBlock Text="5.2  Diagrama de actores" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
                                 <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="180" Margin="0,0,0,32">
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                    <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="24">
+                                        <Border HorizontalAlignment="Center" Margin="0,0,0,8" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="16" Padding="3">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ToggleButton Content="Código"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}" Margin="0,0,4,0"/>
+                                                <ToggleButton Content="Vista previa"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay, Converter={StaticResource InvBool}}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}"/>
+                                            </StackPanel>
+                                        </Border>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_ACTORES], Mode=TwoWay}"
@@ -682,8 +775,7 @@
                                         </StackPanel>
                                         <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                 BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
-                                            <Image Source="{Binding Session.Metadata[IMG_ACTORES], Converter={StaticResource KrokiCodeToImageConverter}}"
-                                                   Stretch="Uniform" MaxHeight="260"/>
+                                            <conv:KrokiSvgBrowser DiagramCode="{Binding Session.Metadata[IMG_ACTORES]}" Height="260" HorizontalAlignment="Stretch"/>
                                         </Border>
                                         <TextBlock Text="Diagrama de actores del sistema" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
@@ -714,7 +806,17 @@
                                 <TextBlock Text="6.2  ESPECIFICACIÓN DE CASOS DE USO" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,4"/>
                                 <TextBlock Text="Diagrama de caso de uso" FontSize="11" FontStyle="Italic" FontWeight="Bold" Foreground="#6B7280" Margin="0,0,0,8" TextDecorations="Underline"/>
                                 <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="160" Margin="0,0,0,16">
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                    <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="24">
+                                        <Border HorizontalAlignment="Center" Margin="0,0,0,8" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="16" Padding="3">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ToggleButton Content="Código"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}" Margin="0,0,4,0"/>
+                                                <ToggleButton Content="Vista previa"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay, Converter={StaticResource InvBool}}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}"/>
+                                            </StackPanel>
+                                        </Border>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_CU_GENERAL], Mode=TwoWay}"
@@ -723,8 +825,7 @@
                                         </StackPanel>
                                         <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                 BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
-                                            <Image Source="{Binding Session.Metadata[IMG_CU_GENERAL], Converter={StaticResource KrokiCodeToImageConverter}}"
-                                                   Stretch="Uniform" MaxHeight="260"/>
+                                            <conv:KrokiSvgBrowser DiagramCode="{Binding Session.Metadata[IMG_CU_GENERAL]}" Height="260" HorizontalAlignment="Stretch"/>
                                         </Border>
                                         <TextBlock Text="Diagrama general de casos de uso" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
@@ -734,7 +835,8 @@
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
 
                                 <!-- 6.2.X Caso de Uso individual — tabla completa de 9 filas -->
-                                <StackPanel Margin="0,0,0,16">
+                                <StackPanel Margin="0,0,0,16"
+                                            Visibility="{Binding Session.Metadata[BLOQUE_CU_ITEMS], Converter={StaticResource StringToVisInv}}">
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                         <TextBlock Text="6.2.X " FontSize="14" FontWeight="Bold" FontFamily="Cambria" Foreground="#111827"/>
                                         <TextBox Text="{Binding Session.Metadata[CU_ID], Mode=TwoWay}"
@@ -823,8 +925,7 @@
                                                     </StackPanel>
                                                     <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                             BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White">
-                                                        <Image Source="{Binding Session.Metadata[IMG_PROTOTIPO], Converter={StaticResource KrokiCodeToImageConverter}}"
-                                                               Stretch="Uniform" MaxHeight="220"/>
+                                                        <conv:KrokiSvgBrowser DiagramCode="{Binding Session.Metadata[IMG_PROTOTIPO]}" Height="220" HorizontalAlignment="Stretch"/>
                                                     </Border>
                                                 </StackPanel>
                                             </Border>
@@ -832,6 +933,78 @@
                                     </Border>
                                 </StackPanel>
 
+                                
+                                <!-- 6.2.X Bloque dinámico de casos de uso -->
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CU_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_CU_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,0,16">
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                    <TextBlock Text="6.2.X " FontSize="14" FontWeight="Bold" FontFamily="Cambria" Foreground="#111827"/>
+                                                    <TextBlock Text="{Binding [CU_ID]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
+                                                    <TextBlock Text=" : " FontSize="14" Foreground="#111827" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding [CU_NOM]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                                <Border BorderBrush="Black" BorderThickness="1">
+                                                    <Grid Background="White">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="160"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+
+                                                        <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Descripción" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_DESC]}" TextWrapping="Wrap" Margin="2"/></Border>
+
+                                                        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Actores" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_ACTORES]}" TextWrapping="Wrap" Margin="2"/></Border>
+
+                                                        <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Precondiciones" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_PRE]}" TextWrapping="Wrap" Margin="2"/></Border>
+
+                                                        <Border Grid.Row="3" Grid.Column="0" Style="{StaticResource LabelCellStyle}" VerticalAlignment="Top"><TextBlock Text="Flujo Básico" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="3" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_FLOW_BASE]}" TextWrapping="Wrap" Margin="2"/></Border>
+
+                                                        <Border Grid.Row="4" Grid.Column="0" Style="{StaticResource LabelCellStyle}" VerticalAlignment="Top"><TextBlock Text="Flujo Alternativo" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="4" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_FLOW_ALT]}" TextWrapping="Wrap" Margin="2"/></Border>
+
+                                                        <Border Grid.Row="5" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Post Condiciones" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="5" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_POST]}" TextWrapping="Wrap" Margin="2"/></Border>
+
+                                                        <Border Grid.Row="6" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Restricciones" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_RESTRIC]}" TextWrapping="Wrap" Margin="2"/></Border>
+
+                                                        <Border Grid.Row="7" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Casos de Uso Padre" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="7" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_PADRE]}" TextWrapping="Wrap" Margin="2"/></Border>
+
+                                                        <Border Grid.Row="8" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10" Background="#F9FAFB" VerticalAlignment="Center"><TextBlock Text="Prototipo" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="8" Grid.Column="1" Padding="16,24">
+                                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                <TextBox Text="{Binding [IMG_PROTOTIPO]}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" IsReadOnly="True"
+                                                                         Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"/>
+                                                                <Border Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InvBoolToVis}}"
+                                                                        BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White">
+                                                                    <conv:KrokiSvgBrowser DiagramCode="{Binding [IMG_PROTOTIPO]}" Height="220" HorizontalAlignment="Stretch"/>
+                                                                </Border>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_CU_FIN], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
 
@@ -846,7 +1019,8 @@
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_ACT_INICIO], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,8"/>
                                 <!-- 7.X Actividad individual -->
-                                <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
+                                <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16"
+                                        Visibility="{Binding Session.Metadata[BLOQUE_ACT_ITEMS], Converter={StaticResource StringToVisInv}}">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                             <TextBlock Text="7.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
@@ -856,8 +1030,24 @@
                                             <TextBox Text="{Binding Session.Metadata[CU_NOM_ACT], Mode=TwoWay}"
                                                      Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="4,0,0,0"/>
                                         </StackPanel>
+                                        <TextBox Text="{Binding Session.Metadata[CU_DESC_ACT], Mode=TwoWay}"
+                                                 Style="{StaticResource DocTagStyle}"
+                                                 HorizontalAlignment="Stretch"
+                                                 TextWrapping="Wrap"
+                                                 AcceptsReturn="True"
+                                                 Margin="0,0,0,10"/>
                                         <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
-                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MinHeight="120">
+                                            <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" MinHeight="120">
+                                                <Border HorizontalAlignment="Center" Margin="0,0,0,8" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="16" Padding="3">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <ToggleButton Content="Código"
+                                                                      IsChecked="{Binding ShowKrokiCode, Mode=TwoWay}"
+                                                                      Style="{StaticResource KrokiModeButtonStyle}" Margin="0,0,4,0"/>
+                                                        <ToggleButton Content="Vista previa"
+                                                                      IsChecked="{Binding ShowKrokiCode, Mode=TwoWay, Converter={StaticResource InvBool}}"
+                                                                      Style="{StaticResource KrokiModeButtonStyle}"/>
+                                                    </StackPanel>
+                                                </Border>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                                     <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                                     <TextBox Text="{Binding Session.Metadata[IMG_ACTIVIDAD], Mode=TwoWay}"
@@ -866,14 +1056,45 @@
                                                 </StackPanel>
                                                 <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                         BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
-                                                    <Image Source="{Binding Session.Metadata[IMG_ACTIVIDAD], Converter={StaticResource KrokiCodeToImageConverter}}"
-                                                           Stretch="Uniform" MaxHeight="260"/>
+                                                    <conv:KrokiSvgBrowser DiagramCode="{Binding Session.Metadata[IMG_ACTIVIDAD]}" Height="260" HorizontalAlignment="Stretch"/>
                                                 </Border>
                                                 <TextBlock Text="Diagrama de actividad" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
                                 </Border>
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_ACT_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_ACT_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                                        <TextBlock Text="7.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
+                                                        <TextBlock Text="{Binding [CU_ID_ACT]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
+                                                        <TextBlock Text=" : " FontSize="12" Foreground="#374151" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding [CU_NOM_ACT]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding [CU_DESC_ACT]}"
+                                                               TextWrapping="Wrap"
+                                                               TextAlignment="Justify"
+                                                               Margin="0,0,0,10"/>
+                                                    <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                                                        <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" MinHeight="120">
+                                                            <TextBox Text="{Binding [IMG_ACTIVIDAD]}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" IsReadOnly="True"
+                                                                     Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"/>
+                                                            <Border Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InvBoolToVis}}"
+                                                                    BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                                                <conv:KrokiSvgBrowser DiagramCode="{Binding [IMG_ACTIVIDAD]}" Height="260" HorizontalAlignment="Stretch"/>
+                                                            </Border>
+                                                            <TextBlock Text="Diagrama de actividad" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_ACT_FIN], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
 
@@ -888,7 +1109,8 @@
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_SEQ_INICIO], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,8"/>
                                 <!-- 8.X Secuencia individual -->
-                                <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
+                                <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16"
+                                        Visibility="{Binding Session.Metadata[BLOQUE_SEQ_ITEMS], Converter={StaticResource StringToVisInv}}">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                             <TextBlock Text="8.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
@@ -898,8 +1120,24 @@
                                             <TextBox Text="{Binding Session.Metadata[CU_NOM_SEQ], Mode=TwoWay}"
                                                      Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="4,0,0,0"/>
                                         </StackPanel>
+                                        <TextBox Text="{Binding Session.Metadata[CU_DESC_SEQ], Mode=TwoWay}"
+                                                 Style="{StaticResource DocTagStyle}"
+                                                 HorizontalAlignment="Stretch"
+                                                 TextWrapping="Wrap"
+                                                 AcceptsReturn="True"
+                                                 Margin="0,0,0,10"/>
                                         <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
-                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MinHeight="120">
+                                            <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" MinHeight="120">
+                                                <Border HorizontalAlignment="Center" Margin="0,0,0,8" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="16" Padding="3">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <ToggleButton Content="Código"
+                                                                      IsChecked="{Binding ShowKrokiCode, Mode=TwoWay}"
+                                                                      Style="{StaticResource KrokiModeButtonStyle}" Margin="0,0,4,0"/>
+                                                        <ToggleButton Content="Vista previa"
+                                                                      IsChecked="{Binding ShowKrokiCode, Mode=TwoWay, Converter={StaticResource InvBool}}"
+                                                                      Style="{StaticResource KrokiModeButtonStyle}"/>
+                                                    </StackPanel>
+                                                </Border>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                                     <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                                     <TextBox Text="{Binding Session.Metadata[IMG_SECUENCIA], Mode=TwoWay}"
@@ -908,14 +1146,45 @@
                                                 </StackPanel>
                                                 <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                         BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
-                                                    <Image Source="{Binding Session.Metadata[IMG_SECUENCIA], Converter={StaticResource KrokiCodeToImageConverter}}"
-                                                           Stretch="Uniform" MaxHeight="260"/>
+                                                    <conv:KrokiSvgBrowser DiagramCode="{Binding Session.Metadata[IMG_SECUENCIA]}" Height="260" HorizontalAlignment="Stretch"/>
                                                 </Border>
                                                 <TextBlock Text="Diagrama de secuencia" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
                                 </Border>
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_SEQ_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_SEQ_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                                        <TextBlock Text="8.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
+                                                        <TextBlock Text="{Binding [CU_ID_SEQ]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
+                                                        <TextBlock Text=" : " FontSize="12" Foreground="#374151" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding [CU_NOM_SEQ]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding [CU_DESC_SEQ]}"
+                                                               TextWrapping="Wrap"
+                                                               TextAlignment="Justify"
+                                                               Margin="0,0,0,10"/>
+                                                    <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                                                        <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" MinHeight="120">
+                                                            <TextBox Text="{Binding [IMG_SECUENCIA]}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" IsReadOnly="True"
+                                                                     Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"/>
+                                                            <Border Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InvBoolToVis}}"
+                                                                    BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                                                <conv:KrokiSvgBrowser DiagramCode="{Binding [IMG_SECUENCIA]}" Height="260" HorizontalAlignment="Stretch"/>
+                                                            </Border>
+                                                            <TextBlock Text="Diagrama de secuencia" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_SEQ_FIN], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
 
@@ -930,7 +1199,8 @@
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_EST_INICIO], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,6,0,8"/>
                                 <!-- 9.X Estado individual -->
-                                <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
+                                <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16"
+                                        Visibility="{Binding Session.Metadata[BLOQUE_EST_ITEMS], Converter={StaticResource StringToVisInv}}">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                             <TextBlock Text="9.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
@@ -940,8 +1210,24 @@
                                             <TextBox Text="{Binding Session.Metadata[CU_NOM_EST], Mode=TwoWay}"
                                                      Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" Margin="4,0,0,0"/>
                                         </StackPanel>
+                                        <TextBox Text="{Binding Session.Metadata[CU_DESC_EST], Mode=TwoWay}"
+                                                 Style="{StaticResource DocTagStyle}"
+                                                 HorizontalAlignment="Stretch"
+                                                 TextWrapping="Wrap"
+                                                 AcceptsReturn="True"
+                                                 Margin="0,0,0,10"/>
                                         <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
-                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MinHeight="120">
+                                            <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" MinHeight="120">
+                                                <Border HorizontalAlignment="Center" Margin="0,0,0,8" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="16" Padding="3">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <ToggleButton Content="Código"
+                                                                      IsChecked="{Binding ShowKrokiCode, Mode=TwoWay}"
+                                                                      Style="{StaticResource KrokiModeButtonStyle}" Margin="0,0,4,0"/>
+                                                        <ToggleButton Content="Vista previa"
+                                                                      IsChecked="{Binding ShowKrokiCode, Mode=TwoWay, Converter={StaticResource InvBool}}"
+                                                                      Style="{StaticResource KrokiModeButtonStyle}"/>
+                                                    </StackPanel>
+                                                </Border>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                                     <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                                     <TextBox Text="{Binding Session.Metadata[IMG_ESTADO], Mode=TwoWay}"
@@ -950,14 +1236,45 @@
                                                 </StackPanel>
                                                 <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                         BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
-                                                    <Image Source="{Binding Session.Metadata[IMG_ESTADO], Converter={StaticResource KrokiCodeToImageConverter}}"
-                                                           Stretch="Uniform" MaxHeight="260"/>
+                                                    <conv:KrokiSvgBrowser DiagramCode="{Binding Session.Metadata[IMG_ESTADO]}" Height="260" HorizontalAlignment="Stretch"/>
                                                 </Border>
                                                 <TextBlock Text="Diagrama de estados" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
                                 </Border>
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_EST_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_EST_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                                        <TextBlock Text="9.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
+                                                        <TextBlock Text="{Binding [CU_ID_EST]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
+                                                        <TextBlock Text=" : " FontSize="12" Foreground="#374151" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding [CU_NOM_EST]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding [CU_DESC_EST]}"
+                                                               TextWrapping="Wrap"
+                                                               TextAlignment="Justify"
+                                                               Margin="0,0,0,10"/>
+                                                    <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                                                        <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" MinHeight="120">
+                                                            <TextBox Text="{Binding [IMG_ESTADO]}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" IsReadOnly="True"
+                                                                     Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"/>
+                                                            <Border Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InvBoolToVis}}"
+                                                                    BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
+                                                                <conv:KrokiSvgBrowser DiagramCode="{Binding [IMG_ESTADO]}" Height="260" HorizontalAlignment="Stretch"/>
+                                                            </Border>
+                                                            <TextBlock Text="Diagrama de estados" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_EST_FIN], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
 
@@ -1039,7 +1356,17 @@
                                          MinHeight="52"
                                          FontStyle="Italic" Margin="0,6,0,16"/>
                                 <Border BorderBrush="Black" BorderThickness="2" Background="#F9FAFB" MinHeight="200" Margin="0,0,0,16">
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                    <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="24">
+                                        <Border HorizontalAlignment="Center" Margin="0,0,0,8" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="16" Padding="3">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ToggleButton Content="Código"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}" Margin="0,0,4,0"/>
+                                                <ToggleButton Content="Vista previa"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay, Converter={StaticResource InvBool}}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}"/>
+                                            </StackPanel>
+                                        </Border>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_ARQUITECTURA], Mode=TwoWay}"
@@ -1048,8 +1375,7 @@
                                         </StackPanel>
                                         <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                 BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
-                                            <Image Source="{Binding Session.Metadata[IMG_ARQUITECTURA], Converter={StaticResource KrokiCodeToImageConverter}}"
-                                                   Stretch="Uniform" MaxHeight="260"/>
+                                            <conv:KrokiSvgBrowser DiagramCode="{Binding Session.Metadata[IMG_ARQUITECTURA]}" Height="260" HorizontalAlignment="Stretch"/>
                                         </Border>
                                         <TextBlock Text="Modelo de Arquitectura" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
@@ -1059,7 +1385,8 @@
                                 <TextBlock Text="4.1  Descripción de capas" FontSize="13" FontWeight="Bold" FontStyle="Italic" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_CAPAS_INICIO], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
-                                <Border Background="#F9FAFB" BorderBrush="Black" BorderThickness="1" Padding="16" Margin="0,0,0,8">
+                                <Border Background="#F9FAFB" BorderBrush="Black" BorderThickness="1" Padding="16" Margin="0,0,0,8"
+                                        Visibility="{Binding Session.Metadata[BLOQUE_CAPAS_ITEMS], Converter={StaticResource StringToVisInv}}">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                             <TextBlock Text="Nombre: " FontWeight="Bold" FontSize="12"/>
@@ -1073,6 +1400,25 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CAPAS_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_CAPAS_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#F9FAFB" BorderBrush="Black" BorderThickness="1" Padding="16" Margin="0,0,0,8">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                        <TextBlock Text="Nombre: " FontWeight="Bold" FontSize="12"/>
+                                                        <TextBlock Text="{Binding [CAPA_NOM]}" FontWeight="SemiBold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="Descripción: " FontStyle="Italic" FontSize="12"/>
+                                                        <TextBlock Text="{Binding [CAPA_DESC]}" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_CAPAS_FIN], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
 
@@ -1088,7 +1434,17 @@
                                 <!-- 5.1 Diagrama -->
                                 <TextBlock Text="5.1  Diagrama de componentes" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
                                 <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="160" Margin="0,0,0,16">
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                    <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="24">
+                                        <Border HorizontalAlignment="Center" Margin="0,0,0,8" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="16" Padding="3">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ToggleButton Content="Código"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}" Margin="0,0,4,0"/>
+                                                <ToggleButton Content="Vista previa"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay, Converter={StaticResource InvBool}}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}"/>
+                                            </StackPanel>
+                                        </Border>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_COMPONENTES], Mode=TwoWay}"
@@ -1097,8 +1453,7 @@
                                         </StackPanel>
                                         <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                 BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
-                                            <Image Source="{Binding Session.Metadata[IMG_COMPONENTES], Converter={StaticResource KrokiCodeToImageConverter}}"
-                                                   Stretch="Uniform" MaxHeight="260"/>
+                                            <conv:KrokiSvgBrowser DiagramCode="{Binding Session.Metadata[IMG_COMPONENTES]}" Height="260" HorizontalAlignment="Stretch"/>
                                         </Border>
                                         <TextBlock Text="Diagrama de componentes del sistema" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
@@ -1108,7 +1463,8 @@
                                 <TextBlock Text="5.2  Descripción de componentes" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_COMP_INICIO], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
-                                <Border Background="#F3F4F6" BorderBrush="#9CA3AF" BorderThickness="1" Padding="12,8" Margin="0,0,0,8">
+                                <Border Background="#F3F4F6" BorderBrush="#9CA3AF" BorderThickness="1" Padding="12,8" Margin="0,0,0,8"
+                                        Visibility="{Binding Session.Metadata[BLOQUE_COMP_ITEMS], Converter={StaticResource StringToVisInv}}">
                                     <StackPanel Orientation="Horizontal">
                                         <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
                                             <TextBlock Text="Nombre: " FontWeight="Bold" FontSize="11" Foreground="#1E40AF" TextDecorations="Underline"/>
@@ -1122,6 +1478,25 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_COMP_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_COMP_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#F3F4F6" BorderBrush="#9CA3AF" BorderThickness="1" Padding="12,8" Margin="0,0,0,8">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                                                        <TextBlock Text="Nombre: " FontWeight="Bold" FontSize="11" Foreground="#1E40AF" TextDecorations="Underline"/>
+                                                        <TextBlock Text="{Binding [COMP_NOM]}" FontWeight="SemiBold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="Descripción: " FontStyle="Italic" FontSize="11"/>
+                                                        <TextBlock Text="{Binding [COMP_DESC]}" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_COMP_FIN], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
 
@@ -1137,7 +1512,17 @@
                                 <!-- 6.1 Diagrama -->
                                 <TextBlock Text="6.1  Diagrama de clases" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
                                 <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="160" Margin="0,0,0,16">
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                    <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="24">
+                                        <Border HorizontalAlignment="Center" Margin="0,0,0,8" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="16" Padding="3">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ToggleButton Content="Código"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}" Margin="0,0,4,0"/>
+                                                <ToggleButton Content="Vista previa"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay, Converter={StaticResource InvBool}}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}"/>
+                                            </StackPanel>
+                                        </Border>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_CLASES_SISTEMA], Mode=TwoWay}"
@@ -1146,8 +1531,7 @@
                                         </StackPanel>
                                         <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                 BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
-                                            <Image Source="{Binding Session.Metadata[IMG_CLASES_SISTEMA], Converter={StaticResource KrokiCodeToImageConverter}}"
-                                                   Stretch="Uniform" MaxHeight="260"/>
+                                            <conv:KrokiSvgBrowser DiagramCode="{Binding Session.Metadata[IMG_CLASES_SISTEMA]}" Height="260" HorizontalAlignment="Stretch"/>
                                         </Border>
                                         <TextBlock Text="Diagrama de clases del sistema" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
@@ -1157,7 +1541,8 @@
                                 <TextBlock Text="6.2  Especificación de clases" FontSize="13" FontWeight="Bold" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_CLASE_DET_INICIO], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
-                                <Border BorderBrush="Black" BorderThickness="1" Margin="0,0,0,16" Padding="16">
+                                <Border BorderBrush="Black" BorderThickness="1" Margin="0,0,0,16" Padding="16"
+                                        Visibility="{Binding Session.Metadata[BLOQUE_CLASE_DET_ITEMS], Converter={StaticResource StringToVisInv}}">
                                     <StackPanel>
                                         <Border Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="12,8" Margin="0,0,0,12">
                                             <StackPanel Orientation="Horizontal">
@@ -1191,6 +1576,38 @@
                                         </Grid>
                                     </StackPanel>
                                 </Border>
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CLASE_DET_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_CLASE_DET_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="Black" BorderThickness="1" Margin="0,0,0,16" Padding="16">
+                                                <StackPanel>
+                                                    <Border Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="12,8" Margin="0,0,0,12">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="Clase: " FontSize="15" FontWeight="Bold"/>
+                                                            <TextBlock Text="{Binding [CLASE_TITULO]}" FontSize="13" FontWeight="SemiBold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Atributos" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CLASE_ATRIB]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Operaciones" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CLASE_OPER]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Agregación" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CLASE_AGREG]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="3" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10" Background="#F9FAFB"><TextBlock Text="Asociación" FontWeight="Bold" FontSize="11"/></Border>
+                                                        <Border Grid.Row="3" Grid.Column="1" Padding="12,10"><TextBlock Text="{Binding [CLASE_ASOC]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_CLASE_DET_FIN], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,32"/>
 
@@ -1203,7 +1620,17 @@
                                     <Border Height="2" Background="#E5E7EB" HorizontalAlignment="Stretch"/>
                                 </StackPanel>
                                 <Border BorderBrush="Black" BorderThickness="1" Background="#F9FAFB" MinHeight="200" Margin="0,0,0,32">
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                                    <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="24">
+                                        <Border HorizontalAlignment="Center" Margin="0,0,0,8" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="16" Padding="3">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ToggleButton Content="Código"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}" Margin="0,0,4,0"/>
+                                                <ToggleButton Content="Vista previa"
+                                                              IsChecked="{Binding ShowKrokiCode, Mode=TwoWay, Converter={StaticResource InvBool}}"
+                                                              Style="{StaticResource KrokiModeButtonStyle}"/>
+                                            </StackPanel>
+                                        </Border>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                             <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                             <TextBox Text="{Binding Session.Metadata[IMG_DER], Mode=TwoWay}"
@@ -1212,8 +1639,7 @@
                                         </StackPanel>
                                         <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                 BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
-                                            <Image Source="{Binding Session.Metadata[IMG_DER], Converter={StaticResource KrokiCodeToImageConverter}}"
-                                                   Stretch="Uniform" MaxHeight="260"/>
+                                            <conv:KrokiSvgBrowser DiagramCode="{Binding Session.Metadata[IMG_DER]}" Height="260" HorizontalAlignment="Stretch"/>
                                         </Border>
                                         <TextBlock Text="Diagrama Entidad-Relación" FontSize="9" FontStyle="Italic" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                     </StackPanel>
@@ -1459,3 +1885,7 @@
         </Grid>
     </Grid>
 </UserControl>
+
+
+
+

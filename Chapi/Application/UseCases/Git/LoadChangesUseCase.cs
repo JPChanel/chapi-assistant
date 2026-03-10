@@ -1,6 +1,5 @@
 using Chapi.Domain.Entities;
 using Chapi.Domain.Interfaces;
-using System.IO;
 
 namespace Chapi.Application.UseCases.Git;
 
@@ -18,7 +17,7 @@ public class LoadChangesUseCase
 
     public async Task<IEnumerable<FileChange>> ExecuteAsync(string projectPath)
     {
-        if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
+        if (string.IsNullOrWhiteSpace(projectPath))
             return Enumerable.Empty<FileChange>();
 
         var changes = await _gitRepo.GetChangesAsync(projectPath);

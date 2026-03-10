@@ -342,6 +342,12 @@
                               Padding="0,2"
                               Background="Transparent"
                               materialDesign:TransitionAssist.DisableTransitions="True"
+                              ScrollViewer.CanContentScroll="True"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              VirtualizingPanel.ScrollUnit="Pixel"
+                              VirtualizingPanel.CacheLengthUnit="Page"
+                              VirtualizingPanel.CacheLength="1"
                               SelectionChanged="ChangesListView_SelectionChanged">
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">

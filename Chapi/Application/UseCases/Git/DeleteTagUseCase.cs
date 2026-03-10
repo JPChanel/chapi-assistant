@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
@@ -54,7 +54,7 @@ public class DeleteTagUseCase
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"â Œ Error al eliminar etiqueta: {ex.Message}");
+            _notificationService.ShowError($"❌ Error al eliminar etiqueta: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }

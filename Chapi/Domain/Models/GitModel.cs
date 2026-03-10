@@ -1,4 +1,4 @@
-
+ï»¿
 
 using MaterialDesignThemes.Wpf;
 using System.Windows.Media;
@@ -49,14 +49,14 @@ public class GitTagItem
     public string CommitDescription { get; set; }
     public bool IsLatest { get; set; }
 
-    // Estadísticas
+    // Estad?sticas
     public int FilesChanged { get; set; }
     public int Additions { get; set; }
     public int Deletions { get; set; }
     public List<string> ModifiedFiles { get; set; } = new List<string>();
 }
 /// <summary>
-/// Representa un proyecto en la UI, incluyendo su ícono de host y estado de Git.
+/// Representa un proyecto en la UI, incluyendo su ?cono de host y estado de Git.
 /// </summary>
 public class ProjectViewModel : System.ComponentModel.INotifyPropertyChanged
 {

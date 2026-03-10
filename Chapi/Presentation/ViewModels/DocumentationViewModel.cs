@@ -4,7 +4,9 @@ using Chapi.Application.UseCases.Documentation;
 using Chapi.Domain.Documentation;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Text.RegularExpressions;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Windows.Input;
 using System.Windows.Threading;
 
@@ -12,7 +14,7 @@ namespace Chapi.Presentation.ViewModels;
 
 public class DocumentationViewModel : INotifyPropertyChanged
 {
-    // â”€â”€â”€ Dependencies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Dependencies ──────────────────────────────────────────────────────────
 
     private readonly ApplyTemplateUseCase _applyTemplate;
     private readonly GenerateDocumentSectionUseCase _generateSection;
@@ -21,7 +23,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
     private readonly IDocumentPersistenceService _persistence;
     private readonly IDocSynthesizerService _synthesizer;
 
-    // â”€â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── State ─────────────────────────────────────────────────────────────────
 
     private DocumentSession _session = new();
     private DocSection? _selectedSection;
@@ -36,7 +38,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
     private bool _showKrokiCode;
     private readonly DispatcherTimer _autoSaveTimer;
 
-    // â”€â”€â”€ Constructor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Constructor ───────────────────────────────────────────────────────────
 
     public DocumentationViewModel(
         ApplyTemplateUseCase applyTemplate,
@@ -86,20 +88,27 @@ public class DocumentationViewModel : INotifyPropertyChanged
             _isLoading = true;
             StatusMessage = $"Cargando '{session.Title}'...";
 
-            // Restaurar tÃ­tulo de documento si se perdiÃ³ en el guardado
+            // Restaurar título de documento si se perdió en el guardado
             if (string.IsNullOrWhiteSpace(session.Title))
             {
                 var (title, _) = _applyTemplate.Execute(session.Template);
                 session.Title = title;
             }
 
-            // CRÃTICO: Reinstanciar Metadata para forzar PropertyChanged en los bindings WPF que referencian Ã­ndices
+            // CRÍTICO: Reinstanciar Metadata para forzar PropertyChanged en los bindings WPF que referencian índices
             if (session.Metadata != null)
             {
                 session.Metadata = new Dictionary<string, string>(session.Metadata);
+                EnsureOptionalMetadataKeys(session.Metadata);
+                NormalizeLoadedMetadata(session.Metadata);
+            }
+            else
+            {
+                session.Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                EnsureOptionalMetadataKeys(session.Metadata);
             }
 
-            // CRÃTIC: En WPF es necesario cambiar la referencia del puntero de ObservableCollection y DocumentSession
+            // CRÍTIC: En WPF es necesario cambiar la referencia del puntero de ObservableCollection y DocumentSession
             _session = session;
             CurrentTemplate = session.Template; // Fundamental para que IsModeloSoftware/IsDisenoSistema actualicen la UI
 
@@ -129,11 +138,11 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 await RefreshPreviewAsync();
             });
 
-            StatusMessage = $"âœ… '{session.Title}' recuperado correctamente.";
+            StatusMessage = $"✅ '{session.Title}' recuperado correctamente.";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"âŒ Error al cargar sesiÃ³n: {ex.Message}";
+            StatusMessage = $"❌ Error al cargar sesión: {ex.Message}";
         }
         finally
         {
@@ -141,7 +150,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
         }
     }
 
-    // â”€â”€â”€ Properties â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Properties ────────────────────────────────────────────────────────────
 
     public DocumentSession Session
     {
@@ -246,7 +255,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
     // Expuesto para que el code-behind pueda navegar el WebView
     internal IKrokiDiagramService KrokiService { get; }
 
-    // â”€â”€â”€ Commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Commands ──────────────────────────────────────────────────────────────
 
     public ICommand NewDocumentCommand { get; }
     public ICommand SaveCommand { get; }
@@ -260,7 +269,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
     public ICommand RemoveSectionCommand { get; }
     public ICommand ChangeDiagramFormatCommand { get; }
 
-    // â”€â”€â”€ Command Implementations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Command Implementations ───────────────────────────────────────────────
 
     public async Task ApplyTemplateAsync(DocTemplate template)
     {
@@ -275,7 +284,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
             await SaveAsync();
         }
 
-        // 3. Buscar si existe una sesiÃ³n guardada para ESTA plantilla en ESTE proyecto
+        // 3. Buscar si existe una sesión guardada para ESTA plantilla en ESTE proyecto
         try
         {
             var sessions = await _persistence.GetAllAsync(_session.ProjectName);
@@ -287,16 +296,16 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 return;
             }
 
-            // Limpiar sesiones huÃ©rfanas de la antigua o fallida creaciÃ³n para no duplicar JSONs
+            // Limpiar sesiones huérfanas de la antigua o fallida creación para no duplicar JSONs
             foreach (var s in sessions.Where(x => x.Template == template))
             {
                 await _persistence.DeleteAsync(s.Id);
             }
         }
-        catch { /* Fallback a creaciÃ³n de nueva si falla la bÃºsqueda */ }
+        catch { /* Fallback a creación de nueva si falla la búsqueda */ }
 
-        // 4. Si no existe, aplicar la plantilla base (CreaciÃ³n limpia)
-        StatusMessage = $"ðŸ†• Iniciando nueva sesiÃ³n: {template}";
+        // 4. Si no existe, aplicar la plantilla base (Creación limpia)
+        StatusMessage = $"🆕 Iniciando nueva sesión: {template}";
         ApplyTemplateInternal(template);
     }
 
@@ -305,13 +314,13 @@ public class DocumentationViewModel : INotifyPropertyChanged
         _isLoading = true;
         try
         {
-            // Preservar contexto del proyecto antes de crear nueva sesiÃ³n
+            // Preservar contexto del proyecto antes de crear nueva sesión
             var projectName = _session.ProjectName;
             var projectPath = _session.ProjectPath;
 
             _session = new DocumentSession
             {
-                Id = Guid.NewGuid().ToString(), // Identidad Ãºnica obligatoria
+                Id = Guid.NewGuid().ToString(), // Identidad única obligatoria
                 ProjectName = projectName,
                 ProjectPath = projectPath,
                 Template = template
@@ -338,23 +347,23 @@ public class DocumentationViewModel : INotifyPropertyChanged
             _session.Metadata["REF_SISTEMA"] = _session.Metadata["PROYECTO_NOMBRE"];
             _session.Metadata["REF_DOCS"] = "N/A";
 
-            // â”€â”€ Tags del Historial (comunes a ambas plantillas) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Tags del Historial (comunes a ambas plantillas) ──────────────
             _session.Metadata["BLOQUE_HISTORIAL_INICIO"] = "[BLOQUE_HISTORIAL_INICIO]";
             _session.Metadata["HIST_FECHA_ELAB"]         = "[HIST_FECHA_ELAB]";
             _session.Metadata["HIST_VER"]                = "[HIST_VER]";
             _session.Metadata["HIST_ELAB"]               = "[HIST_ELAB]";
             _session.Metadata["HIST_DESC"]               = "[HIST_DESC]";
-            _session.Metadata["HIST_REV"]                = "[HIST_REV]";
-            _session.Metadata["HIST_FECHA_REV"]          = "[HIST_FECHA_REV]";
+            _session.Metadata["HIST_REV"]                = "";
+            _session.Metadata["HIST_FECHA_REV"]          = "";
             _session.Metadata["BLOQUE_HISTORIAL_FIN"]    = "[BLOQUE_HISTORIAL_FIN]";
 
             if (template == DocTemplate.ModeloSoftware)
             {
-                // â”€â”€ Secciones 1-3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Secciones 1-3 ────────────────────────────────────────────
                 _session.Metadata["INTRODUCCION"]        = "[INTRODUCCION]";
                 _session.Metadata["OBJETIVOS"]           = "[OBJETIVOS]";
                 _session.Metadata["ALCANCE"]             = "[ALCANCE]";
-                // â”€â”€ SecciÃ³n 4: Paquetes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Sección 4: Paquetes ──────────────────────────────────────
                 _session.Metadata["PQ_VISTA_LOGICA_DESC"] = "[PQ_VISTA_LOGICA_DESC]";
                 _session.Metadata["TABLA_RESUMEN_PQ"]    = "[TABLA_RESUMEN_PQ]";
                 _session.Metadata["IMG_VISTA_LOGICA"]    = "[IMG_VISTA_LOGICA]";
@@ -362,11 +371,12 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 _session.Metadata["PQ_ID_NOM"]           = "[PQ_ID_NOM]";
                 _session.Metadata["PQ_DESC"]             = "[PQ_DESC]";
                 _session.Metadata["PQ_CLASES_LISTA"]     = "[PQ_CLASES_LISTA]";
+                _session.Metadata["BLOQUE_PQ_ITEMS"]     = "";
                 _session.Metadata["BLOQUE_PQ_FIN"]       = "[BLOQUE_PQ_FIN]";
-                // â”€â”€ SecciÃ³n 5: Actores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Sección 5: Actores ───────────────────────────────────────
                 _session.Metadata["TABLA_ACTORES_LISTA"] = "[TABLA_ACTORES_LISTA]";
                 _session.Metadata["IMG_ACTORES"]         = "[IMG_ACTORES]";
-                // â”€â”€ SecciÃ³n 6: Casos de Uso â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Sección 6: Casos de Uso ──────────────────────────────────
                 _session.Metadata["TABLA_CU_LISTADO"]    = "[TABLA_CU_LISTADO]";
                 _session.Metadata["IMG_CU_GENERAL"]      = "[IMG_CU_GENERAL]";
                 _session.Metadata["BLOQUE_CU_INICIO"]    = "[BLOQUE_CU_INICIO]";
@@ -381,46 +391,55 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 _session.Metadata["CU_RESTRIC"]          = "[CU_RESTRIC]";
                 _session.Metadata["CU_PADRE"]            = "[CU_PADRE]";
                 _session.Metadata["IMG_PROTOTIPO"]       = "[IMG_PROTOTIPO]";
+                _session.Metadata["BLOQUE_CU_ITEMS"]     = "";
                 _session.Metadata["BLOQUE_CU_FIN"]       = "[BLOQUE_CU_FIN]";
-                // â”€â”€ SecciÃ³n 7: Actividad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Sección 7: Actividad ─────────────────────────────────────
                 _session.Metadata["BLOQUE_ACT_INICIO"]   = "[BLOQUE_ACT_INICIO]";
                 _session.Metadata["CU_ID_ACT"]           = "[CU_ID_ACT]";
                 _session.Metadata["CU_NOM_ACT"]          = "[CU_NOM_ACT]";
+                _session.Metadata["CU_DESC_ACT"]         = "";
                 _session.Metadata["IMG_ACTIVIDAD"]       = "[IMG_ACTIVIDAD]";
+                _session.Metadata["BLOQUE_ACT_ITEMS"]    = "";
                 _session.Metadata["BLOQUE_ACT_FIN"]      = "[BLOQUE_ACT_FIN]";
-                // â”€â”€ SecciÃ³n 8: Secuencia â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Sección 8: Secuencia ─────────────────────────────────────
                 _session.Metadata["BLOQUE_SEQ_INICIO"]   = "[BLOQUE_SEQ_INICIO]";
                 _session.Metadata["CU_ID_SEQ"]           = "[CU_ID_SEQ]";
                 _session.Metadata["CU_NOM_SEQ"]          = "[CU_NOM_SEQ]";
+                _session.Metadata["CU_DESC_SEQ"]         = "";
                 _session.Metadata["IMG_SECUENCIA"]       = "[IMG_SECUENCIA]";
+                _session.Metadata["BLOQUE_SEQ_ITEMS"]    = "";
                 _session.Metadata["BLOQUE_SEQ_FIN"]      = "[BLOQUE_SEQ_FIN]";
-                // â”€â”€ SecciÃ³n 9: Estados â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Sección 9: Estados ───────────────────────────────────────
                 _session.Metadata["BLOQUE_EST_INICIO"]   = "[BLOQUE_EST_INICIO]";
                 _session.Metadata["CU_ID_EST"]           = "[CU_ID_EST]";
                 _session.Metadata["CU_NOM_EST"]          = "[CU_NOM_EST]";
+                _session.Metadata["CU_DESC_EST"]         = "";
                 _session.Metadata["IMG_ESTADO"]          = "[IMG_ESTADO]";
+                _session.Metadata["BLOQUE_EST_ITEMS"]    = "";
                 _session.Metadata["BLOQUE_EST_FIN"]      = "[BLOQUE_EST_FIN]";
             }
             else if (template == DocTemplate.DisenoSistema)
             {
-                // â”€â”€ Secciones 1-3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Secciones 1-3 ────────────────────────────────────────────
                 _session.Metadata["INTRODUCCION"]        = "[INTRODUCCION]";
                 _session.Metadata["OBJETIVOS"]           = "[OBJETIVOS]";
                 _session.Metadata["ALCANCE"]             = "[ALCANCE]";
-                // â”€â”€ SecciÃ³n 4: Arquitectura â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Sección 4: Arquitectura ──────────────────────────────────
                 _session.Metadata["ARQ_DESC_GENERAL"]    = "[ARQ_DESC_GENERAL]";
                 _session.Metadata["IMG_ARQUITECTURA"]    = "[IMG_ARQUITECTURA]";
                 _session.Metadata["BLOQUE_CAPAS_INICIO"] = "[BLOQUE_CAPAS_INICIO]";
                 _session.Metadata["CAPA_NOM"]            = "[CAPA_NOM]";
                 _session.Metadata["CAPA_DESC"]           = "[CAPA_DESC]";
+                _session.Metadata["BLOQUE_CAPAS_ITEMS"]  = "";
                 _session.Metadata["BLOQUE_CAPAS_FIN"]    = "[BLOQUE_CAPAS_FIN]";
-                // â”€â”€ SecciÃ³n 5: Componentes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Sección 5: Componentes ───────────────────────────────────
                 _session.Metadata["IMG_COMPONENTES"]     = "[IMG_COMPONENTES]";
                 _session.Metadata["BLOQUE_COMP_INICIO"]  = "[BLOQUE_COMP_INICIO]";
                 _session.Metadata["COMP_NOM"]            = "[COMP_NOM]";
                 _session.Metadata["COMP_DESC"]           = "[COMP_DESC]";
+                _session.Metadata["BLOQUE_COMP_ITEMS"]   = "";
                 _session.Metadata["BLOQUE_COMP_FIN"]     = "[BLOQUE_COMP_FIN]";
-                // â”€â”€ SecciÃ³n 6: Clases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Sección 6: Clases ────────────────────────────────────────
                 _session.Metadata["IMG_CLASES_SISTEMA"]  = "[IMG_CLASES_SISTEMA]";
                 _session.Metadata["BLOQUE_CLASE_DET_INICIO"] = "[BLOQUE_CLASE_DET_INICIO]";
                 _session.Metadata["CLASE_TITULO"]        = "[CLASE_TITULO]";
@@ -428,10 +447,11 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 _session.Metadata["CLASE_OPER"]          = "[CLASE_OPER]";
                 _session.Metadata["CLASE_AGREG"]         = "[CLASE_AGREG]";
                 _session.Metadata["CLASE_ASOC"]          = "[CLASE_ASOC]";
+                _session.Metadata["BLOQUE_CLASE_DET_ITEMS"] = "";
                 _session.Metadata["BLOQUE_CLASE_DET_FIN"] = "[BLOQUE_CLASE_DET_FIN]";
-                // â”€â”€ SecciÃ³n 7: DER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Sección 7: DER ───────────────────────────────────────────
                 _session.Metadata["IMG_DER"]             = "[IMG_DER]";
-                // â”€â”€ SecciÃ³n 8: Diccionario â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // ── Sección 8: Diccionario ───────────────────────────────────
                 _session.Metadata["TABLA_DICC_RESUMEN"]  = "[TABLA_DICC_RESUMEN]";
                 _session.Metadata["BLOQUE_DICC_TABLA_INICIO"] = "[BLOQUE_DICC_TABLA_INICIO]";
                 _session.Metadata["DICC_TABLA_TITULO"]   = "[DICC_TABLA_TITULO]";
@@ -465,7 +485,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(IsDiagramSection));
             OnPropertyChanged(nameof(IsImageSection));
             
-            // Forzamos avisar que toda la sesiÃ³n y el template cambiÃ³ (refresco profundo WPF)
+            // Forzamos avisar que toda la sesión y el template cambió (refresco profundo WPF)
             OnPropertyChanged(nameof(Session));
             OnPropertyChanged(nameof(CurrentTemplate));
             OnPropertyChanged(nameof(Sections)); // ADD TO REPAINT THE LISTBOX
@@ -617,6 +637,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
             var forceRegenerate = !string.IsNullOrWhiteSpace(instruction);
             var keysToGenerate = _session.Metadata
                 .Where(kvp => !IsStructuralTag(kvp.Key))
+                .Where(kvp => IsAIGeneratableKey(kvp.Key))
                 .Where(kvp => forceRegenerate || IsPendingTagValue(kvp.Value))
                 .Select(kvp => kvp.Key)
                 .ToList();
@@ -660,7 +681,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
         var sb = new System.Text.StringBuilder();
         sb.Append(GetHtmlHeader(_session.Title));
         sb.Append($"<div class='cover'><h1>{System.Net.WebUtility.HtmlEncode(_session.Title)}</h1>");
-        sb.Append($"<p class='subtitle'>Documentación Tecnica de Ingenieria - Version {_session.Version}</p></div>");
+        sb.Append($"<p class='subtitle'>Documentación Técnica de Ingeniería - Versión {_session.Version}</p></div>");
         sb.Append("<hr/>");
 
         int num = 1;
@@ -674,7 +695,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 case DocSectionType.Text:
                 case DocSectionType.Table:
                     var md = string.IsNullOrWhiteSpace(section.Content)
-                        ? "_Escribe el contenido aqui­..._"
+                        ? "_Escribe el contenido aquí..._"
                         : section.Content;
                     sb.Append($"<div class='content'>{Markdig.Markdown.ToHtml(md)}</div>");
                     break;
@@ -738,7 +759,19 @@ public class DocumentationViewModel : INotifyPropertyChanged
         </style></head><body>
         """;
     private static bool IsStructuralTag(string key) =>
-        key.StartsWith("BLOQUE_", StringComparison.OrdinalIgnoreCase);
+        key.StartsWith("BLOQUE_", StringComparison.OrdinalIgnoreCase) &&
+        (key.EndsWith("_INICIO", StringComparison.OrdinalIgnoreCase) ||
+         key.EndsWith("_FIN", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsAIGeneratableKey(string key)
+    {
+        return !key.Equals("REV_NOM", StringComparison.OrdinalIgnoreCase)
+            && !key.Equals("REV_FECHA", StringComparison.OrdinalIgnoreCase)
+            && !key.Equals("APROB_NOM", StringComparison.OrdinalIgnoreCase)
+            && !key.Equals("APROB_FECHA", StringComparison.OrdinalIgnoreCase)
+            && !key.Equals("HIST_REV", StringComparison.OrdinalIgnoreCase)
+            && !key.Equals("HIST_FECHA_REV", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static bool IsPendingTagValue(string value) =>
         string.IsNullOrWhiteSpace(value) || (value.StartsWith("[") && value.EndsWith("]"));
@@ -752,6 +785,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
         return keys
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Where(k => _session.Metadata.ContainsKey(k))
+            .Where(IsAIGeneratableKey)
             .Where(k => forceRegenerate || IsPendingTagValue(_session.Metadata[k]))
             .ToList();
     }
@@ -766,31 +800,31 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 [3] = ["ALCANCE"],
                 [4] = ["PQ_VISTA_LOGICA_DESC"],
                 [5] = ["TABLA_RESUMEN_PQ"],
-                [6] = ["IMG_VISTA_LOGICA"],
-                [7] = ["PQ_ID_NOM", "PQ_DESC", "PQ_CLASES_LISTA"],
+                [6] = ["IMG_VISTA_LOGICA", "PQ_VISTA_LOGICA_DESC", "TABLA_RESUMEN_PQ", "BLOQUE_PQ_ITEMS"],
+                [7] = ["BLOQUE_PQ_ITEMS", "PQ_ID_NOM", "PQ_DESC", "PQ_CLASES_LISTA"],
                 [8] = ["TABLA_ACTORES_LISTA", "IMG_ACTORES"],
                 [9] = ["TABLA_ACTORES_LISTA"],
-                [10] = ["IMG_ACTORES"],
-                [11] = ["TABLA_CU_LISTADO", "IMG_CU_GENERAL"],
+                [10] = ["IMG_ACTORES", "TABLA_ACTORES_LISTA"],
+                [11] = ["TABLA_CU_LISTADO", "IMG_CU_GENERAL", "BLOQUE_CU_ITEMS"],
                 [12] = ["TABLA_CU_LISTADO"],
-                [13] = ["CU_ID", "CU_NOM", "CU_DESC", "CU_ACTORES", "CU_PRE", "CU_FLOW_BASE", "CU_FLOW_ALT", "CU_POST", "CU_RESTRIC", "CU_PADRE", "IMG_PROTOTIPO"],
-                [14] = ["CU_ID_ACT", "CU_NOM_ACT", "IMG_ACTIVIDAD"],
-                [15] = ["CU_ID_SEQ", "CU_NOM_SEQ", "IMG_SECUENCIA"],
-                [16] = ["CU_ID_EST", "CU_NOM_EST", "IMG_ESTADO"],
+                [13] = ["BLOQUE_CU_ITEMS", "CU_ID", "CU_NOM", "CU_DESC", "CU_ACTORES", "CU_PRE", "CU_FLOW_BASE", "CU_FLOW_ALT", "CU_POST", "CU_RESTRIC", "CU_PADRE", "IMG_PROTOTIPO"],
+                [14] = ["BLOQUE_ACT_ITEMS", "CU_ID_ACT", "CU_NOM_ACT", "CU_DESC_ACT", "IMG_ACTIVIDAD"],
+                [15] = ["BLOQUE_SEQ_ITEMS", "CU_ID_SEQ", "CU_NOM_SEQ", "CU_DESC_SEQ", "IMG_SECUENCIA"],
+                [16] = ["BLOQUE_EST_ITEMS", "CU_ID_EST", "CU_NOM_EST", "CU_DESC_EST", "IMG_ESTADO"],
             },
             DocTemplate.DisenoSistema => new Dictionary<int, string[]>
             {
                 [1] = ["INTRODUCCION"],
                 [2] = ["OBJETIVOS"],
                 [3] = ["ALCANCE"],
-                [4] = ["ARQ_DESC_GENERAL", "IMG_ARQUITECTURA"],
-                [5] = ["CAPA_NOM", "CAPA_DESC"],
-                [6] = ["IMG_COMPONENTES"],
-                [7] = ["IMG_COMPONENTES"],
-                [8] = ["COMP_NOM", "COMP_DESC"],
-                [9] = ["IMG_CLASES_SISTEMA"],
-                [10] = ["IMG_CLASES_SISTEMA"],
-                [11] = ["CLASE_TITULO", "CLASE_ATRIB", "CLASE_OPER", "CLASE_AGREG", "CLASE_ASOC"],
+                [4] = ["ARQ_DESC_GENERAL", "IMG_ARQUITECTURA", "BLOQUE_CAPAS_ITEMS"],
+                [5] = ["BLOQUE_CAPAS_ITEMS", "CAPA_NOM", "CAPA_DESC"],
+                [6] = ["IMG_COMPONENTES", "BLOQUE_COMP_ITEMS"],
+                [7] = ["IMG_COMPONENTES", "BLOQUE_COMP_ITEMS"],
+                [8] = ["BLOQUE_COMP_ITEMS", "COMP_NOM", "COMP_DESC"],
+                [9] = ["IMG_CLASES_SISTEMA", "BLOQUE_CLASE_DET_ITEMS"],
+                [10] = ["IMG_CLASES_SISTEMA", "BLOQUE_CLASE_DET_ITEMS"],
+                [11] = ["BLOQUE_CLASE_DET_ITEMS", "CLASE_TITULO", "CLASE_ATRIB", "CLASE_OPER", "CLASE_AGREG", "CLASE_ASOC"],
                 [12] = ["IMG_DER"],
                 [13] = ["TABLA_DICC_RESUMEN"],
                 [14] = ["TABLA_DICC_RESUMEN"],
@@ -811,7 +845,11 @@ public class DocumentationViewModel : INotifyPropertyChanged
             if (string.IsNullOrWhiteSpace(incoming.Key) || string.IsNullOrWhiteSpace(incoming.Value))
                 continue;
 
-            normalized[key] = incoming.Value.Trim();
+            var cleanValue = NormalizeGeneratedValue(key, incoming.Value);
+            if (string.IsNullOrWhiteSpace(cleanValue))
+                continue;
+
+            normalized[key] = cleanValue;
             updated++;
         }
 
@@ -822,10 +860,89 @@ public class DocumentationViewModel : INotifyPropertyChanged
 
         return updated;
     }
+
+    private static string NormalizeGeneratedValue(string key, string rawValue)
+    {
+        var value = (rawValue ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        // Los bloques dinamicos (_ITEMS) se guardan como JSON para render dinamico.
+        if (key.StartsWith("BLOQUE_", StringComparison.OrdinalIgnoreCase) ||
+            key.EndsWith("_ITEMS", StringComparison.OrdinalIgnoreCase))
+        {
+            return value;
+        }
+
+        // Si la IA devuelve un arreglo JSON para campos narrativos, convertirlo a texto.
+        if (TryParseJsonStringArray(value, out var items))
+        {
+            var cleanedItems = items
+                .Select(item => Regex.Replace(item, "^\\s*(?:[-*•]|\\d+[\\.)])\\s*", string.Empty))
+                .Select(item => item.Trim())
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .ToList();
+
+            if (cleanedItems.Count == 0)
+                return string.Empty;
+
+            if (string.Equals(key, "OBJETIVOS", StringComparison.OrdinalIgnoreCase))
+                return string.Join(Environment.NewLine + Environment.NewLine, cleanedItems.Select(item => $"- {item}"));
+
+            return string.Join(Environment.NewLine + Environment.NewLine, cleanedItems);
+        }
+
+        return value;
+    }
+
+    private static bool TryParseJsonStringArray(string value, out List<string> items)
+    {
+        items = [];
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var trimmed = value.Trim();
+        if (!trimmed.StartsWith("[", StringComparison.Ordinal) || !trimmed.EndsWith("]", StringComparison.Ordinal))
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return false;
+
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                if (element.ValueKind == JsonValueKind.String)
+                {
+                    var text = element.GetString();
+                    if (!string.IsNullOrWhiteSpace(text))
+                        items.Add(text);
+                }
+            }
+
+            return items.Count > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void NormalizeLoadedMetadata(IDictionary<string, string> metadata)
+    {
+        var keys = metadata.Keys.ToList();
+        foreach (var key in keys)
+        {
+            var cleaned = NormalizeGeneratedValue(key, metadata[key]);
+            if (!string.IsNullOrWhiteSpace(cleaned))
+                metadata[key] = cleaned;
+        }
+    }
     public async Task SetProjectContextAsync(string projectName, string projectPath)
     {
         if (_isLoading) return;
-        _isLoading = true; // Activar flag para bloquear AutoGuardado durante la transiciÃ³n de contexto
+        _isLoading = true; // Activar flag para bloquear AutoGuardado durante la transición de contexto
 
         try
         {
@@ -852,7 +969,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
             }
             else
             {
-                // Si estÃ¡ corrupto o no hay sesiones, arrancar limpio. OpenSessionAsync y ApplyTemplateAsync manejarÃ¡n _isLoading
+                // Si está corrupto o no hay sesiones, arrancar limpio. OpenSessionAsync y ApplyTemplateAsync manejarán _isLoading
                 _isLoading = false; 
                 await ApplyTemplateAsync(DocTemplate.ModeloSoftware);
                 return; // salir tempranamente ya que el ApplyTemplate se encarga del _isLoading
@@ -870,6 +987,30 @@ public class DocumentationViewModel : INotifyPropertyChanged
 
     private void SyncSectionsToSession() =>
         _session.Sections = Sections.ToList();
+
+    private static void EnsureOptionalMetadataKeys(IDictionary<string, string> metadata)
+    {
+        var optionalKeys = new[]
+        {
+            "BLOQUE_CU_ITEMS",
+            "BLOQUE_PQ_ITEMS",
+            "BLOQUE_ACT_ITEMS",
+            "BLOQUE_SEQ_ITEMS",
+            "BLOQUE_EST_ITEMS",
+            "BLOQUE_CAPAS_ITEMS",
+            "BLOQUE_COMP_ITEMS",
+            "BLOQUE_CLASE_DET_ITEMS",
+            "CU_DESC_ACT",
+            "CU_DESC_SEQ",
+            "CU_DESC_EST"
+        };
+
+        foreach (var key in optionalKeys)
+        {
+            if (!metadata.ContainsKey(key))
+                metadata[key] = string.Empty;
+        }
+    }
 
     private static string? GetSaveFilePath(string filter, string defaultName)
     {

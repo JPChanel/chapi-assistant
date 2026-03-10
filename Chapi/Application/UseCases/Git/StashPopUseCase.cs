@@ -48,7 +48,7 @@ public class StashPopUseCase
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"âŒ Error al aplicar stash: {ex.Message}");
+            _notificationService.ShowError($"❌ Error al aplicar stash: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }

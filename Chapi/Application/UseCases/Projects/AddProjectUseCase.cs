@@ -18,7 +18,7 @@ public class AddProjectUseCase
         try
         {
             if (string.IsNullOrWhiteSpace(projectPath))
-                return Result.Fail("La ruta del proyecto no puede estar vacÃ­a");
+                return Result.Fail("La ruta del proyecto no puede estar vacía");
 
             if (!Directory.Exists(projectPath))
                 return Result.Fail("El directorio no existe");

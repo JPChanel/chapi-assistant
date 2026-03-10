@@ -1,4 +1,4 @@
-using System.IO;
+ï»¿using System.IO;
 
 namespace Chapi.Infrastructure.Common;
 
@@ -19,7 +19,7 @@ public class FindApiDirectory
     }
 
     /// <summary>
-    /// Obtiene la lista de directorios (módulos) dentro de la carpeta 'Domain' del proyecto.
+    /// Obtiene la lista de directorios (m?dulos) dentro de la carpeta 'Domain' del proyecto.
     /// Retorna rutas relativas (ej: "Ventas", "Seguridad/Usuarios").
     /// </summary>
     public static List<string> GetModuleDirectories(string projectDirectory)
@@ -27,7 +27,7 @@ public class FindApiDirectory
         var modules = new List<string>();
         string domainPath = Path.Combine(projectDirectory, "Domain");
 
-        // Lista de carpetas técnicas a ignorar
+        // Lista de carpetas t?cnicas a ignorar
         var ignoredFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "Shared",
@@ -43,7 +43,7 @@ public class FindApiDirectory
 
         if (!Directory.Exists(domainPath)) return modules;
 
-        // Función recursiva local
+        // Funci?n recursiva local
         void ScanDirectories(string currentPath, string relativePrefix)
         {
             try
@@ -65,7 +65,7 @@ public class FindApiDirectory
 
                     modules.Add(relativePath);
 
-                    // Recursión para sub-módulos
+                    // Recursi?n para sub-m?dulos
                     ScanDirectories(dir, relativePath);
                 }
             }

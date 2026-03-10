@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Chapi.Infrastructure.Documentation;
 
 /// <summary>
-/// Sintetiza texto de secciones y cÃ³digo de diagramas usando el proveedor IA configurado.
+/// Sintetiza texto de secciones y código de diagramas usando el proveedor IA configurado.
 /// Resuelve IChatClient en cada llamada para respetar cambios de proveedor (OpenAI/Gemini/Claude).
 /// </summary>
 public class GeminiDocSynthesizer : IDocSynthesizerService
@@ -56,8 +56,24 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
         try
         {
             var cleanedJson = Regex.Replace(raw, @"^```(json)?|```$", "", RegexOptions.Multiline).Trim();
-            var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(cleanedJson);
-            return dict ?? new Dictionary<string, string>();
+            var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(cleanedJson);
+            if (payload == null) return new Dictionary<string, string>();
+
+            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (key, value) in payload)
+            {
+                dict[key] = value.ValueKind switch
+                {
+                    JsonValueKind.String => value.GetString() ?? string.Empty,
+                    JsonValueKind.Array or JsonValueKind.Object => value.GetRawText(),
+                    JsonValueKind.True => "true",
+                    JsonValueKind.False => "false",
+                    JsonValueKind.Null or JsonValueKind.Undefined => string.Empty,
+                    _ => value.ToString()
+                };
+            }
+
+            return dict;
         }
         catch (JsonException)
         {
@@ -93,12 +109,12 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
                 .Where(d => !ShouldSkip(Path.GetFileName(d)!))
                 .Take(15))
             {
-                sb.AppendLine($"{indent}ðŸ“ {Path.GetFileName(dir)}");
+                sb.AppendLine($"{indent}📁 {Path.GetFileName(dir)}");
                 sb.Append(BuildDirectoryTree(dir, depth - 1, indent + "  "));
             }
             foreach (var file in Directory.GetFiles(path).Take(10))
             {
-                sb.AppendLine($"{indent}ðŸ“„ {Path.GetFileName(file)}");
+                sb.AppendLine($"{indent}📄 {Path.GetFileName(file)}");
             }
         }
         catch { }
@@ -123,7 +139,7 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
             }
             catch { }
         }
-        return found.Count > 0 ? string.Join(", ", found.Distinct()) : "No se encontraron archivos de configuraciÃ³n";
+        return found.Count > 0 ? string.Join(", ", found.Distinct()) : "No se encontraron archivos de configuración";
     }
 
     private static string CleanDiagramCode(string raw, DiagramFormat format)

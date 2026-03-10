@@ -50,6 +50,7 @@ public class ChangesViewModel : ViewModelBase
     private bool _isSyncing;
     private CancellationTokenSource? _loadCts;
     private DateTime _lastRefreshTime = DateTime.MinValue;
+    private string _lastLoadedProjectPath = string.Empty;
 
     public event EventHandler? CommitCompleted;
 
@@ -144,6 +145,8 @@ public class ChangesViewModel : ViewModelBase
     {
         if (string.IsNullOrEmpty(ProjectPath)) return;
 
+        _lastRefreshTime = DateTime.MinValue;
+        _lastLoadedProjectPath = string.Empty;
         _changesCache.Invalidate(ProjectPath);
         await LoadChangesAsync();
     }
@@ -222,19 +225,36 @@ public class ChangesViewModel : ViewModelBase
         get => _projectPath;
         set
         {
+            var previousPath = _projectPath;
             if (SetProperty(ref _projectPath, value))
             {
+                if (!string.IsNullOrWhiteSpace(previousPath) &&
+                    !string.Equals(previousPath, value, StringComparison.OrdinalIgnoreCase))
+                {
+                    _changeWatcher.UnwatchRepository(previousPath);
+                }
+
                 // Silenciar el watcher durante la transición para evitar que los comandos de MainWindow o la carga inicial lo disparen
                 _manualSilencer?.Dispose();
                 _manualSilencer = _changeWatcher.Silence();
 
                 CommitSummary = string.Empty;
                 CommitDescription = string.Empty;
+                _lastRefreshTime = DateTime.MinValue;
+                _lastLoadedProjectPath = string.Empty;
+                _loadCts?.Cancel();
+                _loadCts?.Dispose();
+                _loadCts = null;
 
                 // Iniciar monitoreo del nuevo proyecto
                 if (!string.IsNullOrWhiteSpace(value))
                 {
-                    _changeWatcher.WatchRepository(value);
+                    // En rutas WSL (UNC), FileSystemWatcher es costoso e inestable.
+                    // El refresco se hace explícitamente al entrar al tab/activar ventana.
+                    if (!IsWslPath(value))
+                    {
+                        _changeWatcher.WatchRepository(value);
+                    }
                 }
 
                 // Limpiar contadores
@@ -625,11 +645,13 @@ public class ChangesViewModel : ViewModelBase
         // Throttle: Evitar recargas masivas en menos de 1.5 segundos
         // Importante: No saltar este control si Changes.Count == 0, ya que eso causa bucles en proyectos vacíos.
         var now = DateTime.Now;
-        if ((now - _lastRefreshTime).TotalMilliseconds < 1500)
+        var sameProjectAsLastLoad = string.Equals(ProjectPath, _lastLoadedProjectPath, StringComparison.OrdinalIgnoreCase);
+        if (sameProjectAsLastLoad && (now - _lastRefreshTime).TotalMilliseconds < 1500)
         {
             return;
         }
         _lastRefreshTime = now;
+        _lastLoadedProjectPath = ProjectPath;
 
         _loadCts?.Cancel();
         _loadCts = new CancellationTokenSource();
@@ -639,16 +661,15 @@ public class ChangesViewModel : ViewModelBase
 
         using var silencer = _changeWatcher.Silence();
 
-        // PARALELISMO: Lanzar carga de stashes y perfil de usuario inmediatamente
-        // Ahora dentro del silenciador para evitar que sus comandos git activen el watcher
-        var metadataTask = Task.Run(async () =>
+        // Carga de metadata en segundo plano (no bloquear render de la lista de cambios)
+        _ = Task.Run(async () =>
         {
             try { await LoadMetadataAsync(token); } catch { }
         }, token);
 
         // Resetear solo si el proyecto es nuevo o está vacío, 
         // de lo contrario mantener los cambios actuales hasta que lleguen los nuevos (evita parpadeo)
-        bool isFullReload = Changes.Count == 0;
+        bool isFullReload = !sameProjectAsLastLoad || Changes.Count == 0;
         if (isFullReload)
         {
             Changes.Clear();
@@ -724,7 +745,16 @@ public class ChangesViewModel : ViewModelBase
                 IsLoading = false;
             });
 
-            _ = LoadFileStatsInBackgroundAsync(token);
+            if (IsWslPath(ProjectPath))
+            {
+                // En WSL evitamos numstats por archivo para priorizar render inmediato.
+                TotalAdditions = 0;
+                TotalDeletions = 0;
+            }
+            else
+            {
+                _ = LoadFileStatsInBackgroundAsync(token);
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -732,14 +762,21 @@ public class ChangesViewModel : ViewModelBase
         }
         finally
         {
-            try { await metadataTask; } catch { }
-
             if (_loadCts?.Token == token)
             {
                 _loadCts = null;
                 IsSyncing = false;
             }
         }
+    }
+
+    private static bool IsWslPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        return path.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) ||
+               path.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

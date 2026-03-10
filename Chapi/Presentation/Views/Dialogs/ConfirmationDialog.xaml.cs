@@ -53,6 +53,23 @@ namespace Chapi.Presentation.Views.Dialogs
             get => (DialogType)GetValue(DialogTypeProperty);
             set => SetValue(DialogTypeProperty, value);
         }
+
+        public static readonly DependencyProperty ConfirmButtonTextProperty =
+            DependencyProperty.Register("ConfirmButtonText", typeof(string), typeof(ConfirmationDialog), new PropertyMetadata("SI"));
+
+        public string ConfirmButtonText
+        {
+            get => (string)GetValue(ConfirmButtonTextProperty);
+            set => SetValue(ConfirmButtonTextProperty, value);
+        }
+
+        public static readonly DependencyProperty CancelButtonTextProperty =
+            DependencyProperty.Register("CancelButtonText", typeof(string), typeof(ConfirmationDialog), new PropertyMetadata("NO"));
+
+        public string CancelButtonText
+        {
+            get => (string)GetValue(CancelButtonTextProperty);
+            set => SetValue(CancelButtonTextProperty, value);
+        }
     }
 }
-

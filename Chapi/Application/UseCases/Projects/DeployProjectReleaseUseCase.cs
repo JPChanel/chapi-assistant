@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 using FluentFTP;
 using System.Diagnostics;
@@ -277,7 +277,7 @@ public class DeployProjectReleaseUseCase
         // 6.1 Despliegue Local (Carpeta Compartida)
         if (!string.IsNullOrEmpty(finalDeploymentPath))
         {
-            Log($"� Copiando archivos a destino local: {finalDeploymentPath}...");
+            Log($"📦 Copiando archivos a destino local: {finalDeploymentPath}...");
             try
             {
                 if (!Directory.Exists(finalDeploymentPath))

@@ -33,7 +33,7 @@ SizeToContent="Height" MaxHeight="800"
             <!-- Footer -->
         </Grid.RowDefinitions>
 
-        <!-- ðŸ§± HEADER -->
+        <!-- 🧱 HEADER -->
         <Grid Grid.Row="0" Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -88,7 +88,7 @@ SizeToContent="Height" MaxHeight="800"
             </Border>
         </Grid>
 
-        <!-- ðŸ§­ CONTENIDO SCROLLEABLE -->
+        <!-- 🧭 CONTENIDO SCROLLEABLE -->
         <ScrollViewer Grid.Row="1"
               VerticalScrollBarVisibility="Auto"
               HorizontalScrollBarVisibility="Disabled"
@@ -201,7 +201,7 @@ SizeToContent="Height" MaxHeight="800"
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- ðŸ§  Ayuda -->
+                        <!-- 🧠 Ayuda -->
                         <Border Grid.Row="0"
                                 Background="#E3F2FD"
                                 Padding="15"
@@ -210,7 +210,7 @@ SizeToContent="Height" MaxHeight="800"
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                                     <materialDesign:PackIcon Kind="LightbulbOnOutline" Width="18" Height="18" Foreground="Orange" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="¿Como funciona?"
+                                    <TextBlock Text="¿Cómo funciona?"
                                                FontWeight="Bold"
                                                FontSize="14"
                                                VerticalAlignment="Center"/>
@@ -225,7 +225,7 @@ SizeToContent="Height" MaxHeight="800"
                         <!-- Panel de Contenido -->
                         <Grid Grid.Row="1">
 
-                            <!-- ðŸ“¥ Panel Input -->
+                            <!-- 📥 Panel Input -->
                             <Grid x:Name="panelInput" Visibility="Visible">
                               
                                     <StackPanel Margin="20" >
@@ -265,7 +265,7 @@ SizeToContent="Height" MaxHeight="800"
                                
                             </Grid>
 
-                            <!-- â³ Panel Analizando -->
+                            <!-- ⏳ Panel Analizando -->
                             <Grid x:Name="panelAnalyzing" Visibility="Collapsed">
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
@@ -287,7 +287,7 @@ SizeToContent="Height" MaxHeight="800"
                                 </StackPanel>
                             </Grid>
 
-                            <!-- ðŸ“„ Panel Resultados -->
+                            <!-- 📄 Panel Resultados -->
                             <ScrollViewer x:Name="panelResult"
                                           Visibility="Collapsed"
                                           VerticalScrollBarVisibility="Auto">
@@ -367,7 +367,7 @@ SizeToContent="Height" MaxHeight="800"
                                                     </StackPanel>
                                                 </Expander.Header>
                                                 <StackPanel Margin="15">
-                                                    <TextBlock Text="Mapeo: campoDTO â†’ propiedadAPI (formato JSON)" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
+                                                    <TextBlock Text="Mapeo: campoDTO → propiedadAPI (formato JSON)" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
                                                     <TextBox x:Name="txtResponseMapper" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo (objeto anonimo):&#x0a;codigo = dto.pro_codigo,&#x0a;nombre = dto.pro_nombre,&#x0a;precio = dto.pro_precio"/>
                                                 </StackPanel>
                                             </Expander>
@@ -383,7 +383,7 @@ SizeToContent="Height" MaxHeight="800"
             </Grid>
         </ScrollViewer>
 
-        <!-- ðŸ¦¶ FOOTER -->
+        <!-- 🦶 FOOTER -->
         <StackPanel Grid.Row="2"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
@@ -412,5 +412,4 @@ SizeToContent="Height" MaxHeight="800"
         </StackPanel>
     </Grid>
 </Window>
-
 

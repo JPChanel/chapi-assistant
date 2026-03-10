@@ -36,6 +36,7 @@ namespace Chapi
         private System.Windows.Threading.DispatcherTimer _fetchTimer;
         private CancellationTokenSource? _projectSwitchCts;
         private bool _isShuttingDown = false;
+        private readonly SemaphoreSlim _fetchRefreshSemaphore = new(1, 1);
 
         public string AppVersion { get; private set; }
         public string ServiceStatusText => "Activo";
@@ -84,7 +85,7 @@ namespace Chapi
 
             _fetchTimer = new System.Windows.Threading.DispatcherTimer();
             _fetchTimer.Interval = TimeSpan.FromMinutes(10);
-            _fetchTimer.Tick += async (s, ev) => await DoFetchAsync(isSilent: true);
+            _fetchTimer.Tick += async (s, ev) => await DoFetchAndRefreshAsync(isSilent: true);
             _fetchTimer.Start();
         }
 
@@ -303,6 +304,10 @@ namespace Chapi
 
                         if (token.IsCancellationRequested) return;
                         await LoadReleasesAsync();
+                        if (!token.IsCancellationRequested)
+                        {
+                            await Dispatcher.InvokeAsync(() => _ = DoFetchAndRefreshAsync(isSilent: true));
+                        }
 
                         // No hacemos Fetch automático aquí al cambiar de proyecto para evitar bucles.
                         // Solo se hará periódicamente por el timer o manualmente.
@@ -668,6 +673,46 @@ namespace Chapi
             }
         }
 
+        private async Task DoFetchAndRefreshAsync(bool isSilent = false)
+        {
+            if (string.IsNullOrEmpty(projectDirectory)) return;
+            if (!await _fetchRefreshSemaphore.WaitAsync(0)) return;
+
+            try
+            {
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.FetchChangesUseCase)) as UseCases.FetchChangesUseCase;
+            if (useCase == null) return;
+
+            var result = await useCase.ExecuteAsync(projectDirectory, isSilent);
+            if (!result.IsSuccess)
+                return;
+
+            // Refrescar ramas siempre después de fetch para captar nuevas origin/*.
+            try { await RefreshBranchesAsync(); } catch { }
+
+            if (_changesViewModel == null)
+                return;
+
+            bool sameProject = string.Equals(_changesViewModel.ProjectPath, projectDirectory, StringComparison.OrdinalIgnoreCase);
+            bool shouldRefresh = sameProject && (!isSilent || GitTabs.SelectedItem == ChangesTab);
+            if (!shouldRefresh)
+                return;
+
+            if (IsWslPath(projectDirectory))
+            {
+                await _changesViewModel.ForceRefreshAsync();
+            }
+            else
+            {
+                await _changesViewModel.RefreshIfNecessaryAsync();
+            }
+            }
+            finally
+            {
+                _fetchRefreshSemaphore.Release();
+            }
+        }
+
         public async Task UpdateProjectStatusesAsync(List<ProjectViewModel>? projects = null)
         {
             if (projects == null)
@@ -916,7 +961,7 @@ namespace Chapi
                 if (result.IsSuccess)
                 {
                     Msg.Assistant("✅ Repositorio remoto asociado correctamente.");
-                    await DoFetchAsync(isSilent: true);
+                    await DoFetchAndRefreshAsync(isSilent: true);
                 }
                 else
                 {
@@ -969,6 +1014,20 @@ namespace Chapi
         private async void GitTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (e.OriginalSource is not System.Windows.Controls.TabControl) return;
+
+            if (GitTabs.SelectedItem == ChangesTab && _changesViewModel != null)
+            {
+                if (!string.IsNullOrEmpty(projectDirectory) &&
+                    (projectDirectory.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) ||
+                     projectDirectory.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase)))
+                {
+                    await _changesViewModel.ForceRefreshAsync();
+                }
+                else
+                {
+                    await _changesViewModel.RefreshIfNecessaryAsync();
+                }
+            }
 
             if (GitTabs.SelectedItem == TagsTab)
             {
@@ -1397,16 +1456,24 @@ namespace Chapi
         {
             if (!ValidateProject()) return;
 
-            bool stashBeforePull = false;
-            if (action == GitActionState.Pull)
+            // Legacy pre-check kept disabled; pull flow now is handled on demand by git error parsing.
+            if (false && action == GitActionState.Pull)
             {
                 var changes = await _gitRepository.GetChangesAsync(projectDirectory);
                 if (changes.Any())
                 {
-                    stashBeforePull = await DialogService.ShowConfirmDialog(
+                    var proceedWithStash = await DialogService.ShowConfirmDialog(
                         "Cambios sin confirmar",
                         "Tienes cambios locales que podrían entrar en conflicto. ¿Deseas guardarlos automáticamente en un Stash antes de hacer Pull?",
-                        DialogVariant.Info);
+                        DialogVariant.Warning,
+                        DialogType.Confirm,
+                        confirmButtonText: "Guardar y continuar",
+                        cancelButtonText: "Cancelar");
+                    if (!proceedWithStash)
+                    {
+                        return;
+                    }
+                    // Disabled: stash decision is now taken only when pull reports overwrite risk.
                 }
             }
 
@@ -1422,7 +1489,26 @@ namespace Chapi
 
                     case GitActionState.Pull:
                         var pullUC = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Git.PullChangesUseCase>();
-                        result = await pullUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch, stashBeforePull);
+                        result = await pullUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch, stashChanges: false);
+                        if (!result.IsSuccess && Chapi.Application.UseCases.Git.PullChangesUseCase.IsLocalChangesOverwriteError(result.Error))
+                        {
+                            var conflictingFiles = ExtractFilesFromPullOverwriteError(result.Error);
+                            var details = BuildPullOverwriteDetailsAscii(conflictingFiles);
+                            var proceedWithStash = await DialogService.ShowConfirmDialog(
+                                "No se puede hacer Pull",
+                                details,
+                                DialogVariant.Warning,
+                                DialogType.Confirm,
+                                confirmButtonText: "Guardar cambios y continuar",
+                                cancelButtonText: "Cancelar");
+
+                            if (!proceedWithStash)
+                            {
+                                return;
+                            }
+
+                            result = await pullUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch, stashChanges: true, restoreAfterPull: false);
+                        }
                         break;
 
                     case GitActionState.Push:
@@ -1433,7 +1519,16 @@ namespace Chapi
 
                 await LoadHistoryAsync();
                 await UpdateProjectStatusesAsync();
-                _ = DoFetchAsync(isSilent: true);
+                if (action != GitActionState.Fetch)
+                {
+                    _ = DoFetchAndRefreshAsync(isSilent: true);
+                }
+
+                if (_changesViewModel != null &&
+                    string.Equals(_changesViewModel.ProjectPath, projectDirectory, StringComparison.OrdinalIgnoreCase))
+                {
+                    await _changesViewModel.ForceRefreshAsync();
+                }
 
                 if (!result.IsSuccess && result.Error == "CONFLICTO_DETECTADO")
                 {
@@ -1581,14 +1676,21 @@ namespace Chapi
         }
 
         private DateTime _lastActivationRefresh = DateTime.MinValue;
+        private DateTime _lastActivationFetch = DateTime.MinValue;
 
         protected override async void OnActivated(EventArgs e)
         {
             base.OnActivated(e);
 
+            // Auto-fetch liviano al recuperar foco para detectar ramas remotas nuevas.
             if (!string.IsNullOrEmpty(projectDirectory) &&
-                (projectDirectory.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) ||
-                 projectDirectory.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase)))
+                (DateTime.Now - _lastActivationFetch).TotalSeconds > 90)
+            {
+                _lastActivationFetch = DateTime.Now;
+                _ = DoFetchAndRefreshAsync(isSilent: true);
+            }
+
+            if (!string.IsNullOrEmpty(projectDirectory) && IsWslPath(projectDirectory))
             {
                 if ((DateTime.Now - _lastActivationRefresh).TotalSeconds > 2)
                 {
@@ -1603,6 +1705,89 @@ namespace Chapi
             {
                 await _changesViewModel.RefreshIfNecessaryAsync();
             }
+        }
+
+        private static List<string> ExtractFilesFromPullOverwriteError(string error)
+        {
+            var files = new List<string>();
+            if (string.IsNullOrWhiteSpace(error))
+                return files;
+
+            var lines = error.Replace('\r', '\n')
+                             .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            bool readingFiles = false;
+            foreach (var raw in lines)
+            {
+                var line = raw.Trim();
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                if (!readingFiles)
+                {
+                    if (line.Contains("following files would be overwritten", StringComparison.OrdinalIgnoreCase) ||
+                        line.Contains("archivos", StringComparison.OrdinalIgnoreCase) && line.Contains("sobrescrit", StringComparison.OrdinalIgnoreCase))
+                    {
+                        readingFiles = true;
+                    }
+                    continue;
+                }
+
+                if (line.StartsWith("Please ", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("Aborta", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("error:", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("hint:", StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                var candidate = line.TrimStart('-', '*', ' ', '\t');
+                if (!string.IsNullOrWhiteSpace(candidate))
+                {
+                    files.Add(candidate);
+                }
+            }
+
+            return files.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private static string BuildPullOverwriteDetails(List<string> files)
+        {
+            var header = "No se puede hacer Pull porque estos archivos locales serían sobrescritos.";
+            var guidance = "Puedes guardar tus cambios en un Stash y continuar, o cancelar para revisarlos.";
+
+            if (files == null || files.Count == 0)
+                return $"{header}\n\n{guidance}";
+
+            var max = Math.Min(files.Count, 12);
+            var listed = string.Join("\n", files.Take(max).Select(f => $"• {f}"));
+            var more = files.Count > max ? $"\n• ... y {files.Count - max} archivo(s) más" : string.Empty;
+
+            return $"{header}\n\n{listed}{more}\n\n{guidance}";
+        }
+
+        private static string BuildPullOverwriteDetailsAscii(List<string> files)
+        {
+            var header = "No se puede hacer Pull porque estos archivos locales serian sobrescritos.";
+            var guidance = "Puedes guardar tus cambios en un Stash y continuar, o cancelar para revisarlos.";
+
+            if (files == null || files.Count == 0)
+                return $"{header}\n\n{guidance}";
+
+            var max = Math.Min(files.Count, 12);
+            var listed = string.Join("\n", files.Take(max).Select(f => $"- {f}"));
+            var more = files.Count > max ? $"\n- ... y {files.Count - max} archivo(s) mas" : string.Empty;
+
+            return $"{header}\n\n{listed}{more}\n\n{guidance}";
+        }
+
+        private static bool IsWslPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
+
+            return path.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) ||
+                   path.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

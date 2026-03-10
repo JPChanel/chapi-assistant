@@ -3,6 +3,7 @@ using Chapi.Domain.Entities;
 using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
+using System.Collections.Concurrent;
 using System.IO;
 
 namespace Chapi.Infrastructure.Git;
@@ -16,7 +17,8 @@ public class GitCliRepository : IGitRepository
 {
     private readonly IGitAuthProviderFactory _authFactory;
     private readonly ICredentialStorageService _credentialStorage;
-    private string? _cachedRepoRoot;
+    private readonly ConcurrentDictionary<string, string> _repoRootCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, WorkingTreeNumStatCache> _workingTreeNumStatCache = new(StringComparer.OrdinalIgnoreCase);
 
     public GitCliRepository(
         IGitAuthProviderFactory authFactory,
@@ -27,38 +29,114 @@ public class GitCliRepository : IGitRepository
     }
 
     private static readonly System.Threading.SemaphoreSlim _repoRootSemaphore = new(1, 1);
+    private static readonly System.Threading.SemaphoreSlim _numStatSemaphore = new(1, 1);
+    private static readonly TimeSpan NumStatCacheTtl = TimeSpan.FromSeconds(2);
+
+    private sealed class WorkingTreeNumStatCache
+    {
+        public DateTime TimestampUtc { get; init; }
+        public Dictionary<string, (int Additions, int Deletions)> Stats { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePathForComparison(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return path;
+
+        var normalized = path.Replace('/', '\\').Trim();
+
+        // Unificar alias de UNC de WSL: \\wsl$\Distro\... y \\wsl.localhost\Distro\...
+        if (normalized.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = @"\\wsl.localhost\" + normalized.Substring(@"\\wsl$\".Length);
+        }
+
+        try
+        {
+            normalized = Path.GetFullPath(normalized);
+        }
+        catch
+        {
+            // Mantener la ruta normalizada sin lanzar excepción en entradas no estándar.
+        }
+
+        if (normalized.Length > 3 && normalized.EndsWith("\\", StringComparison.Ordinal))
+        {
+            normalized = normalized.TrimEnd('\\');
+        }
+
+        return normalized;
+    }
+
+    private static string NormalizePathReportedByGit(string inputPath, string gitPath)
+    {
+        var detected = gitPath.Trim();
+        if (string.IsNullOrWhiteSpace(detected))
+            return NormalizePathForComparison(inputPath);
+
+        // Formato MSYS: /d/proyecto -> D:\proyecto
+        if (detected.Length >= 3 &&
+            detected[0] == '/' &&
+            char.IsLetter(detected[1]) &&
+            detected[2] == '/')
+        {
+            detected = detected[1] + ":" + detected.Substring(2);
+            return NormalizePathForComparison(detected);
+        }
+
+        // Formato Linux puro en WSL: /home/user/repo
+        if (detected.StartsWith("/", StringComparison.Ordinal) && !detected.StartsWith("//", StringComparison.Ordinal))
+        {
+            var normalizedInput = NormalizePathForComparison(inputPath);
+            var parts = normalizedInput.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2 &&
+                (parts[0].Equals("wsl$", StringComparison.OrdinalIgnoreCase) ||
+                 parts[0].Equals("wsl.localhost", StringComparison.OrdinalIgnoreCase)))
+            {
+                var distro = parts[1];
+                var linuxPath = detected.Replace('/', '\\').TrimStart('\\');
+                return NormalizePathForComparison($@"\\wsl.localhost\{distro}\{linuxPath}");
+            }
+        }
+
+        return NormalizePathForComparison(detected);
+    }
+
+    private static string NormalizeGitPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+
+        return path.Replace('\\', '/').Trim();
+    }
 
     private async Task<string> GetRepoRootAsync(string path)
     {
-        if (string.IsNullOrWhiteSpace(path)) 
+        if (string.IsNullOrWhiteSpace(path))
             return path;
 
-        if (_cachedRepoRoot != null && path.StartsWith(_cachedRepoRoot, StringComparison.OrdinalIgnoreCase))
-            return _cachedRepoRoot;
+        var normalizedInput = NormalizePathForComparison(path);
+
+        if (_repoRootCache.TryGetValue(normalizedInput, out var directCachedRoot))
+            return directCachedRoot;
 
         await _repoRootSemaphore.WaitAsync();
         try
         {
-            if (_cachedRepoRoot != null && path.StartsWith(_cachedRepoRoot, StringComparison.OrdinalIgnoreCase))
-                return _cachedRepoRoot;
+            if (_repoRootCache.TryGetValue(normalizedInput, out directCachedRoot))
+                return directCachedRoot;
 
             var result = await GitProcessExecutor.RunAsync(path, "rev-parse", "--show-toplevel");
             if (result.IsSuccess && !string.IsNullOrWhiteSpace(result.Data))
             {
-                var detected = result.Data.Trim();
-                
-                // Git rev-parse puede devolver rutas tipo Linux (/d/ruta) en algunos entornos.
-                // Las normalizamos a formato Windows real.
-                if (detected.Length >= 2 && detected[0] == '/' && char.IsLetter(detected[1]) && (detected.Length == 2 || detected[2] == '/'))
-                {
-                    detected = detected[1] + ":" + detected.Substring(2);
-                }
-                
-                _cachedRepoRoot = Path.GetFullPath(detected.Replace('/', Path.DirectorySeparatorChar));
-                return _cachedRepoRoot;
+                var detectedRoot = NormalizePathReportedByGit(path, result.Data);
+                _repoRootCache[normalizedInput] = detectedRoot;
+                _repoRootCache[detectedRoot] = detectedRoot;
+                return detectedRoot;
             }
 
-            return Path.GetFullPath(path);
+            _repoRootCache[normalizedInput] = normalizedInput;
+            return normalizedInput;
         }
         finally
         {
@@ -79,17 +157,17 @@ public class GitCliRepository : IGitRepository
 
     private string GetRelativePath(string repoRoot, string projectPath, string filePath)
     {
-        if (string.IsNullOrWhiteSpace(repoRoot) || string.IsNullOrWhiteSpace(filePath)) 
+        if (string.IsNullOrWhiteSpace(repoRoot) || string.IsNullOrWhiteSpace(filePath))
             return filePath ?? string.Empty;
 
-        // Forzamos GetFullPath en ambos para asegurar que la unidad (C:\ vs c:\) y separadores coincidan
-        string normalizedRoot = Path.GetFullPath(repoRoot);
-        string absolutePath = Path.IsPathRooted(filePath)
-            ? Path.GetFullPath(filePath)
-            : Path.GetFullPath(Path.Combine(projectPath, filePath));
+        var normalizedRoot = NormalizePathForComparison(repoRoot);
+        var normalizedProject = NormalizePathForComparison(projectPath);
+        var absolutePath = Path.IsPathRooted(filePath)
+            ? NormalizePathForComparison(filePath)
+            : NormalizePathForComparison(Path.Combine(normalizedProject, filePath));
 
         var relative = Path.GetRelativePath(normalizedRoot, absolutePath);
-        return relative.Replace(Path.DirectorySeparatorChar, '/');
+        return NormalizeGitPath(relative);
     }
 
     private async Task<string?> GetAccessTokenAsync(string remoteUrl)
@@ -140,8 +218,14 @@ public class GitCliRepository : IGitRepository
     public async Task<IEnumerable<FileChange>> GetChangesAsync(string projectPath)
     {
         var root = await GetRepoRootAsync(projectPath);
+        var normalizedProjectPath = NormalizePathForComparison(projectPath);
+        var normalizedRootPath = NormalizePathForComparison(root);
+        var projectIsRepositoryRoot = string.Equals(
+            normalizedProjectPath,
+            normalizedRootPath,
+            StringComparison.OrdinalIgnoreCase);
         // Usamos -z para evitar problemas con rutas con espacios o caracteres especiales
-        var result = await Git(projectPath, "status", "--porcelain=v1", "-z");
+        var result = await Git(projectPath, "--no-optional-locks", "status", "--porcelain=v1", "-z");
         if (!result.IsSuccess) return Enumerable.Empty<FileChange>();
 
         var changes = new List<FileChange>();
@@ -161,20 +245,29 @@ public class GitCliRepository : IGitRepository
             var path = data.Substring(i, nulIdx - i);
             i = nulIdx + 1;
             
-            // Si es un renombramiento (R) o copia (C), -z devuelve dos rutas: origin\0target\0
-            if (xy.StartsWith('R') || xy.StartsWith('C'))
+            // En formato -z, renombres/copias incluyen una segunda ruta (origen) separada por NUL.
+            // La primera ruta ya es la que debemos mostrar.
+            if (xy.IndexOf('R') >= 0 || xy.IndexOf('C') >= 0)
             {
                 int nextNul = data.IndexOf('\0', i);
                 if (nextNul < 0) break;
-                // La ruta que nos interesa para mostrar es el destino (target)
-                path = data.Substring(i, nextNul - i);
                 i = nextNul + 1;
             }
             
             // Calculamos la ruta absoluta y luego la relativa al projectPath
             // para que la UI vea rutas coherentes con la carpeta abierta.
-            var absolutePath = Path.GetFullPath(Path.Combine(root, path));
-            var relativeToProject = Path.GetRelativePath(projectPath, absolutePath).Replace(Path.DirectorySeparatorChar, '/');
+            var absolutePath = projectIsRepositoryRoot
+                ? null
+                : NormalizePathForComparison(Path.Combine(root, path));
+            var relativeToProject = projectIsRepositoryRoot
+                ? NormalizeGitPath(path)
+                : NormalizeGitPath(Path.GetRelativePath(normalizedProjectPath, absolutePath!));
+            if (!projectIsRepositoryRoot && Path.IsPathRooted(relativeToProject))
+            {
+                // Si Path.GetRelativePath no puede calcular relativo (distintas raíces UNC),
+                // usamos la ruta reportada por git que siempre es relativa al repo.
+                relativeToProject = NormalizeGitPath(path);
+            }
 
             changes.Add(new FileChange
             {
@@ -352,14 +445,43 @@ public class GitCliRepository : IGitRepository
 
     public async Task<IEnumerable<string>> GetBranchesAsync(string projectPath)
     {
-        var result = await Git(projectPath, "branch", "--list", "--format=%(refname:short)");
+        // Incluir ramas locales y remotas de origin.
+        // Las remotas se normalizan a su nombre corto (origin/feature/x -> feature/x)
+        // para que puedan seleccionarse y cambiarse como en GitHub Desktop.
+        var result = await Git(projectPath, "for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes/origin");
         if (!result.IsSuccess) return Enumerable.Empty<string>();
 
-        return result.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(b => b.Trim())
-            .Select(b => b.StartsWith("* ") ? b.Substring(2) : b)
-            .Where(b => !string.IsNullOrEmpty(b) && !b.StartsWith("warning:", StringComparison.OrdinalIgnoreCase))
+        var localBranches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var remoteOnlyBranches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var raw in result.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var branch = raw.Trim();
+            if (string.IsNullOrWhiteSpace(branch) || branch.StartsWith("warning:", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (branch.StartsWith("origin/", StringComparison.OrdinalIgnoreCase))
+            {
+                var shortName = branch.Substring("origin/".Length);
+                if (shortName.Equals("HEAD", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (!localBranches.Contains(shortName))
+                    remoteOnlyBranches.Add(shortName);
+
+                continue;
+            }
+
+            localBranches.Add(branch);
+        }
+
+        var allBranches = localBranches
+            .Concat(remoteOnlyBranches.Where(b => !localBranches.Contains(b)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(b => b, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        return allBranches;
     }
 
     public async Task<string> GetCurrentBranchAsync(string projectPath)
@@ -695,13 +817,73 @@ public class GitCliRepository : IGitRepository
 
     public async Task<(int additions, int deletions)> GetFileStatsAsync(string projectPath, string filePath)
     {
-        var linuxPath = filePath.Replace(Path.DirectorySeparatorChar, '/');
-        var result = await Git(projectPath, "diff", "HEAD", "--numstat", "--", linuxPath);
-        if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Data)) return (0, 0);
-        var parts = result.Data.Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length >= 2 && int.TryParse(parts[0], out int add) && int.TryParse(parts[1], out int del))
-            return (add, del);
+        var repoRoot = await GetRepoRootAsync(projectPath);
+        var normalizedRoot = NormalizePathForComparison(repoRoot);
+        var relativePath = NormalizeGitPath(GetRelativePath(repoRoot, projectPath, filePath));
+
+        var statsMap = await GetWorkingTreeNumStatMapAsync(projectPath, normalizedRoot);
+        if (statsMap.TryGetValue(relativePath, out var stats))
+            return stats;
+
+        var trimmedRelative = relativePath.TrimStart("./".ToCharArray());
+        if (statsMap.TryGetValue(trimmedRelative, out stats))
+            return stats;
+
         return (0, 0);
+    }
+
+    private async Task<Dictionary<string, (int Additions, int Deletions)>> GetWorkingTreeNumStatMapAsync(string projectPath, string cacheKey)
+    {
+        if (_workingTreeNumStatCache.TryGetValue(cacheKey, out var cached) &&
+            (DateTime.UtcNow - cached.TimestampUtc) <= NumStatCacheTtl)
+        {
+            return cached.Stats;
+        }
+
+        await _numStatSemaphore.WaitAsync();
+        try
+        {
+            if (_workingTreeNumStatCache.TryGetValue(cacheKey, out cached) &&
+                (DateTime.UtcNow - cached.TimestampUtc) <= NumStatCacheTtl)
+            {
+                return cached.Stats;
+            }
+
+            var result = await Git(projectPath, "diff", "HEAD", "--numstat", "--");
+            var stats = new Dictionary<string, (int Additions, int Deletions)>(StringComparer.OrdinalIgnoreCase);
+
+            if (result.IsSuccess && !string.IsNullOrWhiteSpace(result.Data))
+            {
+                foreach (var line in result.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var parts = line.Split('\t');
+                    if (parts.Length < 3)
+                        continue;
+
+                    if (!int.TryParse(parts[0], out var add) || !int.TryParse(parts[1], out var del))
+                        continue;
+
+                    var path = NormalizeGitPath(parts[2]);
+                    if (!string.IsNullOrWhiteSpace(path))
+                    {
+                        stats[path] = (add, del);
+                    }
+                }
+            }
+
+            var freshCache = new WorkingTreeNumStatCache
+            {
+                TimestampUtc = DateTime.UtcNow,
+                Stats = stats
+            };
+
+            _workingTreeNumStatCache[cacheKey] = freshCache;
+            return freshCache.Stats;
+        }
+        finally
+        {
+            _numStatSemaphore.Release();
+        }
     }
 
     public async Task<string> GetDiffAsync(string projectPath, string file, string? revision = null)

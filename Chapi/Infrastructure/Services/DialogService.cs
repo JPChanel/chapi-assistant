@@ -25,14 +25,22 @@ namespace Chapi.Infrastructure.Services
 
         }
 
-        public static async Task<bool> ShowConfirmDialog(string title, string message, DialogVariant variant = DialogVariant.Info, DialogType type = DialogType.Confirm)
+        public static async Task<bool> ShowConfirmDialog(
+            string title,
+            string message,
+            DialogVariant variant = DialogVariant.Info,
+            DialogType type = DialogType.Confirm,
+            string confirmButtonText = "SI",
+            string cancelButtonText = "NO")
         {
             var dialog = new ConfirmationDialog
             {
                 Title = title,
                 Message = message,
                 Variant = variant,
-                DialogType = type
+                DialogType = type,
+                ConfirmButtonText = confirmButtonText,
+                CancelButtonText = cancelButtonText
             };
 
             var result = await DialogHost.Show(dialog, App.GlobalDialogIdentifier);

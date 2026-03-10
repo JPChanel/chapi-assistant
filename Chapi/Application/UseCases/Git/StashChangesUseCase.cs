@@ -38,16 +38,16 @@ public class StashChangesUseCase
             var result = await _gitRepo.StashChangesAsync(projectPath, message, files);
             if (!result.IsSuccess)
             {
-                _notificationService.ShowError($"❌ Error al guardar en stash: {result.Error}");
+                _notificationService.ShowError($"? Error al guardar en stash: {result.Error}");
                 return result;
             }
 
-            _notificationService.ShowSuccess("✅ Cambios guardados en stash");
+            _notificationService.ShowSuccess("? Cambios guardados en stash");
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"âŒ Error al guardar en stash: {ex.Message}");
+            _notificationService.ShowError($"❌ Error al guardar en stash: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }

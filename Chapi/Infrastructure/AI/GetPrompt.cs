@@ -1,4 +1,4 @@
-namespace Chapi.Infrastructure.AI;
+﻿namespace Chapi.Infrastructure.AI;
 
 public class GetPrompt
 {
@@ -300,7 +300,134 @@ public class GetPrompt
         INSTRUCCIONES CLAVES:
         1. Devuelve ÚNICAMENTE un objeto JSON válido (sin etiquetas markdown como ```json).
         2. El JSON debe contener EXACTAMENTE las claves proporcionadas en la lista a continuación, y como valor el contenido generado.
-        3. Para claves que contengan 'IMG' o 'DIAGRAMA' en su nombre (ej. IMG_ARQUITECTURA), el valor DEBE ser código válido Pura de PlantUML (sin bloques ```plantuml).
+        2.1 Para claves no estructurales que no sean de imagen (ej. INTRODUCCION, CAPA_DESC, PQ_DESC), no dejes valores vacíos.
+        2.2 Si existe INTRODUCCION: redacta 2 parrafos formales (120-220 palabras en total), con contexto institucional, objetivo del documento y valor tecnico de los diagramas.
+        2.3 Si existe OBJETIVOS: genera entre 4 y 7 objetivos en formato lista con viñetas, claros y accionables, alineados al sistema y su normativa.
+        2.4 Si existe ALCANCE: redacta 2 parrafos formales (120-220 palabras en total), delimitando alcance funcional, alcance tecnico, integraciones, restricciones y ambito de despliegue.
+        2.5 Evita textos de una sola linea en INTRODUCCION/OBJETIVOS/ALCANCE. Deben ser explicativos y con lenguaje tecnico profesional.
+        3. Para claves que contengan 'IMG' o 'DIAGRAMA' en su nombre (ej. IMG_ARQUITECTURA), el valor DEBE ser código válido de PlantUML (sin bloques ```plantuml).
+        4. Para claves que terminen en '_ITEMS', el valor DEBE ser un JSON ARRAY (no string) de objetos.
+        5. Caso especial BLOQUE_CU_ITEMS: cada objeto debe tener esta estructura:
+           {{
+             ""CU_ID"": ""CU001"",
+             ""CU_NOM"": ""Nombre del caso de uso"",
+             ""CU_DESC"": ""Descripción técnica del caso de uso (3-5 líneas)"",
+             ""CU_ACTORES"": ""Actor1; Actor2"",
+             ""CU_PRE"": ""Precondiciones"",
+             ""CU_FLOW_BASE"": ""1. ... 2. ... 3. ..."",
+             ""CU_FLOW_ALT"": ""1. ... 2. ..."",
+             ""CU_POST"": ""Postcondiciones"",
+             ""CU_RESTRIC"": ""Restricciones"",
+             ""CU_PADRE"": ""CU padre o Ninguno"",
+             ""IMG_PROTOTIPO"": ""@startuml ... @enduml""
+           }}
+        5.1 Reglas para BLOQUE_CU_ITEMS:
+           - CU_ID debe seguir el patrón CU### (ej. CU001, CU002).
+           - CU_NOM y CU_ACTORES deben ser coherentes con el diagrama IMG_CU_GENERAL.
+           - Cada caso de uso del diagrama debe tener su bloque en BLOQUE_CU_ITEMS.
+        6. Caso especial BLOQUE_PQ_ITEMS: cada objeto debe tener:
+           {{
+             ""PQ_ID_NOM"": ""PQ001: Nombre del paquete"",
+             ""PQ_DESC"": ""Descripción funcional/técnica del paquete alineada al diagrama"",
+             ""PQ_CLASES_LISTA"": ""- ClaseA\n- ClaseB\n- ClaseC""
+           }}
+        7. Caso especial BLOQUE_ACT_ITEMS: cada objeto debe tener:
+           {{
+             ""CU_ID_ACT"": ""CU001"",
+             ""CU_NOM_ACT"": ""Nombre del caso de uso"",
+             ""CU_DESC_ACT"": ""Descripcion funcional del flujo de actividad (3-5 lineas)"",
+             ""IMG_ACTIVIDAD"": ""@startuml ... @enduml""
+           }}
+        7.1 Reglas para IMG_ACTIVIDAD (segun contexto real):
+           - Debe representar una secuencia completa de tareas del caso de uso (no una sola tarea aislada).
+           - Si el contexto muestra varias etapas, modela 2 o mas fases (ej. Recepcion, Validacion, Resolucion/Salida).
+           - Si el proyecto es pequeÃ±o o hay poca evidencia, permite un flujo general unico pero con varias tareas coherentes.
+           - Usa entre 5 y 14 acciones reales del contexto, sin inventar tareas inexistentes.
+           - Incluye decision (if/else) solo cuando aplique en el proceso.
+           - Debe iniciar con start y terminar con stop, mostrando resultado final del flujo.
+        8. Caso especial BLOQUE_SEQ_ITEMS: cada objeto debe tener:
+           {{
+             ""CU_ID_SEQ"": ""CU001"",
+             ""CU_NOM_SEQ"": ""Nombre del caso de uso"",
+             ""CU_DESC_SEQ"": ""Descripcion de la interaccion secuencial (3-5 lineas)"",
+             ""IMG_SECUENCIA"": ""@startuml ... @enduml""
+           }}
+        8.1 Reglas para IMG_SECUENCIA (segun contexto real):
+           - Si el contexto lo permite, representa 2 o mas fases del proceso (ej. Solicitud y Validacion/Respuesta).
+           - Usa entre 2 y 5 participantes reales del contexto y entre 4 y 14 mensajes coherentes.
+           - Los mensajes deben mostrar orden temporal completo de inicio a fin.
+           - Incluye bloque de control (alt/opt/loop) solo cuando aplique.
+           - Si el proyecto es pequeÃ±o, permite una secuencia general unica, pero completa y coherente.
+        9. Caso especial BLOQUE_EST_ITEMS: cada objeto debe tener:
+           {{
+             ""CU_ID_EST"": ""CU001"",
+             ""CU_NOM_EST"": ""Nombre del caso de uso"",
+             ""CU_DESC_EST"": ""Descripcion de estados y transiciones (3-5 lineas)"",
+             ""IMG_ESTADO"": ""@startuml ... @enduml""
+           }}
+        10. Caso especial BLOQUE_CAPAS_ITEMS: cada objeto debe tener:
+           {{
+             ""CAPA_NOM"": ""Nombre de la capa"",
+             ""CAPA_DESC"": ""Descripción técnica de la capa""
+           }}
+        11. Caso especial BLOQUE_COMP_ITEMS: cada objeto debe tener:
+            {{
+              ""COMP_NOM"": ""Nombre del componente"",
+              ""COMP_DESC"": ""Descripción técnica del componente""
+            }}
+        12. Caso especial BLOQUE_CLASE_DET_ITEMS: cada objeto debe tener:
+            {{
+              ""CLASE_TITULO"": ""Nombre de la clase"",
+              ""CLASE_ATRIB"": ""atributo1:tipo; atributo2:tipo"",
+              ""CLASE_OPER"": ""metodo1(); metodo2(param)"",
+              ""CLASE_AGREG"": ""Agregación con otras clases"",
+              ""CLASE_ASOC"": ""Asociaciones con otras clases""
+            }}
+        13. Regla de consistencia diagrama -> descripción:
+            - Si existe IMG_ARQUITECTURA, también llena ARQ_DESC_GENERAL y BLOQUE_CAPAS_ITEMS.
+            - Si existe IMG_COMPONENTES, también llena BLOQUE_COMP_ITEMS.
+            - Si existe IMG_CLASES_SISTEMA, también llena BLOQUE_CLASE_DET_ITEMS.
+            - Si existe IMG_VISTA_LOGICA, también llena PQ_VISTA_LOGICA_DESC y BLOQUE_PQ_ITEMS.
+            - Para IMG_VISTA_LOGICA en PlantUML usa package en multilinea y flechas entre nodos internos, no entre nombres de package.
+            - Si existe IMG_ACTORES, TABLA_ACTORES_LISTA debe listar actores y responsabilidades.
+            - Si existe IMG_CU_GENERAL, TABLA_CU_LISTADO y BLOQUE_CU_ITEMS deben estar coherentes.
+            - Si existe BLOQUE_ACT_ITEMS, cada item debe incluir CU_DESC_ACT.
+            - Si existe BLOQUE_SEQ_ITEMS, cada item debe incluir CU_DESC_SEQ.
+            - Si existe BLOQUE_EST_ITEMS, cada item debe incluir CU_DESC_EST.
+        13.1 Regla visual obligatoria para IMG_CU_GENERAL (PlantUML):
+            - Usa actores humanos a la izquierda y sistemas externos en el extremo derecho.
+            - Encierra los casos de uso dentro de un límite de sistema al centro: rectangle ""NOMBRE_SISTEMA"" {{ ... }}.
+            - Los casos de uso deben mostrarse como óvalos dentro del límite del sistema y nombrarse con prefijo CU###.
+            - Conecta cada actor con sus casos de uso correspondientes.
+            - Usa relaciones <<include>>/<<extend>> solo cuando aplique.
+            - Estructura de referencia:
+              @startuml
+              left to right direction
+              actor ""Actor Interno"" as A1
+              actor ""Sistema Externo"" as EXT
+              rectangle ""NOMBRE_SISTEMA"" {{
+                usecase ""CU001: Caso 1"" as CU001
+                usecase ""CU002: Caso 2"" as CU002
+              }}
+              A1 --> CU001
+              EXT --> CU002
+              CU002 .> CU001 : <<include>>
+              @enduml
+        13.2 Regla visual obligatoria para IMG_ACTORES (PlantUML):
+            - No generar solo íconos de actores sueltos.
+            - Debe incluir límite de sistema al centro con los casos de uso principales.
+            - Actores internos a la izquierda y actor/sistema externo a la derecha cuando aplique.
+            - Conecta actores con los casos de uso que ejecutan y refleja el flujo general.
+        14. Si existe BLOQUE_CU_ITEMS en las claves, genera entre 1 y 9 casos de uso segun el contexto (proyecto pequeÃ±o: 1 o pocos; proyecto complejo: varios).
+        15. Si existe BLOQUE_PQ_ITEMS, genera entre 1 y 10 paquetes segun la evidencia de la arquitectura.
+        16. Si existe BLOQUE_ACT_ITEMS/BLOQUE_SEQ_ITEMS/BLOQUE_EST_ITEMS:
+            - si hay varios casos de uso claros, genera la misma cantidad que BLOQUE_CU_ITEMS;
+            - si hay un caso de uso general o poca evidencia, genera un bloque general coherente.
+        17. Si existen BLOQUE_CAPAS_ITEMS/BLOQUE_COMP_ITEMS/BLOQUE_CLASE_DET_ITEMS, genera entre 1 y 8 elementos segun la arquitectura identificada.
+        18. Cuando generes IMG_ACTIVIDAD, prioriza macro-actividades del proceso end-to-end y no pasos tÃ©cnicos microscÃ³picos.
+        19. Regla general para cualquier diagrama (IMG_*/DIAGRAMA_*): no inventes actores, fases, componentes o relaciones que no esten sustentados en el contexto.
+        20. Si faltan detalles, usa una representacion general y conservadora, manteniendo coherencia funcional y trazabilidad con las claves CU/PQ/ACT/SEQ/EST.
+        21. Preferencia de granularidad: si no hay evidencia clara de multiples procesos/actores/fases, genera un solo diagrama general por tipo; solo divide en varios cuando el contexto lo justifique explícitamente.
 
         CLAVES REQUERIDAS (Genera el contenido óptimo para cada una):
         {jsonKeys}
