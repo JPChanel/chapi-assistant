@@ -1,9 +1,9 @@
-using Chapi.Domain.Documentation;
+﻿using Chapi.Domain.Documentation;
 
 namespace Chapi.Application.UseCases.Documentation;
 
 /// <summary>
-/// Devuelve las secciones base para una plantilla de documento técnico.
+/// Devuelve las secciones base para una plantilla de documento tÃ©cnico.
 /// Centraliza la definición de plantillas fuera del ViewModel.
 /// </summary>
 public class ApplyTemplateUseCase
@@ -13,7 +13,7 @@ public class ApplyTemplateUseCase
         return template switch
         {
             DocTemplate.ModeloSoftware => ("Modelo de Software", GetModeloSoftwareSections()),
-            DocTemplate.DisenoSistema => ("Diseño del Sistema de Información", GetDisenoSistemaSections()),
+            DocTemplate.DisenoSistema => ("DiseÃ±o del Sistema de Información", GetDisenoSistemaSections()),
             _ => throw new ArgumentOutOfRangeException(nameof(template))
         };
     }
@@ -55,5 +55,10 @@ public class ApplyTemplateUseCase
         new DocSection { Order = 13, Title = "Diccionario de Datos", Type = DocSectionType.Text },
         new DocSection { Order = 14, Title = "8.1 Listado de tablas", Type = DocSectionType.Table },
         new DocSection { Order = 15, Title = "8.2 Descripción de tablas", Type = DocSectionType.Table },
+        new DocSection { Order = 16, Title = "8.3 Listado de paquetes", Type = DocSectionType.Table },
+        new DocSection { Order = 17, Title = "8.4 Listado de procedimientos", Type = DocSectionType.Table },
+        new DocSection { Order = 18, Title = "8.5 Listado de vistas", Type = DocSectionType.Table },
+        new DocSection { Order = 19, Title = "8.6 Listado de funciones", Type = DocSectionType.Table },
+        new DocSection { Order = 20, Title = "8.7 Listado de índices", Type = DocSectionType.Table },
     ];
 }

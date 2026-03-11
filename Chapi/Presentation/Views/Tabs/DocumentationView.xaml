@@ -151,6 +151,16 @@
             <Setter Property="Padding" Value="12,10"/>
         </Style>
 
+        <Style x:Key="DynamicItemTextStyle" TargetType="TextBox" BasedOn="{StaticResource DocTagStyle}">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="MinWidth" Value="60"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="AcceptsReturn" Value="True"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <EventSetter Event="LostFocus" Handler="DynamicItemTextBox_LostFocus"/>
+        </Style>
+
         <Style x:Key="KrokiModeButtonStyle" TargetType="ToggleButton">
             <Setter Property="Padding" Value="10,4"/>
             <Setter Property="MinWidth" Value="82"/>
@@ -245,6 +255,18 @@
                                 </ToggleButton.Style>
                             </ToggleButton>
                         </DockPanel>
+
+                        <!-- Botón Guardar Ahora -->
+                        <Button Command="{Binding SaveCommand}"
+                                Background="#1D4ED8" BorderBrush="#1D4ED8"
+                                md:ButtonAssist.CornerRadius="12"
+                                Height="44" FontWeight="Bold" Foreground="White" Cursor="Hand"
+                                Margin="0,0,0,10">
+                            <StackPanel Orientation="Horizontal">
+                                <md:PackIcon Kind="ContentSaveEdit" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Guardar Ahora" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
 
                         <!-- Botón Generar (Green) -->
                         <Button Command="{Binding ExportWordCommand}" 
@@ -701,13 +723,14 @@
 
                                 <!-- 4.3.X Bloque dinámico de paquetes -->
                                 <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_PQ_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
-                                              ItemsSource="{Binding Session.Metadata[BLOQUE_PQ_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_PQ_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
+                                              Tag="BLOQUE_PQ_ITEMS">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Margin="16,0,0,16">
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                                     <TextBlock Text="4.3.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
-                                                    <TextBlock Text="{Binding [PQ_ID_NOM]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                    <TextBox Text="{Binding [PQ_ID_NOM], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
                                                 </StackPanel>
                                                 <Border BorderBrush="Black" BorderThickness="1">
                                                     <Grid Background="White">
@@ -715,11 +738,11 @@
                                                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                                         <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Descripción" FontWeight="Bold" FontSize="11"/></Border>
                                                         <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}">
-                                                            <TextBlock Text="{Binding [PQ_DESC]}" TextWrapping="Wrap" TextAlignment="Justify" Margin="2"/>
+                                                            <TextBox Text="{Binding [PQ_DESC], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" TextAlignment="Justify"/>
                                                         </Border>
                                                         <Border Grid.Row="1" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10" Background="#F9FAFB"><TextBlock Text="Clases" FontWeight="Bold" FontSize="11"/></Border>
                                                         <Border Grid.Row="1" Grid.Column="1" Padding="12,10">
-                                                            <TextBlock Text="{Binding [PQ_CLASES_LISTA]}" TextWrapping="Wrap" Margin="2"/>
+                                                            <TextBox Text="{Binding [PQ_CLASES_LISTA], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}"/>
                                                         </Border>
                                                     </Grid>
                                                 </Border>
@@ -936,15 +959,16 @@
                                 
                                 <!-- 6.2.X Bloque dinámico de casos de uso -->
                                 <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CU_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
-                                              ItemsSource="{Binding Session.Metadata[BLOQUE_CU_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_CU_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
+                                              Tag="BLOQUE_CU_ITEMS">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Margin="0,0,0,16">
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                                     <TextBlock Text="6.2.X " FontSize="14" FontWeight="Bold" FontFamily="Cambria" Foreground="#111827"/>
-                                                    <TextBlock Text="{Binding [CU_ID]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
+                                                    <TextBox Text="{Binding [CU_ID], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
                                                     <TextBlock Text=" : " FontSize="14" Foreground="#111827" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding [CU_NOM]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                    <TextBox Text="{Binding [CU_NOM], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
                                                 </StackPanel>
                                                 <Border BorderBrush="Black" BorderThickness="1">
                                                     <Grid Background="White">
@@ -965,33 +989,33 @@
                                                         </Grid.RowDefinitions>
 
                                                         <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Descripción" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_DESC]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBox Text="{Binding [CU_DESC], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
 
                                                         <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Actores" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_ACTORES]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBox Text="{Binding [CU_ACTORES], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
 
                                                         <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Precondiciones" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_PRE]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBox Text="{Binding [CU_PRE], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
 
                                                         <Border Grid.Row="3" Grid.Column="0" Style="{StaticResource LabelCellStyle}" VerticalAlignment="Top"><TextBlock Text="Flujo Básico" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="3" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_FLOW_BASE]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="3" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBox Text="{Binding [CU_FLOW_BASE], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
 
                                                         <Border Grid.Row="4" Grid.Column="0" Style="{StaticResource LabelCellStyle}" VerticalAlignment="Top"><TextBlock Text="Flujo Alternativo" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="4" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_FLOW_ALT]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="4" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBox Text="{Binding [CU_FLOW_ALT], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
 
                                                         <Border Grid.Row="5" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Post Condiciones" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="5" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_POST]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="5" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBox Text="{Binding [CU_POST], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
 
                                                         <Border Grid.Row="6" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Restricciones" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_RESTRIC]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBox Text="{Binding [CU_RESTRIC], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
 
                                                         <Border Grid.Row="7" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Casos de Uso Padre" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="7" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CU_PADRE]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="7" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBox Text="{Binding [CU_PADRE], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
 
                                                         <Border Grid.Row="8" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10" Background="#F9FAFB" VerticalAlignment="Center"><TextBlock Text="Prototipo" FontWeight="Bold" FontSize="11"/></Border>
                                                         <Border Grid.Row="8" Grid.Column="1" Padding="16,24">
                                                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                <TextBox Text="{Binding [IMG_PROTOTIPO]}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" IsReadOnly="True"
+                                                                <TextBox Text="{Binding [IMG_PROTOTIPO], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" HorizontalAlignment="Left"
                                                                          Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"/>
                                                                 <Border Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InvBoolToVis}}"
                                                                         BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White">
@@ -1051,8 +1075,7 @@
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                                     <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                                     <TextBox Text="{Binding Session.Metadata[IMG_ACTIVIDAD], Mode=TwoWay}"
-                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
-                                                             Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
+                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
                                                 </StackPanel>
                                                 <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                         BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
@@ -1064,25 +1087,25 @@
                                     </StackPanel>
                                 </Border>
                                 <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_ACT_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
-                                              ItemsSource="{Binding Session.Metadata[BLOQUE_ACT_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_ACT_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
+                                              Tag="BLOQUE_ACT_ITEMS">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
                                                 <StackPanel>
                                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                                         <TextBlock Text="7.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
-                                                        <TextBlock Text="{Binding [CU_ID_ACT]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
+                                                        <TextBox Text="{Binding [CU_ID_ACT], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
                                                         <TextBlock Text=" : " FontSize="12" Foreground="#374151" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding [CU_NOM_ACT]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                        <TextBox Text="{Binding [CU_NOM_ACT], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
                                                     </StackPanel>
-                                                    <TextBlock Text="{Binding [CU_DESC_ACT]}"
-                                                               TextWrapping="Wrap"
-                                                               TextAlignment="Justify"
-                                                               Margin="0,0,0,10"/>
+                                                    <TextBox Text="{Binding [CU_DESC_ACT], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Style="{StaticResource DynamicItemTextStyle}"
+                                                             TextAlignment="Justify"
+                                                             Margin="0,0,0,10"/>
                                                     <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
                                                         <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" MinHeight="120">
-                                                            <TextBox Text="{Binding [IMG_ACTIVIDAD]}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" IsReadOnly="True"
-                                                                     Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"/>
+                                                            <TextBox Text="{Binding [IMG_ACTIVIDAD], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" HorizontalAlignment="Left"/>
                                                             <Border Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InvBoolToVis}}"
                                                                     BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
                                                                 <conv:KrokiSvgBrowser DiagramCode="{Binding [IMG_ACTIVIDAD]}" Height="260" HorizontalAlignment="Stretch"/>
@@ -1141,8 +1164,7 @@
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                                     <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                                     <TextBox Text="{Binding Session.Metadata[IMG_SECUENCIA], Mode=TwoWay}"
-                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
-                                                             Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
+                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
                                                 </StackPanel>
                                                 <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                         BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
@@ -1154,25 +1176,25 @@
                                     </StackPanel>
                                 </Border>
                                 <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_SEQ_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
-                                              ItemsSource="{Binding Session.Metadata[BLOQUE_SEQ_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_SEQ_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
+                                              Tag="BLOQUE_SEQ_ITEMS">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
                                                 <StackPanel>
                                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                                         <TextBlock Text="8.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
-                                                        <TextBlock Text="{Binding [CU_ID_SEQ]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
+                                                        <TextBox Text="{Binding [CU_ID_SEQ], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
                                                         <TextBlock Text=" : " FontSize="12" Foreground="#374151" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding [CU_NOM_SEQ]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                        <TextBox Text="{Binding [CU_NOM_SEQ], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
                                                     </StackPanel>
-                                                    <TextBlock Text="{Binding [CU_DESC_SEQ]}"
-                                                               TextWrapping="Wrap"
-                                                               TextAlignment="Justify"
-                                                               Margin="0,0,0,10"/>
+                                                    <TextBox Text="{Binding [CU_DESC_SEQ], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Style="{StaticResource DynamicItemTextStyle}"
+                                                             TextAlignment="Justify"
+                                                             Margin="0,0,0,10"/>
                                                     <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
                                                         <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" MinHeight="120">
-                                                            <TextBox Text="{Binding [IMG_SECUENCIA]}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" IsReadOnly="True"
-                                                                     Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"/>
+                                                            <TextBox Text="{Binding [IMG_SECUENCIA], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" HorizontalAlignment="Left"/>
                                                             <Border Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InvBoolToVis}}"
                                                                     BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
                                                                 <conv:KrokiSvgBrowser DiagramCode="{Binding [IMG_SECUENCIA]}" Height="260" HorizontalAlignment="Stretch"/>
@@ -1231,8 +1253,7 @@
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
                                                     <md:PackIcon Kind="ImageOutline" Foreground="#2563EB" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                                     <TextBox Text="{Binding Session.Metadata[IMG_ESTADO], Mode=TwoWay}"
-                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"
-                                                             Visibility="{Binding ShowKrokiCode, Converter={StaticResource BoolToVis}}"/>
+                                                             Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
                                                 </StackPanel>
                                                 <Border Visibility="{Binding ShowKrokiCode, Converter={StaticResource InvBoolToVis}}"
                                                         BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
@@ -1244,25 +1265,25 @@
                                     </StackPanel>
                                 </Border>
                                 <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_EST_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
-                                              ItemsSource="{Binding Session.Metadata[BLOQUE_EST_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_EST_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
+                                              Tag="BLOQUE_EST_ITEMS">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border BorderBrush="Black" BorderThickness="1" Background="White" Margin="0,0,0,8" Padding="16">
                                                 <StackPanel>
                                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                                         <TextBlock Text="9.X " FontSize="12" FontWeight="Bold" FontFamily="Cambria" Foreground="#374151"/>
-                                                        <TextBlock Text="{Binding [CU_ID_EST]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
+                                                        <TextBox Text="{Binding [CU_ID_EST], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
                                                         <TextBlock Text=" : " FontSize="12" Foreground="#374151" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding [CU_NOM_EST]}" FontSize="12" FontWeight="Bold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                        <TextBox Text="{Binding [CU_NOM_EST], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="12" FontWeight="Bold" Foreground="#2563EB"/>
                                                     </StackPanel>
-                                                    <TextBlock Text="{Binding [CU_DESC_EST]}"
-                                                               TextWrapping="Wrap"
-                                                               TextAlignment="Justify"
-                                                               Margin="0,0,0,10"/>
+                                                    <TextBox Text="{Binding [CU_DESC_EST], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Style="{StaticResource DynamicItemTextStyle}"
+                                                             TextAlignment="Justify"
+                                                             Margin="0,0,0,10"/>
                                                     <Border BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="0,12,0,0">
                                                         <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Center" MinHeight="120">
-                                                            <TextBox Text="{Binding [IMG_ESTADO]}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" IsReadOnly="True"
-                                                                     Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"/>
+                                                            <TextBox Text="{Binding [IMG_ESTADO], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" HorizontalAlignment="Left"/>
                                                             <Border Visibility="{Binding DataContext.ShowKrokiCode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InvBoolToVis}}"
                                                                     BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8" Background="White" Margin="0,0,0,6">
                                                                 <conv:KrokiSvgBrowser DiagramCode="{Binding [IMG_ESTADO]}" Height="260" HorizontalAlignment="Stretch"/>
@@ -1401,18 +1422,19 @@
                                     </StackPanel>
                                 </Border>
                                 <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CAPAS_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
-                                              ItemsSource="{Binding Session.Metadata[BLOQUE_CAPAS_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_CAPAS_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
+                                              Tag="BLOQUE_CAPAS_ITEMS">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Background="#F9FAFB" BorderBrush="Black" BorderThickness="1" Padding="16" Margin="0,0,0,8">
                                                 <StackPanel>
                                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                                         <TextBlock Text="Nombre: " FontWeight="Bold" FontSize="12"/>
-                                                        <TextBlock Text="{Binding [CAPA_NOM]}" FontWeight="SemiBold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                        <TextBox Text="{Binding [CAPA_NOM], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontWeight="SemiBold" Foreground="#2563EB"/>
                                                     </StackPanel>
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="Descripción: " FontStyle="Italic" FontSize="12"/>
-                                                        <TextBlock Text="{Binding [CAPA_DESC]}" TextWrapping="Wrap"/>
+                                                        <TextBox Text="{Binding [CAPA_DESC], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}"/>
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Border>
@@ -1479,18 +1501,19 @@
                                     </StackPanel>
                                 </Border>
                                 <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_COMP_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
-                                              ItemsSource="{Binding Session.Metadata[BLOQUE_COMP_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_COMP_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
+                                              Tag="BLOQUE_COMP_ITEMS">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Background="#F3F4F6" BorderBrush="#9CA3AF" BorderThickness="1" Padding="12,8" Margin="0,0,0,8">
                                                 <StackPanel Orientation="Horizontal">
                                                     <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
                                                         <TextBlock Text="Nombre: " FontWeight="Bold" FontSize="11" Foreground="#1E40AF" TextDecorations="Underline"/>
-                                                        <TextBlock Text="{Binding [COMP_NOM]}" FontWeight="SemiBold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                        <TextBox Text="{Binding [COMP_NOM], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontWeight="SemiBold" Foreground="#2563EB"/>
                                                     </StackPanel>
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="Descripción: " FontStyle="Italic" FontSize="11"/>
-                                                        <TextBlock Text="{Binding [COMP_DESC]}" TextWrapping="Wrap"/>
+                                                        <TextBox Text="{Binding [COMP_DESC], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}"/>
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Border>
@@ -1577,7 +1600,8 @@
                                     </StackPanel>
                                 </Border>
                                 <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CLASE_DET_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
-                                              ItemsSource="{Binding Session.Metadata[BLOQUE_CLASE_DET_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}">
+                                              ItemsSource="{Binding Session.Metadata[BLOQUE_CLASE_DET_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
+                                              Tag="BLOQUE_CLASE_DET_ITEMS">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border BorderBrush="Black" BorderThickness="1" Margin="0,0,0,16" Padding="16">
@@ -1585,7 +1609,7 @@
                                                     <Border Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="12,8" Margin="0,0,0,12">
                                                         <StackPanel Orientation="Horizontal">
                                                             <TextBlock Text="Clase: " FontSize="15" FontWeight="Bold"/>
-                                                            <TextBlock Text="{Binding [CLASE_TITULO]}" FontSize="13" FontWeight="SemiBold" Foreground="#2563EB" TextWrapping="Wrap"/>
+                                                            <TextBox Text="{Binding [CLASE_TITULO], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="13" FontWeight="SemiBold" Foreground="#2563EB"/>
                                                         </StackPanel>
                                                     </Border>
                                                     <Grid>
@@ -1595,13 +1619,13 @@
                                                             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                                                         </Grid.RowDefinitions>
                                                         <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Atributos" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CLASE_ATRIB]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBox Text="{Binding [CLASE_ATRIB], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
                                                         <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Operaciones" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CLASE_OPER]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBox Text="{Binding [CLASE_OPER], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
                                                         <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource LabelCellStyle}"><TextBlock Text="Agregación" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBlock Text="{Binding [CLASE_AGREG]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource ValueCellStyle}"><TextBox Text="{Binding [CLASE_AGREG], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
                                                         <Border Grid.Row="3" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="12,10" Background="#F9FAFB"><TextBlock Text="Asociación" FontWeight="Bold" FontSize="11"/></Border>
-                                                        <Border Grid.Row="3" Grid.Column="1" Padding="12,10"><TextBlock Text="{Binding [CLASE_ASOC]}" TextWrapping="Wrap" Margin="2"/></Border>
+                                                        <Border Grid.Row="3" Grid.Column="1" Padding="12,10"><TextBox Text="{Binding [CLASE_ASOC], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" Margin="2"/></Border>
                                                     </Grid>
                                                 </StackPanel>
                                             </Border>
@@ -1670,7 +1694,12 @@
                                 <TextBlock Text="8.2  Descripción de tablas" FontSize="13" FontWeight="Bold" FontStyle="Italic" Foreground="#374151" FontFamily="Cambria" Margin="0,0,0,8"/>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_DICC_TABLA_INICIO], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
-                                <StackPanel Margin="0,0,0,16">
+                                <TextBox Text="{Binding Session.Metadata[BLOQUE_DICC_TABLA_ITEMS], Mode=TwoWay}"
+                                         Style="{StaticResource DocTagStyle}" HorizontalAlignment="Stretch" Margin="0,0,0,8"/>
+
+                                <!-- Fallback legacy (1 tabla) cuando no existe JSON dinámico -->
+                                <StackPanel Margin="0,0,0,16"
+                                            Visibility="{Binding Session.Metadata[BLOQUE_DICC_TABLA_ITEMS], Converter={StaticResource StringToVisInv}}">
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                         <TextBlock Text="Tabla X: " FontSize="13" FontWeight="Bold" FontFamily="Cambria" Foreground="#111827"/>
                                         <TextBox Text="{Binding Session.Metadata[DICC_TABLA_TITULO], Mode=TwoWay}"
@@ -1690,16 +1719,13 @@
                                                 <RowDefinition Height="Auto"/>
                                                 <RowDefinition Height="Auto"/>
                                             </Grid.RowDefinitions>
-                                            <!-- Header -->
                                             <Border Grid.Row="0" Grid.Column="0" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6"><TextBlock Text="CAMPO" FontWeight="Bold" FontSize="9"/></Border>
                                             <Border Grid.Row="0" Grid.Column="1" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6"><TextBlock Text="TIPO DE DATO" FontWeight="Bold" FontSize="9"/></Border>
                                             <Border Grid.Row="0" Grid.Column="2" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6"><TextBlock Text="PK" FontWeight="Bold" FontSize="9" HorizontalAlignment="Center"/></Border>
                                             <Border Grid.Row="0" Grid.Column="3" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="8,6"><TextBlock Text="DESCRIPCIÓN" FontWeight="Bold" FontSize="9"/></Border>
-                                            <!-- BLOQUE_COL_INICIO -->
                                             <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Background="#EFF6FF" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="8,4">
                                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_COL_INICIO], Mode=TwoWay}" Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Center" Margin="0"/>
                                             </Border>
-                                            <!-- Fila de datos -->
                                             <Border Grid.Row="2" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6">
                                                 <TextBox Text="{Binding Session.Metadata[COL_NOM], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left" FontWeight="Bold"/>
                                             </Border>
@@ -1712,13 +1738,50 @@
                                             <Border Grid.Row="2" Grid.Column="3" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="8,6">
                                                 <TextBox Text="{Binding Session.Metadata[COL_DESC], Mode=TwoWay}" Style="{StaticResource DocTagStyle}" HorizontalAlignment="Left"/>
                                             </Border>
-                                            <!-- BLOQUE_COL_FIN -->
                                             <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4" Background="#EFF6FF" Padding="8,4">
                                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_COL_FIN], Mode=TwoWay}" Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Center" Margin="0"/>
                                             </Border>
                                         </Grid>
                                     </Border>
                                 </StackPanel>
+
+                                <!-- Render dinámico: múltiples tablas desde BLOQUE_DICC_TABLA_ITEMS -->
+                                <ItemsControl ItemsSource="{Binding Session.Metadata[BLOQUE_DICC_TABLA_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
+                                              Margin="0,0,0,16"
+                                              Visibility="{Binding Session.Metadata[BLOQUE_DICC_TABLA_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                              Tag="BLOQUE_DICC_TABLA_ITEMS">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,0,12">
+                                                <TextBox Text="{Binding [DICC_TABLA_TITULO], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         Style="{StaticResource DynamicItemTextStyle}"
+                                                         FontSize="13" FontWeight="Bold" FontFamily="Cambria" Foreground="#111827" Margin="0,0,0,6"/>
+                                                <Border BorderBrush="Black" BorderThickness="1">
+                                                    <Grid Background="White">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="120"/>
+                                                            <ColumnDefinition Width="50"/>
+                                                            <ColumnDefinition Width="2*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <Border Grid.Row="0" Grid.Column="0" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6"><TextBlock Text="CAMPO" FontWeight="Bold" FontSize="9"/></Border>
+                                                        <Border Grid.Row="0" Grid.Column="1" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6"><TextBlock Text="TIPO DE DATO" FontWeight="Bold" FontSize="9"/></Border>
+                                                        <Border Grid.Row="0" Grid.Column="2" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,1,1" Padding="8,6"><TextBlock Text="PK" FontWeight="Bold" FontSize="9" HorizontalAlignment="Center"/></Border>
+                                                        <Border Grid.Row="0" Grid.Column="3" Background="#F3F4F6" BorderBrush="Black" BorderThickness="0,0,0,1" Padding="8,6"><TextBlock Text="DESCRIPCIÓN" FontWeight="Bold" FontSize="9"/></Border>
+                                                        <Border Grid.Row="1" Grid.Column="0" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="8,6"><TextBox Text="{Binding [COL_NOM], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="11"/></Border>
+                                                        <Border Grid.Row="1" Grid.Column="1" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="8,6"><TextBox Text="{Binding [COL_TIPO], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="11"/></Border>
+                                                        <Border Grid.Row="1" Grid.Column="2" BorderBrush="Black" BorderThickness="0,0,1,0" Padding="8,6"><TextBox Text="{Binding [COL_PK], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="11" HorizontalAlignment="Center"/></Border>
+                                                        <Border Grid.Row="1" Grid.Column="3" BorderBrush="Black" BorderThickness="0,0,0,0" Padding="8,6"><TextBox Text="{Binding [COL_DESC], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DynamicItemTextStyle}" FontSize="11"/></Border>
+                                                    </Grid>
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <TextBox Text="{Binding Session.Metadata[BLOQUE_DICC_TABLA_FIN], Mode=TwoWay}"
                                          Style="{StaticResource BlockTagStyle}" HorizontalAlignment="Left" Margin="0,0,0,24"/>
 

@@ -1,6 +1,10 @@
 using Chapi.Presentation.ViewModels;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Input;
 
 namespace Chapi.Presentation.Views.Tabs;
@@ -93,6 +97,46 @@ public partial class DocumentationView : UserControl
     {
         if (e.Key == Key.Enter)
             AiGenerateButton_Click(sender, e);
+    }
+
+    private async void DynamicItemTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox textBox)
+            return;
+
+        var itemsControl = FindAncestor<ItemsControl>(textBox);
+        if (itemsControl?.Tag is not string itemsKey || string.IsNullOrWhiteSpace(itemsKey))
+            return;
+
+        _viewModel ??= DataContext as DocumentationViewModel;
+        if (_viewModel == null || _viewModel.Session?.Metadata == null)
+            return;
+
+        var rows = new List<Dictionary<string, string>>();
+        foreach (var item in itemsControl.Items)
+        {
+            if (item is not IDictionary<string, string> row)
+                continue;
+
+            rows.Add(row.ToDictionary(kvp => kvp.Key, kvp => kvp.Value ?? string.Empty, StringComparer.OrdinalIgnoreCase));
+        }
+
+        _viewModel.Session.Metadata[itemsKey] = JsonSerializer.Serialize(rows);
+        await _viewModel.RefreshPreviewAsync();
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? child) where T : DependencyObject
+    {
+        var current = child;
+        while (current != null)
+        {
+            if (current is T typed)
+                return typed;
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
     }
 
     public void NavigatePreview()

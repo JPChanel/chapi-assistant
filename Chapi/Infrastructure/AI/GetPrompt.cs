@@ -428,6 +428,27 @@ public class GetPrompt
         19. Regla general para cualquier diagrama (IMG_*/DIAGRAMA_*): no inventes actores, fases, componentes o relaciones que no esten sustentados en el contexto.
         20. Si faltan detalles, usa una representacion general y conservadora, manteniendo coherencia funcional y trazabilidad con las claves CU/PQ/ACT/SEQ/EST.
         21. Preferencia de granularidad: si no hay evidencia clara de multiples procesos/actores/fases, genera un solo diagrama general por tipo; solo divide en varios cuando el contexto lo justifique explícitamente.
+        22. Caso especial BLOQUE_DICC_TABLA_ITEMS (diccionario de datos de multiples tablas):
+            - Devuelve un JSON ARRAY de objetos.
+            - Cada objeto debe tener EXACTAMENTE estas claves:
+              {{
+                ""DICC_TABLA_TITULO"": ""Nombre de tabla"",
+                ""COL_NOM"": ""columna1\\ncolumna2\\ncolumna3"",
+                ""COL_TIPO"": ""tipo1\\ntipo2\\ntipo3"",
+                ""COL_PK"": ""SI\\nNO\\nNO"",
+                ""COL_DESC"": ""descripcion1\\ndescripcion2\\ndescripcion3""
+              }}
+            - Genera un objeto por cada tabla identificada en el contexto.
+            - Si hay evidencia parcial, incluye solo las tablas confirmadas (no inventes tablas).
+        23. Caso especial de listados de objetos BD (TABLA_OBJ_PQ, TABLA_OBJ_PROC, TABLA_OBJ_VISTAS, TABLA_OBJ_FUNC, TABLA_OBJ_IDX):
+            - Usa unicamente objetos existentes en el contexto.
+            - Prioriza el bloque [DB_OBJECTS] del contexto.
+            - Si no hay objetos para una clave, retorna ""No identificado en contexto"".
+            - No inventes procedimientos, funciones, vistas, paquetes ni indices.
+        24. Si existe TABLA_DICC_RESUMEN:
+            - Lista TODAS las tablas detectadas en contexto.
+            - Formato sugerido: ""tabla_a; tabla_b; tabla_c"".
+            - Si no hay tablas detectadas, retorna ""No identificado en contexto"".
 
         CLAVES REQUERIDAS (Genera el contenido óptimo para cada una):
         {jsonKeys}

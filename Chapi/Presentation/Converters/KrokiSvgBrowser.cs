@@ -1,68 +1,74 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using Microsoft.Web.WebView2.Wpf;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace Chapi.Presentation.Converters;
 
 /// <summary>
-/// Muestra diagramas Kroki como SVG en la UI (preview nítido).
-/// Para exportación Word se sigue usando PNG en OpenXmlExportService.
+/// PNG-only Kroki renderer for stable behavior in WPF.
 /// </summary>
 public class KrokiSvgBrowser : UserControl
 {
+    private const int PngScale = 2;
+
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
-    private static readonly ConcurrentDictionary<string, string> HtmlCache = new();
-    private readonly WebView2 _webView;
-    private readonly WebBrowser _legacyBrowser;
-    private bool _webViewReady;
-    private bool _useLegacyBrowser;
-    private string? _pendingHtml;
+    private static readonly ConcurrentDictionary<string, byte[]> PngCache = new();
+
+    private readonly Grid _root;
+    private readonly Image _image;
+    private readonly TextBlock _message;
+    private int _renderVersion;
 
     public KrokiSvgBrowser()
     {
-        _webView = new WebView2();
-        _legacyBrowser = new WebBrowser();
-        Content = _webView;
+        _image = new Image
+        {
+            Stretch = Stretch.Uniform,
+            StretchDirection = StretchDirection.Both,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            SnapsToDevicePixels = true
+        };
+        RenderOptions.SetBitmapScalingMode(_image, BitmapScalingMode.HighQuality);
+
+        _message = new TextBlock
+        {
+            Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#B91C1C")),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(10),
+            Visibility = Visibility.Collapsed
+        };
+
+        _root = new Grid
+        {
+            Background = Brushes.White,
+            ClipToBounds = true
+        };
+        _root.Children.Add(_image);
+        _root.Children.Add(_message);
+        Panel.SetZIndex(_message, 1);
+
+        Content = _root;
         HorizontalAlignment = HorizontalAlignment.Stretch;
         VerticalAlignment = VerticalAlignment.Stretch;
         ClipToBounds = true;
-        MinWidth = 520;
-        Loaded += OnLoaded;
-    }
+        SnapsToDevicePixels = true;
+        UseLayoutRounding = true;
 
-    private async void OnLoaded(object sender, RoutedEventArgs e)
-    {
-        if (!_webViewReady && !_useLegacyBrowser)
-        {
-            try
-            {
-                await _webView.EnsureCoreWebView2Async();
-                _webViewReady = true;
-            }
-            catch
-            {
-                _useLegacyBrowser = true;
-                Content = _legacyBrowser;
-                _legacyBrowser.NavigateToString(GetErrorHtml("WebView2 no disponible. Instala Microsoft Edge WebView2 Runtime para ver SVG."));
-                return;
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(_pendingHtml))
-        {
-            NavigateHtml(_pendingHtml);
-            _pendingHtml = null;
-            return;
-        }
-
-        _ = RenderAsync(DiagramCode);
+        Loaded += (_, _) => _ = RenderAsync(DiagramCode);
     }
 
     public static readonly DependencyProperty DiagramCodeProperty =
@@ -81,78 +87,145 @@ public class KrokiSvgBrowser : UserControl
     private static void OnDiagramCodeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is not KrokiSvgBrowser browser) return;
-        var raw = e.NewValue as string;
-        _ = browser.RenderAsync(raw);
+        _ = browser.RenderAsync(e.NewValue as string);
     }
 
     private async Task RenderAsync(string? raw)
     {
+        var currentVersion = Interlocked.Increment(ref _renderVersion);
+
         try
         {
             var (code, hint) = NormalizeInput(raw ?? string.Empty);
             if (string.IsNullOrWhiteSpace(code))
             {
-                NavigateHtml(GetEmptyHtml());
+                ClearDiagram();
                 return;
             }
 
             var format = DetectFormat(code, hint);
             var preparedCode = PrepareCodeForKroki(code, format);
-            var cacheKey = $"{format}:{preparedCode}";
-            if (HtmlCache.TryGetValue(cacheKey, out var cached))
+            var cacheKey = $"{format}:{preparedCode}:png{PngScale}";
+            if (PngCache.TryGetValue(cacheKey, out var cached))
             {
-                NavigateHtml(cached);
+                SetPng(cached, currentVersion);
                 return;
             }
 
-            var svg = await RenderSvgAsync(preparedCode, format);
-            if (string.Equals(format, "plantuml", StringComparison.OrdinalIgnoreCase) &&
-                (!IsValidSvg(svg) || LooksLikeKrokiErrorSvg(svg)))
+            byte[]? png = null;
+            foreach (var candidate in BuildCandidateCodes(code, preparedCode, format))
             {
-                if (TryBuildPackageListDiagram(code, out var packageFallback) &&
-                    !string.Equals(packageFallback, preparedCode, StringComparison.Ordinal))
-                {
-                    svg = await RenderSvgAsync(packageFallback, format);
-                }
-
+                var svg = await RenderSvgAsync(candidate, format);
                 if (!IsValidSvg(svg) || LooksLikeKrokiErrorSvg(svg))
-                {
-                    var fallback = BuildFallbackUseCaseLikeDiagram(preparedCode);
-                    if (!string.IsNullOrWhiteSpace(fallback))
-                    {
-                        svg = await RenderSvgAsync(fallback, format);
-                    }
-                }
+                    continue;
+
+                png = await RenderPngAsync(candidate, format);
+                if (png is { Length: > 0 })
+                    break;
             }
 
-            var html = WrapSvgInHtml(svg);
-            if (IsValidSvg(svg) && !LooksLikeKrokiErrorSvg(svg))
-                HtmlCache[cacheKey] = html;
-            else
-                HtmlCache.TryRemove(cacheKey, out _);
-            NavigateHtml(html);
+            if (png is not { Length: > 0 })
+            {
+                ShowMessage("No se pudo renderizar el diagrama.");
+                return;
+            }
+
+            PngCache[cacheKey] = png;
+            SetPng(png, currentVersion);
         }
         catch
         {
-            NavigateHtml(GetErrorHtml("No se pudo renderizar el diagrama SVG."));
+            ShowMessage("No se pudo renderizar el diagrama.");
         }
     }
 
-    private void NavigateHtml(string html)
+    private static List<string> BuildCandidateCodes(string originalCode, string preparedCode, string format)
     {
-        if (_useLegacyBrowser)
+        var candidates = new List<string> { preparedCode };
+
+        if (!string.Equals(format, "plantuml", StringComparison.OrdinalIgnoreCase))
+            return candidates;
+
+        if (TryBuildPackageListDiagram(originalCode, out var packageFallback) &&
+            !string.Equals(packageFallback, preparedCode, StringComparison.Ordinal))
         {
-            _legacyBrowser.NavigateToString(html);
-            return;
+            candidates.Add(packageFallback);
         }
 
-        if (_webViewReady && _webView.CoreWebView2 != null)
+        var useCaseFallback = BuildFallbackUseCaseLikeDiagram(preparedCode);
+        if (!string.IsNullOrWhiteSpace(useCaseFallback) &&
+            !string.Equals(useCaseFallback, preparedCode, StringComparison.Ordinal))
         {
-            _webView.NavigateToString(html);
-            return;
+            candidates.Add(useCaseFallback);
         }
 
-        _pendingHtml = html;
+        return candidates.Distinct(StringComparer.Ordinal).ToList();
+    }
+
+    private void ClearDiagram()
+    {
+        _image.Source = null;
+        _message.Text = string.Empty;
+        _message.Visibility = Visibility.Collapsed;
+    }
+
+    private void SetPng(byte[] png, int version)
+    {
+        if (version != _renderVersion)
+            return;
+
+        try
+        {
+            _image.Source = CreateBitmapSource(png);
+            _message.Text = string.Empty;
+            _message.Visibility = Visibility.Collapsed;
+        }
+        catch
+        {
+            ShowMessage("No se pudo renderizar el diagrama.");
+        }
+    }
+
+    private void ShowMessage(string text)
+    {
+        _image.Source = null;
+        _message.Text = text;
+        _message.Visibility = Visibility.Visible;
+    }
+
+    private static BitmapSource CreateBitmapSource(byte[] pngBytes)
+    {
+        using var stream = new MemoryStream(pngBytes);
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+        bitmap.StreamSource = stream;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
+    }
+
+    private static async Task<byte[]?> RenderPngAsync(string source, string format)
+    {
+        var url = $"https://kroki.io/{format}/png?scale={PngScale}";
+
+        using var plain = new StringContent(source ?? string.Empty, Encoding.UTF8, "text/plain");
+        using var plainRequest = new HttpRequestMessage(HttpMethod.Post, url) { Content = plain };
+        plainRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("image/png"));
+        var response = await Http.SendAsync(plainRequest);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadAsByteArrayAsync();
+
+        var payload = new { diagram_source = source };
+        using var json = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        using var jsonRequest = new HttpRequestMessage(HttpMethod.Post, url) { Content = json };
+        jsonRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("image/png"));
+        response = await Http.SendAsync(jsonRequest);
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        return await response.Content.ReadAsByteArrayAsync();
     }
 
     private static async Task<string?> RenderSvgAsync(string source, string format)
@@ -166,7 +239,6 @@ public class KrokiSvgBrowser : UserControl
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadAsStringAsync();
 
-        // Fallback JSON (compatibilidad)
         var payload = new { diagram_source = source };
         using var json = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
         using var jsonRequest = new HttpRequestMessage(HttpMethod.Post, url) { Content = json };
@@ -190,34 +262,6 @@ public class KrokiSvgBrowser : UserControl
         return svg.Contains("Syntax Error", StringComparison.OrdinalIgnoreCase) ||
                svg.Contains("PlantUML", StringComparison.OrdinalIgnoreCase) && svg.Contains("Error", StringComparison.OrdinalIgnoreCase);
     }
-
-    private static string WrapSvgInHtml(string? svg)
-    {
-        if (!IsValidSvg(svg))
-            return GetErrorHtml("Diagrama no disponible.");
-
-        return "<html>" +
-               "<head>" +
-               "<meta charset=\"utf-8\" />" +
-               "<style>" +
-               "html, body { margin:0; padding:0; background:#fff; overflow:auto; }" +
-               ".wrap { display:flex; justify-content:center; align-items:flex-start; padding:6px; }" +
-               "svg { max-width:100%; height:auto; }" +
-               "</style>" +
-               "</head>" +
-               "<body><div class=\"wrap\">" + svg + "</div></body>" +
-               "</html>";
-    }
-
-    private static string GetEmptyHtml() =>
-        """
-        <html><body style="margin:0;background:#fff;"></body></html>
-        """;
-
-    private static string GetErrorHtml(string message) =>
-        "<html><body style=\"margin:0;padding:10px;background:#fff;color:#b91c1c;font-family:Segoe UI,Arial,sans-serif;font-size:12px;\">" +
-        System.Net.WebUtility.HtmlEncode(message) +
-        "</body></html>";
 
     private static (string Code, string? FormatHint) NormalizeInput(string raw)
     {
@@ -267,10 +311,10 @@ public class KrokiSvgBrowser : UserControl
     {
         var normalized = (code ?? string.Empty)
             .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('“', '"')
-            .Replace('”', '"')
-            .Replace('‘', '\'')
-            .Replace('’', '\'')
+            .Replace("\u201C", "\"", StringComparison.Ordinal)
+            .Replace("\u201D", "\"", StringComparison.Ordinal)
+            .Replace("\u2018", "'", StringComparison.Ordinal)
+            .Replace("\u2019", "'", StringComparison.Ordinal)
             .Trim();
 
         if (normalized.Contains("\\n", StringComparison.Ordinal) && !normalized.Contains('\n'))
@@ -332,7 +376,7 @@ public class KrokiSvgBrowser : UserControl
         sb.AppendLine("left to right direction");
         sb.AppendLine("skinparam packageStyle rectangle");
         sb.AppendLine("skinparam shadowing false");
-        sb.AppendLine("rectangle \"Vista lógica\" {");
+        sb.AppendLine("rectangle \"Vista logica\" {");
         for (int i = 0; i < candidates.Count; i++)
         {
             var label = candidates[i].Replace("\"", "'");
@@ -366,7 +410,7 @@ public class KrokiSvgBrowser : UserControl
     private static List<string> ExtractPackageCandidates(string source)
     {
         var tokens = Regex.Split(source, "[,;\\n\\r|]+")
-            .Select(t => Regex.Replace(t, "^\\s*[-*•\\d\\.)\\(]+\\s*", string.Empty))
+            .Select(t => Regex.Replace(t, "^\\s*[-*Ã¢â‚¬Â¢\\d\\.)\\(]+\\s*", string.Empty))
             .Select(t => Regex.Replace(t, "\\s+", " ").Trim())
             .Where(t => !string.IsNullOrWhiteSpace(t))
             .Distinct(StringComparer.OrdinalIgnoreCase)

@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Chapi.Application.Interfaces;
 using Chapi.Domain.Documentation;
@@ -39,6 +40,21 @@ public class OpenXmlExportService : IDocumentExportService
             if (mainPart?.Document?.Body == null) return false;
 
             var tags = BuildTagMap(session);
+            var bodyBlockStarts = GetBlockStartTags(mainPart.Document.Body);
+
+            ExpandDynamicBlocksInContainer(mainPart.Document.Body, tags);
+            foreach (var headerPart in mainPart.HeaderParts)
+            {
+                if (headerPart.Header != null)
+                    ExpandDynamicBlocksInContainer(headerPart.Header, tags);
+            }
+            foreach (var footerPart in mainPart.FooterParts)
+            {
+                if (footerPart.Footer != null)
+                    ExpandDynamicBlocksInContainer(footerPart.Footer, tags);
+            }
+
+            AppendMissingDynamicBlockFallbacks(mainPart.Document.Body, tags, bodyBlockStarts);
 
             await HandleImagesInContainerAsync(mainPart, mainPart.Document.Body, tags);
             foreach (var headerPart in mainPart.HeaderParts)
@@ -114,6 +130,382 @@ public class OpenXmlExportService : IDocumentExportService
 
     private static bool IsPendingPlaceholder(string value) =>
         !string.IsNullOrWhiteSpace(value) && value.StartsWith("[") && value.EndsWith("]");
+
+    private static void ExpandDynamicBlocksInContainer(OpenXmlElement container, Dictionary<string, string> tags)
+    {
+        if (container is not OpenXmlCompositeElement composite)
+            return;
+
+        var imageTagCounters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        ExpandDynamicBlocksRecursive(composite, tags, imageTagCounters);
+    }
+
+    private static void ExpandDynamicBlocksRecursive(
+        OpenXmlCompositeElement parent,
+        Dictionary<string, string> tags,
+        Dictionary<string, int> imageTagCounters)
+    {
+        while (TryExpandOneDynamicBlock(parent, tags, imageTagCounters))
+        {
+            // Expandimos repetidamente hasta que no queden bloques INICIO/FIN en este nivel.
+        }
+
+        foreach (var child in parent.Elements<OpenXmlCompositeElement>().ToList())
+            ExpandDynamicBlocksRecursive(child, tags, imageTagCounters);
+    }
+
+    private static bool TryExpandOneDynamicBlock(
+        OpenXmlCompositeElement parent,
+        Dictionary<string, string> tags,
+        Dictionary<string, int> imageTagCounters)
+    {
+        var children = parent.ChildElements.ToList();
+        for (var i = 0; i < children.Count; i++)
+        {
+            if (children[i] is not Paragraph startParagraph)
+                continue;
+
+            if (!TryGetBlockStartKey(startParagraph, out var startKey))
+                continue;
+
+            var endKey = startKey.Replace("_INICIO", "_FIN", StringComparison.OrdinalIgnoreCase);
+            var itemsKey = startKey.Replace("_INICIO", "_ITEMS", StringComparison.OrdinalIgnoreCase);
+            var endIndex = FindBlockEndIndex(children, i + 1, endKey);
+            if (endIndex < 0)
+                continue;
+
+            var templateNodes = children
+                .Skip(i + 1)
+                .Take(endIndex - i - 1)
+                .ToList();
+
+            var rows = ParseDynamicRows(tags.TryGetValue(itemsKey, out var rawItems) ? rawItems : string.Empty);
+            if (rows.Count > 0)
+            {
+                var endNode = children[endIndex];
+                for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+                {
+                    foreach (var templateNode in templateNodes)
+                    {
+                        var clone = templateNode.CloneNode(true);
+                        ApplyRowDataToElement(
+                            clone,
+                            rows[rowIndex],
+                            tags,
+                            itemsKey,
+                            rowIndex + 1,
+                            imageTagCounters);
+                        parent.InsertBefore(clone, endNode);
+                    }
+                }
+
+                foreach (var templateNode in templateNodes)
+                    templateNode.Remove();
+            }
+
+            // Los marcadores no deben quedar en el documento final.
+            children[i].Remove();
+            children[endIndex].Remove();
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetBlockStartKey(Paragraph paragraph, out string startKey)
+    {
+        startKey = string.Empty;
+        var text = GetParagraphText(paragraph);
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var match = Regex.Match(text, @"\[(?<key>BLOQUE_[A-Z0-9_]+_INICIO)\]", RegexOptions.IgnoreCase);
+        if (!match.Success)
+            return false;
+
+        startKey = match.Groups["key"].Value.ToUpperInvariant();
+        return true;
+    }
+
+    private static int FindBlockEndIndex(IReadOnlyList<OpenXmlElement> nodes, int startIndex, string endKey)
+    {
+        for (var i = startIndex; i < nodes.Count; i++)
+        {
+            if (nodes[i] is not Paragraph paragraph)
+                continue;
+
+            var text = GetParagraphText(paragraph);
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            if (text.Contains($"[{endKey}]", StringComparison.OrdinalIgnoreCase))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private static string GetParagraphText(Paragraph paragraph) =>
+        string.Concat(paragraph.Descendants<Text>().Select(t => t.Text));
+
+    private static List<Dictionary<string, string>> ParseDynamicRows(string raw)
+    {
+        var rows = new List<Dictionary<string, string>>();
+        if (string.IsNullOrWhiteSpace(raw))
+            return rows;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return rows;
+
+            foreach (var item in doc.RootElement.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                var row = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var prop in item.EnumerateObject())
+                {
+                    row[prop.Name] = prop.Value.ValueKind switch
+                    {
+                        JsonValueKind.String => prop.Value.GetString() ?? string.Empty,
+                        JsonValueKind.Array or JsonValueKind.Object => prop.Value.GetRawText(),
+                        JsonValueKind.True => "true",
+                        JsonValueKind.False => "false",
+                        JsonValueKind.Null or JsonValueKind.Undefined => string.Empty,
+                        _ => prop.Value.ToString()
+                    };
+                }
+
+                rows.Add(row);
+            }
+        }
+        catch (JsonException)
+        {
+            // Si el JSON es inválido, conservamos el bloque una sola vez (fallback).
+        }
+
+        return rows;
+    }
+
+    private static void ApplyRowDataToElement(
+        OpenXmlElement element,
+        IReadOnlyDictionary<string, string> rowData,
+        Dictionary<string, string> tags,
+        string itemsKey,
+        int rowIndex,
+        Dictionary<string, int> imageTagCounters)
+    {
+        foreach (var paragraph in element.Descendants<Paragraph>())
+        {
+            var textNodes = paragraph.Descendants<Text>().ToList();
+            if (textNodes.Count == 0)
+                continue;
+
+            var paragraphText = string.Concat(textNodes.Select(t => t.Text));
+            if (string.IsNullOrWhiteSpace(paragraphText))
+                continue;
+
+            var replacedAny = false;
+            var hasLongValue = false;
+            var replaced = Regex.Replace(
+                paragraphText,
+                @"\[(?<key>[A-Z0-9_]+)\]",
+                match =>
+                {
+                    var key = match.Groups["key"].Value;
+                    if (!rowData.TryGetValue(key, out var value))
+                        return match.Value;
+
+                    replacedAny = true;
+                    value ??= string.Empty;
+                    if (value.Length >= 80)
+                        hasLongValue = true;
+
+                    if (!IsImageKey(key))
+                        return value;
+
+                    if (string.IsNullOrWhiteSpace(value))
+                        return string.Empty;
+
+                    var uniqueImageKey = CreateUniqueImageTagKey(key, itemsKey, rowIndex, imageTagCounters);
+                    tags[uniqueImageKey] = value;
+                    return $"[{uniqueImageKey}]";
+                },
+                RegexOptions.CultureInvariant);
+
+            if (!string.Equals(paragraphText, replaced, StringComparison.Ordinal))
+            {
+                RewriteParagraphText(paragraph, replaced);
+                NormalizeParagraphFormatting(paragraph, justify: replacedAny && hasLongValue);
+            }
+        }
+    }
+
+    private static bool IsImageKey(string key) =>
+        key.StartsWith("IMG_", StringComparison.OrdinalIgnoreCase) ||
+        key.StartsWith("DIAGRAMA_", StringComparison.OrdinalIgnoreCase);
+
+    private static string CreateUniqueImageTagKey(
+        string baseKey,
+        string itemsKey,
+        int rowIndex,
+        Dictionary<string, int> counters)
+    {
+        var safeItemsKey = Regex.Replace(itemsKey.ToUpperInvariant(), @"[^A-Z0-9_]", "_");
+        var counterKey = $"{baseKey}_{safeItemsKey}_{rowIndex}";
+        if (!counters.TryGetValue(counterKey, out var count))
+            count = 0;
+
+        count++;
+        counters[counterKey] = count;
+        return $"{counterKey}_{count}";
+    }
+
+    private static HashSet<string> GetBlockStartTags(OpenXmlElement container)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var text in container.Descendants<Text>())
+        {
+            var value = text.Text;
+            if (string.IsNullOrWhiteSpace(value))
+                continue;
+
+            foreach (Match match in Regex.Matches(value, @"\[(?<key>BLOQUE_[A-Z0-9_]+_INICIO)\]", RegexOptions.IgnoreCase))
+            {
+                if (match.Success)
+                    set.Add(match.Groups["key"].Value.ToUpperInvariant());
+            }
+        }
+
+        return set;
+    }
+
+    private static bool ContainsTag(OpenXmlElement container, string tagKey)
+    {
+        var needle = $"[{tagKey}]";
+        foreach (var text in container.Descendants<Text>())
+        {
+            if (text.Text.Contains(needle, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static void AppendMissingDynamicBlockFallbacks(
+        Body body,
+        Dictionary<string, string> tags,
+        HashSet<string> originalBlockStarts)
+    {
+        var dynamicBlockKeys = GetOrderedDynamicItemsKeys(tags);
+        if (dynamicBlockKeys.Count == 0)
+            return;
+
+        var imageTagCounters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var appendedAny = false;
+
+        foreach (var itemsKey in dynamicBlockKeys)
+        {
+            if (!tags.TryGetValue(itemsKey, out var rawItems))
+                continue;
+
+            var rows = ParseDynamicRows(rawItems);
+            if (rows.Count == 0)
+                continue;
+
+            var startKey = itemsKey.Replace("_ITEMS", "_INICIO", StringComparison.OrdinalIgnoreCase).ToUpperInvariant();
+            var hasStructuredBlock = originalBlockStarts.Contains(startKey) && !ContainsTag(body, startKey);
+            if (hasStructuredBlock)
+                continue;
+
+            AppendDynamicFallbackSection(body, itemsKey, rows, tags, imageTagCounters);
+            appendedAny = true;
+        }
+
+        if (!appendedAny)
+            return;
+
+        // Separador final para evitar que el footer quede pegado al último bloque agregado.
+        body.AppendChild(CreateParagraph(string.Empty));
+    }
+
+    private static List<string> GetOrderedDynamicItemsKeys(Dictionary<string, string> tags)
+    {
+        var preferred = new[]
+        {
+            "BLOQUE_PQ_ITEMS",
+            "BLOQUE_CU_ITEMS",
+            "BLOQUE_ACT_ITEMS",
+            "BLOQUE_SEQ_ITEMS",
+            "BLOQUE_EST_ITEMS",
+            "BLOQUE_CAPAS_ITEMS",
+            "BLOQUE_COMP_ITEMS",
+            "BLOQUE_CLASE_DET_ITEMS",
+            "BLOQUE_DICC_TABLA_ITEMS"
+        };
+
+        var ordered = preferred
+            .Where(tags.ContainsKey)
+            .ToList();
+
+        var extras = tags.Keys
+            .Where(k => k.EndsWith("_ITEMS", StringComparison.OrdinalIgnoreCase))
+            .Where(k => !ordered.Contains(k, StringComparer.OrdinalIgnoreCase))
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
+        ordered.AddRange(extras);
+
+        return ordered;
+    }
+
+    private static void AppendDynamicFallbackSection(
+        Body body,
+        string itemsKey,
+        IReadOnlyList<Dictionary<string, string>> rows,
+        Dictionary<string, string> tags,
+        Dictionary<string, int> imageTagCounters)
+    {
+        body.AppendChild(CreateParagraph(string.Empty));
+        body.AppendChild(CreateParagraph($"[Auto] {itemsKey}", bold: true));
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            body.AppendChild(CreateParagraph($"Item {i + 1}", bold: true));
+
+            foreach (var field in row.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                var key = field.Key;
+                var value = field.Value ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(value))
+                    continue;
+
+                if (!IsImageKey(key))
+                {
+                    body.AppendChild(CreateParagraph($"{key}: {value}"));
+                    continue;
+                }
+
+                var uniqueImageKey = CreateUniqueImageTagKey(key, itemsKey, i + 1, imageTagCounters);
+                tags[uniqueImageKey] = value;
+                body.AppendChild(CreateParagraph($"{key}: [{uniqueImageKey}]"));
+            }
+        }
+    }
+
+    private static Paragraph CreateParagraph(string text, bool bold = false)
+    {
+        var paragraph = new Paragraph();
+        var run = new Run();
+        if (bold)
+            run.RunProperties = new RunProperties(new Bold());
+
+        run.AppendChild(new Text(text) { Space = SpaceProcessingModeValues.Preserve });
+        paragraph.AppendChild(run);
+        return paragraph;
+    }
 
     private static void ReplaceTagsInContainer(OpenXmlElement container, Dictionary<string, string> tags)
     {
@@ -311,3 +703,4 @@ public class OpenXmlExportService : IDocumentExportService
         return true;
     }
 }
+

@@ -35,7 +35,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
     private string _aiPrompt = string.Empty;
     private bool _generateAll;
     private bool _showTags = true;
-    private bool _showKrokiCode;
+    private bool _showKrokiCode = true;
     private readonly DispatcherTimer _autoSaveTimer;
 
     // ─── Constructor ───────────────────────────────────────────────────────────
@@ -94,6 +94,8 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 var (title, _) = _applyTemplate.Execute(session.Template);
                 session.Title = title;
             }
+
+            EnsureTemplateSections(session);
 
             // CRÍTICO: Reinstanciar Metadata para forzar PropertyChanged en los bindings WPF que referencian índices
             if (session.Metadata != null)
@@ -462,6 +464,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 _session.Metadata["COL_DESC"]            = "[COL_DESC]";
                 _session.Metadata["BLOQUE_COL_FIN"]      = "[BLOQUE_COL_FIN]";
                 _session.Metadata["BLOQUE_DICC_TABLA_FIN"] = "[BLOQUE_DICC_TABLA_FIN]";
+                _session.Metadata["BLOQUE_DICC_TABLA_ITEMS"] = "";
                 _session.Metadata["TABLA_OBJ_PQ"]        = "[TABLA_OBJ_PQ]";
                 _session.Metadata["TABLA_OBJ_PROC"]      = "[TABLA_OBJ_PROC]";
                 _session.Metadata["TABLA_OBJ_VISTAS"]    = "[TABLA_OBJ_VISTAS]";
@@ -828,7 +831,12 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 [12] = ["IMG_DER"],
                 [13] = ["TABLA_DICC_RESUMEN"],
                 [14] = ["TABLA_DICC_RESUMEN"],
-                [15] = ["DICC_TABLA_TITULO", "COL_NOM", "COL_TIPO", "COL_PK", "COL_DESC", "TABLA_OBJ_PQ", "TABLA_OBJ_PROC", "TABLA_OBJ_VISTAS", "TABLA_OBJ_FUNC", "TABLA_OBJ_IDX"],
+                [15] = ["BLOQUE_DICC_TABLA_ITEMS", "DICC_TABLA_TITULO", "COL_NOM", "COL_TIPO", "COL_PK", "COL_DESC"],
+                [16] = ["TABLA_OBJ_PQ"],
+                [17] = ["TABLA_OBJ_PROC"],
+                [18] = ["TABLA_OBJ_VISTAS"],
+                [19] = ["TABLA_OBJ_FUNC"],
+                [20] = ["TABLA_OBJ_IDX"],
             },
             _ => new Dictionary<int, string[]>()
         };
@@ -1000,6 +1008,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
             "BLOQUE_CAPAS_ITEMS",
             "BLOQUE_COMP_ITEMS",
             "BLOQUE_CLASE_DET_ITEMS",
+            "BLOQUE_DICC_TABLA_ITEMS",
             "CU_DESC_ACT",
             "CU_DESC_SEQ",
             "CU_DESC_EST"
@@ -1010,6 +1019,38 @@ public class DocumentationViewModel : INotifyPropertyChanged
             if (!metadata.ContainsKey(key))
                 metadata[key] = string.Empty;
         }
+    }
+
+    private void EnsureTemplateSections(DocumentSession session)
+    {
+        var (_, templateSections) = _applyTemplate.Execute(session.Template);
+        var canonical = templateSections.OrderBy(s => s.Order).ToList();
+        if (canonical.Count == 0)
+            return;
+
+        var existingByOrder = session.Sections
+            .GroupBy(s => s.Order)
+            .ToDictionary(g => g.Key, g => g.First());
+        foreach (var expected in canonical)
+        {
+            if (!existingByOrder.TryGetValue(expected.Order, out var current))
+            {
+                session.Sections.Add(new DocSection
+                {
+                    Order = expected.Order,
+                    Title = expected.Title,
+                    Type = expected.Type
+                });
+                continue;
+            }
+
+            current.Title = expected.Title;
+            current.Type = expected.Type;
+        }
+
+        session.Sections = session.Sections
+            .OrderBy(s => s.Order)
+            .ToList();
     }
 
     private static string? GetSaveFilePath(string filter, string defaultName)

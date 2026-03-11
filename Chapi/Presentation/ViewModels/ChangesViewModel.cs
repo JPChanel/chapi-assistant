@@ -151,6 +151,12 @@ public class ChangesViewModel : ViewModelBase
         await LoadChangesAsync();
     }
 
+    /// <summary>
+    /// Suspende temporalmente las notificaciones del watcher para evitar recargas
+    /// durante operaciones Git masivas (por ejemplo, checkout de rama).
+    /// </summary>
+    public IDisposable SuspendWatcher() => _changeWatcher.Silence();
+
     private async Task GenerateCommitMessageAsync()
     {
         if (string.IsNullOrEmpty(ProjectPath)) return;
@@ -354,6 +360,8 @@ public class ChangesViewModel : ViewModelBase
     /// Total de lineas eliminadas.
     /// </summary>
     public int TotalChangesCount => Changes.Count;
+
+    public bool HasPendingChanges => Changes.Count > 0;
 
     public int Ahead
     {
