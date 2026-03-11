@@ -296,7 +296,9 @@ public class HistoryViewModel : ViewModelBase
             Date = commit.Date,
             RelativeDate = commit.RelativeDate,
             IsSynced = !commit.IsUnpushed,
-            Tags = new ObservableCollection<string>(commit.Tags)
+            Tags = new ObservableCollection<string>(commit.Tags),
+            LocalBranches = new ObservableCollection<string>(commit.LocalBranches),
+            RemoteBranches = new ObservableCollection<string>(commit.RemoteBranches)
         };
     }
 
@@ -309,6 +311,7 @@ public class HistoryViewModel : ViewModelBase
         const double nodeRadius = 5;
         const double overflow = 6;
         const double nodeGap = 7;
+        const double badgeHeight = 18;
         var lanePalette = new[]
         {
             "#6EC1FF",
@@ -318,7 +321,6 @@ public class HistoryViewModel : ViewModelBase
             "#A78BFA",
             "#F43F5E"
         };
-
         var activeLanes = new List<string>();
         var rowStates = new List<(List<string> Before, List<string> After, int LaneIndex, List<string> Parents)>(commits.Count);
         var maxLaneCount = 1;
@@ -369,16 +371,16 @@ public class HistoryViewModel : ViewModelBase
             activeLanes = dedupedAfter;
         }
 
-        var graphWidth = Math.Max(42, padding * 2 + Math.Max(0, maxLaneCount - 1) * laneSpacing + 10);
+        var graphStartX = padding;
+        var graphWidth = Math.Max(42, graphStartX + Math.Max(0, maxLaneCount - 1) * laneSpacing + 20);
 
         for (var i = 0; i < viewModels.Count; i++)
         {
             var row = rowStates[i];
             var lines = new ObservableCollection<CommitGraphLineViewModel>();
-
             for (var lane = 0; lane < row.Before.Count; lane++)
             {
-                var x = padding + lane * laneSpacing;
+                var x = graphStartX + lane * laneSpacing;
                 if (lane == row.LaneIndex)
                 {
                     lines.Add(new CommitGraphLineViewModel
@@ -405,12 +407,12 @@ public class HistoryViewModel : ViewModelBase
 
             for (var lane = 0; lane < row.After.Count; lane++)
             {
-                var x = padding + lane * laneSpacing;
+                var x = graphStartX + lane * laneSpacing;
                 var isNodeLane = lane == row.LaneIndex;
                 var hasDiagonalFromNode = row.Parents.Any(parent =>
                 {
                     var parentLane = row.After.FindIndex(hash => string.Equals(hash, parent, StringComparison.OrdinalIgnoreCase));
-                    return parentLane == lane && Math.Abs((padding + parentLane * laneSpacing) - (padding + row.LaneIndex * laneSpacing)) > 0.01;
+                    return parentLane == lane && Math.Abs((graphStartX + parentLane * laneSpacing) - (graphStartX + row.LaneIndex * laneSpacing)) > 0.01;
                 });
 
                 lines.Add(new CommitGraphLineViewModel
@@ -423,15 +425,16 @@ public class HistoryViewModel : ViewModelBase
                 });
             }
 
-            var nodeX = padding + row.LaneIndex * laneSpacing;
+            var nodeX = graphStartX + row.LaneIndex * laneSpacing;
             var nodeColor = lanePalette[row.LaneIndex % lanePalette.Length];
+            var badges = BuildBranchBadges(viewModels[i], nodeX, centerY, graphWidth, badgeHeight);
             foreach (var parent in row.Parents)
             {
                 var parentLane = row.After.FindIndex(hash => string.Equals(hash, parent, StringComparison.OrdinalIgnoreCase));
                 if (parentLane < 0)
                     continue;
 
-                var parentX = padding + parentLane * laneSpacing;
+                var parentX = graphStartX + parentLane * laneSpacing;
                 if (Math.Abs(parentX - nodeX) < 0.01)
                     continue;
 
@@ -452,7 +455,55 @@ public class HistoryViewModel : ViewModelBase
             viewModels[i].NodeFill = row.Parents.Count > 1 ? nodeColor : "Transparent";
             viewModels[i].NodeStroke = nodeColor;
             viewModels[i].GraphLines = lines;
+            viewModels[i].BranchBadges = badges;
         }
+    }
+
+    private static ObservableCollection<CommitGraphBadgeViewModel> BuildBranchBadges(
+        CommitItemViewModel viewModel,
+        double nodeX,
+        double centerY,
+        double graphWidth,
+        double badgeHeight)
+    {
+        var refs = viewModel.LocalBranches
+            .Select(label => new { Label = label, IsRemote = false })
+            .Concat(viewModel.RemoteBranches.Select(label => new { Label = label, IsRemote = true }))
+            .ToList();
+
+        var badges = new ObservableCollection<CommitGraphBadgeViewModel>();
+        if (refs.Count == 0)
+            return badges;
+
+        var totalHeight = refs.Count * badgeHeight + Math.Max(0, refs.Count - 1) * 2;
+        var top = centerY - totalHeight - 6;
+
+        foreach (var reference in refs)
+        {
+            var width = EstimateBadgeWidth(reference.Label);
+            var left = Math.Max(0, Math.Min(graphWidth - width, nodeX - (width / 2)));
+
+            badges.Add(new CommitGraphBadgeViewModel
+            {
+                Label = reference.Label,
+                Width = width,
+                Left = left,
+                Top = top,
+                IsRemote = reference.IsRemote
+            });
+
+            top += badgeHeight + 2;
+        }
+
+        return badges;
+    }
+
+    private static double EstimateBadgeWidth(string label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+            return 0;
+
+        return Math.Max(56, label.Length * 7 + 22);
     }
 
     private async Task ResetSoftAsync(CommitItemViewModel? commit)

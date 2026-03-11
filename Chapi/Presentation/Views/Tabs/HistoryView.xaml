@@ -20,6 +20,31 @@
                   StrokeEndLineCap="Round"
                   SnapsToDevicePixels="True"/>
         </DataTemplate>
+        <DataTemplate x:Key="CommitGraphBadgeTemplate">
+            <Border Padding="1,1"
+                    CornerRadius="4"
+                    BorderThickness="1"
+                    Width="{Binding Width}"
+                    Canvas.Left="{Binding Left}"
+                    Canvas.Top="{Binding Top}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="#334155"/>
+                        <Setter Property="BorderBrush" Value="#64748B"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsRemote}" Value="True">
+                                <Setter Property="Background" Value="#3F3F46"/>
+                                <Setter Property="BorderBrush" Value="#71717A"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="SourceBranch" Width="9" Height="9" Foreground="#E2E8F0" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Label}" FontSize="9" Foreground="#E2E8F0" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid Background="#1A132D" >
@@ -79,6 +104,15 @@
                                             ClipToBounds="False"
                                             HorizontalAlignment="Left"
                                             VerticalAlignment="Stretch">
+                                        <ItemsControl ItemsSource="{Binding BranchBadges}"
+                                                      ItemTemplate="{StaticResource CommitGraphBadgeTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <Canvas/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+
                                         <ItemsControl ItemsSource="{Binding GraphLines}"
                                                       ItemTemplate="{StaticResource CommitGraphLineTemplate}">
                                             <ItemsControl.ItemsPanel>
@@ -95,7 +129,8 @@
                                                  Canvas.Top="{Binding NodeTop}"
                                                  Fill="{Binding NodeFill}"
                                                  Stroke="{Binding NodeStroke}"
-                                                 StrokeThickness="1.8"/>
+                                                 StrokeThickness="1.8"
+                                                 ToolTip="{Binding GraphTooltip}"/>
                                     </Canvas>
                                 </Border>
 

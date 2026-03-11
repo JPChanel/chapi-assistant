@@ -14,6 +14,8 @@ public class GitCommit
     public DateTime Date { get; set; }
     public string RelativeDate { get; set; } = string.Empty;
     public bool IsUnpushed { get; set; }
+    public List<string> LocalBranches { get; set; } = new();
+    public List<string> RemoteBranches { get; set; } = new();
     public List<string> Tags { get; set; } = new();
 
     public bool HasTags => Tags != null && Tags.Any();

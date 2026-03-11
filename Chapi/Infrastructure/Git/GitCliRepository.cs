@@ -1186,6 +1186,43 @@ public class GitCliRepository : IGitRepository
         return map;
     }
 
+    public async Task<Dictionary<string, List<string>>> GetBranchRefCommitMapAsync(string projectPath)
+    {
+        var result = await Git(projectPath, "for-each-ref", "--format=%(objectname)%00%(refname)", "refs/heads", "refs/remotes");
+        var map = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        if (!result.IsSuccess) return map;
+
+        foreach (var line in result.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = line.Split('\0');
+            if (parts.Length < 2) continue;
+
+            var hash = parts[0].Trim();
+            var refName = parts[1].Trim();
+            if (string.IsNullOrWhiteSpace(hash) || string.IsNullOrWhiteSpace(refName))
+                continue;
+
+            string? normalizedRef = null;
+            if (refName.StartsWith("refs/heads/", StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedRef = $"head:{refName["refs/heads/".Length..]}";
+            }
+            else if (refName.StartsWith("refs/remotes/", StringComparison.OrdinalIgnoreCase))
+            {
+                var shortRemote = refName["refs/remotes/".Length..];
+                if (!shortRemote.EndsWith("/HEAD", StringComparison.OrdinalIgnoreCase))
+                    normalizedRef = $"remote:{shortRemote}";
+            }
+
+            if (string.IsNullOrWhiteSpace(normalizedRef))
+                continue;
+
+            AddTagToCommitMap(map, hash, normalizedRef);
+        }
+
+        return map;
+    }
+
     private static void AddTagToCommitMap(Dictionary<string, List<string>> map, string hash, string tagName)
     {
         if (string.IsNullOrWhiteSpace(hash) || string.IsNullOrWhiteSpace(tagName))

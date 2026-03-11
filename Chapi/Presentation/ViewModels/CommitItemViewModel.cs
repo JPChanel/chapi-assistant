@@ -19,12 +19,15 @@ public class CommitItemViewModel : ViewModelBase
     private string _description = string.Empty;
     private ObservableCollection<string> _tags = new();
     private ObservableCollection<CommitGraphLineViewModel> _graphLines = new();
+    private ObservableCollection<CommitGraphBadgeViewModel> _branchBadges = new();
     private double _graphWidth = 42;
     private double _nodeLeft = 16;
     private double _nodeTop = 34;
     private string _nodeFill = "#7EC8FF";
     private string _nodeStroke = "#0F172A";
     private bool _isMergeNode;
+    private ObservableCollection<string> _localBranches = new();
+    private ObservableCollection<string> _remoteBranches = new();
 
     public string Hash
     {
@@ -97,16 +100,47 @@ public class CommitItemViewModel : ViewModelBase
             if (SetProperty(ref _tags, value))
             {
                 OnPropertyChanged(nameof(HasTags));
+                OnPropertyChanged(nameof(GraphTooltip));
             }
         }
     }
 
     public bool HasTags => Tags.Count > 0;
 
+    public ObservableCollection<string> LocalBranches
+    {
+        get => _localBranches;
+        set
+        {
+            if (SetProperty(ref _localBranches, value))
+            {
+                OnPropertyChanged(nameof(GraphTooltip));
+            }
+        }
+    }
+
+    public ObservableCollection<string> RemoteBranches
+    {
+        get => _remoteBranches;
+        set
+        {
+            if (SetProperty(ref _remoteBranches, value))
+            {
+                OnPropertyChanged(nameof(GraphTooltip));
+            }
+        }
+    }
+
     public ObservableCollection<CommitGraphLineViewModel> GraphLines
     {
         get => _graphLines;
         set => SetProperty(ref _graphLines, value);
+    }
+
+    public ObservableCollection<CommitGraphBadgeViewModel> BranchBadges
+    {
+        get => _branchBadges;
+        set => SetProperty(ref _branchBadges, value);
     }
 
     public double GraphWidth
@@ -144,6 +178,30 @@ public class CommitItemViewModel : ViewModelBase
         get => _isMergeNode;
         set => SetProperty(ref _isMergeNode, value);
     }
+
+    public string GraphTooltip
+    {
+        get
+        {
+            var lines = new List<string>
+            {
+                Message,
+                $"Autor: {Author}",
+                $"Fecha: {Date:dd/MM/yyyy HH:mm}"
+            };
+
+            if (LocalBranches.Count > 0)
+                lines.Add($"Ramas locales: {string.Join(", ", LocalBranches)}");
+
+            if (RemoteBranches.Count > 0)
+                lines.Add($"Ramas remotas: {string.Join(", ", RemoteBranches)}");
+
+            if (Tags.Count > 0)
+                lines.Add($"Tags: {string.Join(", ", Tags)}");
+
+            return string.Join(Environment.NewLine, lines);
+        }
+    }
 }
 
 public sealed class CommitGraphLineViewModel
@@ -153,4 +211,13 @@ public sealed class CommitGraphLineViewModel
     public double X2 { get; init; }
     public double Y2 { get; init; }
     public string Stroke { get; init; } = "#7EC8FF";
+}
+
+public sealed class CommitGraphBadgeViewModel
+{
+    public string Label { get; init; } = string.Empty;
+    public double Left { get; init; }
+    public double Top { get; init; }
+    public bool IsRemote { get; init; }
+    public double Width { get; init; }
 }

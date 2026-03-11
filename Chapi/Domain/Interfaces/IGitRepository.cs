@@ -71,6 +71,7 @@ public interface IGitRepository
     Task<Result> PushTagAsync(string projectPath, string tagName);
     Task<IEnumerable<GitTagItem>> GetTagsAsync(string projectPath);
     Task<Dictionary<string, List<string>>> GetTagCommitMapAsync(string projectPath);
+    Task<Dictionary<string, List<string>>> GetBranchRefCommitMapAsync(string projectPath);
 
     // Misc
     bool IsGitInstalled();
