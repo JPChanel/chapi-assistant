@@ -33,6 +33,7 @@ public class ChangesViewModel : ViewModelBase
     private readonly Domain.Interfaces.ICredentialStorageService _credentialStorage;
     private readonly Chapi.Infrastructure.Git.GitChangeWatcher _changeWatcher;
     private readonly Chapi.Infrastructure.Git.GitChangesCache _changesCache;
+    private readonly AsyncRelayCommand _connectAccountCommand;
 
     private string _projectPath = string.Empty;
     private int _totalAdditions;
@@ -110,6 +111,7 @@ public class ChangesViewModel : ViewModelBase
         RestoreFileFromStashCommand = new AsyncRelayCommand(async param => await RestoreFileFromStashAsync(param as ChangeItemViewModel));
         GenerateCommitMessageCommand = new AsyncRelayCommand(async _ => await GenerateCommitMessageAsync());
         DiscardAllCommand = new AsyncRelayCommand(async _ => await DiscardAllAsync());
+        _connectAccountCommand = new AsyncRelayCommand(async _ => await ConnectAccountAsync(), _ => !IsLoading);
 
         // Suscribirse al evento de actualización de avatares
         Chapi.Domain.Services.AvatarCacheService.Instance.AvatarUpdated += OnAvatarUpdated;
@@ -545,7 +547,13 @@ public class ChangesViewModel : ViewModelBase
     public bool IsLoading
     {
         get => _isLoading;
-        set => SetProperty(ref _isLoading, value);
+        set
+        {
+            if (SetProperty(ref _isLoading, value))
+            {
+                _connectAccountCommand.RaiseCanExecuteChanged();
+            }
+        }
     }
 
     private bool _isUserLoggedIn;
@@ -619,7 +627,7 @@ public class ChangesViewModel : ViewModelBase
         }
     }
 
-    public ICommand ConnectAccountCommand => new AsyncRelayCommand(async _ => await ConnectAccountAsync());
+    public ICommand ConnectAccountCommand => _connectAccountCommand;
 
     #endregion
 

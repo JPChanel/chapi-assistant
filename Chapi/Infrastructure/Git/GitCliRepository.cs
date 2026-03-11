@@ -155,6 +155,26 @@ public class GitCliRepository : IGitRepository
         return await GitProcessExecutor.RunAsync(root, args);
     }
 
+    private static bool IsSelectableBranchName(string branchName)
+    {
+        if (string.IsNullOrWhiteSpace(branchName))
+            return false;
+
+        if (branchName.Equals("origin", StringComparison.OrdinalIgnoreCase) ||
+            branchName.Equals("HEAD", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task<bool> RefExistsAsync(string projectPath, string fullRefName)
+    {
+        var result = await Git(projectPath, "show-ref", "--verify", "--quiet", fullRefName);
+        return result.IsSuccess;
+    }
+
     private string GetRelativePath(string repoRoot, string projectPath, string filePath)
     {
         if (string.IsNullOrWhiteSpace(repoRoot) || string.IsNullOrWhiteSpace(filePath))
@@ -181,7 +201,11 @@ public class GitCliRepository : IGitRepository
         return cred.Value.token;
     }
 
-    private async Task<Result<T?>> ExecuteAuthenticatedAsync<T>(string projectPath, string remoteUrl, Func<string, Dictionary<string, string>, Task<Result<T?>>> action)
+    private async Task<Result<T?>> ExecuteAuthenticatedAsync<T>(
+        string projectPath,
+        string remoteUrl,
+        Func<string, Dictionary<string, string>, Task<Result<T?>>> action,
+        bool allowInteractivePrompt = true)
     {
         var token = await GetAccessTokenAsync(remoteUrl);
         var env = new Dictionary<string, string>();
@@ -189,6 +213,10 @@ public class GitCliRepository : IGitRepository
         if (!string.IsNullOrEmpty(token))
         {
             env["CHAPI_GIT_TOKEN"] = token;
+        }
+        if (!allowInteractivePrompt)
+        {
+            env["CHAPI_DISABLE_GIT_PROMPT"] = "1";
         }
 
         // Pasamos el remoteUrl original. GitProcessExecutor configurará ASK_PASS 
@@ -457,13 +485,17 @@ public class GitCliRepository : IGitRepository
         foreach (var raw in result.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             var branch = raw.Trim();
-            if (string.IsNullOrWhiteSpace(branch) || branch.StartsWith("warning:", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(branch) ||
+                branch.StartsWith("warning:", StringComparison.OrdinalIgnoreCase) ||
+                branch.Equals("origin", StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
             if (branch.StartsWith("origin/", StringComparison.OrdinalIgnoreCase))
             {
                 var shortName = branch.Substring("origin/".Length);
-                if (shortName.Equals("HEAD", StringComparison.OrdinalIgnoreCase))
+                if (!IsSelectableBranchName(shortName))
                     continue;
 
                 if (!localBranches.Contains(shortName))
@@ -471,6 +503,9 @@ public class GitCliRepository : IGitRepository
 
                 continue;
             }
+
+            if (!IsSelectableBranchName(branch))
+                continue;
 
             localBranches.Add(branch);
         }
@@ -492,6 +527,13 @@ public class GitCliRepository : IGitRepository
 
     public async Task<Result> SwitchBranchAsync(string projectPath, string branchName)
     {
+        if (!await RefExistsAsync(projectPath, $"refs/heads/{branchName}") &&
+            await RefExistsAsync(projectPath, $"refs/remotes/origin/{branchName}"))
+        {
+            var trackRemote = await Git(projectPath, "checkout", "--track", "-b", branchName, $"origin/{branchName}");
+            return trackRemote.IsSuccess ? Result.Success() : Result.Fail(trackRemote.Error);
+        }
+
         var result = await Git(projectPath, "checkout", branchName);
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
@@ -727,7 +769,7 @@ public class GitCliRepository : IGitRepository
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 
-    public async Task<Result> FetchAsync(string projectPath)
+    public async Task<Result> FetchAsync(string projectPath, bool allowInteractivePrompt = true)
     {
         var remoteUrl = await GetRemoteUrlAsync(projectPath);
         var result = await ExecuteAuthenticatedAsync<string>(projectPath, remoteUrl, async (target, env) =>
@@ -735,7 +777,7 @@ public class GitCliRepository : IGitRepository
             // Fetch origin actualiza todos los punteros origin/*
             var r = await GitProcessExecutor.RunAsync(projectPath, 120_000, env, "fetch", "origin", "--prune");
             return r.IsSuccess ? Result<string?>.Success(r.Data) : Result<string?>.Fail(r.Error);
-        });
+        }, allowInteractivePrompt);
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 

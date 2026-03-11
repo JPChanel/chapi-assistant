@@ -27,7 +27,7 @@ public class FetchChangesUseCase
             return Result.Fail("Ruta de proyecto invalida");
         }
 
-        var result = await _gitRepo.FetchAsync(projectPath);
+        var result = await _gitRepo.FetchAsync(projectPath, allowInteractivePrompt: !isSilent);
 
         if (result.IsSuccess && !isSilent)
         {

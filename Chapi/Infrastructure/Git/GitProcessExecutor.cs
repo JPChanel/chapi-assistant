@@ -68,6 +68,9 @@ public static class GitProcessExecutor
                 // startInfo.ArgumentList.Insert(0, "-c");
                 // startInfo.ArgumentList.Insert(1, "credential.helper=");
 
+                bool disableGitPrompt = startInfo.Environment.TryGetValue("CHAPI_DISABLE_GIT_PROMPT", out var disablePromptValue) &&
+                    string.Equals(disablePromptValue, "1", StringComparison.Ordinal);
+
                 if (startInfo.Environment.ContainsKey("CHAPI_GIT_TOKEN"))
                 {
                     // Crear un script que identifique si Git pide Usuario o Contraseña
@@ -89,13 +92,12 @@ public static class GitProcessExecutor
                     File.WriteAllText(tempAskPass, scriptContent.ToString());
                     
                     startInfo.Environment["GIT_ASKPASS"] = tempAskPass;
-                    // startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
-                    startInfo.Environment["GIT_TERMINAL_PROMPT"] = "1";
+                    startInfo.Environment["GIT_TERMINAL_PROMPT"] = disableGitPrompt ? "0" : "1";
                 }
                 else
                 {
                     // Permitir prompt para que el usuario pueda autenticarse vía GCM/OAuth2
-                    startInfo.Environment["GIT_TERMINAL_PROMPT"] = "1";
+                    startInfo.Environment["GIT_TERMINAL_PROMPT"] = disableGitPrompt ? "0" : "1";
                 }
 
                 using var process = new Process { StartInfo = startInfo };
