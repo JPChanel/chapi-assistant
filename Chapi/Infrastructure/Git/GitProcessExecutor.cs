@@ -65,8 +65,8 @@ public static class GitProcessExecutor
                 }
                 // Desactivar explícitamente cualquier credential helper del sistema (como GCM) para evitar popups
                 // Chapi maneja sus propias credenciales en memoria para esta sesión.
-                // startInfo.ArgumentList.Insert(0, "-c");
-                // startInfo.ArgumentList.Insert(1, "credential.helper=");
+                startInfo.ArgumentList.Insert(0, "credential.helper=");
+                startInfo.ArgumentList.Insert(0, "-c");
 
                 bool disableGitPrompt = startInfo.Environment.TryGetValue("CHAPI_DISABLE_GIT_PROMPT", out var disablePromptValue) &&
                     string.Equals(disablePromptValue, "1", StringComparison.Ordinal);
