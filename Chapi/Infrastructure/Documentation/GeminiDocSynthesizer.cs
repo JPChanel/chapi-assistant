@@ -103,37 +103,33 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
         if (!Directory.Exists(projectPath))
             return $"Proyecto en: {projectPath}";
 
-        var structure = BuildDirectoryTree(projectPath, depth: 3);
-        var configFiles = FindConfigFiles(projectPath);
-        var dbObjects = ExtractDatabaseObjects(projectPath);
-        var dbBlock = BuildDbObjectsBlock(dbObjects);
+        var scanResult = await Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var structure = BuildDirectoryTree(projectPath, depth: 3);
+            cancellationToken.ThrowIfCancellationRequested();
+            var configFiles = FindConfigFiles(projectPath);
+            cancellationToken.ThrowIfCancellationRequested();
+            var dbObjects = ExtractDatabaseObjects(projectPath);
+            var dbBlock = BuildDbObjectsBlock(dbObjects);
+            return (structure, configFiles, dbBlock);
+        }, cancellationToken);
 
-        var prompt = Chapi.Infrastructure.AI.GetPrompt.DocAnalyzeContext(structure, configFiles);
+        var prompt = Chapi.Infrastructure.AI.GetPrompt.DocAnalyzeContext(scanResult.structure, scanResult.configFiles);
 
         var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
         var response = await GetChatClient().GetResponseAsync(messages, cancellationToken: cancellationToken);
         var summary = response.Messages.FirstOrDefault()?.Text;
         if (string.IsNullOrWhiteSpace(summary))
-            summary = structure;
+            summary = scanResult.structure;
 
-        return $"{summary}{Environment.NewLine}{Environment.NewLine}{dbBlock}";
+        return $"{summary}{Environment.NewLine}{Environment.NewLine}{scanResult.dbBlock}";
     }
 
     private static DbExtractionResult ExtractDatabaseObjects(string projectPath)
     {
         var result = new DbExtractionResult();
-        IEnumerable<string> sqlFiles;
-        try
-        {
-            sqlFiles = Directory.EnumerateFiles(projectPath, "*.sql", SearchOption.AllDirectories)
-                .Where(path => !IsInsideSkippedDirectory(path))
-                .Take(500)
-                .ToList();
-        }
-        catch
-        {
-            return result;
-        }
+        var sqlFiles = EnumerateFiles(projectPath, "*.sql", maxResults: 500).ToList();
 
         foreach (var file in sqlFiles)
         {
@@ -534,16 +530,54 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
         var found = new List<string>();
         foreach (var pattern in patterns)
         {
-            try
-            {
-                found.AddRange(Directory.GetFiles(path, pattern, SearchOption.AllDirectories)
-                    .Take(3)
-                    .Select(Path.GetFileName)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))!);
-            }
-            catch { }
+            found.AddRange(EnumerateFiles(path, pattern, maxResults: 3)
+                .Select(Path.GetFileName)
+                .Where(x => !string.IsNullOrWhiteSpace(x))!);
         }
         return found.Count > 0 ? string.Join(", ", found.Distinct()) : "No se encontraron archivos de configuración";
+    }
+
+    private static IEnumerable<string> EnumerateFiles(string rootPath, string searchPattern, int maxResults)
+    {
+        if (string.IsNullOrWhiteSpace(rootPath) || maxResults <= 0)
+            yield break;
+
+        var pending = new Stack<string>();
+        pending.Push(rootPath);
+        var yielded = 0;
+
+        while (pending.Count > 0 && yielded < maxResults)
+        {
+            var current = pending.Pop();
+
+            IEnumerable<string> directories = [];
+            try
+            {
+                directories = Directory.EnumerateDirectories(current)
+                    .Where(dir => !ShouldSkip(Path.GetFileName(dir) ?? string.Empty));
+            }
+            catch { }
+
+            foreach (var dir in directories)
+            {
+                pending.Push(dir);
+            }
+
+            IEnumerable<string> files = [];
+            try
+            {
+                files = Directory.EnumerateFiles(current, searchPattern, SearchOption.TopDirectoryOnly);
+            }
+            catch { }
+
+            foreach (var file in files)
+            {
+                yield return file;
+                yielded++;
+                if (yielded >= maxResults)
+                    yield break;
+            }
+        }
     }
 
     private static string CleanDiagramCode(string raw, DiagramFormat format)

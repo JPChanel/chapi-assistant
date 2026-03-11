@@ -515,7 +515,7 @@
                             <StackPanel Orientation="Horizontal" Margin="10,0">
                                 <materialDesign:PackIcon Kind="BookOpenOutline" Width="18" Height="18"
                                                          Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Documentación" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                <TextBlock Text="Documentación" VerticalAlignment="Center" />
                             </StackPanel>
                         </TabItem.Header>
                         <views:DocumentationView x:Name="DocumentationViewControl"/>
@@ -525,7 +525,7 @@
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Tag" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Releases" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                <TextBlock Text="Releases" VerticalAlignment="Center" />
                             </StackPanel>
                         </TabItem.Header>
 

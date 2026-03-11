@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Input;
 
@@ -58,6 +59,11 @@ public partial class DocumentationView : UserControl
     // Debounce para actualizar preview al editar diagramas
     private async void DiagramEditor_TextChanged(object sender, TextChangedEventArgs e)
     {
+        if (sender is TextBox textBox)
+        {
+            BindingOperations.GetBindingExpression(textBox, TextBox.TextProperty)?.UpdateSource();
+        }
+
         _debounceToken?.Cancel();
         _debounceToken = new System.Threading.CancellationTokenSource();
         var token = _debounceToken.Token;
@@ -65,7 +71,10 @@ public partial class DocumentationView : UserControl
         {
             await Task.Delay(1500, token);
             if (_viewModel != null)
+            {
+                _viewModel.NotifyMetadataBindingsChanged();
                 await _viewModel.RefreshPreviewAsync();
+            }
         }
         catch (TaskCanceledException) { }
     }

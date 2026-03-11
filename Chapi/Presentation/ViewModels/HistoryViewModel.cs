@@ -171,6 +171,8 @@ public class HistoryViewModel : ViewModelBase
                 {
                     Commits.Add(vm);
                 }
+
+                SelectedCommit = Commits.FirstOrDefault();
             });
         }
         finally

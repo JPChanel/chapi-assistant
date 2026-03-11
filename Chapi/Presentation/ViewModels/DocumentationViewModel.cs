@@ -32,6 +32,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
     private bool _isLoading;
     private string _statusMessage = string.Empty;
     private string _projectContext = string.Empty;
+    private string _projectContextPath = string.Empty;
     private string _aiPrompt = string.Empty;
     private bool _generateAll;
     private bool _showTags = true;
@@ -235,7 +236,15 @@ public class DocumentationViewModel : INotifyPropertyChanged
     public bool ShowKrokiCode
     {
         get => _showKrokiCode;
-        set { _showKrokiCode = value; OnPropertyChanged(); }
+        set
+        {
+            if (_showKrokiCode == value)
+                return;
+
+            _showKrokiCode = value;
+            OnPropertyChanged();
+            NotifyMetadataBindingsChanged();
+        }
     }
 
     private DocTemplate _currentTemplate;
@@ -579,7 +588,23 @@ public class DocumentationViewModel : INotifyPropertyChanged
         StatusMessage = ok ? $"Markdown exportado: {path}" : "Error al exportar.";
     }
 
-        private async Task GenerateSectionAsync()
+    private async Task EnsureProjectContextAsync(string? statusMessage = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(_session.ProjectPath))
+            return;
+
+        if (!string.IsNullOrWhiteSpace(_projectContext) &&
+            string.Equals(_projectContextPath, _session.ProjectPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        StatusMessage = statusMessage ?? "Analizando estructura del proyecto...";
+        _projectContext = await _synthesizer.AnalyzeProjectContextAsync(_session.ProjectPath, cancellationToken);
+        _projectContextPath = _session.ProjectPath;
+    }
+
+    private async Task GenerateSectionAsync()
     {
         if (_selectedSection == null || IsGenerating) return;
         IsGenerating = true;
@@ -591,8 +616,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
 
         try
         {
-            if (string.IsNullOrEmpty(_projectContext) && !string.IsNullOrEmpty(_session.ProjectPath))
-                _projectContext = await _synthesizer.AnalyzeProjectContextAsync(_session.ProjectPath);
+            await EnsureProjectContextAsync($"Analizando proyecto para '{selectedSection.Title}'...");
 
             var keys = GetKeysForSection(selectedSection, forceRegenerate: !string.IsNullOrWhiteSpace(instruction));
             if (!keys.Any())
@@ -605,6 +629,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 ? $"Genera los valores de metadata para la seccion: {selectedSection.Title}"
                 : instruction;
 
+            StatusMessage = $"Generando metadata para '{selectedSection.Title}'...";
             var generatedData = await _synthesizer.GenerateMetadataAsync(keys, _projectContext, sectionPrompt);
             var updated = ApplyGeneratedMetadata(generatedData, keys);
             await _persistence.SaveAsync(_session);
@@ -624,7 +649,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
             IsGenerating = false;
         }
     }
-        private async Task GenerateAllSectionsAsync()
+    private async Task GenerateAllSectionsAsync()
     {
         if (IsGenerating) return;
         IsGenerating = true;
@@ -633,10 +658,9 @@ public class DocumentationViewModel : INotifyPropertyChanged
 
         try
         {
-            if (string.IsNullOrEmpty(_projectContext) && !string.IsNullOrEmpty(_session.ProjectPath))
-                _projectContext = await _synthesizer.AnalyzeProjectContextAsync(_session.ProjectPath);
+            await EnsureProjectContextAsync("Analizando estructura del proyecto...");
 
-            StatusMessage = "Analizando el proyecto y estructurando metadatos...";
+            StatusMessage = "Generando metadatos del documento...";
             var forceRegenerate = !string.IsNullOrWhiteSpace(instruction);
             var keysToGenerate = _session.Metadata
                 .Where(kvp => !IsStructuralTag(kvp.Key))
@@ -679,10 +703,16 @@ public class DocumentationViewModel : INotifyPropertyChanged
         PreviewHtml = await BuildFullPreviewHtml();
     }
 
+    public void NotifyMetadataBindingsChanged()
+    {
+        OnPropertyChanged(nameof(Session));
+        OnPropertyChanged(nameof(SelectedSection));
+    }
+
     private async Task<string> BuildFullPreviewHtml()
     {
         var sb = new System.Text.StringBuilder();
-        sb.Append(GetHtmlHeader(_session.Title));
+        sb.Append(GetHtmlHeader(_session.Title, CurrentTemplate));
         sb.Append($"<div class='cover'><h1>{System.Net.WebUtility.HtmlEncode(_session.Title)}</h1>");
         sb.Append($"<p class='subtitle'>Documentación Técnica de Ingeniería - Versión {_session.Version}</p></div>");
         sb.Append("<hr/>");
@@ -734,33 +764,132 @@ public class DocumentationViewModel : INotifyPropertyChanged
         return sb.ToString();
     }
 
-    private static string GetHtmlHeader(string title) => $$$"""
+    private sealed record PreviewTheme(
+        string PageBackground,
+        string PageForeground,
+        string CoverBackground,
+        string CoverTitle,
+        string Subtitle,
+        string Divider,
+        string SectionBackground,
+        string SectionBorder,
+        string SectionShadow,
+        string HeadingColor,
+        string Accent,
+        string MutedText,
+        string DiagramEditorBackground,
+        string DiagramLabel,
+        string DiagramCode,
+        string DiagramPreviewBackground,
+        string DiagramPreviewBorder,
+        string TableHeaderBackground,
+        string TableHeaderForeground,
+        string TableBorder,
+        string TableRowAlt);
+
+    private static PreviewTheme GetPreviewTheme(DocTemplate template) =>
+        template switch
+        {
+            DocTemplate.DisenoSistema => new PreviewTheme(
+                PageBackground: "#f3f1ec",
+                PageForeground: "#2d261f",
+                CoverBackground: "#f7f3eb",
+                CoverTitle: "#3f3427",
+                Subtitle: "#7a6a57",
+                Divider: "#d7c8b4",
+                SectionBackground: "#fffdf8",
+                SectionBorder: "#e2d6c5",
+                SectionShadow: "rgba(78, 61, 42, .08)",
+                HeadingColor: "#493928",
+                Accent: "#b8792f",
+                MutedText: "#7d7368",
+                DiagramEditorBackground: "#2b241d",
+                DiagramLabel: "#d9b98c",
+                DiagramCode: "#f6d365",
+                DiagramPreviewBackground: "#fbf7f1",
+                DiagramPreviewBorder: "#e2d6c5",
+                TableHeaderBackground: "#b8792f",
+                TableHeaderForeground: "#fffaf2",
+                TableBorder: "#d9ccb9",
+                TableRowAlt: "#f6efe4"),
+            _ => new PreviewTheme(
+                PageBackground: "#f4f6fb",
+                PageForeground: "#1f2937",
+                CoverBackground: "#ffffff",
+                CoverTitle: "#1f2a44",
+                Subtitle: "#62708a",
+                Divider: "#d7ddea",
+                SectionBackground: "#ffffff",
+                SectionBorder: "#dbe3f0",
+                SectionShadow: "rgba(37, 51, 77, .08)",
+                HeadingColor: "#24324d",
+                Accent: "#4f6fa3",
+                MutedText: "#6c7a92",
+                DiagramEditorBackground: "#1f2430",
+                DiagramLabel: "#8fa1c2",
+                DiagramCode: "#b7d77a",
+                DiagramPreviewBackground: "#f8fafd",
+                DiagramPreviewBorder: "#dbe3f0",
+                TableHeaderBackground: "#4f6fa3",
+                TableHeaderForeground: "#ffffff",
+                TableBorder: "#d6deeb",
+                TableRowAlt: "#f7f9fc")
+        };
+
+    private static string GetHtmlHeader(string title, DocTemplate template)
+    {
+        var theme = GetPreviewTheme(template);
+        return $$$"""
         <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/>
         <title>{{{System.Net.WebUtility.HtmlEncode(title)}}}</title>
         <style>
-          body { font-family: 'Segoe UI', Calibri, sans-serif; margin: 0; background: #f4f4f4; color: #222; }
-          .cover { text-align:center; padding: 40px 20px; background:#fff; margin-bottom:20px; }
-          .cover h1 { font-size: 2em; font-weight:900; color:#1a1a2e; letter-spacing:1px; }
-          .subtitle { color:#555; font-style:italic; }
-          hr { border: 2px solid #e0e0e0; margin: 0 20px 20px; }
-          .section { background:#fff; margin: 16px 20px; border-radius:8px; padding:20px 24px;
-                      box-shadow:0 1px 4px rgba(0,0,0,.08); }
-          h2 { font-size:1.3em; color:#1a1a2e; border-left:4px solid #5c6bc0; padding-left:10px; }
+          :root {
+            --page-bg: {{{theme.PageBackground}}};
+            --page-fg: {{{theme.PageForeground}}};
+            --cover-bg: {{{theme.CoverBackground}}};
+            --cover-title: {{{theme.CoverTitle}}};
+            --subtitle: {{{theme.Subtitle}}};
+            --divider: {{{theme.Divider}}};
+            --section-bg: {{{theme.SectionBackground}}};
+            --section-border: {{{theme.SectionBorder}}};
+            --section-shadow: {{{theme.SectionShadow}}};
+            --heading: {{{theme.HeadingColor}}};
+            --accent: {{{theme.Accent}}};
+            --muted: {{{theme.MutedText}}};
+            --diagram-editor-bg: {{{theme.DiagramEditorBackground}}};
+            --diagram-label: {{{theme.DiagramLabel}}};
+            --diagram-code: {{{theme.DiagramCode}}};
+            --diagram-preview-bg: {{{theme.DiagramPreviewBackground}}};
+            --diagram-preview-border: {{{theme.DiagramPreviewBorder}}};
+            --table-head-bg: {{{theme.TableHeaderBackground}}};
+            --table-head-fg: {{{theme.TableHeaderForeground}}};
+            --table-border: {{{theme.TableBorder}}};
+            --table-row-alt: {{{theme.TableRowAlt}}};
+          }
+          body { font-family: 'Segoe UI', Calibri, sans-serif; margin: 0; background: var(--page-bg); color: var(--page-fg); }
+          .cover { text-align:center; padding: 40px 20px; background:var(--cover-bg); margin-bottom:20px; }
+          .cover h1 { font-size: 2em; font-weight:900; color:var(--cover-title); letter-spacing:1px; }
+          .subtitle { color:var(--subtitle); font-style:italic; }
+          hr { border: 2px solid var(--divider); margin: 0 20px 20px; }
+          .section { background:var(--section-bg); margin: 16px 20px; border-radius:8px; padding:20px 24px;
+                      box-shadow:0 1px 4px var(--section-shadow); border:1px solid var(--section-border); }
+          h2 { font-size:1.3em; color:var(--heading); border-left:4px solid var(--accent); padding-left:10px; }
           .content { line-height:1.7; }
-          .placeholder { color:#999; font-style:italic; padding:16px 0; }
-          .diagram-editor { background:#1e1e2e; border-radius:6px; padding:12px; margin-bottom:8px; }
-          .diagram-label { color:#7e8aba; font-size:.75em; letter-spacing:1px; margin-bottom:6px; }
-          pre.code { color:#a6e22e; font-size:.85em; margin:0; white-space:pre-wrap; }
-          .diagram-preview { border:1px solid #e0e0e0; border-radius:6px; padding:12px;
-                             background:#fafafa; text-align:center; overflow:auto; }
+          .placeholder { color:var(--muted); font-style:italic; padding:16px 0; }
+          .diagram-editor { background:var(--diagram-editor-bg); border-radius:6px; padding:12px; margin-bottom:8px; }
+          .diagram-label { color:var(--diagram-label); font-size:.75em; letter-spacing:1px; margin-bottom:6px; }
+          pre.code { color:var(--diagram-code); font-size:.85em; margin:0; white-space:pre-wrap; }
+          .diagram-preview { border:1px solid var(--diagram-preview-border); border-radius:6px; padding:12px;
+                             background:var(--diagram-preview-bg); text-align:center; overflow:auto; }
           .diagram-preview svg { max-width:100%; height:auto; }
-          .capture { max-width:100%; border-radius:6px; border:1px solid #ddd; }
+          .capture { max-width:100%; border-radius:6px; border:1px solid var(--table-border); }
           table { border-collapse:collapse; width:100%; font-size:.9em; }
-          th, td { border:1px solid #ddd; padding:8px 12px; text-align:left; }
-          th { background:#5c6bc0; color:#fff; }
-          tr:nth-child(even) { background:#f8f8f8; }
+          th, td { border:1px solid var(--table-border); padding:8px 12px; text-align:left; }
+          th { background:var(--table-head-bg); color:var(--table-head-fg); }
+          tr:nth-child(even) { background:var(--table-row-alt); }
         </style></head><body>
         """;
+    }
     private static bool IsStructuralTag(string key) =>
         key.StartsWith("BLOQUE_", StringComparison.OrdinalIgnoreCase) &&
         (key.EndsWith("_INICIO", StringComparison.OrdinalIgnoreCase) ||
@@ -961,6 +1090,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
                 ProjectPath = projectPath
             };
             _projectContext = string.Empty;
+            _projectContextPath = string.Empty;
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
