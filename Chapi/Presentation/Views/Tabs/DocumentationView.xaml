@@ -13,6 +13,7 @@
         <conv:TemplateTitleConverter x:Key="TemplateTitleConverter"/>
         <conv:InverseBooleanConverter x:Key="InvBool"/>
         <conv:InverseBooleanToVisibilityConverter x:Key="InvBoolToVis"/>
+        <conv:StringToVisibilityConverter x:Key="StringToVis"/>
         <conv:StringToVisibilityConverter x:Key="StringToVisInv" Inverse="True"/>
         <conv:JsonArrayToDictionaryListConverter x:Key="JsonArrayToDictionaryListConverter"/>
 
@@ -744,7 +745,7 @@
                                 </StackPanel>
 
                                 <!-- 4.3.X Bloque dinámico de paquetes -->
-                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_PQ_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_PQ_ITEMS], Converter={StaticResource StringToVis}}"
                                               ItemsSource="{Binding Session.Metadata[BLOQUE_PQ_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
                                               Tag="BLOQUE_PQ_ITEMS">
                                     <ItemsControl.ItemTemplate>
@@ -984,7 +985,7 @@
 
                                 
                                 <!-- 6.2.X Bloque dinámico de casos de uso -->
-                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CU_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CU_ITEMS], Converter={StaticResource StringToVis}}"
                                               ItemsSource="{Binding Session.Metadata[BLOQUE_CU_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
                                               Tag="BLOQUE_CU_ITEMS">
                                     <ItemsControl.ItemTemplate>
@@ -1115,7 +1116,7 @@
                                         </Border>
                                     </StackPanel>
                                 </Border>
-                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_ACT_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_ACT_ITEMS], Converter={StaticResource StringToVis}}"
                                               ItemsSource="{Binding Session.Metadata[BLOQUE_ACT_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
                                               Tag="BLOQUE_ACT_ITEMS">
                                     <ItemsControl.ItemTemplate>
@@ -1210,7 +1211,7 @@
                                         </Border>
                                     </StackPanel>
                                 </Border>
-                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_SEQ_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_SEQ_ITEMS], Converter={StaticResource StringToVis}}"
                                               ItemsSource="{Binding Session.Metadata[BLOQUE_SEQ_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
                                               Tag="BLOQUE_SEQ_ITEMS">
                                     <ItemsControl.ItemTemplate>
@@ -1305,7 +1306,7 @@
                                         </Border>
                                     </StackPanel>
                                 </Border>
-                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_EST_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_EST_ITEMS], Converter={StaticResource StringToVis}}"
                                               ItemsSource="{Binding Session.Metadata[BLOQUE_EST_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
                                               Tag="BLOQUE_EST_ITEMS">
                                     <ItemsControl.ItemTemplate>
@@ -1467,7 +1468,7 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
-                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CAPAS_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CAPAS_ITEMS], Converter={StaticResource StringToVis}}"
                                               ItemsSource="{Binding Session.Metadata[BLOQUE_CAPAS_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
                                               Tag="BLOQUE_CAPAS_ITEMS">
                                     <ItemsControl.ItemTemplate>
@@ -1548,7 +1549,7 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
-                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_COMP_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_COMP_ITEMS], Converter={StaticResource StringToVis}}"
                                               ItemsSource="{Binding Session.Metadata[BLOQUE_COMP_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
                                               Tag="BLOQUE_COMP_ITEMS">
                                     <ItemsControl.ItemTemplate>
@@ -1649,7 +1650,7 @@
                                         </Grid>
                                     </StackPanel>
                                 </Border>
-                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CLASE_DET_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                <ItemsControl Visibility="{Binding Session.Metadata[BLOQUE_CLASE_DET_ITEMS], Converter={StaticResource StringToVis}}"
                                               ItemsSource="{Binding Session.Metadata[BLOQUE_CLASE_DET_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
                                               Tag="BLOQUE_CLASE_DET_ITEMS">
                                     <ItemsControl.ItemTemplate>
@@ -1800,7 +1801,7 @@
                                 <!-- Render dinámico: múltiples tablas desde BLOQUE_DICC_TABLA_ITEMS -->
                                 <ItemsControl ItemsSource="{Binding Session.Metadata[BLOQUE_DICC_TABLA_ITEMS], Converter={StaticResource JsonArrayToDictionaryListConverter}}"
                                               Margin="0,0,0,16"
-                                              Visibility="{Binding Session.Metadata[BLOQUE_DICC_TABLA_ITEMS], Converter={StaticResource StringToVisInv}, ConverterParameter=Invert}"
+                                              Visibility="{Binding Session.Metadata[BLOQUE_DICC_TABLA_ITEMS], Converter={StaticResource StringToVis}}"
                                               Tag="BLOQUE_DICC_TABLA_ITEMS">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>

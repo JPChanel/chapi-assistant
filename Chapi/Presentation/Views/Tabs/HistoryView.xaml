@@ -9,6 +9,17 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <DataTemplate x:Key="CommitGraphLineTemplate">
+            <Line X1="{Binding X1}"
+                  Y1="{Binding Y1}"
+                  X2="{Binding X2}"
+                  Y2="{Binding Y2}"
+                  Stroke="{Binding Stroke}"
+                  StrokeThickness="2"
+                  StrokeStartLineCap="Round"
+                  StrokeEndLineCap="Round"
+                  SnapsToDevicePixels="True"/>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid Background="#1A132D" >
@@ -52,40 +63,76 @@
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <Border x:Name="CardBorder" 
-                                    Margin="8,0" 
-                                    Padding="12"                                                     
-                                    CornerRadius="8"                                                   
-                                    Background="#241A3D"  
-                                    BorderBrush="#3D2B66" 
-                                    BorderThickness="1"
-                                    ContextMenuOpening="History_ContextMenu_Opening">
-                                <Border.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem x:Name="ResetSoftMenuItem" Header="Undo Last Commit (Soft)" Click="History_ResetSoft_Click" CommandParameter="{Binding}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="Undo" Foreground="Orange"/>
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <Separator />
-                                        <MenuItem Header="Create Branch from this Commit..." Click="History_CreateBranch_Click" CommandParameter="{Binding Hash}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="SourceBranch" Foreground="DeepSkyBlue"/>
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="Create Tag from this Commit..." Click="History_CreateTag_Click" CommandParameter="{Binding Hash}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="TagPlus" Foreground="LightSlateGray"/>
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                    </ContextMenu>
-                                </Border.ContextMenu>
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
+                            <Grid Margin="8,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border x:Name="TimelineGraphHost"
+                                        Grid.Column="0"
+                                        Width="{Binding GraphWidth}"
+                                        Padding="0"
+                                        Background="Transparent">
+                                    <Canvas Width="{Binding GraphWidth}"
+                                            Height="78"
+                                            ClipToBounds="False"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Stretch">
+                                        <ItemsControl ItemsSource="{Binding GraphLines}"
+                                                      ItemTemplate="{StaticResource CommitGraphLineTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <Canvas/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+
+                                        <Ellipse x:Name="TimelineNode"
+                                                 Width="10"
+                                                 Height="10"
+                                                 Canvas.Left="{Binding NodeLeft}"
+                                                 Canvas.Top="{Binding NodeTop}"
+                                                 Fill="{Binding NodeFill}"
+                                                 Stroke="{Binding NodeStroke}"
+                                                 StrokeThickness="1.8"/>
+                                    </Canvas>
+                                </Border>
+
+                                <Border x:Name="CardBorder" 
+                                        Grid.Column="1"
+                                        Padding="12"                                                     
+                                        CornerRadius="8"                                                   
+                                        Background="#241A3D"  
+                                        BorderBrush="#3D2B66" 
+                                        BorderThickness="1"
+                                        ContextMenuOpening="History_ContextMenu_Opening">
+                                    <Border.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem x:Name="ResetSoftMenuItem" Header="Undo Last Commit (Soft)" Click="History_ResetSoft_Click" CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="Undo" Foreground="Orange"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator />
+                                            <MenuItem Header="Create Branch from this Commit..." Click="History_CreateBranch_Click" CommandParameter="{Binding Hash}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="SourceBranch" Foreground="DeepSkyBlue"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Create Tag from this Commit..." Click="History_CreateTag_Click" CommandParameter="{Binding Hash}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="TagPlus" Foreground="LightSlateGray"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
 
                                     <!-- Row 0: Hash & Message -->
                                     <Grid Grid.Row="0" Margin="0,0,0,8">
@@ -164,13 +211,20 @@
                                                        VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Grid>
-                                </Grid>
-                            </Border>
+                                    </Grid>
+                                </Border>
+                            </Grid>
                             <DataTemplate.Triggers>
                                 <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
                                     <Setter TargetName="CardBorder" Property="BorderBrush" Value="#FFA500"/>
                                     <Setter TargetName="CardBorder" Property="BorderThickness" Value="1"/>
                                     <Setter TargetName="CardBorder" Property="Background" Value="#252525"/>
+                                    <Setter TargetName="TimelineNode" Property="Stroke" Value="#FFF7ED"/>
+                                    <Setter TargetName="TimelineNode" Property="StrokeThickness" Value="1.8"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsSynced}" Value="False">
+                                    <Setter TargetName="TimelineNode" Property="Width" Value="11"/>
+                                    <Setter TargetName="TimelineNode" Property="Height" Value="11"/>
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>

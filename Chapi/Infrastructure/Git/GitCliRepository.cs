@@ -432,9 +432,10 @@ public class GitCliRepository : IGitRepository
     {
         // Usamos delimitadores nulos (%x00) para campos y %x01 para registros completos.
         // Esto permite que el cuerpo del mensaje tenga saltos de línea sin romper el parseo.
-        var format = "%H%x00%an%x00%at%x00%s%x00%b%x00%ar%x01";
+        var format = "%H%x00%P%x00%an%x00%at%x00%s%x00%b%x00%ar%x01";
         var result = await Git(projectPath, "log", $"-n{limit}", $"--format={format}");
         if (!result.IsSuccess) return Enumerable.Empty<GitCommit>();
+        var graphMap = await GetCommitGraphPrefixesAsync(projectPath, limit);
 
         var commits = new List<GitCommit>();
         // Dividimos por el separador de registro (%x01)
@@ -443,23 +444,56 @@ public class GitCliRepository : IGitRepository
         foreach (var record in records)
         {
             var parts = record.TrimStart('\n', '\r').Split('\0');
-            if (parts.Length < 4) continue;
+            if (parts.Length < 5) continue;
 
-            if (long.TryParse(parts[2], out var ts))
+            if (long.TryParse(parts[3], out var ts))
             {
                 commits.Add(new GitCommit
                 {
                     Hash = parts[0],
-                    Author = parts[1],
+                    GraphPrefix = graphMap.TryGetValue(parts[0], out var graphPrefix) ? graphPrefix : "*",
+                    ParentHashes = parts[1]
+                        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .ToList(),
+                    Author = parts[2],
                     Date = DateTimeOffset.FromUnixTimeSeconds(ts).LocalDateTime,
-                    Message = parts[3],
-                    Description = parts.Length > 4 ? parts[4].Trim() : string.Empty,
-                    RelativeDate = parts.Length > 5 ? parts[5] : string.Empty,
+                    Message = parts[4],
+                    Description = parts.Length > 5 ? parts[5].Trim() : string.Empty,
+                    RelativeDate = parts.Length > 6 ? parts[6] : string.Empty,
                     Tags = new List<string>()
                 });
             }
         }
         return commits;
+    }
+
+    private async Task<Dictionary<string, string>> GetCommitGraphPrefixesAsync(string projectPath, int limit)
+    {
+        var result = await Git(projectPath, "log", "--graph", "--date-order", $"-n{limit}", "--format=%x00%H%x01");
+        var graphMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Data))
+            return graphMap;
+
+        foreach (var rawLine in result.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var nulIndex = rawLine.IndexOf('\0');
+            if (nulIndex < 0)
+                continue;
+
+            var separatorIndex = rawLine.IndexOf('\x01', nulIndex + 1);
+            if (separatorIndex < 0)
+                continue;
+
+            var graphPrefix = rawLine.Substring(0, nulIndex).Replace("\r", string.Empty);
+            var hash = rawLine.Substring(nulIndex + 1, separatorIndex - nulIndex - 1).Trim();
+
+            if (string.IsNullOrWhiteSpace(hash))
+                continue;
+
+            graphMap[hash] = string.IsNullOrWhiteSpace(graphPrefix) ? "*" : graphPrefix;
+        }
+
+        return graphMap;
     }
 
     public async Task<HashSet<string>> GetUnpushedCommitsAsync(string projectPath, string branch)
@@ -1114,18 +1148,59 @@ public class GitCliRepository : IGitRepository
 
     public async Task<Dictionary<string, List<string>>> GetTagCommitMapAsync(string projectPath)
     {
-        var result = await Git(projectPath, "tag", "--list", "--format=%(objectname)|%(refname:short)");
-        var map = new Dictionary<string, List<string>>();
+        var result = await Git(projectPath, "show-ref", "--tags", "-d");
+        var map = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         if (!result.IsSuccess) return map;
+
+        var pendingLightweightTags = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var line in result.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            var parts = line.Split('|');
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < 2) continue;
+
             var hash = parts[0].Trim();
-            if (!map.ContainsKey(hash)) map[hash] = new List<string>();
-            map[hash].Add(parts[1].Trim());
+            var refName = parts[1].Trim();
+            const string tagPrefix = "refs/tags/";
+
+            if (!refName.StartsWith(tagPrefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var tagName = refName.Substring(tagPrefix.Length);
+            if (tagName.EndsWith("^{}", StringComparison.Ordinal))
+            {
+                tagName = tagName[..^3];
+                AddTagToCommitMap(map, hash, tagName);
+                pendingLightweightTags.Remove(tagName);
+                continue;
+            }
+
+            pendingLightweightTags[tagName] = hash;
         }
+
+        foreach (var entry in pendingLightweightTags)
+        {
+            AddTagToCommitMap(map, entry.Value, entry.Key);
+        }
+
         return map;
+    }
+
+    private static void AddTagToCommitMap(Dictionary<string, List<string>> map, string hash, string tagName)
+    {
+        if (string.IsNullOrWhiteSpace(hash) || string.IsNullOrWhiteSpace(tagName))
+            return;
+
+        if (!map.TryGetValue(hash, out var tags))
+        {
+            tags = new List<string>();
+            map[hash] = tags;
+        }
+
+        if (!tags.Contains(tagName, StringComparer.OrdinalIgnoreCase))
+        {
+            tags.Add(tagName);
+        }
     }
 
     // ─── Conflictos ──────────────────────────────────────────────────────────

@@ -6,6 +6,8 @@ namespace Chapi.Domain.Entities;
 public class GitCommit
 {
     public string Hash { get; set; } = string.Empty;
+    public string GraphPrefix { get; set; } = string.Empty;
+    public List<string> ParentHashes { get; set; } = new();
     public string Author { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;

@@ -21,7 +21,16 @@ public class LoadHistoryUseCase
         if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
             return Enumerable.Empty<GitCommit>();
 
-        var commits = await _gitRepo.GetCommitsAsync(projectPath, limit);
+        var commits = (await _gitRepo.GetCommitsAsync(projectPath, limit)).ToList();
+        var tagMap = await _gitRepo.GetTagCommitMapAsync(projectPath);
+
+        foreach (var commit in commits)
+        {
+            if (tagMap.TryGetValue(commit.Hash, out var tags))
+            {
+                commit.Tags = tags;
+            }
+        }
 
         // Obtener commits no pusheados
         var currentBranch = await _gitRepo.GetCurrentBranchAsync(projectPath);

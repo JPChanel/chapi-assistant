@@ -5,6 +5,7 @@ using Chapi.Presentation.Views.Dialogs;
 using DiffPlex.DiffBuilder;
 using DiffPlex.DiffBuilder.Model;
 using System.Collections.ObjectModel;
+using System.Linq;
 namespace Chapi.Presentation.ViewModels;
 
 /// <summary>
@@ -161,6 +162,7 @@ public class HistoryViewModel : ViewModelBase
             var commits = await _loadHistoryUseCase.ExecuteAsync(ProjectPath, _currentLimit);
             var commitList = commits.ToList();
             var viewModels = commitList.Select(MapToViewModel).ToList();
+            ApplyLaneGraph(commitList, viewModels);
 
             CanLoadMore = commitList.Count >= _currentLimit;
 
@@ -286,6 +288,7 @@ public class HistoryViewModel : ViewModelBase
         return new CommitItemViewModel
         {
             Hash = commit.Hash,
+            GraphPrefix = commit.GraphPrefix,
             ShortHash = commit.ShortHash,
             Message = commit.Message,
             Description = commit.Description,
@@ -295,6 +298,161 @@ public class HistoryViewModel : ViewModelBase
             IsSynced = !commit.IsUnpushed,
             Tags = new ObservableCollection<string>(commit.Tags)
         };
+    }
+
+    private void ApplyLaneGraph(IReadOnlyList<GitCommit> commits, IReadOnlyList<CommitItemViewModel> viewModels)
+    {
+        const double laneSpacing = 12;
+        const double rowHeight = 78;
+        const double centerY = rowHeight / 2;
+        const double padding = 10;
+        const double nodeRadius = 5;
+        const double overflow = 6;
+        const double nodeGap = 7;
+        var lanePalette = new[]
+        {
+            "#6EC1FF",
+            "#F59E0B",
+            "#F97316",
+            "#22C55E",
+            "#A78BFA",
+            "#F43F5E"
+        };
+
+        var activeLanes = new List<string>();
+        var rowStates = new List<(List<string> Before, List<string> After, int LaneIndex, List<string> Parents)>(commits.Count);
+        var maxLaneCount = 1;
+
+        foreach (var commit in commits)
+        {
+            if (!activeLanes.Contains(commit.Hash, StringComparer.OrdinalIgnoreCase))
+                activeLanes.Insert(0, commit.Hash);
+
+            var before = activeLanes.ToList();
+            var laneIndex = before.FindIndex(hash => string.Equals(hash, commit.Hash, StringComparison.OrdinalIgnoreCase));
+            if (laneIndex < 0)
+            {
+                laneIndex = 0;
+                before.Insert(0, commit.Hash);
+            }
+
+            var parents = commit.ParentHashes
+                .Where(hash => !string.IsNullOrWhiteSpace(hash))
+                .ToList();
+
+            var after = before.ToList();
+            after.RemoveAt(laneIndex);
+
+            if (parents.Count > 0)
+            {
+                after.Insert(laneIndex, parents[0]);
+
+                for (var i = 1; i < parents.Count; i++)
+                {
+                    var parent = parents[i];
+                    if (after.Contains(parent, StringComparer.OrdinalIgnoreCase))
+                        continue;
+
+                    after.Insert(Math.Min(laneIndex + i, after.Count), parent);
+                }
+            }
+
+            var dedupedAfter = new List<string>();
+            foreach (var hash in after)
+            {
+                if (!dedupedAfter.Contains(hash, StringComparer.OrdinalIgnoreCase))
+                    dedupedAfter.Add(hash);
+            }
+
+            rowStates.Add((before, dedupedAfter, laneIndex, parents));
+            maxLaneCount = Math.Max(maxLaneCount, Math.Max(before.Count, dedupedAfter.Count));
+            activeLanes = dedupedAfter;
+        }
+
+        var graphWidth = Math.Max(42, padding * 2 + Math.Max(0, maxLaneCount - 1) * laneSpacing + 10);
+
+        for (var i = 0; i < viewModels.Count; i++)
+        {
+            var row = rowStates[i];
+            var lines = new ObservableCollection<CommitGraphLineViewModel>();
+
+            for (var lane = 0; lane < row.Before.Count; lane++)
+            {
+                var x = padding + lane * laneSpacing;
+                if (lane == row.LaneIndex)
+                {
+                    lines.Add(new CommitGraphLineViewModel
+                    {
+                        X1 = x,
+                        Y1 = -overflow,
+                        X2 = x,
+                        Y2 = centerY - nodeGap,
+                        Stroke = lanePalette[lane % lanePalette.Length]
+                    });
+                }
+                else
+                {
+                    lines.Add(new CommitGraphLineViewModel
+                    {
+                        X1 = x,
+                        Y1 = -overflow,
+                        X2 = x,
+                        Y2 = centerY,
+                        Stroke = lanePalette[lane % lanePalette.Length]
+                    });
+                }
+            }
+
+            for (var lane = 0; lane < row.After.Count; lane++)
+            {
+                var x = padding + lane * laneSpacing;
+                var isNodeLane = lane == row.LaneIndex;
+                var hasDiagonalFromNode = row.Parents.Any(parent =>
+                {
+                    var parentLane = row.After.FindIndex(hash => string.Equals(hash, parent, StringComparison.OrdinalIgnoreCase));
+                    return parentLane == lane && Math.Abs((padding + parentLane * laneSpacing) - (padding + row.LaneIndex * laneSpacing)) > 0.01;
+                });
+
+                lines.Add(new CommitGraphLineViewModel
+                {
+                    X1 = x,
+                    Y1 = isNodeLane && !hasDiagonalFromNode ? centerY + nodeGap : centerY,
+                    X2 = x,
+                    Y2 = rowHeight + overflow,
+                    Stroke = lanePalette[lane % lanePalette.Length]
+                });
+            }
+
+            var nodeX = padding + row.LaneIndex * laneSpacing;
+            var nodeColor = lanePalette[row.LaneIndex % lanePalette.Length];
+            foreach (var parent in row.Parents)
+            {
+                var parentLane = row.After.FindIndex(hash => string.Equals(hash, parent, StringComparison.OrdinalIgnoreCase));
+                if (parentLane < 0)
+                    continue;
+
+                var parentX = padding + parentLane * laneSpacing;
+                if (Math.Abs(parentX - nodeX) < 0.01)
+                    continue;
+
+                lines.Add(new CommitGraphLineViewModel
+                {
+                    X1 = nodeX,
+                    Y1 = centerY,
+                    X2 = parentX,
+                    Y2 = rowHeight,
+                    Stroke = lanePalette[parentLane % lanePalette.Length]
+                });
+            }
+
+            viewModels[i].GraphWidth = graphWidth;
+            viewModels[i].NodeLeft = nodeX - nodeRadius;
+            viewModels[i].NodeTop = centerY - nodeRadius;
+            viewModels[i].IsMergeNode = row.Parents.Count > 1;
+            viewModels[i].NodeFill = row.Parents.Count > 1 ? nodeColor : "Transparent";
+            viewModels[i].NodeStroke = nodeColor;
+            viewModels[i].GraphLines = lines;
+        }
     }
 
     private async Task ResetSoftAsync(CommitItemViewModel? commit)
