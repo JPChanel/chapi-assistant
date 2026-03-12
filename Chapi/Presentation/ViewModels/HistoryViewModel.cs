@@ -307,11 +307,13 @@ public class HistoryViewModel : ViewModelBase
         const double laneSpacing = 12;
         const double rowHeight = 78;
         const double centerY = rowHeight / 2;
-        const double padding = 10;
+        const double padding = 20;
         const double nodeRadius = 5;
         const double overflow = 6;
         const double nodeGap = 7;
-        const double badgeHeight = 18;
+        const double badgeHeight = 38;
+        const double badgeWidth = 34;
+        const double badgeSpacing = 4;
         var lanePalette = new[]
         {
             "#6EC1FF",
@@ -371,8 +373,13 @@ public class HistoryViewModel : ViewModelBase
             activeLanes = dedupedAfter;
         }
 
+        var maxBadgeColumns = viewModels.Select(GetBranchBadgeGroupCount).DefaultIfEmpty(0).Max();
+        var badgeAreaWidth = maxBadgeColumns > 0
+            ? 8 + (maxBadgeColumns * badgeWidth) + ((maxBadgeColumns - 1) * badgeSpacing)
+            : 0;
+
         var graphStartX = padding;
-        var graphWidth = Math.Max(42, graphStartX + Math.Max(0, maxLaneCount - 1) * laneSpacing + 20);
+        var graphWidth = Math.Max(42, graphStartX + Math.Max(0, maxLaneCount - 1) * laneSpacing + 20 + badgeAreaWidth);
 
         for (var i = 0; i < viewModels.Count; i++)
         {
@@ -427,7 +434,7 @@ public class HistoryViewModel : ViewModelBase
 
             var nodeX = graphStartX + row.LaneIndex * laneSpacing;
             var nodeColor = lanePalette[row.LaneIndex % lanePalette.Length];
-            var badges = BuildBranchBadges(viewModels[i], nodeX, centerY, graphWidth, badgeHeight);
+            var badges = BuildBranchBadges(viewModels[i], nodeX, centerY, graphWidth, badgeHeight, badgeWidth, badgeSpacing);
             foreach (var parent in row.Parents)
             {
                 var parentLane = row.After.FindIndex(hash => string.Equals(hash, parent, StringComparison.OrdinalIgnoreCase));
@@ -464,46 +471,177 @@ public class HistoryViewModel : ViewModelBase
         double nodeX,
         double centerY,
         double graphWidth,
-        double badgeHeight)
+        double minBadgeHeight,
+        double badgeWidth,
+        double badgeSpacing)
     {
-        var refs = viewModel.LocalBranches
-            .Select(label => new { Label = label, IsRemote = false })
-            .Concat(viewModel.RemoteBranches.Select(label => new { Label = label, IsRemote = true }))
-            .ToList();
+        var refs = BuildBranchReferenceGroups(viewModel);
 
         var badges = new ObservableCollection<CommitGraphBadgeViewModel>();
         if (refs.Count == 0)
             return badges;
 
-        var totalHeight = refs.Count * badgeHeight + Math.Max(0, refs.Count - 1) * 2;
-        var top = centerY - totalHeight - 6;
+        var index = 0;
 
         foreach (var reference in refs)
         {
-            var width = EstimateBadgeWidth(reference.Label);
-            var left = Math.Max(0, Math.Min(graphWidth - width, nodeX - (width / 2)));
+            var width = EstimateBadgeWidth(badgeWidth);
+            var height = EstimateBadgeHeight(reference.DisplayLabel, minBadgeHeight);
+            // Coloca el badge por encima del nodo para evitar que el punto central lo atraviese.
+            var top = centerY - height - 8;
+            var columnOffset = GetBadgeColumnOffset(index);
+            var left = nodeX - (width / 2) + columnOffset * (badgeWidth + badgeSpacing);
+            left = Math.Max(0, Math.Min(graphWidth - width, left));
 
             badges.Add(new CommitGraphBadgeViewModel
             {
                 Label = reference.Label,
+                DisplayLabel = reference.DisplayLabel,
                 Width = width,
+                Height = height,
                 Left = left,
                 Top = top,
-                IsRemote = reference.IsRemote
+                HasLocal = reference.HasLocal,
+                HasRemote = reference.HasRemote,
+                Tooltip = reference.Tooltip
             });
 
-            top += badgeHeight + 2;
+            index++;
         }
 
         return badges;
     }
 
-    private static double EstimateBadgeWidth(string label)
+    private static double EstimateBadgeWidth(double badgeWidth)
+    {
+        return badgeWidth;
+    }
+
+    private static double EstimateBadgeHeight(string label, double minBadgeHeight)
     {
         if (string.IsNullOrWhiteSpace(label))
+            return minBadgeHeight;
+
+        var estimatedTextHeight = label.Length * 7.5;
+        return Math.Max(minBadgeHeight, estimatedTextHeight + 30);
+    }
+
+    private static int GetBadgeColumnOffset(int index)
+    {
+        if (index <= 0)
             return 0;
 
-        return Math.Max(56, label.Length * 7 + 22);
+        var column = (index + 1) / 2;
+        return index % 2 == 1 ? column : -column;
+    }
+
+    private static int GetBranchBadgeGroupCount(CommitItemViewModel viewModel)
+    {
+        return BuildBranchReferenceGroups(viewModel).Count;
+    }
+
+    private static List<BranchBadgeReference> BuildBranchReferenceGroups(CommitItemViewModel viewModel)
+    {
+        var grouped = new Dictionary<string, (List<string> Local, List<string> Remote)>(StringComparer.OrdinalIgnoreCase);
+
+        void AddReference(string rawLabel, bool isRemote)
+        {
+            if (string.IsNullOrWhiteSpace(rawLabel))
+                return;
+
+            var normalized = NormalizeBranchLabel(rawLabel, isRemote);
+            if (string.IsNullOrWhiteSpace(normalized))
+                return;
+
+            if (!grouped.TryGetValue(normalized, out var lists))
+                lists = (new List<string>(), new List<string>());
+
+            if (isRemote)
+                lists.Remote.Add(rawLabel.Trim());
+            else
+                lists.Local.Add(rawLabel.Trim());
+
+            grouped[normalized] = lists;
+        }
+
+        foreach (var local in viewModel.LocalBranches)
+            AddReference(local, isRemote: false);
+
+        foreach (var remote in viewModel.RemoteBranches)
+            AddReference(remote, isRemote: true);
+
+        return grouped
+            .Select(entry =>
+            {
+                var label = entry.Key;
+                var hasLocal = entry.Value.Local.Count > 0;
+                var hasRemote = entry.Value.Remote.Count > 0;
+                var displayLabel = ShortenBranchLabel(label);
+                var tooltip = BuildBranchTooltip(label, entry.Value.Local, entry.Value.Remote, hasLocal, hasRemote);
+                var priority = hasLocal && hasRemote ? 0 : hasLocal ? 1 : 2;
+
+                return new BranchBadgeReference
+                {
+                    Label = label,
+                    DisplayLabel = displayLabel,
+                    HasLocal = hasLocal,
+                    HasRemote = hasRemote,
+                    Priority = priority,
+                    Tooltip = tooltip
+                };
+            })
+            .OrderBy(reference => reference.Priority)
+            .ThenBy(reference => reference.Label, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string NormalizeBranchLabel(string label, bool isRemote)
+    {
+        var trimmed = label.Trim();
+        if (!isRemote)
+            return trimmed;
+
+        var separatorIndex = trimmed.IndexOf('/');
+        if (separatorIndex > 0 && separatorIndex < trimmed.Length - 1)
+            return trimmed[(separatorIndex + 1)..];
+
+        return trimmed;
+    }
+
+    private static string ShortenBranchLabel(string label)
+    {
+        return label;
+    }
+
+    private static string BuildBranchTooltip(
+        string normalizedLabel,
+        IReadOnlyCollection<string> localLabels,
+        IReadOnlyCollection<string> remoteLabels,
+        bool hasLocal,
+        bool hasRemote)
+    {
+        var lines = new List<string> { $"Rama: {normalizedLabel}" };
+
+        if (hasLocal)
+            lines.Add($"Local: {string.Join(", ", localLabels)}");
+
+        if (hasRemote)
+            lines.Add($"Remota: {string.Join(", ", remoteLabels)}");
+
+        if (hasLocal && hasRemote)
+            lines.Add("Estado: L+R");
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private sealed class BranchBadgeReference
+    {
+        public string Label { get; init; } = string.Empty;
+        public string DisplayLabel { get; init; } = string.Empty;
+        public bool HasLocal { get; init; }
+        public bool HasRemote { get; init; }
+        public int Priority { get; init; }
+        public string Tooltip { get; init; } = string.Empty;
     }
 
     private async Task ResetSoftAsync(CommitItemViewModel? commit)

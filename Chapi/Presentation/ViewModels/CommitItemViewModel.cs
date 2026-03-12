@@ -216,8 +216,15 @@ public sealed class CommitGraphLineViewModel
 public sealed class CommitGraphBadgeViewModel
 {
     public string Label { get; init; } = string.Empty;
+    public string DisplayLabel { get; init; } = string.Empty;
+    public string VerticalLabel => string.Join("\n", DisplayLabel.ToCharArray());
     public double Left { get; init; }
     public double Top { get; init; }
-    public bool IsRemote { get; init; }
+    public bool HasLocal { get; init; }
+    public bool HasRemote { get; init; }
+    public bool HasBoth => HasLocal && HasRemote;
+    public string Indicator => HasBoth ? "L+R" : HasLocal ? "L" : "R";
     public double Width { get; init; }
+    public double Height { get; init; }
+    public string Tooltip { get; init; } = string.Empty;
 }

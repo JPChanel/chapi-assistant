@@ -25,23 +25,34 @@
                     CornerRadius="4"
                     BorderThickness="1"
                     Width="{Binding Width}"
+                    Height="{Binding Height}"
                     Canvas.Left="{Binding Left}"
-                    Canvas.Top="{Binding Top}">
+                    Canvas.Top="{Binding Top}"
+                    ToolTip="{Binding Tooltip}">
                 <Border.Style>
                     <Style TargetType="Border">
-                        <Setter Property="Background" Value="#334155"/>
-                        <Setter Property="BorderBrush" Value="#64748B"/>
+                        <Setter Property="Background" Value="#1D4ED8"/>
+                        <Setter Property="BorderBrush" Value="#60A5FA"/>
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsRemote}" Value="True">
+                            <DataTrigger Binding="{Binding HasRemote}" Value="True">
                                 <Setter Property="Background" Value="#3F3F46"/>
                                 <Setter Property="BorderBrush" Value="#71717A"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding HasBoth}" Value="True">
+                                <Setter Property="Background" Value="#14532D"/>
+                                <Setter Property="BorderBrush" Value="#22C55E"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </Border.Style>
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="SourceBranch" Width="9" Height="9" Foreground="#E2E8F0" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding Label}" FontSize="9" Foreground="#E2E8F0" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Vertical">
+                    <TextBlock Text="{Binding Indicator}" FontSize="9" FontWeight="Bold" Foreground="#F8FAFC" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                    <materialDesign:PackIcon Kind="SourceBranch" Width="14" Height="14" Foreground="#E2E8F0" Margin="4,0,0,2" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding DisplayLabel}" FontSize="12.5"  Foreground="#E2E8F0" HorizontalAlignment="Center" TextAlignment="Center">
+                        <TextBlock.LayoutTransform>
+                            <RotateTransform Angle="-90"/>
+                        </TextBlock.LayoutTransform>
+                    </TextBlock>
                 </StackPanel>
             </Border>
         </DataTemplate>
@@ -98,14 +109,16 @@
                                         Grid.Column="0"
                                         Width="{Binding GraphWidth}"
                                         Padding="0"
-                                        Background="Transparent">
+                                        Background="Transparent"
+                                        Panel.ZIndex="80"
+                                        ClipToBounds="False">
                                     <Canvas Width="{Binding GraphWidth}"
                                             Height="78"
                                             ClipToBounds="False"
                                             HorizontalAlignment="Left"
                                             VerticalAlignment="Stretch">
-                                        <ItemsControl ItemsSource="{Binding BranchBadges}"
-                                                      ItemTemplate="{StaticResource CommitGraphBadgeTemplate}">
+                                        <ItemsControl ItemsSource="{Binding GraphLines}"
+                                                      ItemTemplate="{StaticResource CommitGraphLineTemplate}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
                                                     <Canvas/>
@@ -113,8 +126,9 @@
                                             </ItemsControl.ItemsPanel>
                                         </ItemsControl>
 
-                                        <ItemsControl ItemsSource="{Binding GraphLines}"
-                                                      ItemTemplate="{StaticResource CommitGraphLineTemplate}">
+                                        <ItemsControl ItemsSource="{Binding BranchBadges}"
+                                                      ItemTemplate="{StaticResource CommitGraphBadgeTemplate}"
+                                                      Panel.ZIndex="120">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
                                                     <Canvas/>
@@ -127,6 +141,7 @@
                                                  Height="10"
                                                  Canvas.Left="{Binding NodeLeft}"
                                                  Canvas.Top="{Binding NodeTop}"
+                                                 Panel.ZIndex="100"
                                                  Fill="{Binding NodeFill}"
                                                  Stroke="{Binding NodeStroke}"
                                                  StrokeThickness="1.8"
