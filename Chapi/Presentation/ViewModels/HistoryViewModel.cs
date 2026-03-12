@@ -304,16 +304,16 @@ public class HistoryViewModel : ViewModelBase
 
     private void ApplyLaneGraph(IReadOnlyList<GitCommit> commits, IReadOnlyList<CommitItemViewModel> viewModels)
     {
-        const double laneSpacing = 12;
+        const double laneSpacing = 10;
         const double rowHeight = 78;
         const double centerY = rowHeight / 2;
-        const double padding = 20;
+        const double padding = 14;
         const double nodeRadius = 5;
         const double overflow = 6;
         const double nodeGap = 7;
         const double badgeHeight = 38;
-        const double badgeWidth = 34;
-        const double badgeSpacing = 4;
+        const double badgeWidth = 30;
+        const double badgeSpacing = 0;
         var lanePalette = new[]
         {
             "#6EC1FF",
@@ -373,13 +373,9 @@ public class HistoryViewModel : ViewModelBase
             activeLanes = dedupedAfter;
         }
 
-        var maxBadgeColumns = viewModels.Select(GetBranchBadgeGroupCount).DefaultIfEmpty(0).Max();
-        var badgeAreaWidth = maxBadgeColumns > 0
-            ? 8 + (maxBadgeColumns * badgeWidth) + ((maxBadgeColumns - 1) * badgeSpacing)
-            : 0;
-
         var graphStartX = padding;
-        var graphWidth = Math.Max(42, graphStartX + Math.Max(0, maxLaneCount - 1) * laneSpacing + 20 + badgeAreaWidth);
+        // No reservamos ancho extra por badges para evitar hueco inútil entre línea y tarjeta.
+        var graphWidth = Math.Max(30, graphStartX + Math.Max(0, maxLaneCount - 1) * laneSpacing + 8);
 
         for (var i = 0; i < viewModels.Count; i++)
         {
@@ -434,7 +430,7 @@ public class HistoryViewModel : ViewModelBase
 
             var nodeX = graphStartX + row.LaneIndex * laneSpacing;
             var nodeColor = lanePalette[row.LaneIndex % lanePalette.Length];
-            var badges = BuildBranchBadges(viewModels[i], nodeX, centerY, graphWidth, badgeHeight, badgeWidth, badgeSpacing);
+            var badges = BuildBranchBadges(viewModels[i], nodeX, centerY, badgeHeight, badgeWidth, badgeSpacing);
             foreach (var parent in row.Parents)
             {
                 var parentLane = row.After.FindIndex(hash => string.Equals(hash, parent, StringComparison.OrdinalIgnoreCase));
@@ -470,7 +466,6 @@ public class HistoryViewModel : ViewModelBase
         CommitItemViewModel viewModel,
         double nodeX,
         double centerY,
-        double graphWidth,
         double minBadgeHeight,
         double badgeWidth,
         double badgeSpacing)
@@ -491,7 +486,7 @@ public class HistoryViewModel : ViewModelBase
             var top = centerY - height - 8;
             var columnOffset = GetBadgeColumnOffset(index);
             var left = nodeX - (width / 2) + columnOffset * (badgeWidth + badgeSpacing);
-            left = Math.Max(0, Math.Min(graphWidth - width, left));
+            left = Math.Max(0, left);
 
             badges.Add(new CommitGraphBadgeViewModel
             {
@@ -533,11 +528,6 @@ public class HistoryViewModel : ViewModelBase
 
         var column = (index + 1) / 2;
         return index % 2 == 1 ? column : -column;
-    }
-
-    private static int GetBranchBadgeGroupCount(CommitItemViewModel viewModel)
-    {
-        return BuildBranchReferenceGroups(viewModel).Count;
     }
 
     private static List<BranchBadgeReference> BuildBranchReferenceGroups(CommitItemViewModel viewModel)
