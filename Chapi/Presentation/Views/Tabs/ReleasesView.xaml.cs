@@ -1,5 +1,7 @@
 using Chapi.Presentation.ViewModels;
+using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace Chapi.Presentation.Views.Tabs;
 
@@ -10,5 +12,18 @@ public partial class ReleasesView : UserControl
     public ReleasesView()
     {
         InitializeComponent();
+    }
+
+    private void ReleaseFilesListView_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        e.Handled = true;
+
+        var wheelEvent = new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+        {
+            RoutedEvent = UIElement.MouseWheelEvent,
+            Source = sender
+        };
+
+        ReleaseStatsScrollViewer.RaiseEvent(wheelEvent);
     }
 }

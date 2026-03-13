@@ -31,6 +31,7 @@ namespace Chapi.Presentation.Views.Settings
         private readonly ImageConverterService _imageConverterService;
         private List<string> _selectedImageFiles = new();
         private string _imageOutputFolder = string.Empty;
+        private bool _isLoadingThemeMode;
 
         private bool _isServiceActive = false;
         public bool IsServiceActive
@@ -46,7 +47,9 @@ namespace Chapi.Presentation.Views.Settings
         }
 
         public string ServiceStatusText => IsServiceActive ? "Activo" : "Inactivo";
-        public Brush ServiceStatusBrush => IsServiceActive ? Brushes.Green : Brushes.Gray;
+        public Brush ServiceStatusBrush => IsServiceActive
+            ? ResolveThemeBrush("StatusSuccessBrush", Brushes.Green)
+            : ResolveThemeBrush("MaterialDesignBodyLight", Brushes.Gray);
 
         private bool _hasApiKey = false;
         public bool HasApiKey
@@ -63,7 +66,9 @@ namespace Chapi.Presentation.Views.Settings
         }
 
         public string ApiKeyStatusText => HasApiKey ? "Key Guardada" : "No se ha configurado una Key";
-        public Brush ApiKeyStatusBrush => HasApiKey ? Brushes.Green : Brushes.Gray;
+        public Brush ApiKeyStatusBrush => HasApiKey
+            ? ResolveThemeBrush("StatusSuccessBrush", Brushes.Green)
+            : ResolveThemeBrush("MaterialDesignBodyLight", Brushes.Gray);
         public string ApiKeyButtonText => HasApiKey ? "Actualizar Key" : "Guardar Key";
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -74,8 +79,17 @@ namespace Chapi.Presentation.Views.Settings
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 
+        private static Brush ResolveThemeBrush(string key, Brush fallback)
+        {
+            if (System.Windows.Application.Current?.Resources[key] is Brush brush)
+                return brush;
+
+            return fallback;
+        }
+
         public UpdateView(string selectedProjectPath)
         {
+            _isLoadingThemeMode = true;
             InitializeComponent();
             DataContext = this;
             _mgr = new UpdateManager(new GithubSource(updateUrl, null, false));
@@ -84,6 +98,7 @@ namespace Chapi.Presentation.Views.Settings
             LoadCurrentInfo();
             LoadGitAccountsInfo();
             LoadApiKey();
+            LoadSystemSettings();
             IsServiceActive = true;
 
 
@@ -121,6 +136,7 @@ namespace Chapi.Presentation.Views.Settings
             ViewConfiguracionRed.Visibility = Visibility.Collapsed;
             ViewConfiguracionGitHub.Visibility = Visibility.Collapsed;
             ViewOptimizadorWebP.Visibility = Visibility.Collapsed;
+            ViewConfiguracionSistema.Visibility = Visibility.Collapsed;
 
             // Mostrar la vista seleccionada
             if (sender == NavButtonEstado)
@@ -133,6 +149,11 @@ namespace Chapi.Presentation.Views.Settings
                 ViewConfiguracionGitHub.Visibility = Visibility.Visible;
             else if (sender == NavButtonImageConverter)
                 ViewOptimizadorWebP.Visibility = Visibility.Visible;
+            else if (sender == NavButtonSystemConfig)
+            {
+                LoadSystemSettings();
+                ViewConfiguracionSistema.Visibility = Visibility.Visible;
+            }
         }
         /// <summary>
         /// Carga la información de la tarjeta "Información"
@@ -473,6 +494,34 @@ namespace Chapi.Presentation.Views.Settings
             UpdateApiKeyStatus();
         }
 
+        private void LoadSystemSettings()
+        {
+            _isLoadingThemeMode = true;
+            try
+            {
+                var settings = UserSettingsService.LoadSettings();
+                var themeMode = ThemeService.NormalizeThemeMode(settings.ThemeMode);
+
+                rbThemeLight.IsChecked = false;
+                rbThemeDark.IsChecked = false;
+                rbThemeSystem.IsChecked = false;
+
+                if (themeMode == ThemeService.LightMode)
+                    rbThemeLight.IsChecked = true;
+                else if (themeMode == ThemeService.SystemMode)
+                    rbThemeSystem.IsChecked = true;
+                else
+                    rbThemeDark.IsChecked = true;
+
+                if (rbThemeLight.IsChecked != true && rbThemeDark.IsChecked != true && rbThemeSystem.IsChecked != true)
+                    rbThemeSystem.IsChecked = true;
+            }
+            finally
+            {
+                _isLoadingThemeMode = false;
+            }
+        }
+
         private void UpdateApiKeyStatus()
         {
             var settings = UserSettingsService.LoadSettings();
@@ -521,6 +570,28 @@ namespace Chapi.Presentation.Views.Settings
             {
                 txtStatus.Text = $"Error al guardar configuración IA: {ex.Message}";
             }
+        }
+
+        private void ThemeModeRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_isLoadingThemeMode)
+                return;
+
+            if (sender is not RadioButton radioButton)
+                return;
+
+            var selectedMode = ThemeService.NormalizeThemeMode(radioButton.Tag?.ToString());
+            var settings = UserSettingsService.LoadSettings();
+
+            if (string.Equals(settings.ThemeMode, selectedMode, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            settings.ThemeMode = selectedMode;
+            UserSettingsService.SaveSettings(settings);
+
+            ThemeService.ApplyTheme(selectedMode);
+            OnPropertyChanged(nameof(ServiceStatusBrush));
+            OnPropertyChanged(nameof(ApiKeyStatusBrush));
         }
 
         #region Toggle Visibility Handlers

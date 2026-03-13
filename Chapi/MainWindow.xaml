@@ -118,7 +118,7 @@
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-            <materialDesign:ColorZone x:Name="HeaderZone" Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="20,10" Background="{StaticResource HeaderBackground}" Foreground="{StaticResource HeaderForeground}" MinHeight="95">
+            <materialDesign:ColorZone x:Name="HeaderZone" Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="20,10" Background="{DynamicResource HeaderBackground}" Foreground="{DynamicResource HeaderForeground}" MinHeight="95">
                 <Grid VerticalAlignment="Center" HorizontalAlignment="Stretch">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -430,7 +430,7 @@
 
             <!-- ??? NAVEGACIÓN (TABS) (Fila 1) -->
             <!-- ********************************************** -->
-            <materialDesign:ColorZone Grid.Row="1" Mode="Standard" Padding="0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Background="{StaticResource HeaderBackground}">
+            <materialDesign:ColorZone Grid.Row="1" Mode="Standard" Padding="0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Background="{DynamicResource HeaderBackground}">
                 <TabControl x:Name="GitTabs"
                             Style="{StaticResource MaterialDesignTabControl}"
                             materialDesign:ColorZoneAssist.Mode="Light"  HorizontalContentAlignment="Left" BorderBrush="{DynamicResource PrimaryHueMidBrush}"
@@ -441,7 +441,7 @@
                         <TabItem.HeaderTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="10,0">
-                                    <materialDesign:PackIcon Kind="Robot" Margin="0,0,8,0" Width="18" Height="18"/>
+                                    <materialDesign:PackIcon Kind="Robot" Margin="0,0,8,0" Width="18" Height="18" Foreground="{DynamicResource AppIconBrush}"/>
                                     <TextBlock Text="{Binding}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </DataTemplate>
@@ -452,10 +452,10 @@
                     <TabItem x:Name="ChangesTab">
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal" Margin="10,0">
-                                <materialDesign:PackIcon Kind="Stethoscope" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center"/>
+                                <materialDesign:PackIcon Kind="Stethoscope" Margin="0,0,8,0" Width="18" Height="18" VerticalAlignment="Center" Foreground="{DynamicResource AppIconBrush}"/>
                                 <TextBlock x:Name="ChangesTabHeader" Text="Cambios" VerticalAlignment="Center" />
                                 <Border x:Name="ChangesCountBadge" 
-                                        Background="#5C6BC0" 
+                                        Background="{DynamicResource StatusInfoBrush}" 
                                         CornerRadius="10" 
                                         MinWidth="20" 
                                         Height="20" 
@@ -465,7 +465,7 @@
                                     <TextBlock x:Name="txtChangesCount" 
                                                Text="{Binding TotalChangesCount}" 
                                                FontSize="11" 
-                                               Foreground="White" 
+                                               Foreground="White"
                                                HorizontalAlignment="Center" 
                                                VerticalAlignment="Center" 
                                                Padding="5,0"/>
@@ -479,7 +479,7 @@
                                         Width="24"
                                         Height="24"
                                         Padding="0" Margin="8,0,0,0">
-                                    <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16"/>
+                                    <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16" Foreground="{DynamicResource AppIconBrush}"/>
                                 </Button>
                             </StackPanel>
                         </TabItem.Header>
@@ -489,19 +489,29 @@
                         <TabItem.HeaderTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="10,0">
-                                    <materialDesign:PackIcon Kind="History" Margin="0,0,8,0" Width="18" Height="18"/>
+                                    <materialDesign:PackIcon Kind="History" Margin="0,0,8,0" Width="18" Height="18" Foreground="{DynamicResource AppIconBrush}"/>
                                     <TextBlock Text="{Binding}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </DataTemplate>
                         </TabItem.HeaderTemplate>
                         <views:HistoryView x:Name="HistoryViewControl"/>
                     </TabItem>
+                    <TabItem x:Name="TagsTab">
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Tag" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AppIconBrush}"/>
+                                <TextBlock Text="Releases" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </TabItem.Header>
 
+                        <views:ReleasesView x:Name="ReleasesViewControl"/>
+
+                    </TabItem>
                     <TabItem x:Name="WorkspaceTab" Header="Workspace">
                          <TabItem.HeaderTemplate>
                              <DataTemplate>
                                  <StackPanel Orientation="Horizontal" Margin="10,0">
-                                     <materialDesign:PackIcon Kind="ViewDashboardOutline" Margin="0,0,8,0" Width="18" Height="18"/>
+                                     <materialDesign:PackIcon Kind="ViewDashboardOutline" Margin="0,0,8,0" Width="18" Height="18" Foreground="{DynamicResource AppIconBrush}"/>
                                      <TextBlock Text="{Binding}" VerticalAlignment="Center" />
                                  </StackPanel>
                              </DataTemplate>
@@ -514,24 +524,14 @@
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal" Margin="10,0">
                                 <materialDesign:PackIcon Kind="BookOpenOutline" Width="18" Height="18"
-                                                         Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                         Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AppIconBrush}"/>
                                 <TextBlock Text="Documentación" VerticalAlignment="Center" />
                             </StackPanel>
                         </TabItem.Header>
                         <views:DocumentationView x:Name="DocumentationViewControl"/>
                     </TabItem>
 
-                    <TabItem x:Name="TagsTab">
-                        <TabItem.Header>
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Tag" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Releases" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </TabItem.Header>
-
-                        <views:ReleasesView x:Name="ReleasesViewControl"/>
-                        
-                    </TabItem>
+                    
 
                 </TabControl>
 

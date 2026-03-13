@@ -10,15 +10,9 @@
         Height="450" 
         Width="650"
         WindowStartupLocation="CenterScreen"
-        Background="#F5F5F5">
+        Background="{DynamicResource MaterialDesignPaper}">
 
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="Orange" SecondaryColor="Lime" />
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
+    <Window.Resources />
 
     <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -36,16 +30,16 @@
                        Margin="0,0,0,5"/>
             <TextBlock Text="Seleccione un metodo para revertir los cambios realizados" 
                        FontSize="12" 
-                       Foreground="#666"
+                       Foreground="{DynamicResource MaterialDesignBodyLight}"
                        TextWrapping="Wrap"/>
         </StackPanel>
 
         <!-- Lista de rollbacks -->
         <Border Grid.Row="1" 
-                BorderBrush="#CCCCCC" 
+                BorderBrush="{DynamicResource MaterialDesignDivider}" 
                 BorderThickness="1" 
                 CornerRadius="4"
-                Background="White">
+                Background="{DynamicResource MaterialDesignCardBackground}">
             <ListBox x:Name="listBox" 
                      BorderThickness="0"
                      SelectionChanged="listBox_SelectionChanged"
@@ -54,9 +48,9 @@
                     <DataTemplate>
                         <Border Padding="8" 
                                 Margin="2" 
-                                Background="#F9F9F9" 
+                                Background="{DynamicResource MaterialDesignPaper}" 
                                 CornerRadius="3"
-                                BorderBrush="#E0E0E0"
+                                BorderBrush="{DynamicResource MaterialDesignDivider}"
                                 BorderThickness="1">
                             <TextBlock Text="{Binding DisplayText}" 
                                        TextWrapping="Wrap"
@@ -70,10 +64,10 @@
         <!-- Panel de detalles (opcional) -->
         <Border Grid.Row="2" 
                 Margin="0,10,0,0"
-                BorderBrush="#CCCCCC" 
+                BorderBrush="{DynamicResource MaterialDesignDivider}" 
                 BorderThickness="1" 
                 CornerRadius="4"
-                Background="White"
+                Background="{DynamicResource MaterialDesignCardBackground}"
                 Padding="10"
                 Visibility="Collapsed"
                 x:Name="detailsPanel">
@@ -87,7 +81,7 @@
                                FontFamily="Consolas" 
                                FontSize="11"
                                TextWrapping="Wrap"
-                               Foreground="#333"/>
+                               Foreground="{DynamicResource MaterialDesignBody}"/>
                 </ScrollViewer>
             </StackPanel>
         </Border>
@@ -118,19 +112,19 @@
                         Padding="15,5"
                         Margin="5,0"
                         Click="btnCancelar_Click"
-                        Background="#E0E0E0"
-                        BorderBrush="#BDBDBD"/>
+                        Background="{DynamicResource MaterialDesignCardBackground}"
+                        BorderBrush="{DynamicResource MaterialDesignDivider}"
+                        Foreground="{DynamicResource MaterialDesignBody}"/>
                 <Button x:Name="btnAceptar" 
                         Content="✓ Ejecutar Rollback" 
                         Padding="15,5"
                         Margin="5,0"
                         Click="btnAceptar_Click"
-                        Background="#FF5722"
+                        Background="{DynamicResource PrimaryHueMidBrush}"
                         Foreground="White"
-                        BorderBrush="#E64A19"
+                        BorderBrush="{DynamicResource PrimaryHueDarkBrush}"
                         FontWeight="Bold"/>
             </StackPanel>
         </Grid>
     </Grid>
 </Window>
-

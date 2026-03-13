@@ -29,7 +29,7 @@ public partial class ChangesView : UserControl
 
     private void btnRefreshGitCheck_Click(object sender, RoutedEventArgs e)
     {
-        _ = _viewModel?.LoadChangesAsync();
+        _ = _viewModel?.ForceRefreshAsync();
     }
 
     private async void btnGitCommitIA_Click(object sender, RoutedEventArgs e)

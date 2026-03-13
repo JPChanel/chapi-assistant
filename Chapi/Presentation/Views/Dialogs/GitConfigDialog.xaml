@@ -1,11 +1,10 @@
-<UserControl x:Class="Chapi.Presentation.Views.Dialogs.GitConfigDialog"
+﻿<UserControl x:Class="Chapi.Presentation.Views.Dialogs.GitConfigDialog"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              x:Name="Self"
              Width="650"
              Height="500">
-
     <Border BorderThickness="1"
             Padding="0"
             CornerRadius="8"
@@ -18,15 +17,15 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- Título -->
+            <!-- TÃ­tulo -->
             <Border Grid.Row="0" 
                     Background="{DynamicResource PrimaryHueMidBrush}"
                     CornerRadius="8,8,0,0"
                     Padding="24,20">
-                <TextBlock Text="Configuración"
+                <TextBlock Text="ConfiguraciÃ³n"
                            FontSize="22"
                            FontWeight="Bold"
-                           Foreground="White"/>
+                           Foreground="{DynamicResource ActionTextOnAccentBrush}"/>
             </Border>
 
             <!-- TabControl -->
@@ -41,7 +40,7 @@
                     </Style>
                 </TabControl.Resources>
                 
-                <!-- Pestaña: Accounts -->
+                <!-- PestaÃ±a: Accounts -->
                 <TabItem Width="110">
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
@@ -132,13 +131,13 @@
                                       FontSize="13"
                                       Foreground="{DynamicResource MaterialDesignBodyLight}"
                                       LineHeight="20">
-                                <Run Text="Esta es tu cuenta autenticada para push/pull. Al cerrar sesión, necesitarás volver a autenticarte para realizar operaciones remotas."/>
+                                <Run Text="Esta es tu cuenta autenticada para push/pull. Al cerrar sesiÃ³n, necesitarÃ¡s volver a autenticarte para realizar operaciones remotas."/>
                             </TextBlock>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
 
-                <!-- Pestaña: Git -->
+                <!-- PestaÃ±a: Git -->
                 <TabItem Width="110">
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
@@ -149,7 +148,7 @@
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="32,24">
                         <StackPanel MaxWidth="500">
-                            <TextBlock Text="Configuración local de Git" 
+                            <TextBlock Text="ConfiguraciÃ³n local de Git" 
                                       FontSize="18" 
                                       FontWeight="SemiBold"
                                       Margin="0,0,0,20"/>
@@ -192,7 +191,7 @@
                                                                 Height="18" 
                                                                 VerticalAlignment="Top"
                                                                 Margin="0,2,10,0"/>
-                                        <TextBlock Text="Configuración local de Git" 
+                                        <TextBlock Text="ConfiguraciÃ³n local de Git" 
                                                   FontWeight="SemiBold" 
                                                   FontSize="13"
                                                   Foreground="#E65100"/>
@@ -203,11 +202,11 @@
                                               Foreground="#5D4037"
                                               Margin="28,0,0,0"
                                               LineHeight="18">
-                                        <Run Text="Esta configuración es solo para tu máquina local y NO afecta tu cuenta de GitHub/GitLab."/>
+                                        <Run Text="Esta configuraciÃ³n es solo para tu mÃ¡quina local y NO afecta tu cuenta de GitHub/GitLab."/>
                                         <LineBreak/>
                                         <LineBreak/>
-                                        <Run Text="💡 Recomendación: " FontWeight="SemiBold"/>
-                                        <Run Text="Usa el mismo email que tienes verificado en GitHub/GitLab para que tus commits se enlacen automáticamente a tu perfil."/>
+                                        <Run Text="ðŸ’¡ RecomendaciÃ³n: " FontWeight="SemiBold"/>
+                                        <Run Text="Usa el mismo email que tienes verificado en GitHub/GitLab para que tus commits se enlacen automÃ¡ticamente a tu perfil."/>
                                     </TextBlock>
                                 </StackPanel>
                             </Border>
@@ -239,3 +238,4 @@
         </Grid>
     </Border>
 </UserControl>
+

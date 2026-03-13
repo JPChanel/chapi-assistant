@@ -293,6 +293,10 @@ namespace Chapi
                 return;
             }
             base.OnStartup(e);
+
+            var uiSettings = Chapi.Infrastructure.Persistence.Settings.UserSettingsService.LoadSettings();
+            ThemeService.ApplyTheme(uiSettings.ThemeMode);
+
             var builder = new ConfigurationBuilder()
                .SetBasePath(AppContext.BaseDirectory)
                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);

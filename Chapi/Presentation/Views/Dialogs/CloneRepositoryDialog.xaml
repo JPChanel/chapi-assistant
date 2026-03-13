@@ -8,7 +8,7 @@
              mc:Ignorable="d" 
              d:DesignHeight="620" d:DesignWidth="500"
              Width="500" Height="620"
-             Background="{StaticResource MaterialDesignPaper}">
+             Background="{DynamicResource MaterialDesignPaper}">
 
     <UserControl.Resources>
         <Style x:Key="RepositoryGroupItemStyle" TargetType="{x:Type GroupItem}">
@@ -47,9 +47,9 @@
         <Grid Grid.Row="0" Background="{DynamicResource PrimaryHueMidBrush}" Height="60">
             <StackPanel Orientation="Horizontal" Margin="24,0">
                 <materialDesign:PackIcon Kind="CloudDownloadOutline" Width="28" Height="28" 
-                                        VerticalAlignment="Center" Foreground="White" />
+                                        VerticalAlignment="Center" Foreground="{DynamicResource ActionTextOnAccentBrush}" />
                 <TextBlock Text="Clone New Repository" FontSize="20" FontWeight="SemiBold" 
-                           VerticalAlignment="Center" Margin="12,0,0,0" Foreground="White"/>
+                           VerticalAlignment="Center" Margin="12,0,0,0" Foreground="{DynamicResource ActionTextOnAccentBrush}"/>
             </StackPanel>
         </Grid>
 
@@ -117,7 +117,7 @@
 
                             <!-- Login Placeholder for GitHub -->
                             <Grid Grid.Row="1" Visibility="{Binding IsGitHubAuthenticated, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
-                                  Background="{StaticResource MaterialDesignPaper}" Margin="0">
+                                  Background="{DynamicResource MaterialDesignPaper}" Margin="0">
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <materialDesign:PackIcon Kind="Github" Width="48" Height="48" HorizontalAlignment="Center" Opacity="0.5"/>
                                     <TextBlock Text="Inicia sesión en GitHub para ver tus repositorios" 
@@ -186,7 +186,7 @@
 
                             <!-- Login Placeholder for GitLab -->
                             <Grid Grid.Row="1" Visibility="{Binding IsGitLabAuthenticated, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
-                                  Background="{StaticResource MaterialDesignPaper}" Margin="0">
+                                  Background="{DynamicResource MaterialDesignPaper}" Margin="0">
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <materialDesign:PackIcon Kind="Gitlab" Width="48" Height="48" HorizontalAlignment="Center" Foreground="#FC6D26" Opacity="0.8"/>
                                     <TextBlock Text="Conecta tu cuenta de GitLab para listar tus proyectos" 
@@ -217,7 +217,8 @@
                 
                 <!-- Loading Overlay -->
                 <Grid Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
-                      Background="#AA000000">
+                      Background="{DynamicResource MaterialDesignPaper}"
+                      Opacity="0.86">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}" 
                                     Value="0" IsIndeterminate="True" 

@@ -120,7 +120,7 @@ public class ChangesViewModel : ViewModelBase
     private void OnRepositoryChanged(object? sender, string projectPath)
     {
         // Solo recargar si es el proyecto actual
-        if (projectPath == ProjectPath)
+        if (string.Equals(projectPath, ProjectPath, StringComparison.OrdinalIgnoreCase))
         {
             _changesCache.Invalidate(projectPath);
 
@@ -680,12 +680,27 @@ public class ChangesViewModel : ViewModelBase
         // Carga de metadata en segundo plano (no bloquear render de la lista de cambios)
         _ = Task.Run(async () =>
         {
+            using var metadataSilencer = _changeWatcher.Silence();
             try { await LoadMetadataAsync(token); } catch { }
         }, token);
 
         // Resetear solo si el proyecto es nuevo o está vacío, 
         // de lo contrario mantener los cambios actuales hasta que lleguen los nuevos (evita parpadeo)
         bool isFullReload = !sameProjectAsLastLoad || Changes.Count == 0;
+        bool hadVisibleChanges = Changes.Count > 0;
+        var previousSelectionByPath = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        if (sameProjectAsLastLoad)
+        {
+            foreach (var change in Changes)
+            {
+                if (!string.IsNullOrWhiteSpace(change.FilePath))
+                {
+                    previousSelectionByPath[change.FilePath] = change.IsSelected;
+                }
+            }
+        }
+        var previouslySelectedPath = sameProjectAsLastLoad ? SelectedChange?.FilePath : null;
+
         if (isFullReload)
         {
             Changes.Clear();
@@ -696,45 +711,89 @@ public class ChangesViewModel : ViewModelBase
         {
             if (_changesCache.TryGetChanges(ProjectPath, out var cachedChanges, out var cachedAdditions, out var cachedDeletions))
             {
+                var cachedChangesList = cachedChanges.ToList();
 
-                // Actualizar de forma atómica para evitar duplicados si es un refresco
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                // Si hay cambios visibles y el caché dice "cero", preferimos consultar Git de nuevo.
+                // Evita que un vacío transitorio "congele" la vista sin cambios reales.
+                if (hadVisibleChanges && cachedChangesList.Count == 0)
                 {
-                    Changes.Clear();
-                    foreach (var fileChange in cachedChanges)
+                    _changesCache.Invalidate(ProjectPath);
+                }
+                else
+                {
+
+                    // Actualizar de forma atómica para evitar duplicados si es un refresco
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        var viewModel = MapToViewModel(fileChange);
-                        viewModel.PropertyChanged += (s, e) =>
+                        Changes.Clear();
+                        ChangeItemViewModel? restoredSelectedChange = null;
+                        foreach (var fileChange in cachedChangesList)
                         {
-                            if (_isMassUpdating) return;
+                            var viewModel = MapToViewModel(fileChange);
 
-                            if (e.PropertyName == nameof(ChangeItemViewModel.IsSelected))
+                            if (previousSelectionByPath.TryGetValue(viewModel.FilePath, out var wasSelected))
                             {
-                                OnPropertyChanged(nameof(AreAllSelected));
-                                OnPropertyChanged(nameof(SelectedCount));
-                                (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+                                viewModel.IsSelected = wasSelected;
                             }
-                        };
-                        Changes.Add(viewModel);
-                    }
-                });
 
-                TotalAdditions = cachedAdditions;
-                TotalDeletions = cachedDeletions;
-                OnPropertyChanged(nameof(AreAllSelected));
-                OnPropertyChanged(nameof(SelectedCount));
-                OnPropertyChanged(nameof(TotalChangesCount));
+                            if (!string.IsNullOrWhiteSpace(previouslySelectedPath) &&
+                                string.Equals(viewModel.FilePath, previouslySelectedPath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                restoredSelectedChange = viewModel;
+                            }
 
-                IsSyncing = false;
-                return;
+                            viewModel.PropertyChanged += (s, e) =>
+                            {
+                                if (_isMassUpdating) return;
+
+                                if (e.PropertyName == nameof(ChangeItemViewModel.IsSelected))
+                                {
+                                    OnPropertyChanged(nameof(AreAllSelected));
+                                    OnPropertyChanged(nameof(SelectedCount));
+                                    (CommitCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+                                }
+                            };
+                            Changes.Add(viewModel);
+                        }
+
+                        SelectedChange = restoredSelectedChange;
+                    });
+
+                    TotalAdditions = cachedAdditions;
+                    TotalDeletions = cachedDeletions;
+                    OnPropertyChanged(nameof(AreAllSelected));
+                    OnPropertyChanged(nameof(SelectedCount));
+                    OnPropertyChanged(nameof(TotalChangesCount));
+
+                    IsSyncing = false;
+                    return;
+                }
             }
 
-            var fileChanges = await _loadChangesUseCase.ExecuteAsync(ProjectPath);
+            var fileChanges = (await _loadChangesUseCase.ExecuteAsync(ProjectPath)).ToList();
+
+            // Si veníamos mostrando cambios y Git devuelve vacío, confirmamos una vez más
+            // para evitar "falsos vacíos" por condiciones transitorias.
+            if (hadVisibleChanges && fileChanges.Count == 0)
+            {
+                await Task.Delay(250, token);
+                var retryChanges = (await _loadChangesUseCase.ExecuteAsync(ProjectPath)).ToList();
+                if (retryChanges.Count > 0)
+                {
+                    fileChanges = retryChanges;
+                }
+            }
 
             if (token.IsCancellationRequested) return;
             var viewModels = fileChanges.Select(fileChange =>
             {
                 var vm = MapToViewModel(fileChange);
+
+                if (previousSelectionByPath.TryGetValue(vm.FilePath, out var wasSelected))
+                {
+                    vm.IsSelected = wasSelected;
+                }
+
                 vm.PropertyChanged += (s, e) =>
                 {
                     if (_isMassUpdating) return;
@@ -751,10 +810,19 @@ public class ChangesViewModel : ViewModelBase
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 Changes.Clear();
+                ChangeItemViewModel? restoredSelectedChange = null;
                 foreach (var vm in viewModels)
                 {
                     Changes.Add(vm);
+
+                    if (!string.IsNullOrWhiteSpace(previouslySelectedPath) &&
+                        string.Equals(vm.FilePath, previouslySelectedPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        restoredSelectedChange = vm;
+                    }
                 }
+
+                SelectedChange = restoredSelectedChange;
                 OnPropertyChanged(nameof(AreAllSelected));
                 OnPropertyChanged(nameof(SelectedCount));
                 OnPropertyChanged(nameof(TotalChangesCount));
@@ -770,6 +838,12 @@ public class ChangesViewModel : ViewModelBase
             else
             {
                 _ = LoadFileStatsInBackgroundAsync(token);
+            }
+
+            // Si no hay cambios, no persistimos "vacío" en caché para evitar congelar estados transitorios.
+            if (fileChanges.Count == 0)
+            {
+                _changesCache.Invalidate(ProjectPath);
             }
         }
         catch (OperationCanceledException) { }
@@ -801,6 +875,8 @@ public class ChangesViewModel : ViewModelBase
     /// </summary>
     private async Task LoadFileStatsInBackgroundAsync(CancellationToken token)
     {
+        using var silencer = _changeWatcher.Silence();
+
         try
         {
             int totalAdd = 0;
@@ -856,7 +932,14 @@ public class ChangesViewModel : ViewModelBase
                     Deletions = c.Deletions
                 }).ToList();
 
-                _changesCache.SetChanges(ProjectPath, allChanges, TotalAdditions, TotalDeletions);
+                if (allChanges.Count > 0)
+                {
+                    _changesCache.SetChanges(ProjectPath, allChanges, TotalAdditions, TotalDeletions);
+                }
+                else
+                {
+                    _changesCache.Invalidate(ProjectPath);
+                }
             }
         }
         catch (Exception ex)
@@ -1108,6 +1191,7 @@ public class ChangesViewModel : ViewModelBase
     {
         DiffLines.Clear();
         if (SelectedChange == null || string.IsNullOrEmpty(ProjectPath)) return;
+        using var silencer = _changeWatcher.Silence();
 
         try
         {
@@ -1127,8 +1211,9 @@ public class ChangesViewModel : ViewModelBase
             }
             GenerateDiff(oldText, newText);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
+            // No interrumpir la UI por errores puntuales al renderizar diff.
         }
     }
 
@@ -1139,6 +1224,7 @@ public class ChangesViewModel : ViewModelBase
     {
         DiffLines.Clear();
         if (SelectedStash == null || SelectedStashedFile == null || string.IsNullOrEmpty(ProjectPath)) return;
+        using var silencer = _changeWatcher.Silence();
 
         try
         {

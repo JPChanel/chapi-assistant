@@ -58,7 +58,7 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid Background="#1A132D" >
+    <Grid Background="{DynamicResource MaterialDesignPaper}" >
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="0.3*" MinWidth="200"/>
             <ColumnDefinition Width="0.3*" MinWidth="200"/>
@@ -153,26 +153,26 @@
                                         Grid.Column="1"
                                         Padding="12"                                                     
                                         CornerRadius="8"                                                   
-                                        Background="#241A3D"  
-                                        BorderBrush="#3D2B66" 
+                                        Background="{DynamicResource MaterialDesignCardBackground}"  
+                                        BorderBrush="{DynamicResource MaterialDesignDivider}" 
                                         BorderThickness="1"
                                         ContextMenuOpening="History_ContextMenu_Opening">
                                     <Border.ContextMenu>
                                         <ContextMenu>
                                             <MenuItem x:Name="ResetSoftMenuItem" Header="Undo Last Commit (Soft)" Click="History_ResetSoft_Click" CommandParameter="{Binding}">
                                                 <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="Undo" Foreground="Orange"/>
+                                                    <materialDesign:PackIcon Kind="Undo" Foreground="{DynamicResource StatusWarningBrush}"/>
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <Separator />
                                             <MenuItem Header="Create Branch from this Commit..." Click="History_CreateBranch_Click" CommandParameter="{Binding Hash}">
                                                 <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="SourceBranch" Foreground="DeepSkyBlue"/>
+                                                    <materialDesign:PackIcon Kind="SourceBranch" Foreground="{DynamicResource StatusInfoBrush}"/>
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <MenuItem Header="Create Tag from this Commit..." Click="History_CreateTag_Click" CommandParameter="{Binding Hash}">
                                                 <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="TagPlus" Foreground="LightSlateGray"/>
+                                                    <materialDesign:PackIcon Kind="TagPlus" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                         </ContextMenu>
@@ -192,10 +192,10 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         
-                                        <Border Grid.Column="0" Background="#2D2D30" CornerRadius="3" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                        <Border Grid.Column="0" Background="{DynamicResource AppPrimaryBrush}" CornerRadius="3" Padding="6,1" Margin="0,0,8,0" VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
-                                                <materialDesign:PackIcon Kind="SourceCommit" Width="10" Height="10" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                <TextBlock Text="{Binding ShortHash}" FontFamily="Consolas" FontSize="11"  Foreground="#FFA500" VerticalAlignment="Center"/>
+                                                <materialDesign:PackIcon Kind="SourceCommit" Width="10" Height="10" Foreground="{DynamicResource ActionTextOnAccentBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                <TextBlock Text="{Binding ShortHash}" FontFamily="Consolas" FontSize="11"  Foreground="{DynamicResource ActionTextOnAccentBrush}" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Border>
                                         
@@ -203,7 +203,7 @@
                                                    Text="{Binding Message}" 
                                                    FontSize="13" 
                                                    FontWeight="Bold" 
-                                                   Foreground="White" 
+                                                   Foreground="{DynamicResource MaterialDesignBody}" 
                                                    TextWrapping="NoWrap" 
                                                    TextTrimming="CharacterEllipsis"
                                                    VerticalAlignment="Center"/>
@@ -212,7 +212,7 @@
                                                                  Kind="ArrowUp" 
                                                                  Width="14" 
                                                                  Height="14" 
-                                                                 Foreground="#FF5252" 
+                                                                 Foreground="{DynamicResource StatusDangerBrush}" 
                                                                  VerticalAlignment="Center" 
                                                                  Margin="8,0,0,0"
                                                                  Visibility="{Binding IsUnpushed, Converter={StaticResource BooleanToVisibilityConverter}}"
@@ -229,10 +229,10 @@
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Border Background="#3D2B66" CornerRadius="8" Padding="6,1" Margin="0,0,4,0">
+                                                    <Border Background="{DynamicResource AppSecondaryBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="6,1" Margin="0,0,4,0">
                                                         <StackPanel Orientation="Horizontal">
-                                                            <materialDesign:PackIcon Kind="TagOutline" Width="10" Height="10" Foreground="#8A7BB1" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                                            <TextBlock Text="{Binding}" FontSize="9" Foreground="#DCDCDC" VerticalAlignment="Center"/>
+                                                            <materialDesign:PackIcon Kind="TagOutline" Width="10" Height="10" Foreground="{DynamicResource ActionTextOnSecondaryBrush}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding}" FontSize="9" Foreground="{DynamicResource ActionTextOnSecondaryBrush}" VerticalAlignment="Center"/>
                                                         </StackPanel>
                                                     </Border>
                                                 </DataTemplate>
@@ -248,16 +248,16 @@
                                         </Grid.ColumnDefinitions>
                                         
                                         <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
-                                             <materialDesign:PackIcon Kind="AccountCircleOutline" Width="14" Height="14" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                             <TextBlock Text="{Binding Author}" FontSize="11" Foreground="#999" VerticalAlignment="Center"/>
-                                             <TextBlock Text=" • " Foreground="#444" VerticalAlignment="Center"/>
-                                             <TextBlock Text="{Binding RelativeDate}" FontSize="10" Foreground="#666" FontStyle="Italic" VerticalAlignment="Center"/>
+                                             <materialDesign:PackIcon Kind="AccountCircleOutline" Width="14" Height="14" Foreground="{DynamicResource AppPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                             <TextBlock Text="{Binding Author}" FontSize="11" Foreground="{DynamicResource MaterialDesignBodyLight}" VerticalAlignment="Center"/>
+                                             <TextBlock Text=" - " Foreground="{DynamicResource MaterialDesignBodyLight}" VerticalAlignment="Center"/>
+                                             <TextBlock Text="{Binding RelativeDate}" FontSize="10" Foreground="{DynamicResource MaterialDesignBodyLight}" FontStyle="Italic" VerticalAlignment="Center"/>
                                         </StackPanel>
                                         
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Date, StringFormat={}{0:dd/MM/yyyy HH:mm}}" 
                                                        FontSize="9" 
-                                                       Foreground="#555" 
+                                                       Foreground="{DynamicResource MaterialDesignBodyLight}" 
                                                        VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Grid>
@@ -266,10 +266,15 @@
                             </Grid>
                             <DataTemplate.Triggers>
                                 <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
-                                    <Setter TargetName="CardBorder" Property="BorderBrush" Value="#FFA500"/>
-                                    <Setter TargetName="CardBorder" Property="BorderThickness" Value="1"/>
-                                    <Setter TargetName="CardBorder" Property="Background" Value="#252525"/>
-                                    <Setter TargetName="TimelineNode" Property="Stroke" Value="#FFF7ED"/>
+                                    <Setter TargetName="CardBorder" Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
+                                    <Setter TargetName="CardBorder" Property="BorderThickness" Value="2"/>
+                                    <Setter TargetName="CardBorder" Property="Background" Value="{DynamicResource StatusSelectionOverlayBrush}"/>
+                                    <Setter TargetName="CardBorder" Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect BlurRadius="12" ShadowDepth="0" Opacity="0.22" Color="#2563EB"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Setter TargetName="TimelineNode" Property="Stroke" Value="{DynamicResource MaterialDesignPaper}"/>
                                     <Setter TargetName="TimelineNode" Property="StrokeThickness" Value="1.8"/>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding IsSynced}" Value="False">
@@ -306,25 +311,25 @@
                     <Border Grid.Row="0" x:Name="CommitDetailContainer" Padding="25,30,25,20" Visibility="Visible">
                         <StackPanel>
                             <!-- Commit Title (Subject) -->
-                            <TextBlock Text="{Binding SelectedCommit.Message}" 
+                                   <TextBlock Text="{Binding SelectedCommit.Message}" 
                                        FontSize="18" 
                                        FontWeight="Bold" 
-                                       Foreground="White" 
+                                       Foreground="{DynamicResource MaterialDesignBody}" 
                                        TextWrapping="Wrap" 
                                        Margin="0,0,0,5"/>
 
                             <Border Margin="0,10,0,0" Padding="0" Background="Transparent">
                                 <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="AccountCircle" Width="24" Height="24" Foreground="#FFA500" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                    <TextBlock x:Name="CommitSummaryInfo" Text="{Binding CommitDetailsInfo}" FontSize="14" Foreground="#888" VerticalAlignment="Center" FontWeight="Normal"/>
+                                    <materialDesign:PackIcon Kind="AccountCircle" Width="24" Height="24" Foreground="{DynamicResource AppPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock x:Name="CommitSummaryInfo" Text="{Binding CommitDetailsInfo}" FontSize="14" Foreground="{DynamicResource MaterialDesignBodyLight}" VerticalAlignment="Center" FontWeight="Normal"/>
                                 </StackPanel>
                             </Border>
 
-                            <TextBlock x:Name="CommitSummaryDescription" Text="{Binding SelectedCommit.Description, FallbackValue='Selecciona un commit para ver los detalles.'}" Margin="0,25,0,0" FontSize="14" Foreground="#CCC" TextWrapping="Wrap" Opacity="0.8" LineHeight="22"/>
+                            <TextBlock x:Name="CommitSummaryDescription" Text="{Binding SelectedCommit.Description, FallbackValue='Selecciona un commit para ver los detalles.'}" Margin="0,25,0,0" FontSize="14" Foreground="{DynamicResource MaterialDesignBody}" TextWrapping="Wrap" Opacity="0.8" LineHeight="22"/>
 
                             <StackPanel Orientation="Horizontal" Margin="0,20,0,0" >
-                                <materialDesign:PackIcon Kind="FileDocumentMultipleOutline" Width="18" Height="18" Foreground="#FFA500" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="ARCHIVOS CAMBIADOS" FontSize="11" FontWeight="Black" Foreground="#FFA500" VerticalAlignment="Center"/>
+                                <materialDesign:PackIcon Kind="FileDocumentMultipleOutline" Width="18" Height="18" Foreground="{DynamicResource AppPrimaryBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="ARCHIVOS CAMBIADOS" FontSize="11" FontWeight="Black" Foreground="{DynamicResource AppPrimaryBrush}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -393,8 +398,8 @@
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsSelected" Value="True">
-                                                <Setter Property="Background" Value="#26FFA500"/>
-                                                <Setter Property="BorderBrush" Value="#FFA500"/>
+                                                <Setter Property="Background" Value="{DynamicResource StatusSelectionOverlayBrush}"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -412,21 +417,21 @@
                                 <materialDesign:PackIcon Kind="FileOutline" Width="18" Height="18" Margin="2,0,12,0" VerticalAlignment="Center">
                                     <materialDesign:PackIcon.Style>
                                         <Style TargetType="materialDesign:PackIcon">
-                                                <Setter Property="Foreground" Value="#FFA500"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource AppPrimaryBrush}"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
-                                                    <Setter Property="Foreground" Value="#FFA500"/>
+                                                    <Setter Property="Foreground" Value="{DynamicResource AppPrimaryBrush}"/>
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
-                                                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                                                    <Setter Property="Foreground" Value="{DynamicResource ActionTextOnAccentBrush}"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </materialDesign:PackIcon.Style>
                                 </materialDesign:PackIcon>
                                 
-                                <TextBlock Grid.Column="1" Text="{Binding}" Foreground="#DCDCDC" VerticalAlignment="Center" FontSize="13" Padding="3,5"/>
-                                <materialDesign:PackIcon Grid.Column="2" Kind="ChevronRight" Width="14" Height="14" Foreground="#3D2B66" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding}" Foreground="{DynamicResource MaterialDesignBody}" VerticalAlignment="Center" FontSize="13" Padding="3,5"/>
+                                <materialDesign:PackIcon Grid.Column="2" Kind="ChevronRight" Width="14" Height="14" Foreground="{DynamicResource MaterialDesignBodyLight}" VerticalAlignment="Center"/>
                             </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>
@@ -435,7 +440,7 @@
             </ScrollViewer>
         </Border>
 
-        <Border Grid.Column="2" Background="#0A0A0A" BorderBrush="#2D2447" BorderThickness="1,0,0,0">
+        <Border Grid.Column="2" Background="{DynamicResource MaterialDesignPaper}" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1,0,0,0">
             <Grid>
                 <!-- Empty State -->
                 <Grid x:Name="DiffViewerPlaceholder" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -450,18 +455,18 @@
                         </Style>
                     </Grid.Style>
                     <StackPanel HorizontalAlignment="Center">
-                        <Border Background="#1A1A1A" CornerRadius="8" Padding="20" HorizontalAlignment="Center" Margin="0,0,0,20">
-                            <materialDesign:PackIcon Kind="CodeTags" Width="48" Height="48" Foreground="#333"/>
+                        <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="8" Padding="20" HorizontalAlignment="Center" Margin="0,0,0,20">
+                            <materialDesign:PackIcon Kind="CodeTags" Width="48" Height="48" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
                         </Border>
                         <TextBlock Text="SIN ARCHIVO SELECCIONADO" 
                                    FontSize="16" 
                                    FontWeight="Bold" 
-                                   Foreground="#444" 
+                                   Foreground="{DynamicResource MaterialDesignBodyLight}" 
                                    HorizontalAlignment="Center" 
                                    Margin="0,0,0,8"/>
                         <TextBlock Text="Selecciona un archivo modificado en el panel&#x0a;izquierdo para ver las diferencias (diff)." 
                                     FontSize="13" 
-                                    Foreground="#333" 
+                                    Foreground="{DynamicResource MaterialDesignBodyLight}" 
                                     TextAlignment="Center" 
                                     LineHeight="20"/>
                     </StackPanel>
@@ -483,10 +488,10 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Border Padding="15,12" BorderBrush="#2D2447" BorderThickness="0,0,1,0">
+                    <Border Padding="15,12" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="CodeBraces" Width="16" Height="16" Foreground="#8A7BB1" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="HistoryDiffFileName" Text="{Binding SelectedFile, TargetNullValue='VISOR DE C “DIGO'}" FontSize="10" FontWeight="Bold" Foreground="#8A7BB1" VerticalAlignment="Center"/>
+                            <materialDesign:PackIcon Kind="CodeBraces" Width="16" Height="16" Foreground="{DynamicResource AppPrimaryBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="HistoryDiffFileName" Text="{Binding SelectedFile, TargetNullValue='VISOR DE CODIGO'}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AppPrimaryBrush}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Auto">
@@ -494,7 +499,7 @@
                                       ItemsSource="{Binding DiffLines}"
                                       FontFamily="Consolas" 
                                       FontSize="13"
-                                      Background="#0A0A0A"
+                                      Background="{DynamicResource MaterialDesignPaper}"
                                       VirtualizingStackPanel.IsVirtualizing="True"
                                       VirtualizingStackPanel.VirtualizationMode="Recycling">
                             <ItemsControl.ItemTemplate>
@@ -503,18 +508,18 @@
                                         <Grid.Style>
                                             <Style TargetType="Grid">
                                                 <Setter Property="Background" Value="Transparent"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Type}" Value="Inserted">
-                                                        <Setter Property="Background" Value="#102510"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Type}" Value="Deleted">
-                                                        <Setter Property="Background" Value="#251010"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Type}" Value="Imaginary">
-                                                        <Setter Property="Background" Value="#111"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Inserted">
+                                                            <Setter Property="Background" Value="{DynamicResource StatusDiffInsertedBackgroundBrush}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Deleted">
+                                                            <Setter Property="Background" Value="{DynamicResource StatusDiffDeletedBackgroundBrush}"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Type}" Value="Imaginary">
+                                                            <Setter Property="Background" Value="{DynamicResource MaterialDesignDivider}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
                                         </Grid.Style>
 
                                         <Grid.ColumnDefinitions>
@@ -523,7 +528,7 @@
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <TextBlock Grid.Column="0" Text="{Binding Position}" Foreground="#555" Padding="5,0" HorizontalAlignment="Right">
+                                        <TextBlock Grid.Column="0" Text="{Binding Position}" Foreground="{DynamicResource MaterialDesignBodyLight}" Padding="5,0" HorizontalAlignment="Right">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Visibility" Value="Visible"/>
@@ -539,7 +544,7 @@
                                             </TextBlock.Style>
                                         </TextBlock>
 
-                                        <TextBlock Grid.Column="1" Text="{Binding Position}" Foreground="#555" Padding="5,0" HorizontalAlignment="Right">
+                                        <TextBlock Grid.Column="1" Text="{Binding Position}" Foreground="{DynamicResource MaterialDesignBodyLight}" Padding="5,0" HorizontalAlignment="Right">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Visibility" Value="Visible"/>
@@ -561,19 +566,19 @@
                                                     <Setter Property="Text" Value="{Binding Text, StringFormat='  {0}'}"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding Type}" Value="Inserted">
-                                                            <Setter Property="Foreground" Value="#80C880"/>
+                                                            <Setter Property="Foreground" Value="{DynamicResource StatusDiffInsertedForegroundBrush}"/>
                                                             <Setter Property="Text" Value="{Binding Text, StringFormat='+ {0}'}"/>
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding Type}" Value="Deleted">
-                                                            <Setter Property="Foreground" Value="#C88080"/>
+                                                            <Setter Property="Foreground" Value="{DynamicResource StatusDiffDeletedForegroundBrush}"/>
                                                             <Setter Property="Text" Value="{Binding Text, StringFormat='- {0}'}"/>
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding Type}" Value="Unchanged">
-                                                            <Setter Property="Foreground" Value="#888"/>
+                                                            <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBodyLight}"/>
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding Type}" Value="Imaginary">
                                                             <Setter Property="Text" Value="..."/>
-                                                            <Setter Property="Foreground" Value="#444"/>
+                                                            <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBodyLight}"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>

@@ -13,10 +13,10 @@
             <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#1AFFFFFF"/>
+                    <Setter Property="Background" Value="{DynamicResource MaterialDesignSelection}"/>
                 </Trigger>
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                    <Setter Property="Background" Value="#332196F3"/>
+                    <Setter Property="Background" Value="{DynamicResource PrimaryHueLightBrush}"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -163,7 +163,7 @@
                                  
                     <!-- Success Icon -->
                     <materialDesign:PackIcon Kind="CheckCircle" 
-                                           Foreground="LimeGreen" 
+                                           Foreground="{DynamicResource StatusSuccessBrush}" 
                                            VerticalAlignment="Center" Margin="0,0,8,0">
                         <materialDesign:PackIcon.Style>
                             <Style TargetType="materialDesign:PackIcon">
@@ -183,7 +183,7 @@
 
                     <!-- Warning/Error Icon -->
                     <materialDesign:PackIcon Kind="AlertCircle" 
-                                           Foreground="Orange" 
+                                           Foreground="{DynamicResource StatusWarningBrush}" 
                                            VerticalAlignment="Center" Margin="0,0,8,0">
                         <materialDesign:PackIcon.Style>
                              <Style TargetType="materialDesign:PackIcon">

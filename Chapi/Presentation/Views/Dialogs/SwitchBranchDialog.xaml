@@ -37,7 +37,7 @@
                 <!-- Mensaje -->
                 <TextBlock TextWrapping="Wrap" Margin="0,15,0,15">
                     <Run Text="Tienes cambios en esta rama. Â¿Que quieres hacer con ellos al cambiar a "/>
-                    <Run Text="{Binding TargetBranch, ElementName=Self}" FontWeight="Bold" Foreground="Orange"/>
+                    <Run Text="{Binding TargetBranch, ElementName=Self}" FontWeight="Bold" Foreground="{DynamicResource StatusWarningBrush}"/>
                     <Run Text="?"/>
                 </TextBlock>
 
@@ -87,5 +87,4 @@
         </Grid>
     </Border>
 </UserControl>
-
 

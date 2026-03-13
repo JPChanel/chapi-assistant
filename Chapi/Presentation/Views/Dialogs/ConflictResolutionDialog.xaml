@@ -22,7 +22,7 @@
         <TextBlock Grid.Row="0" Text="Resolución de Conflictos" Style="{StaticResource MaterialDesignHeadline5TextBlock}" FontWeight="Bold" Margin="0,0,0,10"/>
         
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,15">
-            <materialDesign:PackIcon Kind="FileAlertOutline" Width="24" Height="24" Foreground="Orange" Margin="0,0,10,0"/>
+            <materialDesign:PackIcon Kind="FileAlertOutline" Width="24" Height="24" Foreground="{DynamicResource StatusWarningBrush}" Margin="0,0,10,0"/>
             <TextBlock Text="{Binding SelectedConflict.FilePath}" Style="{StaticResource MaterialDesignSubtitle1TextBlock}" VerticalAlignment="Center" FontWeight="SemiBold"/>
             
             <TextBlock Text="{Binding ProgressText}" Margin="20,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MaterialDesignSecondaryText}"/>
@@ -37,7 +37,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- Local Changes (Current) -->
-            <Border Grid.Column="0" BorderBrush="#4caf50" BorderThickness="1" CornerRadius="4">
+            <Border Grid.Column="0" BorderBrush="{DynamicResource StatusSuccessBrush}" BorderThickness="1" CornerRadius="4">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -45,18 +45,18 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     
-                    <Border Background="#1A4caf50" Padding="10" CornerRadius="4,4,0,0">
-                        <TextBlock Text="Cambio Local (Current Change)" FontWeight="Bold" Foreground="#4caf50"/>
+                    <Border Background="{DynamicResource StatusSuccessMutedBackgroundBrush}" Padding="10" CornerRadius="4,4,0,0">
+                        <TextBlock Text="Cambio Local (Current Change)" FontWeight="Bold" Foreground="{DynamicResource StatusSuccessBrush}"/>
                     </Border>
                     
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                         <TextBlock Text="{Binding CurrentBlock.LocalContent}" FontFamily="Consolas" Padding="10" 
-                                   Background="#0A4caf50" TextWrapping="NoWrap"/>
+                                   Background="{DynamicResource StatusSuccessMutedBackgroundBrush}" TextWrapping="NoWrap"/>
                     </ScrollViewer>
 
                     <Button Grid.Row="2" Content="Aceptar Cambio Local" Margin="10" 
                             Command="{Binding AcceptLocalCommand}"
-                            Style="{StaticResource MaterialDesignFlatLightBgButton}" Background="#1A4caf50" Foreground="#4caf50"/>
+                            Style="{StaticResource MaterialDesignFlatLightBgButton}" Background="{DynamicResource StatusSuccessMutedBackgroundBrush}" Foreground="{DynamicResource StatusSuccessBrush}"/>
                 </Grid>
             </Border>
 
@@ -64,7 +64,7 @@
             <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent"/>
 
             <!-- Incoming Changes -->
-            <Border Grid.Column="2" BorderBrush="#2196f3" BorderThickness="1" CornerRadius="4">
+            <Border Grid.Column="2" BorderBrush="{DynamicResource StatusInfoBrush}" BorderThickness="1" CornerRadius="4">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -72,18 +72,18 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <Border Background="#1A2196f3" Padding="10" CornerRadius="4,4,0,0">
-                        <TextBlock Text="Cambio Entrante (Incoming Change)" FontWeight="Bold" Foreground="#2196f3"/>
+                    <Border Background="{DynamicResource StatusInfoMutedBackgroundBrush}" Padding="10" CornerRadius="4,4,0,0">
+                        <TextBlock Text="Cambio Entrante (Incoming Change)" FontWeight="Bold" Foreground="{DynamicResource StatusInfoBrush}"/>
                     </Border>
 
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                         <TextBlock Text="{Binding CurrentBlock.IncomingContent}" FontFamily="Consolas" Padding="10" 
-                                   Background="#0A2196f3" TextWrapping="NoWrap"/>
+                                   Background="{DynamicResource StatusInfoMutedBackgroundBrush}" TextWrapping="NoWrap"/>
                     </ScrollViewer>
 
                     <Button Grid.Row="2" Content="Aceptar Cambio Entrante" Margin="10" 
                             Command="{Binding AcceptIncomingCommand}"
-                            Style="{StaticResource MaterialDesignFlatLightBgButton}" Background="#1A2196f3" Foreground="#2196f3"/>
+                            Style="{StaticResource MaterialDesignFlatLightBgButton}" Background="{DynamicResource StatusInfoMutedBackgroundBrush}" Foreground="{DynamicResource StatusInfoBrush}"/>
                 </Grid>
             </Border>
         </Grid>
