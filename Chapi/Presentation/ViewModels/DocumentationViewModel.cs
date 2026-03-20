@@ -571,6 +571,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
     {
         StatusMessage = "Generando Word...";
         SyncSectionsToSession();
+        await HydrateStructuredMetadataForExportAsync();
         var path = GetSaveFilePath("Word Document (*.docx)|*.docx", $"{_session.Title}.docx");
         if (path == null) return;
         var ok = await _exportDocument.ExportToWordAsync(_session, path);
@@ -1125,6 +1126,54 @@ public class DocumentationViewModel : INotifyPropertyChanged
 
     private void SyncSectionsToSession() =>
         _session.Sections = Sections.ToList();
+
+    private async Task HydrateStructuredMetadataForExportAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_session.Id))
+            return;
+
+        var persisted = await _persistence.LoadAsync(_session.Id);
+        if (persisted?.Metadata == null || persisted.Metadata.Count == 0)
+            return;
+
+        var structuredKeys = new[]
+        {
+            "TABLA_RESUMEN_PQ",
+            "TABLA_ACTORES_LISTA",
+            "TABLA_DICC_RESUMEN",
+            "TABLA_OBJ_PQ",
+            "TABLA_OBJ_PROC",
+            "TABLA_OBJ_VISTAS",
+            "TABLA_OBJ_FUNC",
+            "TABLA_OBJ_IDX",
+            "BLOQUE_PQ_ITEMS",
+            "BLOQUE_CU_ITEMS",
+            "BLOQUE_ACT_ITEMS",
+            "BLOQUE_SEQ_ITEMS",
+            "BLOQUE_EST_ITEMS",
+            "BLOQUE_CAPAS_ITEMS",
+            "BLOQUE_COMP_ITEMS",
+            "BLOQUE_CLASE_DET_ITEMS",
+            "BLOQUE_DICC_TABLA_ITEMS"
+        };
+
+        var updated = 0;
+        foreach (var key in structuredKeys)
+        {
+            _session.Metadata.TryGetValue(key, out var currentValue);
+            if (!string.IsNullOrWhiteSpace(currentValue))
+                continue;
+
+            if (!persisted.Metadata.TryGetValue(key, out var persistedValue) || string.IsNullOrWhiteSpace(persistedValue))
+                continue;
+
+            _session.Metadata[key] = persistedValue;
+            updated++;
+        }
+
+        if (updated > 0)
+            NotifyMetadataBindingsChanged();
+    }
 
     private static void EnsureOptionalMetadataKeys(IDictionary<string, string> metadata)
     {

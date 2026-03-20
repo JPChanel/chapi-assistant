@@ -1049,7 +1049,11 @@ public class GitCliRepository : IGitRepository
 
     public async Task<Result> CloneAsync(string url, string destinationPath)
     {
-        var result = await GitProcessExecutor.RunAsync(Directory.GetCurrentDirectory(), 300_000, "clone", url, destinationPath);
+        var result = await ExecuteAuthenticatedAsync(
+            Directory.GetCurrentDirectory(),
+            url,
+            (_, env) => GitProcessExecutor.RunAsync(Directory.GetCurrentDirectory(), 300_000, env, "clone", url, destinationPath),
+            allowInteractivePrompt: false);
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 

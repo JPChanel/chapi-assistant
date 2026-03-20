@@ -167,30 +167,49 @@ public class GitHubOAuthProvider : IGitAuthProvider
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/repos?sort=updated&per_page=100");
-            request.Headers.Add("Authorization", $"Bearer {token}");
+            var result = new List<RemoteRepository>();
+            var page = 1;
 
-            var response = await _httpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
-                return Result<List<RemoteRepository>>.Fail($"Error obteniendo repositorios: {response.StatusCode}");
-
-            var json = await response.Content.ReadAsStringAsync();
-            var repos = JsonSerializer.Deserialize<List<GitHubRepoDto>>(json);
-
-            if (repos == null)
-                return Result<List<RemoteRepository>>.Fail("No se pudo deserializar la lista de repositorios");
-
-            var result = repos.Select(r => new RemoteRepository
+            while (true)
             {
-                Name = r.Name,
-                FullName = r.FullName,
-                CloneUrl = r.CloneUrl,
-                IsPrivate = r.Private,
-                Description = r.Description,
-                UpdatedAt = r.UpdatedAt
-            }).ToList();
+                var url = $"https://api.github.com/user/repos?visibility=all&affiliation=owner,collaborator,organization_member&sort=updated&per_page=100&page={page}";
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("Authorization", $"Bearer {token}");
 
-            return Result<List<RemoteRepository>>.Success(result);
+                var response = await _httpClient.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                    return Result<List<RemoteRepository>>.Fail($"Error obteniendo repositorios: {response.StatusCode}");
+
+                var json = await response.Content.ReadAsStringAsync();
+                var repos = JsonSerializer.Deserialize<List<GitHubRepoDto>>(json);
+
+                if (repos == null)
+                    return Result<List<RemoteRepository>>.Fail("No se pudo deserializar la lista de repositorios");
+
+                if (repos.Count == 0)
+                    break;
+
+                result.AddRange(repos.Select(r => new RemoteRepository
+                {
+                    Name = r.Name,
+                    FullName = r.FullName,
+                    CloneUrl = r.CloneUrl,
+                    IsPrivate = r.Private,
+                    Description = r.Description,
+                    UpdatedAt = r.UpdatedAt
+                }));
+
+                if (repos.Count < 100)
+                    break;
+
+                page++;
+            }
+
+            return Result<List<RemoteRepository>>.Success(
+                result
+                    .GroupBy(r => r.CloneUrl, StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.First())
+                    .ToList());
         }
         catch (Exception ex)
         {
