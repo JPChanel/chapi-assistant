@@ -22,7 +22,7 @@
                     Background="{DynamicResource PrimaryHueMidBrush}"
                     CornerRadius="8,8,0,0"
                     Padding="24,20">
-                <TextBlock Text="ConfiguraciÃ³n"
+                <TextBlock Text="Configuración"
                            FontSize="22"
                            FontWeight="Bold"
                            Foreground="{DynamicResource ActionTextOnAccentBrush}"/>
@@ -131,7 +131,7 @@
                                       FontSize="13"
                                       Foreground="{DynamicResource MaterialDesignBodyLight}"
                                       LineHeight="20">
-                                <Run Text="Esta es tu cuenta autenticada para push/pull. Al cerrar sesiÃ³n, necesitarÃ¡s volver a autenticarte para realizar operaciones remotas."/>
+                                <Run Text="Esta es tu cuenta autenticada para push/pull. Al cerrar sesión, necesitarás volver a autenticarte para realizar operaciones remotas."/>
                             </TextBlock>
                         </StackPanel>
                     </ScrollViewer>
@@ -148,7 +148,7 @@
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="32,24">
                         <StackPanel MaxWidth="500">
-                            <TextBlock Text="ConfiguraciÃ³n local de Git" 
+                            <TextBlock Text="Configuración local de Git" 
                                       FontSize="18" 
                                       FontWeight="SemiBold"
                                       Margin="0,0,0,20"/>
@@ -191,7 +191,7 @@
                                                                 Height="18" 
                                                                 VerticalAlignment="Top"
                                                                 Margin="0,2,10,0"/>
-                                        <TextBlock Text="ConfiguraciÃ³n local de Git" 
+                                        <TextBlock Text="Configuración local de Git" 
                                                   FontWeight="SemiBold" 
                                                   FontSize="13"
                                                   Foreground="#E65100"/>
@@ -202,11 +202,11 @@
                                               Foreground="#5D4037"
                                               Margin="28,0,0,0"
                                               LineHeight="18">
-                                        <Run Text="Esta configuraciÃ³n es solo para tu mÃ¡quina local y NO afecta tu cuenta de GitHub/GitLab."/>
+                                        <Run Text="Esta configuración es solo para tu máquina local y NO afecta tu cuenta de GitHub/GitLab."/>
                                         <LineBreak/>
                                         <LineBreak/>
-                                        <Run Text="ðŸ’¡ RecomendaciÃ³n: " FontWeight="SemiBold"/>
-                                        <Run Text="Usa el mismo email que tienes verificado en GitHub/GitLab para que tus commits se enlacen automÃ¡ticamente a tu perfil."/>
+                                        <Run Text="Recomendación: " FontWeight="SemiBold"/>
+                                        <Run Text="Usa el mismo email que tienes verificado en GitHub/GitLab para que tus commits se enlacen automáticamente a tu perfil."/>
                                     </TextBlock>
                                 </StackPanel>
                             </Border>

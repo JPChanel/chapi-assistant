@@ -7,6 +7,77 @@
         Background="{DynamicResource MaterialDesignPaper}"
         WindowStartupLocation="CenterOwner">
 
+    <Window.Resources>
+        <Style x:Key="ServiceSectionCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource MaterialDesignCardBackground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+        </Style>
+
+        <Style x:Key="ServiceNestedCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource MaterialDesignPaper}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+        </Style>
+
+        <Style x:Key="ServiceIconBadgeStyle" TargetType="Border">
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Background" Value="{DynamicResource StatusSelectionOverlayBrush}"/>
+        </Style>
+
+        <Style x:Key="ServicePrimaryButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource MaterialDesignRaisedButton}">
+            <Setter Property="Background" Value="{DynamicResource PrimaryHueMidBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PrimaryHueMidBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ActionTextOnAccentBrush}"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="8"/>
+            <Setter Property="materialDesign:ElevationAssist.Elevation" Value="Dp2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="materialDesign:ElevationAssist.Elevation" Value="Dp4"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.7"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ServiceSecondaryButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource MaterialDesignRaisedButton}">
+            <Setter Property="Background" Value="{DynamicResource MaterialDesignPaper}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="8"/>
+            <Setter Property="materialDesign:ElevationAssist.Elevation" Value="Dp1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource MaterialDesignCardBackground}"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.7"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -23,52 +94,62 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" 
-                    Background="{DynamicResource MaterialDesignPaper}" 
-                    CornerRadius="8" 
-                    BorderBrush="{DynamicResource MaterialDesignDivider}" 
-                    BorderThickness="1"
-                    Margin="0,0,16,0">
+            <Border Grid.Column="0"
+                    Style="{StaticResource ServiceSectionCardStyle}"
+                    Padding="0"
+                    Margin="0,0,14,0">
 
-                <StackPanel x:Name="NavigationPanel" Margin="8">
+                <StackPanel x:Name="NavigationPanel" Margin="10">
 
                     <StackPanel.Resources>
                         <Style TargetType="RadioButton" x:Key="NavButtonStyle">
-                            <Setter Property="Padding" Value="12,10"/>
-                            <Setter Property="Margin" Value="4"/>
+                            <Setter Property="Padding" Value="14,11"/>
+                            <Setter Property="Margin" Value="0,3"/>
                             <Setter Property="HorizontalAlignment" Value="Stretch"/>
                             <Setter Property="FontSize" Value="14"/>
-                            <Setter Property="FontWeight" Value="Medium"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
                             <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
-                            <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="6"/>
+                            <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="10"/>
                             <Setter Property="Cursor" Value="Hand"/>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="RadioButton">
-                                        <Border Background="{TemplateBinding Background}"
-                                                CornerRadius="{Binding Path=(materialDesign:ButtonAssist.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}">
-                                            <ContentPresenter Margin="{TemplateBinding Padding}" 
-                                                               HorizontalAlignment="Left"
-                                                               VerticalAlignment="Center"/>
+                                        <Border Background="Transparent" CornerRadius="12">
+                                            <Grid>
+                                                <Border x:Name="ActiveIndicator"
+                                                        Width="3"
+                                                        Margin="4,12,0,12"
+                                                        HorizontalAlignment="Left"
+                                                        Background="{DynamicResource PrimaryHueMidBrush}"
+                                                        CornerRadius="999"
+                                                        Opacity="0"/>
+                                                <Border x:Name="ButtonSurface"
+                                                        Margin="10,0,0,0"
+                                                        Background="Transparent"
+                                                        CornerRadius="{Binding Path=(materialDesign:ButtonAssist.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}">
+                                                    <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                                       HorizontalAlignment="Left"
+                                                                       VerticalAlignment="Center"/>
+                                                </Border>
+                                            </Grid>
                                         </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="ButtonSurface" Property="Background" Value="{DynamicResource StatusSelectionOverlayBrush}"/>
+                                                <Setter TargetName="ActiveIndicator" Property="Opacity" Value="1"/>
+                                            </Trigger>
+                                            <MultiTrigger>
+                                                <MultiTrigger.Conditions>
+                                                    <Condition Property="IsMouseOver" Value="True" />
+                                                    <Condition Property="IsChecked" Value="False" />
+                                                </MultiTrigger.Conditions>
+                                                <Setter TargetName="ButtonSurface" Property="Background" Value="{DynamicResource MaterialDesignPaper}"/>
+                                            </MultiTrigger>
+                                        </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>
                             <Setter Property="Background" Value="Transparent"/>
-                            <Style.Triggers>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource PrimaryHueMidBrush}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource ActionTextOnAccentBrush}"/>
-                                </Trigger>
-                                <MultiTrigger>
-                                    <MultiTrigger.Conditions>
-                                        <Condition Property="IsMouseOver" Value="True" />
-                                        <Condition Property="IsChecked" Value="False" />
-                                    </MultiTrigger.Conditions>
-                                    <Setter Property="Background" Value="{DynamicResource PrimaryHueLightBrush}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
-                                </MultiTrigger>
-                            </Style.Triggers>
                         </Style>
                     </StackPanel.Resources>
 
@@ -114,10 +195,10 @@
                     </RadioButton>
 
                     <!-- Separador -->
-                    <Separator Margin="8,12" Background="{DynamicResource MaterialDesignDivider}"/>
+                    <Separator Margin="10,14" Background="{DynamicResource MaterialDesignDivider}"/>
                     
                     <TextBlock Text="OTROS" FontSize="11" FontWeight="SemiBold" 
-                               Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="12,8,0,8"/>
+                               Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="10,8,0,8"/>
 
                     <RadioButton x:Name="NavButtonImageConverter"
                                  GroupName="Navigation"
@@ -146,40 +227,47 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <Grid>
                         <StackPanel x:Name="ViewEstadoComponente" Visibility="Visible">
-                        <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Padding="24" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,0,0,20">
+                        <Border Style="{StaticResource ServiceSectionCardStyle}" Margin="0,0,0,20">
                             <StackPanel>
-                                <TextBlock Text="Estado del Servicio" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,15"/>
+                                    <TextBlock Text="Estado del Servicio" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,15" Foreground="{DynamicResource MaterialDesignBody}"/>
                                 <DockPanel>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Ellipse Width="12" Height="12" Margin="0,0,10,0" Fill="{Binding ServiceStatusBrush}"/>
-                                        <TextBlock Text="{Binding ServiceStatusText}" FontWeight="Bold"/>
-                                    </StackPanel>
+                                    <Border DockPanel.Dock="Left"
+                                            Style="{StaticResource ServiceNestedCardStyle}"
+                                            Padding="14,10">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Ellipse Width="12" Height="12" Margin="0,0,10,0" Fill="{Binding ServiceStatusBrush}"/>
+                                            <TextBlock Text="{Binding ServiceStatusText}" FontWeight="Bold" Foreground="{DynamicResource MaterialDesignBody}"/>
+                                        </StackPanel>
+                                    </Border>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button x:Name="btnReiniciar" Content="Reiniciar" Click="btnReiniciar_Click" Background="{DynamicResource StatusWarningBrush}" BorderBrush="{DynamicResource StatusWarningBrush}" Foreground="{DynamicResource ActionTextOnAccentBrush}" Padding="12,8" Margin="5,0" materialDesign:ButtonAssist.CornerRadius="6"/>
-                                        <Button x:Name="btnCerrarServicio" Content="Cerrar Servicio" Click="btnCerrarServicio_Click" Background="{DynamicResource StatusDangerBrush}" BorderBrush="{DynamicResource StatusDangerBrush}" Foreground="{DynamicResource ActionTextOnAccentBrush}" Padding="12,8" Margin="5,0" materialDesign:ButtonAssist.CornerRadius="6"/>
+                                            <Button x:Name="btnReiniciar" Content="Reiniciar" Click="btnReiniciar_Click" Background="{DynamicResource StatusWarningBrush}" BorderBrush="{DynamicResource StatusWarningBrush}" Foreground="{DynamicResource ActionTextOnAccentBrush}" Style="{StaticResource ServicePrimaryButtonStyle}" Padding="16,8" Margin="8,0,0,0" materialDesign:ButtonAssist.CornerRadius="20"/>
+                                            <Button x:Name="btnCerrarServicio" Content="Cerrar Servicio" Click="btnCerrarServicio_Click" Background="{DynamicResource StatusDangerBrush}" BorderBrush="{DynamicResource StatusDangerBrush}" Foreground="{DynamicResource ActionTextOnAccentBrush}" Style="{StaticResource ServicePrimaryButtonStyle}" Padding="16,8" Margin="8,0,0,0" materialDesign:ButtonAssist.CornerRadius="20"/>
                                     </StackPanel>
                                 </DockPanel>
                             </StackPanel>
                         </Border>
 
-                        <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Padding="24" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,0,0,20">
+                        <Border Style="{StaticResource ServiceSectionCardStyle}" Margin="0,0,0,20">
                             <StackPanel>
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="SyncCircle" Width="32" Height="32" Foreground="{DynamicResource PrimaryHueMidBrush}" VerticalAlignment="Center"/>
+                                        <Border Style="{StaticResource ServiceIconBadgeStyle}">
+                                            <materialDesign:PackIcon Kind="SyncCircle" Width="28" Height="28" Foreground="{DynamicResource PrimaryHueMidBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        </Border>
                                         <StackPanel Margin="15,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="Actualizar Componente" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource MaterialDesignBody}"/>
                                             <TextBlock x:Name="txtStatus" Text="Buscar nuevas versiones." Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="12"/>
                                         </StackPanel>
                                     </StackPanel>
-                                    <Button x:Name="btnCheckUpdate" Content="Buscar actualización" Click="btnCheckUpdate_Click" Background="{DynamicResource PrimaryHueMidBrush}" BorderBrush="{DynamicResource PrimaryHueMidBrush}" Foreground="{DynamicResource ActionTextOnAccentBrush}" Padding="12,8" Margin="10,0,0,0" HorizontalAlignment="Right" materialDesign:ButtonAssist.CornerRadius="6"/>
+                                    <Button x:Name="btnCheckUpdate" Content="Buscar actualización" Click="btnCheckUpdate_Click" Style="{StaticResource ServicePrimaryButtonStyle}" Margin="10,0,0,0" HorizontalAlignment="Right"/>
                                 </DockPanel>
                             </StackPanel>
                         </Border>
 
-                        <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Padding="24" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1">
+                        <Border Style="{StaticResource ServiceSectionCardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Información" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10"/>
+                                    <TextBlock Text="Información" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10" Foreground="{DynamicResource MaterialDesignBody}"/>
+                                <Border Style="{StaticResource ServiceNestedCardStyle}" Padding="18">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -194,17 +282,18 @@
                                         <TextBlock x:Name="txtMachineId" FontWeight="Medium" Margin="0,5"/>
                                     </StackPanel>
                                 </Grid>
+                                </Border>
                                 <Button x:Name="btnDeveloperPublish" Content="Generar Paquete de Instalación (Chapi)" Foreground="{DynamicResource ActionTextOnAccentBrush}" Style="{StaticResource MaterialDesignRaisedDarkButton}" materialDesign:ButtonAssist.CornerRadius="6" Margin="0,20,0,0" Visibility="Collapsed" Click="btnDeveloperPublish_Click"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
 
                     <StackPanel x:Name="ViewConfiguracionIA" Visibility="Collapsed">
-                        <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="12" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,0,0,20" Padding="32">
+                        <Border Style="{StaticResource ServiceSectionCardStyle}" Margin="0,0,0,20" Padding="32">
                             <StackPanel>
                                 <!-- Header -->
                                 <DockPanel Margin="0,0,0,24">
-                                    <Border Background="{DynamicResource PrimaryHueLightBrush}" CornerRadius="10" Width="48" Height="48" Margin="0,0,16,0">
+                                    <Border Style="{StaticResource ServiceIconBadgeStyle}" Margin="0,0,16,0">
                                         <materialDesign:PackIcon Kind="AutoFix" Width="28" Height="28" Foreground="{DynamicResource PrimaryHueMidBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                     </Border>
                                     <StackPanel VerticalAlignment="Center">
@@ -218,7 +307,7 @@
                                 <!-- Preferred Provider Selection -->
                                 <StackPanel Margin="0,0,0,32">
                                     <TextBlock Text="PROVEEDOR PRINCIPAL" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,0,12"/>
-                                    <Border BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}" CornerRadius="8" Background="{DynamicResource MaterialDesignCardBackground}">
+                                    <Border Style="{StaticResource ServiceNestedCardStyle}" Padding="0">
                                         <ComboBox x:Name="cmbAiProvider" Style="{StaticResource MaterialDesignOutlinedComboBox}" 
                                                   materialDesign:HintAssist.Hint="Selecciona el motor activo" 
                                                   FontSize="15" Padding="16" BorderThickness="0" Background="Transparent">
@@ -233,11 +322,11 @@
                                 <TextBlock Text="CREDENCIALES DE API" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,0,16"/>
 
                                 <!-- Gemini Card -->
-                                <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="10" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,0,0,16" Padding="20">
+                                <Border Style="{StaticResource ServiceNestedCardStyle}" Margin="0,0,0,16" Padding="20">
                                     <StackPanel>
                                         <DockPanel Margin="0,0,0,16">
                                             <StackPanel Orientation="Horizontal">
-                                                <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Width="36" Height="36" Effect="{DynamicResource MaterialDesignShadowDepth1}">
+                                                <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="10" Width="40" Height="40" Effect="{DynamicResource MaterialDesignShadowDepth1}">
                                                     <materialDesign:PackIcon Kind="Google" Foreground="#4285F4" VerticalAlignment="Center" HorizontalAlignment="Center" Width="20" Height="20"/>
                                                 </Border>
                                                 <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
@@ -262,11 +351,11 @@
                                 </Border>
 
                                 <!-- OpenAI Card -->
-                                <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="10" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,0,0,16" Padding="20">
+                                <Border Style="{StaticResource ServiceNestedCardStyle}" Margin="0,0,0,16" Padding="20">
                                     <StackPanel>
                                         <DockPanel Margin="0,0,0,16">
                                             <StackPanel Orientation="Horizontal">
-                                                <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Width="36" Height="36" Effect="{DynamicResource MaterialDesignShadowDepth1}">
+                                                <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="10" Width="40" Height="40" Effect="{DynamicResource MaterialDesignShadowDepth1}">
                                                     <materialDesign:PackIcon Kind="Brain" Foreground="#10A37F" VerticalAlignment="Center" HorizontalAlignment="Center" Width="20" Height="20"/>
                                                 </Border>
                                                 <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
@@ -291,11 +380,11 @@
                                 </Border>
 
                                 <!-- Claude Card -->
-                                <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="10" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,0,0,24" Padding="20">
+                                <Border Style="{StaticResource ServiceNestedCardStyle}" Margin="0,0,0,24" Padding="20">
                                     <StackPanel>
                                         <DockPanel Margin="0,0,0,16">
                                             <StackPanel Orientation="Horizontal">
-                                                <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Width="36" Height="36" Effect="{DynamicResource MaterialDesignShadowDepth1}">
+                                                <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="10" Width="40" Height="40" Effect="{DynamicResource MaterialDesignShadowDepth1}">
                                                     <materialDesign:PackIcon Kind="Robot" Foreground="#D97757" VerticalAlignment="Center" HorizontalAlignment="Center" Width="20" Height="20"/>
                                                 </Border>
                                                 <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
@@ -329,8 +418,7 @@
                                     </StackPanel>
                                     
                                     <Button x:Name="btnSaveApiKey" Click="btnSaveApiKey_Click" Height="48"
-                                            Style="{StaticResource MaterialDesignRaisedButton}"
-                                            materialDesign:ButtonAssist.CornerRadius="10"                                            
+                                            Style="{StaticResource ServicePrimaryButtonStyle}"
                                             Cursor="Hand"
                                             HorizontalAlignment="Right"
                                             Padding="32,0">
@@ -345,7 +433,7 @@
                     </StackPanel>
 
                     <StackPanel x:Name="ViewConfiguracionRed" Visibility="Collapsed">
-                        <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Padding="24" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,20,0,0">
+                        <Border Style="{StaticResource ServiceSectionCardStyle}" Margin="0,20,0,0">
                             <StackPanel>
                                 <TextBlock Text="Configuración de Red (Git)" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10"/>
                                 <CheckBox x:Name="chkUseProxy" Content="Usar un proxy para operaciones de Git" FontWeight="Medium" Checked="chkUseProxy_Toggled" Unchecked="chkUseProxy_Toggled"/>
@@ -365,43 +453,51 @@
                                         <PasswordBox x:Name="txtProxyPass" Style="{StaticResource MaterialDesignOutlinedPasswordBox}"/>
                                     </StackPanel>
                                 </Grid>
-                                <Button x:Name="btnSaveProxy" Content="Guardar Configuración de Red" Click="btnSaveProxy_Click" Style="{StaticResource MaterialDesignRaisedButton}" Background="{DynamicResource PrimaryHueMidBrush}" BorderBrush="{DynamicResource PrimaryHueMidBrush}" Foreground="{DynamicResource ActionTextOnAccentBrush}" Padding="12,8" Margin="5,16,0,0" materialDesign:ButtonAssist.CornerRadius="6" HorizontalAlignment="Left"/>
+                                <Button x:Name="btnSaveProxy" Content="Guardar Configuración de Red" Click="btnSaveProxy_Click" Style="{StaticResource ServicePrimaryButtonStyle}" Margin="0,16,0,0" HorizontalAlignment="Left"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
 
             <StackPanel x:Name="ViewConfiguracionGitHub" Visibility="Collapsed">
-                <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Padding="24" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,20,0,0">
+                <Border Style="{StaticResource ServiceSectionCardStyle}" Margin="0,20,0,0">
                     <StackPanel>
                         <TextBlock Text="Cuentas Conectadas" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10"/>
                         <TextBlock Text="Gestiona tus cuentas para realizar operaciones Git de forma integrada." 
                                    Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,0,20" TextWrapping="Wrap"/>
 
                         <!-- GitHub -->
-                        <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,16">
+                        <Border Style="{StaticResource ServiceNestedCardStyle}" Margin="0,0,0,16">
                             <DockPanel>
-                                <materialDesign:PackIcon Kind="Github" Width="40" Height="40" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,16,0" Foreground="{DynamicResource MaterialDesignBody}"/>
+                                <Border DockPanel.Dock="Left"
+                                        Style="{StaticResource ServiceIconBadgeStyle}"
+                                        Margin="0,0,16,0">
+                                    <materialDesign:PackIcon Kind="Github" Width="24" Height="24" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{DynamicResource MaterialDesignBody}"/>
+                                </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock x:Name="txtGitHubUser" Text="No conectado" FontWeight="Bold" FontSize="15"/>
                                     <TextBlock x:Name="txtGitHubStatus" Text="GitHub" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="12"/>
                                 </StackPanel>
                                 <Button x:Name="btnGitHubLogin" Content="Conectar" HorizontalAlignment="Right" VerticalAlignment="Center" 
-                                        Style="{StaticResource MaterialDesignRaisedButton}" Click="btnGitHubLogin_Click"
-                                        Background="#24292f" BorderBrush="#24292f" Foreground="{DynamicResource ActionTextOnAccentBrush}"/>
+                                        Style="{StaticResource ServiceSecondaryButtonStyle}" Click="btnGitHubLogin_Click"
+                                        BorderBrush="#24292f"/>
                             </DockPanel>
                         </Border>
 
                         <!-- GitLab -->
-                        <Border BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" CornerRadius="8" Padding="16">
+                        <Border Style="{StaticResource ServiceNestedCardStyle}">
                             <DockPanel>
-                                <materialDesign:PackIcon Kind="Gitlab" Width="40" Height="40" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,16,0" Foreground="#FC6D26"/>
+                                <Border DockPanel.Dock="Left"
+                                        Style="{StaticResource ServiceIconBadgeStyle}"
+                                        Margin="0,0,16,0">
+                                    <materialDesign:PackIcon Kind="Gitlab" Width="24" Height="24" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#FC6D26"/>
+                                </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock x:Name="txtGitLabUser" Text="No conectado" FontWeight="Bold" FontSize="15"/>
                                     <TextBlock x:Name="txtGitLabStatus" Text="GitLab" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="12"/>
                                 </StackPanel>
                                 <Button x:Name="btnGitLabLogin" Content="Conectar" HorizontalAlignment="Right" VerticalAlignment="Center" 
-                                        Style="{StaticResource MaterialDesignRaisedButton}" Click="btnGitLabLogin_Click"
-                                        Background="#FC6D26" BorderBrush="#FC6D26" Foreground="{DynamicResource ActionTextOnAccentBrush}"/>
+                                        Style="{StaticResource ServiceSecondaryButtonStyle}" Click="btnGitLabLogin_Click"
+                                        BorderBrush="#FC6D26"/>
                             </DockPanel>
                         </Border>
                     </StackPanel>
@@ -410,23 +506,22 @@
 
                     <StackPanel x:Name="ViewOptimizadorWebP" Visibility="Collapsed">
                         <!-- Sección de Selección -->
-                        <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Padding="24" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,0,0,20">
+                        <Border Style="{StaticResource ServiceSectionCardStyle}" Margin="0,0,0,20">
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,20">
                                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="FileImage" Width="32" Height="32" 
-                                                                 Foreground="{DynamicResource PrimaryHueMidBrush}" VerticalAlignment="Center"/>
+                                        <Border Style="{StaticResource ServiceIconBadgeStyle}">
+                                            <materialDesign:PackIcon Kind="FileImage" Width="28" Height="28" 
+                                                                     Foreground="{DynamicResource PrimaryHueMidBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        </Border>
                                         <StackPanel Margin="15,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="Seleccionar Imágenes o Carpeta" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource MaterialDesignBody}"/>
                                             <TextBlock Text="Formatos soportados: PNG, JPG, JPEG" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="12"/>
                                         </StackPanel>
                                     </StackPanel>
                                     <Button x:Name="btnSelectImages" Click="btnSelectImages_Click"
-                                            Style="{StaticResource MaterialDesignRaisedButton}"
-                                            Background="{DynamicResource PrimaryHueMidBrush}" BorderBrush="{DynamicResource PrimaryHueMidBrush}"
-                                            Foreground="{DynamicResource ActionTextOnAccentBrush}" Padding="16,10"
-                                            HorizontalAlignment="Right"
-                                            materialDesign:ButtonAssist.CornerRadius="6">
+                                            Style="{StaticResource ServicePrimaryButtonStyle}"
+                                            HorizontalAlignment="Right">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="FolderImage" Margin="0,0,10,0" VerticalAlignment="Center"/>
                                             <TextBlock Text="Seleccionar Archivos" VerticalAlignment="Center"/>
@@ -435,9 +530,9 @@
                                 </DockPanel>
 
                                 <!-- Lista de archivos seleccionados -->
-                                <Border x:Name="borderImageFileList" Visibility="Collapsed" 
-                                        Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="6" 
-                                        Padding="16" Margin="0,0,0,0">
+                                <Border x:Name="borderImageFileList" Visibility="Collapsed"
+                                        Style="{StaticResource ServiceNestedCardStyle}"
+                                        Margin="0,0,0,0">
                                     <StackPanel>
                                         <TextBlock x:Name="txtImageFileCount" FontWeight="SemiBold" 
                                                    Foreground="{DynamicResource MaterialDesignBody}" Margin="0,0,0,10" FontSize="14"/>
@@ -461,13 +556,14 @@
                         </Border>
 
                         <!-- Sección de Configuración -->
-                        <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Padding="24" 
-                                BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,0,0,20">
+                        <Border Style="{StaticResource ServiceSectionCardStyle}" Margin="0,0,0,20">
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,20">
                                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Cog" Width="32" Height="32" 
-                                                                 Foreground="{DynamicResource SecondaryHueMidBrush}" VerticalAlignment="Center"/>
+                                        <Border Style="{StaticResource ServiceIconBadgeStyle}">
+                                            <materialDesign:PackIcon Kind="Cog" Width="28" Height="28" 
+                                                                     Foreground="{DynamicResource SecondaryHueMidBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        </Border>
                                         <StackPanel Margin="15,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="Configuración de Conversión" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource MaterialDesignBody}"/>
                                             <TextBlock Text="Ajusta la calidad y carpeta de destino" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="12"/>
@@ -476,7 +572,7 @@
                                 </DockPanel>
 
                                 <!-- Control de Calidad -->
-                                <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="6" Padding="16" Margin="0,0,0,16">
+                                <Border Style="{StaticResource ServiceNestedCardStyle}" Margin="0,0,0,16">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -521,11 +617,7 @@
 
                                         <Button x:Name="btnSelectImageOutput" Grid.Column="1"
                                                 Click="btnSelectImageOutput_Click"
-                                                Style="{StaticResource MaterialDesignRaisedButton}"
-                                                Padding="14,10"
-                                                Background="{DynamicResource SecondaryHueMidBrush}" BorderBrush="{DynamicResource SecondaryHueMidBrush}"
-                                                Foreground="{DynamicResource ActionTextOnSecondaryBrush}"
-                                                materialDesign:ButtonAssist.CornerRadius="6">
+                                                Style="{StaticResource ServiceSecondaryButtonStyle}">
                                             <StackPanel Orientation="Horizontal">
                                                 <materialDesign:PackIcon Kind="FolderOpen" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                                 <TextBlock Text="Seleccionar" VerticalAlignment="Center"/>
@@ -537,11 +629,10 @@
                         </Border>
 
                         <!-- Sección de Conversión -->
-                        <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Padding="24" 
-                                BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,0,0,20">
+                        <Border Style="{StaticResource ServiceSectionCardStyle}" Margin="0,0,0,20">
                             <StackPanel>
                                 <Button x:Name="btnConvertImages" Click="btnConvertImages_Click"
-                                        Style="{StaticResource MaterialDesignRaisedButton}"
+                                        Style="{StaticResource ServicePrimaryButtonStyle}"
                                         FontSize="16" FontWeight="SemiBold"
                                         Background="{DynamicResource PrimaryHueMidBrush}" BorderBrush="{DynamicResource PrimaryHueMidBrush}"
                                         Foreground="{DynamicResource ActionTextOnAccentBrush}" HorizontalAlignment="Stretch"
@@ -568,13 +659,14 @@
 
                         <!-- Sección de Resultados -->
                         <Border x:Name="borderImageResults" Visibility="Collapsed"
-                                Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Padding="24" 
-                                BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1">
+                                Style="{StaticResource ServiceSectionCardStyle}">
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,16">
                                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="CheckCircle" Width="32" Height="32" 
-                                                                 Foreground="{DynamicResource SecondaryHueMidBrush}" VerticalAlignment="Center"/>
+                                        <Border Style="{StaticResource ServiceIconBadgeStyle}">
+                                            <materialDesign:PackIcon Kind="CheckCircle" Width="28" Height="28" 
+                                                                     Foreground="{DynamicResource SecondaryHueMidBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        </Border>
                                         <StackPanel Margin="15,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="Conversión Completada" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource MaterialDesignBody}"/>
                                             <TextBlock x:Name="txtImageResultSummary" FontWeight="Medium" 
@@ -583,15 +675,15 @@
                                     </StackPanel>
                                 </DockPanel>
 
-                                <Border Background="{DynamicResource MaterialDesignCardBackground}" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" 
-                                        CornerRadius="6" Padding="16" Margin="0,0,0,16">
+                                <Border Style="{StaticResource ServiceNestedCardStyle}" Margin="0,0,0,16">
                                     <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto">
                                         <ItemsControl x:Name="listImageResults">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="4" 
-                                                            Padding="12,10" Margin="0,4"
-                                                            BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1">
+                                                    <Border Style="{StaticResource ServiceNestedCardStyle}"
+                                                            CornerRadius="8"
+                                                            Padding="12,10"
+                                                            Margin="0,4">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="Auto"/>
@@ -625,11 +717,8 @@
                                 </Border>
 
                                 <Button x:Name="btnOpenImageOutput" Click="btnOpenImageOutput_Click"
-                                        Style="{StaticResource MaterialDesignRaisedButton}"
-                                        Background="{DynamicResource PrimaryHueMidBrush}" BorderBrush="{DynamicResource PrimaryHueMidBrush}"
-                                        Foreground="{DynamicResource ActionTextOnAccentBrush}" Padding="16,10"
-                                        HorizontalAlignment="Right"
-                                        materialDesign:ButtonAssist.CornerRadius="6">
+                                        Style="{StaticResource ServicePrimaryButtonStyle}"
+                                        HorizontalAlignment="Right">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FolderImage" Margin="0,0,10,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="Abrir Carpeta de Destino" VerticalAlignment="Center"/>
@@ -641,9 +730,19 @@
 
                     <StackPanel x:Name="ViewConfiguracionSistema" Visibility="Collapsed">
                         <StackPanel.Resources>
+                            <Style x:Key="ThemeOptionCardStyle" TargetType="Border">
+                                <Setter Property="Width" Value="210"/>
+                                <Setter Property="Margin" Value="0,0,12,12"/>
+                                <Setter Property="CornerRadius" Value="14"/>
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesignPaper}"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                            </Style>
+
                             <Style x:Key="ThemeOptionRadioStyle" TargetType="RadioButton">
                                 <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
                                 <Setter Property="FontSize" Value="14"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
                                 <Setter Property="Cursor" Value="Hand"/>
                                 <Setter Property="Padding" Value="0"/>
                                 <Setter Property="Template">
@@ -686,11 +785,13 @@
                             </Style>
                         </StackPanel.Resources>
 
-                        <Border Background="{DynamicResource MaterialDesignPaper}" CornerRadius="8" Padding="24" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,20,0,0">
+                        <Border Style="{StaticResource ServiceSectionCardStyle}" Margin="0,20,0,0">
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,20">
                                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Cog" Width="32" Height="32" Foreground="{DynamicResource PrimaryHueMidBrush}" VerticalAlignment="Center"/>
+                                        <Border Style="{StaticResource ServiceIconBadgeStyle}">
+                                            <materialDesign:PackIcon Kind="Cog" Width="28" Height="28" Foreground="{DynamicResource PrimaryHueMidBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        </Border>
                                         <StackPanel Margin="15,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="Apariencia" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource MaterialDesignBody}"/>
                                             <TextBlock Text="Elige cómo quieres ver la interfaz." Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="12"/>
@@ -701,11 +802,9 @@
                                 <TextBlock Text="Tema" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" Foreground="{DynamicResource MaterialDesignBody}"/>
 
                                 <WrapPanel>
-                                    <Border Width="210" Margin="0,0,12,12" CornerRadius="10" Background="{DynamicResource MaterialDesignPaper}">
+                                    <Border>
                                         <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
-                                                <Setter Property="BorderThickness" Value="1"/>
+                                            <Style TargetType="Border" BasedOn="{StaticResource ThemeOptionCardStyle}">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsChecked, ElementName=rbThemeLight}" Value="True">
                                                         <Setter Property="BorderBrush" Value="{DynamicResource PrimaryHueMidBrush}"/>
@@ -728,10 +827,10 @@
                                                         <Border Height="18" Margin="0,8,0,0" Background="#E2E8F0" CornerRadius="3"/>
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                                                        <Border Height="10" Background="#4ADE80" CornerRadius="3"/>
-                                                        <Border Height="8" Margin="0,8,0,0" Background="#34D399" Width="80" HorizontalAlignment="Left" CornerRadius="3"/>
-                                                        <Border Height="8" Margin="0,6,0,0" Background="#FB7185" Width="95" HorizontalAlignment="Left" CornerRadius="3"/>
-                                                        <Border Height="8" Margin="0,6,0,0" Background="#F43F5E" Width="70" HorizontalAlignment="Left" CornerRadius="3"/>
+                                                        <Border Height="10" Background="#F59E0B" CornerRadius="3"/>
+                                                        <Border Height="8" Margin="0,8,0,0" Background="#E5E7EB" Width="80" HorizontalAlignment="Left" CornerRadius="3"/>
+                                                        <Border Height="8" Margin="0,6,0,0" Background="#D1D5DB" Width="95" HorizontalAlignment="Left" CornerRadius="3"/>
+                                                        <Border Height="8" Margin="0,6,0,0" Background="#9CA3AF" Width="70" HorizontalAlignment="Left" CornerRadius="3"/>
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>
@@ -745,11 +844,9 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <Border Width="210" Margin="0,0,12,12" CornerRadius="10" Background="{DynamicResource MaterialDesignPaper}">
+                                    <Border>
                                         <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
-                                                <Setter Property="BorderThickness" Value="1"/>
+                                            <Style TargetType="Border" BasedOn="{StaticResource ThemeOptionCardStyle}">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsChecked, ElementName=rbThemeDark}" Value="True">
                                                         <Setter Property="BorderBrush" Value="{DynamicResource PrimaryHueMidBrush}"/>
@@ -759,7 +856,7 @@
                                             </Style>
                                         </Border.Style>
                                         <StackPanel>
-                                            <Border Height="110" Background="#0F172A" CornerRadius="10,10,0,0" Padding="10">
+                                            <Border Height="110" Background="#0B1120" CornerRadius="10,10,0,0" Padding="10">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="50"/>
@@ -772,10 +869,10 @@
                                                         <Border Height="18" Margin="0,8,0,0" Background="#1E293B" CornerRadius="3"/>
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                                                        <Border Height="10" Background="#15803D" CornerRadius="3"/>
-                                                        <Border Height="8" Margin="0,8,0,0" Background="#166534" Width="80" HorizontalAlignment="Left" CornerRadius="3"/>
-                                                        <Border Height="8" Margin="0,6,0,0" Background="#B91C1C" Width="95" HorizontalAlignment="Left" CornerRadius="3"/>
-                                                        <Border Height="8" Margin="0,6,0,0" Background="#991B1B" Width="70" HorizontalAlignment="Left" CornerRadius="3"/>
+                                                        <Border Height="10" Background="#F59E0B" CornerRadius="3"/>
+                                                        <Border Height="8" Margin="0,8,0,0" Background="#334155" Width="80" HorizontalAlignment="Left" CornerRadius="3"/>
+                                                        <Border Height="8" Margin="0,6,0,0" Background="#475569" Width="95" HorizontalAlignment="Left" CornerRadius="3"/>
+                                                        <Border Height="8" Margin="0,6,0,0" Background="#64748B" Width="70" HorizontalAlignment="Left" CornerRadius="3"/>
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>
@@ -789,11 +886,9 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <Border Width="210" Margin="0,0,12,12" CornerRadius="10" Background="{DynamicResource MaterialDesignPaper}">
+                                    <Border>
                                         <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
-                                                <Setter Property="BorderThickness" Value="1"/>
+                                            <Style TargetType="Border" BasedOn="{StaticResource ThemeOptionCardStyle}">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsChecked, ElementName=rbThemeSystem}" Value="True">
                                                         <Setter Property="BorderBrush" Value="{DynamicResource PrimaryHueMidBrush}"/>
@@ -814,7 +909,7 @@
                                                             <Border Height="8" Background="#1F2937" CornerRadius="2"/>
                                                             <Border Height="4" Margin="0,6,0,0" Background="#CBD5E1" CornerRadius="2"/>
                                                             <Border Height="4" Margin="0,4,0,0" Background="#CBD5E1" CornerRadius="2"/>
-                                                            <Border Height="8" Margin="0,8,0,0" Background="#34D399" CornerRadius="3"/>
+                                                            <Border Height="8" Margin="0,8,0,0" Background="#F59E0B" CornerRadius="3"/>
                                                         </StackPanel>
                                                     </Border>
                                                     <Border Grid.Column="1" Background="#0F172A" CornerRadius="0,6,6,0" Padding="8">
@@ -822,7 +917,7 @@
                                                             <Border Height="8" Background="#E2E8F0" CornerRadius="2"/>
                                                             <Border Height="4" Margin="0,6,0,0" Background="#334155" CornerRadius="2"/>
                                                             <Border Height="4" Margin="0,4,0,0" Background="#334155" CornerRadius="2"/>
-                                                            <Border Height="8" Margin="0,8,0,0" Background="#B91C1C" CornerRadius="3"/>
+                                                            <Border Height="8" Margin="0,8,0,0" Background="#F59E0B" CornerRadius="3"/>
                                                         </StackPanel>
                                                     </Border>
                                                 </Grid>
