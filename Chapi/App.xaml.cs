@@ -4,6 +4,7 @@ using Chapi.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using Velopack;
@@ -19,6 +20,7 @@ namespace Chapi
     public partial class App : System.Windows.Application
     {
         private const string AppMutexName = "ChapiAssistan-7E8F4A2B-1D6C-4B8A-9A8C-5D6B7E9F0A3D";
+        private const string AppSettingsFileName = "appsettings.json";
         private static Mutex _mutex;
 
         // 2. Importamos las funciones de Windows API para "despertar" la ventana
@@ -235,6 +237,28 @@ namespace Chapi
             ServiceProvider = services.BuildServiceProvider();
         }
 
+        private static string EnsureAppSettingsFile()
+        {
+            var appDataDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Chapi");
+
+            Directory.CreateDirectory(appDataDirectory);
+
+            var appDataConfigPath = Path.Combine(appDataDirectory, AppSettingsFileName);
+            if (File.Exists(appDataConfigPath))
+                return appDataConfigPath;
+
+            var bundledConfigPath = Path.Combine(AppContext.BaseDirectory, AppSettingsFileName);
+            if (!File.Exists(bundledConfigPath))
+                throw new FileNotFoundException(
+                    $"No se encontró '{AppSettingsFileName}' ni en AppData ni en la carpeta de instalación.",
+                    bundledConfigPath);
+
+            File.Copy(bundledConfigPath, appDataConfigPath, overwrite: false);
+            return appDataConfigPath;
+        }
+
 
         [STAThread]
         private static void Main(string[] args)
@@ -297,9 +321,10 @@ namespace Chapi
             var uiSettings = Chapi.Infrastructure.Persistence.Settings.UserSettingsService.LoadSettings();
             ThemeService.ApplyTheme(uiSettings.ThemeMode);
 
+            var appSettingsPath = EnsureAppSettingsFile();
             var builder = new ConfigurationBuilder()
-               .SetBasePath(AppContext.BaseDirectory)
-               .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+               .SetBasePath(Path.GetDirectoryName(appSettingsPath)!)
+               .AddJsonFile(Path.GetFileName(appSettingsPath), optional: false, reloadOnChange: true);
 
             Configuration = builder.Build();
 

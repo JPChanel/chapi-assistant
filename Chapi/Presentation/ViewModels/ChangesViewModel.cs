@@ -1203,7 +1203,7 @@ public class ChangesViewModel : ViewModelBase
             }
             if (SelectedChange.ShortStatus != "D")
             {
-                string fullPath = Path.Combine(ProjectPath, SelectedChange.FilePath);
+                string fullPath = GetAbsoluteProjectFilePath(ProjectPath, SelectedChange.FilePath);
                 if (File.Exists(fullPath))
                 {
                     newText = await File.ReadAllTextAsync(fullPath);
@@ -1631,6 +1631,21 @@ public class ChangesViewModel : ViewModelBase
             ChangeStatus.Conflict => (PackIconKind.AlertOctagon, Brushes.Red),
             _ => (PackIconKind.FileQuestion, Brushes.Gray)
         };
+    }
+
+    private static string GetAbsoluteProjectFilePath(string projectPath, string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return projectPath;
+
+        if (Path.IsPathRooted(filePath))
+            return Path.GetFullPath(filePath);
+
+        var normalizedRelativePath = filePath
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
+
+        return Path.GetFullPath(Path.Combine(projectPath, normalizedRelativePath));
     }
 
     /// <summary>

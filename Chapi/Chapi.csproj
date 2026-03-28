@@ -64,6 +64,7 @@
 	<ItemGroup>
 		<None Update="appsettings.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
 		</None>
 		<None Update="Presentation\PlantillaWord\*.docx">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

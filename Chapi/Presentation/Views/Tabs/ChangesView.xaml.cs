@@ -230,9 +230,10 @@ public partial class ChangesView : UserControl
     private void SmartOpenFileInEditor(string projectPath, string filePath, int lineNum)
     {
         string projectName = new DirectoryInfo(projectPath).Name;
-        string fullPath = Path.Combine(projectPath, filePath);
+        string fullPath = GetAbsoluteChangePath(projectPath, filePath);
+        string normalizedGitPath = ToGitStylePath(filePath);
 
-        bool isDotNet = IsDotNetProject(projectPath, filePath);
+        bool isDotNet = IsDotNetProject(projectPath, normalizedGitPath);
 
         if (isDotNet)
         {
@@ -357,8 +358,8 @@ public partial class ChangesView : UserControl
                 {
                     string distro = parts[1];
                     string linuxPath = "/" + string.Join("/", parts.Skip(2)).Replace("\\", "/");
-                    string fileLinuxPath = (linuxPath.TrimEnd('/') + "/" + filePath.Replace("\\", "/")).Replace("//", "/");
-                    string remoteUri = $"vscode-remote://wsl+{distro}{fileLinuxPath}";
+                    string fileLinuxPath = (linuxPath.TrimEnd('/') + "/" + normalizedGitPath.TrimStart('/')).Replace("//", "/");
+                    string remoteUri = $"vscode-remote://wsl+{distro}{EscapeVsCodeRemotePath(fileLinuxPath)}";
                     arguments = $"--reuse-window --goto \"{remoteUri}:{lineNum}\"";
                 }
             }
@@ -437,12 +438,48 @@ public partial class ChangesView : UserControl
             {
                 if (!string.IsNullOrEmpty(_viewModel?.ProjectPath))
                 {
-                    return Path.Combine(_viewModel.ProjectPath, changeItem.FilePath);
+                    return GetAbsoluteChangePath(_viewModel.ProjectPath, changeItem.FilePath);
                 }
                 return changeItem.FilePath;
             }
         }
         return null;
+    }
+
+    private static string GetAbsoluteChangePath(string projectPath, string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return projectPath;
+
+        if (Path.IsPathRooted(filePath))
+            return Path.GetFullPath(filePath);
+
+        var normalizedRelativePath = filePath
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
+
+        return Path.GetFullPath(Path.Combine(projectPath, normalizedRelativePath));
+    }
+
+    private static string ToGitStylePath(string filePath)
+    {
+        return string.IsNullOrWhiteSpace(filePath)
+            ? string.Empty
+            : filePath.Replace('\\', '/');
+    }
+
+    private static string EscapeVsCodeRemotePath(string linuxPath)
+    {
+        var parts = linuxPath.Split('/', StringSplitOptions.None);
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (!string.IsNullOrEmpty(parts[i]))
+            {
+                parts[i] = Uri.EscapeDataString(parts[i]);
+            }
+        }
+
+        return string.Join("/", parts);
     }
 }
 

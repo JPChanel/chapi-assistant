@@ -253,7 +253,9 @@ public class GitCliRepository : IGitRepository
             normalizedRootPath,
             StringComparison.OrdinalIgnoreCase);
         // Usamos -z para evitar problemas con rutas con espacios o caracteres especiales
-        var result = await Git(projectPath, "--no-optional-locks", "status", "--porcelain=v1", "-z");
+        // y -uall para que Git reporte archivos sin seguimiento individualmente,
+        // como hace GitHub Desktop, en lugar de colapsarlos por carpeta.
+        var result = await Git(projectPath, "--no-optional-locks", "status", "--porcelain=v1", "--untracked-files=all", "-z");
         if (!result.IsSuccess) return Enumerable.Empty<FileChange>();
 
         var changes = new List<FileChange>();
