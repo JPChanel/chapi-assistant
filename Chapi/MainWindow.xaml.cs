@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
 using Chapi.Infrastructure.Persistence.Settings;
@@ -31,14 +31,13 @@ namespace Chapi
         public static MainWindow Instance { get; private set; }
 
         private List<string> _repositories = new List<string>();
-        private FileSystemWatcher _fileWatcher;
-        private System.Threading.Timer _debounceTimer;
         private readonly object _lock = new object();
-        private bool _isReloadingChanges = false;
         private bool _isGitInstalled = false;
         private System.Windows.Threading.DispatcherTimer _fetchTimer;
         private CancellationTokenSource? _projectSwitchCts;
         private bool _isShuttingDown = false;
+        private bool _isSwitchingBranch = false;
+        private readonly SemaphoreSlim _fetchRefreshSemaphore = new(1, 1);
 
         public string AppVersion { get; private set; }
         public string ServiceStatusText => "Activo";
@@ -56,6 +55,7 @@ namespace Chapi
         private Presentation.ViewModels.ReleasesViewModel? _releasesViewModel;
         private Presentation.ViewModels.WorkspaceViewModel? _workspaceViewModel;
         private Presentation.ViewModels.AssistantViewModel? _assistantViewModel;
+        private Presentation.ViewModels.DocumentationViewModel? _documentationViewModel;
         private readonly IGitRepository _gitRepository;
 
         public MainWindow()
@@ -70,22 +70,23 @@ namespace Chapi
             _releasesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ReleasesViewModel)) as Presentation.ViewModels.ReleasesViewModel;
             _assistantViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.AssistantViewModel)) as Presentation.ViewModels.AssistantViewModel;
             _workspaceViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.WorkspaceViewModel)) as Presentation.ViewModels.WorkspaceViewModel;
+            _documentationViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.DocumentationViewModel)) as Presentation.ViewModels.DocumentationViewModel;
 
             ChangesTab.DataContext = _changesViewModel;
             HistoryTab.DataContext = _historyViewModel;
             TagsTab.DataContext = _releasesViewModel;
             WorkspaceTab.DataContext = _workspaceViewModel;
             AssistantViewControl.DataContext = _assistantViewModel;
+            DocumentationViewControl.DataContext = _documentationViewModel;
 
-            Msg.Assistant("👋 ¡Hey! Soy Chapi 🤖 Tu dev buddy para arquitectura.");
+            Msg.Assistant("¡Hey! Soy Chapi – Tu dev buddy para arquitectura.");
 
-            _debounceTimer = new System.Threading.Timer(OnDebounceTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);
             Task.Run(CheckForUpdates);
             LoadVersion();
 
             _fetchTimer = new System.Windows.Threading.DispatcherTimer();
             _fetchTimer.Interval = TimeSpan.FromMinutes(10);
-            _fetchTimer.Tick += async (s, ev) => await DoFetchAsync(isSilent: true);
+            _fetchTimer.Tick += async (s, ev) => await DoFetchAndRefreshAsync(isSilent: true);
             _fetchTimer.Start();
         }
 
@@ -164,7 +165,7 @@ namespace Chapi
                 var mgr = new UpdateManager(new GithubSource(updateUrl, null, false));
                 var info = await mgr.CheckForUpdatesAsync();
                 if (info == null) return;
-                Dispatcher.Invoke(() => Msg.Assistant($"📢 Nueva version v{info.TargetFullRelease.Version} disponible."));
+                Dispatcher.Invoke(() => Msg.Assistant($"Nueva version v{info.TargetFullRelease.Version} disponible."));
             }
             catch { }
         }
@@ -195,39 +196,12 @@ namespace Chapi
             // Ejecutar la actualizacion de estados con retardo para no competir por CPU/Disco al inicio
             _ = Task.Run(async () =>
             {
-                await Task.Delay(1500); // Dar prioridad a la UI inicial
+                await Task.Delay(1500);
                 await UpdateProjectStatusesAsync(projectVMs);
             });
         }
 
-        private void OnDebounceTimerElapsed(object state)
-        {
-            lock (_lock) { if (_isReloadingChanges) return; _isReloadingChanges = true; }
-            Dispatcher.InvokeAsync(async () =>
-            {
-                try { await LoadChangesAsync(); }
-                finally { lock (_lock) { _isReloadingChanges = false; } }
-            });
-        }
-
-        private void OnFileSystemChanged(object sender, FileSystemEventArgs e)
-        {
-            if (projectDirectory == null || e.FullPath.Contains(".git")) return;
-            _debounceTimer?.Change(500, Timeout.Infinite);
-        }
-
-        private void InitializeFileSystemWatcher(string path)
-        {
-            if (_fileWatcher != null) { _fileWatcher.EnableRaisingEvents = false; _fileWatcher.Dispose(); }
-            if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
-
-            _fileWatcher = new FileSystemWatcher(path) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName };
-            _fileWatcher.Changed += OnFileSystemChanged;
-            _fileWatcher.Created += OnFileSystemChanged;
-            _fileWatcher.Deleted += OnFileSystemChanged;
-            _fileWatcher.Renamed += (s, ev) => OnFileSystemChanged(s, ev);
-            _fileWatcher.EnableRaisingEvents = true;
-        }
+        // El monitoreo del sistema de archivos ahora lo gestiona ChangesViewModel._changeWatcher
 
         private async void ProjectsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -239,14 +213,10 @@ namespace Chapi
             var token = _projectSwitchCts.Token;
 
             projectDirectory = selectedProject.FullPath;
-
-            // Limpieza visual inmediata en el ViewModel de cambios
             if (_changesViewModel != null)
             {
-                _changesViewModel.ProjectPath = projectDirectory; // Esto ya dispara LoadChangesAsync interno que ahora limpia la lista
+                _changesViewModel.ProjectPath = projectDirectory;
             }
-
-            InitializeFileSystemWatcher(projectDirectory);
 
             if (!_isGitInstalled) return;
 
@@ -254,49 +224,57 @@ namespace Chapi
 
             try
             {
-                // 1. Prioridad Máxima: Obtener la rama activa y metadatos básicos de un golpe (Muy rápido en WSL)
-                var metadataResult = await _gitRepository.GetMetadataAsync(projectDirectory);
-                if (token.IsCancellationRequested) return;
-
-                if (metadataResult.IsSuccess)
-                {
-                    var metadata = metadataResult.Data;
-                    _currentlySelectedBranch = metadata.CurrentBranch;
-                    
-                    // Asegurar que la rama actual esté en el combo aunque la lista completa no haya cargado
-                    BranchesComboBox.ItemsSource = new List<string> { metadata.CurrentBranch };
-                    BranchesComboBox.SelectedItem = metadata.CurrentBranch;
-                    
-                    UpdateGitActionButton();
-                    
-                    if (metadata.Ahead > 0)
-                    {
-                        Msg.Assistant($"🚀 Tienes {metadata.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
-                    }
-                }
-
-                // 2. Carga secundaria: Listado completo de todas las ramas (incluyendo remotas)
-                var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
-                var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
-                if (token.IsCancellationRequested) return;
-
-                // Combinar la rama actual detectada con la lista completa
-                if (!string.IsNullOrEmpty(_currentlySelectedBranch) && !branches.Contains(_currentlySelectedBranch))
-                {
-                    branches.Insert(0, _currentlySelectedBranch);
-                }
-
-                BranchesComboBox.ItemsSource = branches;
-                BranchesComboBox.SelectedItem = _currentlySelectedBranch;
-
-                // Cargas pesadas en segundo plano con validación de token
+                // Mover todo el peso logico al pool de hilos para no congelar la UI visualmente
                 _ = Task.Run(async () =>
                 {
                     try
                     {
+                        var metadataResult = await _gitRepository.GetMetadataAsync(projectDirectory);
                         if (token.IsCancellationRequested) return;
 
-                        // 1. Configurar ViewModels (Esto es rápido y debe hacerse en el Dispatcher)
+                        if (metadataResult.IsSuccess)
+                        {
+                            var metadata = metadataResult.Data;
+                            _currentlySelectedBranch = metadata.CurrentBranch;
+
+                            await Dispatcher.InvokeAsync(() =>
+                            {
+                                BranchesComboBox.ItemsSource = new List<string> { metadata.CurrentBranch };
+                                BranchesComboBox.SelectedItem = metadata.CurrentBranch;
+
+                                UpdateGitActionButton();
+
+                                if (metadata.Ahead > 0)
+                                {
+                                    Msg.Assistant($"Tienes {metadata.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
+                                }
+                            });
+                        }
+
+                        // 2. Carga secundaria: Listado completo de todas las ramas (incluyendo remotas)
+                        var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
+                        // getBranchesUseCase puede devolver nulo si IServiceProvider falla
+                        if (getBranchesUseCase != null)
+                        {
+                            var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
+                            if (token.IsCancellationRequested) return;
+
+                            // Combinar la rama actual detectada con la lista completa
+                            if (!string.IsNullOrEmpty(_currentlySelectedBranch) && !branches.Contains(_currentlySelectedBranch))
+                            {
+                                branches.Insert(0, _currentlySelectedBranch);
+                            }
+
+                            await Dispatcher.InvokeAsync(() =>
+                            {
+                                BranchesComboBox.ItemsSource = branches;
+                                BranchesComboBox.SelectedItem = _currentlySelectedBranch;
+                            });
+                        }
+
+                        if (token.IsCancellationRequested) return;
+
+                        // 3. Configurar ViewModels (Esto es rapido y debe hacerse en el Dispatcher)
                         await Dispatcher.InvokeAsync(() =>
                         {
                             if (token.IsCancellationRequested) return;
@@ -304,28 +282,29 @@ namespace Chapi
                             if (_releasesViewModel != null) _releasesViewModel.ProjectPath = projectDirectory;
                         });
 
-                        // 2. Cargar datos pesados secuencialmente en background
-                        if (token.IsCancellationRequested) return;
-                        await LoadHistoryAsync(); // Ahora usa Batching internamente
-                        
+                        // 4. Cargar datos pesados secuencialmente en background
+                        // NOTA: Los ViewModels de Historia y Cambios ya inician su carga automaticamente 
+                        // al asignarles la propiedad ProjectPath arriba.
+
                         if (token.IsCancellationRequested) return;
                         await LoadWorkspaceAsync();
-                        
+
                         if (token.IsCancellationRequested) return;
                         await UpdateAssistantContextAsync();
 
                         if (token.IsCancellationRequested) return;
-                        await Task.Delay(100, token); // Pausa mínima para dejar respirar a la UI
+                        await Task.Delay(100, token);
 
-                        // 3. Operaciones de red (Muy pesadas)
+                        // 5. Operaciones de red (Muy pesadas)
                         if (token.IsCancellationRequested) return;
                         await CheckBranchStatusAsync();
 
                         if (token.IsCancellationRequested) return;
                         await LoadReleasesAsync();
-
-                        if (token.IsCancellationRequested) return;
-                        await DoFetchAsync(isSilent: true); // Ahora Fetch está optimizado para WSL
+                        if (!token.IsCancellationRequested)
+                        {
+                            await Dispatcher.InvokeAsync(() => _ = DoFetchAndRefreshAsync(isSilent: true));
+                        }
                     }
                     catch (OperationCanceledException) { }
                     catch (Exception) { }
@@ -333,66 +312,104 @@ namespace Chapi
             }
             catch (Exception ex)
             {
-
+                Msg.Assistant("Error cambiando de proyecto: " + ex.Message);
             }
         }
 
         private async void BranchesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_isSwitchingBranch) return;
             if (BranchesComboBox.SelectedItem is not string newBranch || newBranch == _currentlySelectedBranch) return;
+            if (string.IsNullOrWhiteSpace(projectDirectory)) return;
 
-            await RunWithLoading(async () =>
+            bool switchedSuccessfully = false;
+            _isSwitchingBranch = true;
+            try
             {
-                // Verificar si hay cambios pendientes
-                var changes = await _gitRepository.GetChangesAsync(projectDirectory);
-                bool hasChanges = changes.Any();
-
-                bool stashChanges = false;
-
-                if (hasChanges)
+                await RunWithLoading(async () =>
                 {
-                    // Mostrar dialogo de opciones
-                    var dialog = new Chapi.Presentation.Views.Dialogs.SwitchBranchDialog
-                    {
-                        TargetBranch = newBranch
-                    };
-                    var result = await DialogService.ShowDialog(dialog);
+                    // Evitar "status" completo en cada cambio usando primero el estado ya cargado.
+                    bool hasChanges = await HasPendingChangesBeforeBranchSwitchAsync();
+                    bool stashChanges = false;
 
-                    if (result == null || result.ToString() == "cancel")
+                    if (hasChanges)
                     {
-                        // Usuario cancelo, revertir seleccion
-                        BranchesComboBox.SelectedItem = _currentlySelectedBranch;
-                        return;
+                        var dialog = new Chapi.Presentation.Views.Dialogs.SwitchBranchDialog
+                        {
+                            TargetBranch = newBranch
+                        };
+                        var result = await DialogService.ShowDialog(dialog);
+
+                        if (result == null || result.ToString() == "cancel")
+                        {
+                            BranchesComboBox.SelectedItem = _currentlySelectedBranch;
+                            return;
+                        }
+
+                        stashChanges = result.ToString() == "stash";
                     }
 
-                    stashChanges = result.ToString() == "stash";
-                }
+                    try
+                    {
+                        using var watcherSilencer = _changesViewModel?.SuspendWatcher();
 
-                var useCase = App.ServiceProvider.GetService(typeof(UseCases.SwitchBranchUseCase)) as UseCases.SwitchBranchUseCase;
-                var switchResult = await useCase.ExecuteAsync(projectDirectory, newBranch, stashChanges);
+                        var useCase = App.ServiceProvider.GetService(typeof(UseCases.SwitchBranchUseCase)) as UseCases.SwitchBranchUseCase;
+                        var switchResult = await useCase.ExecuteAsync(projectDirectory, newBranch, stashChanges);
 
-                if (switchResult.IsSuccess)
+                        if (switchResult.IsSuccess)
+                        {
+                            _currentlySelectedBranch = newBranch;
+                            BranchesComboBox.SelectedItem = newBranch;
+                            switchedSuccessfully = true;
+                        }
+                        else
+                        {
+                            BranchesComboBox.SelectedItem = _currentlySelectedBranch;
+                            await DialogService.ShowConfirmDialog("No se pudo cambiar de rama", switchResult.Error, DialogVariant.Error, DialogType.Info);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        BranchesComboBox.SelectedItem = _currentlySelectedBranch;
+                        await DialogService.ShowConfirmDialog("Error al cambiar de rama", $"Excepción inesperada:\n{ex.Message}", DialogVariant.Error, DialogType.Info);
+                    }
+                });
+
+                if (!switchedSuccessfully)
+                    return;
+
+                // Actualizaciones fuera del camino crítico del checkout.
+                _ = RefreshBranchesAsync();
+                if (_changesViewModel != null)
                 {
-                    _currentlySelectedBranch = newBranch;
-                    await RefreshBranchesAsync();
+                    await _changesViewModel.ForceRefreshAsync();
                 }
-                else
-                {
-                    BranchesComboBox.SelectedItem = _currentlySelectedBranch;
-                    await DialogService.ShowConfirmDialog("No se pudo cambiar de rama", switchResult.Error, DialogVariant.Error, DialogType.Info);
-                }
-            });
 
-            await LoadChangesAsync();
-            await LoadHistoryAsync();
-            await CheckBranchStatusAsync();
-            await UpdateProjectStatusesAsync();
+                await LoadHistoryAsync();
+                await CheckBranchStatusAsync();
+                await UpdateProjectStatusesAsync();
+            }
+            finally
+            {
+                _isSwitchingBranch = false;
+            }
+        }
+
+        private async Task<bool> HasPendingChangesBeforeBranchSwitchAsync()
+        {
+            if (_changesViewModel != null &&
+                string.Equals(_changesViewModel.ProjectPath, projectDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                return _changesViewModel.HasPendingChanges;
+            }
+
+            var changes = await _gitRepository.GetChangesAsync(projectDirectory);
+            return changes.Any();
         }
 
         private async Task LoadChangesAsync()
         {
             if (string.IsNullOrEmpty(projectDirectory) || _changesViewModel == null) return;
-            _changesViewModel.ProjectPath = projectDirectory;
             await _changesViewModel.LoadChangesAsync();
         }
 
@@ -418,8 +435,9 @@ namespace Chapi
 
         private async Task UpdateAssistantContextAsync()
         {
-            if (string.IsNullOrEmpty(projectDirectory) || _assistantViewModel == null) return;
-            await _assistantViewModel.UpdateProjectContextAsync(projectDirectory);
+            if (string.IsNullOrEmpty(projectDirectory)) return;
+            if (_assistantViewModel != null) await _assistantViewModel.UpdateProjectContextAsync(projectDirectory);
+            if (_documentationViewModel != null) await _documentationViewModel.SetProjectContextAsync(new DirectoryInfo(projectDirectory).Name, projectDirectory);
         }
 
         private async Task CheckBranchStatusAsync()
@@ -469,7 +487,7 @@ namespace Chapi
                 var result = await _gitRepository.PushAsync(projectDirectory, _currentlySelectedBranch);
                 if (result.IsSuccess)
                 {
-                    Msg.Assistant($"✅ Rama '{_currentlySelectedBranch}' publicada en origin.");
+                    Msg.Assistant($"Rama '{_currentlySelectedBranch}' publicada en origin.");
                     await CheckBranchStatusAsync();
                 }
                 else
@@ -575,7 +593,7 @@ namespace Chapi
         {
             string path = GetPathFromMenuItem(sender);
             if (string.IsNullOrEmpty(path)) return;
-            var confirm = await DialogService.ShowConfirmDialog("Remover Proyecto", $"Â¿Seguro que quieres remover '{new DirectoryInfo(path).Name}'?", DialogVariant.Warning, DialogType.Confirm);
+            var confirm = await DialogService.ShowConfirmDialog("Remover Proyecto", $"¿Seguro que quieres remover '{new DirectoryInfo(path).Name}'?", DialogVariant.Warning, DialogType.Confirm);
             if (confirm) { ProjectSettings.RemoveProject(path); LoadProjects(); }
         }
         #endregion
@@ -600,7 +618,7 @@ namespace Chapi
 
                         if (cloneResult.IsSuccess)
                         {
-                            Msg.Assistant($"✅ Repositorio clonado exitosamente en {cloneResult.Data}");
+                            Msg.Assistant($"Repositorio clonado exitosamente en {cloneResult.Data}");
                             LoadProjects();
                             SwitchToProject(cloneResult.Data);
                         }
@@ -613,7 +631,7 @@ namespace Chapi
             }
             catch (Exception ex)
             {
-                Msg.Assistant($"❌ Error: {ex.Message}");
+                Msg.Assistant($"Error: {ex.Message}");
             }
         }
 
@@ -642,7 +660,7 @@ namespace Chapi
                 await UpdateProjectStatusesAsync();
             }
 
-            // Verificar si el usuario ha iniciado sesión en algún proveedor Git
+            // Verificar si el usuario ha iniciado sesion en algÃºn proveedor Git
             await CheckSetupAsync();
         }
 
@@ -656,7 +674,7 @@ namespace Chapi
 
             if (!hasGitHub && !hasGitLab)
             {
-                // Si no hay cuentas configuradas, mostrar el diálogo de conexión (estilo "Setup Inicial")
+                // Si no hay cuentas configuradas, mostrar el dialogo de conexion (estilo "Setup Inicial")
                 await Dispatcher.InvokeAsync(() =>
                 {
                     var viewModel = App.ServiceProvider.GetRequiredService<Chapi.Presentation.ViewModels.GitProviderSelectionViewModel>();
@@ -667,27 +685,50 @@ namespace Chapi
             }
         }
 
-        private async Task DoFetchAsync(bool isSilent = false)
+        private async Task DoFetchAndRefreshAsync(bool isSilent = false)
         {
             if (string.IsNullOrEmpty(projectDirectory)) return;
-            var useCase = App.ServiceProvider.GetService(typeof(UseCases.FetchChangesUseCase)) as UseCases.FetchChangesUseCase;
-            if (useCase != null)
-            {
-                await useCase.ExecuteAsync(projectDirectory, isSilent);
-                await LoadChangesAsync();
+            if (!await _fetchRefreshSemaphore.WaitAsync(0)) return;
 
-                // Actualizar indicadores despues del fetch
-                await UpdateProjectStatusesAsync();
+            try
+            {
+                var useCase = App.ServiceProvider.GetService(typeof(UseCases.FetchChangesUseCase)) as UseCases.FetchChangesUseCase;
+                if (useCase == null) return;
+
+                var result = await useCase.ExecuteAsync(projectDirectory, isSilent);
+                if (!result.IsSuccess)
+                    return;
+                try { await RefreshBranchesAsync(); } catch { }
+
+                if (_changesViewModel == null)
+                    return;
+
+                bool sameProject = string.Equals(_changesViewModel.ProjectPath, projectDirectory, StringComparison.OrdinalIgnoreCase);
+                bool shouldRefresh = sameProject && (!isSilent || GitTabs.SelectedItem == ChangesTab);
+                if (!shouldRefresh)
+                    return;
+
+                if (IsWslPath(projectDirectory))
+                {
+                    await _changesViewModel.ForceRefreshAsync();
+                }
+                else
+                {
+                    await _changesViewModel.RefreshIfNecessaryAsync();
+                }
+            }
+            finally
+            {
+                _fetchRefreshSemaphore.Release();
             }
         }
 
-        public async Task UpdateProjectStatusesAsync(List<ProjectViewModel>? projects = null, bool includeFetch = true)
+        public async Task UpdateProjectStatusesAsync(List<ProjectViewModel>? projects = null)
         {
             if (projects == null)
             {
                 if (ProjectsComboBox.ItemsSource is List<ProjectViewModel> list)
                 {
-                    // ⚡ OPTIMIZACIÓN: Si no se pasan proyectos, solo actualizar el actual para no saturar con Fetches
                     projects = list.Where(p => p.FullPath == projectDirectory).ToList();
                     if (!projects.Any()) return;
                 }
@@ -699,24 +740,11 @@ namespace Chapi
             // Ejecutar en hilos de background, no en el Dispatcher
             _ = Task.Run(async () =>
             {
-                var tasks = projects.Select(proj => 
+                var tasks = projects.Select(proj =>
                 {
-                    // Si includeFetch es false, solo pedir los contadores actuales (rápido)
-                    if (!includeFetch)
+                    return useCase.ExecuteAsync(proj.FullPath, (ahead, behind) =>
                     {
-                        return Task.Run(async () => {
-                            var counts = await _gitRepository.GetAheadBehindCountAsync(proj.FullPath);
-                            await Dispatcher.InvokeAsync(() => {
-                                proj.Ahead = counts.Ahead;
-                                proj.Behind = counts.Behind;
-                                if (proj.FullPath == projectDirectory) UpdateGitActionButton();
-                            });
-                        });
-                    }
-                    
-                    return useCase.ExecuteAsync(proj.FullPath, async (ahead, behind) =>
-                    {
-                        await Dispatcher.InvokeAsync(async () =>
+                        Dispatcher.InvokeAsync(async () =>
                         {
                             proj.Ahead = ahead;
                             proj.Behind = behind;
@@ -738,7 +766,7 @@ namespace Chapi
         {
             if (ProjectsComboBox.SelectedItem is not ProjectViewModel currentProject) return;
 
-            // Accedemos al ComboBoxItem por defecto (índice 0) que usamos como botón dinámico
+            // Accedemos al ComboBoxItem por defecto (indice 0) que usamos como boton dinamico
             if (GitActionsComboBox.Items[0] is ComboBoxItem defaultItem &&
                 defaultItem.Content is StackPanel sp &&
                 sp.Children.Count >= 2)
@@ -757,7 +785,7 @@ namespace Chapi
                     }
                     if (textBlock != null)
                     {
-                        textBlock.Text = $"Pull Origin ({currentProject.Behind} ↓)";
+                        textBlock.Text = $"Pull Origin ({currentProject.Behind})";
                         textBlock.Foreground = Brushes.DeepSkyBlue;
                     }
                 }
@@ -772,7 +800,7 @@ namespace Chapi
                     }
                     if (textBlock != null)
                     {
-                        textBlock.Text = $"Push Origin ({currentProject.Ahead} ↑)";
+                        textBlock.Text = $"Push Origin ({currentProject.Ahead})";
                         textBlock.Foreground = Brushes.Orange;
                     }
                 }
@@ -885,7 +913,7 @@ namespace Chapi
 
                     if (result.IsSuccess)
                     {
-                        Msg.Assistant($"✅ Proyecto '{projectName}' creado exitosamente.");
+                        Msg.Assistant($"Proyecto '{projectName}' creado exitosamente.");
                         LoadProjects();
                         SwitchToProject(result.Data);
                         Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager.ClearAllRollbacks();
@@ -898,7 +926,7 @@ namespace Chapi
             }
             catch (Exception ex)
             {
-                Msg.Assistant($"❌ Error: {ex.Message}");
+                Msg.Assistant($"Error: {ex.Message}");
             }
         }
 
@@ -906,7 +934,7 @@ namespace Chapi
         {
             if (!ValidateProject()) return;
 
-            var (okModules, modules) = await DialogService.ShowInputDialog("Crear Módulo", "Ingrese los nombres de los módulos separados por ';':");
+            var (okModules, modules) = await DialogService.ShowInputDialog("Crear Modulo", "Ingrese los nombres de los modulos separados por ';':");
             if (!okModules || string.IsNullOrWhiteSpace(modules)) return;
 
             var (okDb, dbChoice) = await DialogService.ShowInputDialog("Seleccionar Base de Datos", "Ingrese 'S' para Sybase o 'P' para Postgres:");
@@ -919,7 +947,7 @@ namespace Chapi
 
                 if (result.IsSuccess)
                 {
-                    Msg.Assistant("✅ Módulo(s) generado(s) correctamente.");
+                    Msg.Assistant("Modulo(s) generado(s) correctamente.");
                 }
                 else
                 {
@@ -942,8 +970,8 @@ namespace Chapi
 
                 if (result.IsSuccess)
                 {
-                    Msg.Assistant("✅ Repositorio remoto asociado correctamente.");
-                    await DoFetchAsync(isSilent: true);
+                    Msg.Assistant("Repositorio remoto asociado correctamente.");
+                    await DoFetchAndRefreshAsync(isSilent: true);
                 }
                 else
                 {
@@ -972,7 +1000,7 @@ namespace Chapi
 
             if (!rollbacks.Any())
             {
-                await DialogService.ShowConfirmDialog("Información", "No hay rollbacks disponibles.", DialogVariant.Info, DialogType.Info);
+                await DialogService.ShowConfirmDialog("Informacion", "No hay rollbacks disponibles.", DialogVariant.Info, DialogType.Info);
                 return;
             }
 
@@ -982,7 +1010,7 @@ namespace Chapi
 
             if (result == true)
             {
-                Msg.Assistant("✅ Rollback ejecutado correctamente.");
+                Msg.Assistant("Rollback ejecutado correctamente.");
             }
         }
 
@@ -996,6 +1024,20 @@ namespace Chapi
         private async void GitTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (e.OriginalSource is not System.Windows.Controls.TabControl) return;
+
+            if (GitTabs.SelectedItem == ChangesTab && _changesViewModel != null)
+            {
+                if (!string.IsNullOrEmpty(projectDirectory) &&
+                    (projectDirectory.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) ||
+                     projectDirectory.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase)))
+                {
+                    await _changesViewModel.ForceRefreshAsync();
+                }
+                else
+                {
+                    await _changesViewModel.RefreshIfNecessaryAsync();
+                }
+            }
 
             if (GitTabs.SelectedItem == TagsTab)
             {
@@ -1062,7 +1104,7 @@ namespace Chapi
                 {
                     var branches = await _gitRepository.GetBranchesAsync(projectDirectory);
                     BranchesComboBox.ItemsSource = branches;
-                    Msg.Assistant($"✅ Rama '{newBranchName}' creada correctamente.");
+                    Msg.Assistant($"Rama '{newBranchName}' creada correctamente.");
                 }
                 else
                 {
@@ -1082,11 +1124,11 @@ namespace Chapi
                 return;
             }
 
-            var confirm = await DialogService.ShowConfirmDialog("Eliminar Rama", $"¿Estás seguro de eliminar la rama '{branchName}'?", DialogVariant.Warning, DialogType.Confirm);
+            var confirm = await DialogService.ShowConfirmDialog("Eliminar Rama", $"¿Estas seguro de eliminar la rama '{branchName}'?", DialogVariant.Warning, DialogType.Confirm);
             if (!confirm) return;
 
-            // Preguntar si borrar remoto también
-            var confirmRemote = await DialogService.ShowConfirmDialog("Eliminar Remoto", $"¿Deseas eliminar también la rama '{branchName}' del repositorio remoto (origin)?", DialogVariant.Info, DialogType.Confirm);
+            // Preguntar si borrar remoto tambien
+            var confirmRemote = await DialogService.ShowConfirmDialog("Eliminar Remoto", $"¿Deseas eliminar tambien la rama '{branchName}' del repositorio remoto (origin)?", DialogVariant.Info, DialogType.Confirm);
 
             await RunWithLoading(async () =>
             {
@@ -1094,7 +1136,7 @@ namespace Chapi
                 if (result.IsSuccess)
                 {
                     await RefreshBranchesAsync();
-                    Msg.Assistant($"✅ Rama '{branchName}' eliminada{(confirmRemote ? " (Local y Remoto)" : " (Local)")}.");
+                    Msg.Assistant($" Rama '{branchName}' eliminada{(confirmRemote ? " (Local y Remoto)" : " (Local)")}.");
                 }
                 else
                 {
@@ -1153,7 +1195,7 @@ namespace Chapi
 
         private async Task ShowMergeDialogAsync(string mergeType)
         {
-            // Instanciar VM con dependencias para validación en vivo
+            // Instanciar VM con dependencias para validacion en vivo
             var viewModel = new Chapi.Presentation.ViewModels.MergeBranchViewModel(_gitRepository, projectDirectory, mergeType);
 
             // Cargar ramas
@@ -1190,8 +1232,8 @@ namespace Chapi
                 if (hasConflicts)
                 {
                     await DialogService.ShowConfirmDialog(
-                        "⚠️ Conflictos Detectados",
-                        $"No se puede enviar '{sourceBranch}' a '{targetBranch}' porque hay conflictos pendientes.\n\nSOLUCIÓN: Primero debes fusionar '{targetBranch}' en tu rama actual y resolver los conflictos.",
+                        "Conflictos Detectados",
+                        $"No se puede enviar '{sourceBranch}' a '{targetBranch}' porque hay conflictos pendientes.\n\nSOLUCION: Primero debes fusionar '{targetBranch}' en tu rama actual y resolver los conflictos.",
                         DialogVariant.Error,
                         DialogType.Info);
                     return;
@@ -1202,7 +1244,7 @@ namespace Chapi
             if (status.Any())
             {
                 await DialogService.ShowConfirmDialog(
-                    "⚠️ Cambios Pendientes",
+                    "Cambios Pendientes",
                     "Para hacer merge hacia otra rama, tu directorio de trabajo debe estar limpio.\n\nPor favor haz commit o stash de tus cambios actuales antes de continuar.",
                     DialogVariant.Warning,
                     DialogType.Info);
@@ -1214,21 +1256,21 @@ namespace Chapi
 
             if (mergeType == "Squash")
             {
-                prompt = $"¿Estás seguro de hacer SQUASH MERGE de '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá.";
+                prompt = $"¿Estas seguro de hacer SQUASH MERGE de '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiara a '{targetBranch}', realizara la operacion y volvera.";
             }
             else if (mergeType == "Rebase")
             {
-                prompt = $"⚠️ EL REBASE REQUERIRÁ FORCE PUSH\n\n" +
-                         $"¿Estás seguro de que deseas hacer rebase a '{sourceBranch}' de '{targetBranch}'?\n\n" +
-                         $"Al finalizar el rebase, tu historia local cambiará y divergirás del remoto.\n" +
-                         $"Para actualizar el servidor, necesitarás hacer un FORCE PUSH posteriormente.\n" +
-                         $"Esto alterará la historia en el remoto y podría causar problemas a otros colaboradores en esta rama.\n\n" +
+                prompt = $"EL REBASE REQUERIRÁ FORCE PUSH\n\n" +
+                         $"¿Estas seguro de que deseas hacer rebase a '{sourceBranch}' de '{targetBranch}'?\n\n" +
+                         $"Al finalizar el rebase, tu historia local cambiara y divergiras del remoto.\n" +
+                         $"Para actualizar el servidor, necesitaras hacer un FORCE PUSH posteriormente.\n" +
+                         $"Esto alterara la historia en el remoto y podrÃ­a causar problemas a otros colaboradores en esta rama.\n\n" +
                          $"¿Deseas continuar?";
                 variant = DialogVariant.Warning;
             }
             else
             {
-                prompt = $"¿Estás seguro de fusionar '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiará a '{targetBranch}', realizará la operación y volverá.";
+                prompt = $"¿Estas seguro de fusionar '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiara a '{targetBranch}', realizara la operacion y volvera.";
             }
 
             string? squashCommitMessage = null;
@@ -1237,8 +1279,8 @@ namespace Chapi
             if (mergeType == "Squash")
             {
                 var squashDialog = new Chapi.Presentation.Views.Dialogs.SquashCommitDialog(_gitRepository, projectDirectory, sourceBranch, targetBranch, autoDeleteBranch);
-                // El dialogo de Squash recibe el checkbox inicial del merge dialog para informar si se eliminará o no (opcionalmente podriamos mostrarlo readonly)
-                // O simplemente asumimos que la decisión ya fue tomada. 
+                // El dialogo de Squash recibe el checkbox inicial del merge dialog para informar si se eliminara o no (opcionalmente podriamos mostrarlo readonly)
+                // O simplemente asumimos que la decision ya fue tomada. 
 
                 var resultDialog = await DialogService.ShowDialog(squashDialog);
 
@@ -1255,7 +1297,7 @@ namespace Chapi
             }
             else
             {
-                // Si NO es squash (ej. Merge normal o Rebase), mostramos confirmación
+                // Si NO es squash (ej. Merge normal o Rebase), mostramos confirmacion
                 // Y usamos 'shouldDeleteBranch' que vino de parametro 'autoDeleteBranch'
                 // Usamos el 'variant' definido arriba (Warning para Rebase, Info para Merge)
                 var confirm = await DialogService.ShowConfirmDialog($"{mergeType} operation", prompt, variant, DialogType.Confirm);
@@ -1287,7 +1329,7 @@ namespace Chapi
 
                     if (result.IsSuccess)
                     {
-                        Msg.Assistant($"✅ Operación '{mergeType}' exitosa: '{sourceBranch}' → '{targetBranch}'");
+                        Msg.Assistant($" Operacion '{mergeType}' exitosa: '{sourceBranch}' '{targetBranch}'");
 
                         if (mergeType == "Rebase")
                         {
@@ -1296,7 +1338,7 @@ namespace Chapi
 
                             var forcePushConfirm = await DialogService.ShowConfirmDialog(
                                 "Rebase Exitoso - Force Push Requerido",
-                                "La rama actual se ha rebasado correctamente.\n\n⚠️ Tu historia local ha divergido del remoto.\n¿Deseas realizar un FORCE PUSH ahora para actualizar el servidor?\n(Solo hazlo si estás seguro de que nadie más trabaja sobre esta rama)",
+                                "La rama actual se ha rebasado correctamente.\n\n¸ Tu historia local ha divergido del remoto.\n¿Deseas realizar un FORCE PUSH ahora para actualizar el servidor?\n(Solo hazlo si estas seguro de que nadie mas trabaja sobre esta rama)",
                                 DialogVariant.Warning,
                                 DialogType.Confirm);
 
@@ -1305,7 +1347,7 @@ namespace Chapi
                                 var pushResult = await _gitRepository.PushAsync(projectDirectory, sourceBranch, force: true);
                                 if (pushResult.IsSuccess)
                                 {
-                                    Msg.Assistant($"🚀 Force Push exitoso: '{sourceBranch}' actualizado en remoto.");
+                                    Msg.Assistant($"Force Push exitoso: '{sourceBranch}' actualizado en remoto.");
                                 }
                                 else
                                 {
@@ -1333,7 +1375,7 @@ namespace Chapi
                                 var pushResult = await _gitRepository.PushAsync(projectDirectory, targetBranch);
                                 if (pushResult.IsSuccess)
                                 {
-                                    Msg.Assistant($"🚀 Push exitoso: '{targetBranch}' actualizado en remoto.");
+                                    Msg.Assistant($"Push exitoso: '{targetBranch}' actualizado en remoto.");
                                 }
                                 else
                                 {
@@ -1342,7 +1384,7 @@ namespace Chapi
                             }
                         }
 
-                        // Eliminación de rama: Aplica tanto para Squash como para Merge normal si el usuario lo pidió
+                        // Eliminacion de rama: Aplica tanto para Squash como para Merge normal si el usuario lo pidio
                         // (En Squash viene del SquashDialog, en Merge viene del autodeleteBranch pasado)
                         if (shouldDeleteBranch && mergeType != "Rebase")
                         {
@@ -1351,11 +1393,11 @@ namespace Chapi
 
                             if (deleteResult.IsSuccess)
                             {
-                                Msg.Assistant($"🗑️ Rama '{sourceBranch}' eliminada (Local y Remoto).");
+                                Msg.Assistant($"ðŸ—‘ï¸ Rama '{sourceBranch}' eliminada (Local y Remoto).");
                             }
                             else
                             {
-                                await DialogService.ShowConfirmDialog("Aviso", $"Se intentó eliminar la rama '{sourceBranch}' pero hubo un problema: {deleteResult.Error}", DialogVariant.Warning, DialogType.Info);
+                                await DialogService.ShowConfirmDialog("Aviso", $"Se intento eliminar la rama '{sourceBranch}' pero hubo un problema: {deleteResult.Error}", DialogVariant.Warning, DialogType.Info);
                             }
                         }
 
@@ -1379,7 +1421,7 @@ namespace Chapi
                     if (_currentlySelectedBranch != sourceBranch)
                         await _gitRepository.SwitchBranchAsync(projectDirectory, sourceBranch);
 
-                    await DialogService.ShowConfirmDialog($"Error en {mergeType}", $"Ocurrió un error: {ex.Message}", DialogVariant.Error, DialogType.Info);
+                    await DialogService.ShowConfirmDialog($"Error en {mergeType}", $"Ocurrio un error: {ex.Message}", DialogVariant.Error, DialogType.Info);
                     await LoadChangesAsync();
                 }
             });
@@ -1424,16 +1466,24 @@ namespace Chapi
         {
             if (!ValidateProject()) return;
 
-            bool stashBeforePull = false;
-            if (action == GitActionState.Pull)
+            // Legacy pre-check kept disabled; pull flow now is handled on demand by git error parsing.
+            if (false && action == GitActionState.Pull)
             {
                 var changes = await _gitRepository.GetChangesAsync(projectDirectory);
                 if (changes.Any())
                 {
-                    stashBeforePull = await DialogService.ShowConfirmDialog(
+                    var proceedWithStash = await DialogService.ShowConfirmDialog(
                         "Cambios sin confirmar",
-                        "Tienes cambios locales que podrían entrar en conflicto. ¿Deseas guardarlos automáticamente en un Stash antes de hacer Pull?",
-                        DialogVariant.Info);
+                        "Tienes cambios locales que podrÃ­an entrar en conflicto. ¿Deseas guardarlos automaticamente en un Stash antes de hacer Pull?",
+                        DialogVariant.Warning,
+                        DialogType.Confirm,
+                        confirmButtonText: "Guardar y continuar",
+                        cancelButtonText: "Cancelar");
+                    if (!proceedWithStash)
+                    {
+                        return;
+                    }
+                    // Disabled: stash decision is now taken only when pull reports overwrite risk.
                 }
             }
 
@@ -1449,7 +1499,26 @@ namespace Chapi
 
                     case GitActionState.Pull:
                         var pullUC = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Git.PullChangesUseCase>();
-                        result = await pullUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch, stashBeforePull);
+                        result = await pullUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch, stashChanges: false);
+                        if (!result.IsSuccess && Chapi.Application.UseCases.Git.PullChangesUseCase.IsLocalChangesOverwriteError(result.Error))
+                        {
+                            var conflictingFiles = ExtractFilesFromPullOverwriteError(result.Error);
+                            var details = BuildPullOverwriteDetailsAscii(conflictingFiles);
+                            var proceedWithStash = await DialogService.ShowConfirmDialog(
+                                "No se puede hacer Pull",
+                                details,
+                                DialogVariant.Warning,
+                                DialogType.Confirm,
+                                confirmButtonText: "Guardar cambios y continuar",
+                                cancelButtonText: "Cancelar");
+
+                            if (!proceedWithStash)
+                            {
+                                return;
+                            }
+
+                            result = await pullUC.ExecuteAsync(projectDirectory, _currentlySelectedBranch, stashChanges: true, restoreAfterPull: false);
+                        }
                         break;
 
                     case GitActionState.Push:
@@ -1460,7 +1529,16 @@ namespace Chapi
 
                 await LoadHistoryAsync();
                 await UpdateProjectStatusesAsync();
-                _ = DoFetchAsync(isSilent: true);
+                if (action != GitActionState.Fetch)
+                {
+                    _ = DoFetchAndRefreshAsync(isSilent: true);
+                }
+
+                if (_changesViewModel != null &&
+                    string.Equals(_changesViewModel.ProjectPath, projectDirectory, StringComparison.OrdinalIgnoreCase))
+                {
+                    await _changesViewModel.ForceRefreshAsync();
+                }
 
                 if (!result.IsSuccess && result.Error == "CONFLICTO_DETECTADO")
                 {
@@ -1503,7 +1581,7 @@ namespace Chapi
                 }
                 else
                 {
-                    Msg.Assistant("No se encontraron conflictos a revisar o ya están resueltos.");
+                    Msg.Assistant("No se encontraron conflictos a revisar o ya estan resueltos.");
                 }
             }
             catch (Exception ex)
@@ -1557,12 +1635,10 @@ namespace Chapi
 
         private void CleanupResources()
         {
-            _debounceTimer?.Dispose();
             if (_fetchTimer != null)
             {
                 _fetchTimer.Stop();
             }
-            _fileWatcher?.Dispose();
         }
 
         public void KillExternalBlockers()
@@ -1582,7 +1658,7 @@ namespace Chapi
                         try {{
                             $hasHandle = $false
                             # Usamos el comando 'handle' de Sysinternals si estuviera, 
-                            # pero como fallback buscamos procesos cuyo CWD o módulos estén ahí
+                            # pero como fallback buscamos procesos cuyo CWD o modulos esten ahÃ­
                             if ($p.MainModule.FileName -like ""$path*"" -or $p.StartInfo.WorkingDirectory -like ""$path*"") {{
                                 $hasHandle = $true
                             }}
@@ -1604,23 +1680,114 @@ namespace Chapi
                 };
 
                 using var process = Process.Start(startInfo);
-                process?.WaitForExit(5000); // Esperar máximo 5 segundos
+                process?.WaitForExit(5000);
             }
             catch (Exception) { /* Fallback silencioso */ }
         }
 
+        private DateTime _lastActivationRefresh = DateTime.MinValue;
+        private DateTime _lastActivationFetch = DateTime.MinValue;
+
         protected override async void OnActivated(EventArgs e)
         {
             base.OnActivated(e);
-            
-            // Si la pestaña de cambios está activa, refrescar si es necesario (Focus Sync)
-            if (GitTabs.SelectedItem == ChangesTab && _changesViewModel != null)
+
+            // Auto-fetch liviano al recuperar foco para detectar ramas remotas nuevas.
+            if (!string.IsNullOrEmpty(projectDirectory) &&
+                (DateTime.Now - _lastActivationFetch).TotalSeconds > 90)
+            {
+                _lastActivationFetch = DateTime.Now;
+                _ = DoFetchAndRefreshAsync(isSilent: true);
+            }
+
+            if (!string.IsNullOrEmpty(projectDirectory) && IsWslPath(projectDirectory))
+            {
+                if ((DateTime.Now - _lastActivationRefresh).TotalSeconds > 2)
+                {
+                    _lastActivationRefresh = DateTime.Now;
+                    if (_changesViewModel != null)
+                    {
+                        await _changesViewModel.ForceRefreshAsync();
+                    }
+                }
+            }
+            else if (GitTabs.SelectedItem == ChangesTab && _changesViewModel != null)
             {
                 await _changesViewModel.RefreshIfNecessaryAsync();
             }
         }
+
+        private static List<string> ExtractFilesFromPullOverwriteError(string error)
+        {
+            var files = new List<string>();
+            if (string.IsNullOrWhiteSpace(error))
+                return files;
+
+            var lines = error.Replace('\r', '\n')
+                             .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            bool readingFiles = false;
+            foreach (var raw in lines)
+            {
+                var line = raw.Trim();
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                if (!readingFiles)
+                {
+                    if (line.Contains("following files would be overwritten", StringComparison.OrdinalIgnoreCase) ||
+                        line.Contains("archivos", StringComparison.OrdinalIgnoreCase) && line.Contains("sobrescrit", StringComparison.OrdinalIgnoreCase))
+                    {
+                        readingFiles = true;
+                    }
+                    continue;
+                }
+
+                if (line.StartsWith("Please ", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("Aborta", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("error:", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("hint:", StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                var candidate = line.TrimStart('-', '*', ' ', '\t');
+                if (!string.IsNullOrWhiteSpace(candidate))
+                {
+                    files.Add(candidate);
+                }
+            }
+
+            return files.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private static string BuildPullOverwriteDetailsAscii(List<string> files)
+        {
+            var header = "No se puede hacer Pull porque estos archivos locales serian sobrescritos.";
+            var guidance = "Puedes guardar tus cambios en un Stash y continuar, o cancelar para revisarlos.";
+
+            if (files == null || files.Count == 0)
+                return $"{header}\n\n{guidance}";
+
+            var max = Math.Min(files.Count, 12);
+            var listed = string.Join("\n", files.Take(max).Select(f => $"- {f}"));
+            var more = files.Count > max ? $"\n- ... y {files.Count - max} archivo(s) mas" : string.Empty;
+
+            return $"{header}\n\n{listed}{more}\n\n{guidance}";
+        }
+
+        private static bool IsWslPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
+
+            return path.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) ||
+                   path.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase);
+        }
     }
 }
+
+
 
 
 

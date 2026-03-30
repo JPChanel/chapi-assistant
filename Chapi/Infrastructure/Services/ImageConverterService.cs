@@ -70,13 +70,13 @@ public class ImageConverterService
             result.ConvertedSize = outputInfo.Length;
             result.Success = true;
 
-            progress?.Report($"âœ“ Completado: {Path.GetFileName(sourcePath)} ({result.CompressionRatio}% reduccion)");
+            progress?.Report($"✓ Completado: {Path.GetFileName(sourcePath)} ({result.CompressionRatio}% reduccion)");
         }
         catch (Exception ex)
         {
             result.Success = false;
             result.ErrorMessage = ex.Message;
-            progress?.Report($"âœ— Error: {Path.GetFileName(sourcePath)} - {ex.Message}");
+            progress?.Report($"✗ Error: {Path.GetFileName(sourcePath)} - {ex.Message}");
         }
 
         return result;

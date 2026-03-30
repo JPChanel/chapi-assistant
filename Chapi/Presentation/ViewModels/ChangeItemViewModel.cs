@@ -9,6 +9,7 @@ namespace Chapi.Presentation.ViewModels;
 /// </summary>
 public class ChangeItemViewModel : ViewModelBase
 {
+    private static readonly char[] PathSeparators = ['/', '\\'];
     private bool _isSelected;
     private string _filePath = string.Empty;
     private string _status = string.Empty;
@@ -43,8 +44,8 @@ public class ChangeItemViewModel : ViewModelBase
         }
     }
 
-    public string FileName => System.IO.Path.GetFileName(_filePath);
-    public string DirectoryPath => System.IO.Path.GetDirectoryName(_filePath) ?? string.Empty;
+    public string FileName => GetFileName(_filePath);
+    public string DirectoryPath => GetDirectoryPath(_filePath);
 
     /// <summary>
     /// Estado del archivo (ej: "Modificado", "Anadido").
@@ -99,5 +100,30 @@ public class ChangeItemViewModel : ViewModelBase
         get => _deletions;
         set => SetProperty(ref _deletions, value);
     }
-}
 
+    private static string GetFileName(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+
+        var normalized = path.TrimEnd(PathSeparators);
+        if (normalized.Length == 0)
+            return string.Empty;
+
+        var separatorIndex = normalized.LastIndexOfAny(PathSeparators);
+        return separatorIndex >= 0 ? normalized[(separatorIndex + 1)..] : normalized;
+    }
+
+    private static string GetDirectoryPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+
+        var normalized = path.TrimEnd(PathSeparators);
+        if (normalized.Length == 0)
+            return string.Empty;
+
+        var separatorIndex = normalized.LastIndexOfAny(PathSeparators);
+        return separatorIndex > 0 ? normalized[..separatorIndex] : string.Empty;
+    }
+}

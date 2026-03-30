@@ -19,9 +19,10 @@
 
 	<ItemGroup>
 		<PackageReference Include="DiffPlex.Wpf" Version="1.9.0" />
+		<PackageReference Include="DocumentFormat.OpenXml" Version="3.2.0" />
 		<PackageReference Include="FluentFTP" Version="53.0.2" />
 		<PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="1.1.0" />
-		<PackageReference Include="LibGit2Sharp" Version="0.31.0" />
+		<PackageReference Include="Markdig" Version="0.40.0" />
 		<PackageReference Include="MaterialDesignColors" Version="3.0.0" />
 		<PackageReference Include="MaterialDesignThemes" Version="5.0.0" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
@@ -29,6 +30,7 @@
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.9" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
 		<PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.3" />
+		<PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3124.44" />
 		<PackageReference Include="Mscc.GenerativeAI" Version="2.8.15" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
 		<PackageReference Include="Velopack" Version="0.0.1298" />
@@ -56,7 +58,15 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Compile Remove="git\**" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<None Update="appsettings.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+		</None>
+		<None Update="Presentation\PlantillaWord\*.docx">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 		<None Update="Presentation\Assets\icon.png">
@@ -65,6 +75,24 @@
 		<None Update="Presentation\Assets\icon.ico">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
+		<None Update="git\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
+
+	<!-- ─── Git Embebido: Desarrollo Local ───────────────────────────────────
+	     Solo aplica en desarrollo local (cuando existe GitHub Desktop).
+	     En CI/CD (GitHub Actions) el workflow se encarga explícitamente.
+	     ─────────────────────────────────────────────────────────────────── -->
+	<Target Name="CopyGitBinaries" AfterTargets="Build" Condition="'$(CI)' != 'true'">
+		<PropertyGroup>
+			<GitOutputPath>$(OutputPath)git</GitOutputPath>
+			<FindGitCmd>powershell -NoProfile -Command "&amp;{ $ghd = Join-Path $env:LOCALAPPDATA 'GitHubDesktop'; $v = Get-ChildItem $ghd -Filter 'app-*' -EA SilentlyContinue | Sort-Object Name -Desc | Select-Object -First 1; if ($v) { Join-Path $v.FullName 'resources\app\git' } else { '' } }"</FindGitCmd>
+		</PropertyGroup>
+		<Exec Command="$(FindGitCmd)" ConsoleToMSBuild="true" ContinueOnError="true">
+			<Output TaskParameter="ConsoleOutput" PropertyName="GitSourcePath" />
+		</Exec>
+		<Exec Command="xcopy /E /I /Y &quot;$(GitSourcePath.Trim())&quot; &quot;$(GitOutputPath)&quot;" Condition="$(GitSourcePath.Trim()) != ''" ContinueOnError="true" />
+		<Message Text="[Chapi] ✅ Git embebido copiado desde GitHub Desktop" Importance="normal" Condition="$(GitSourcePath.Trim()) != ''" />
+		<Message Text="[Chapi] ⚠️ GitHub Desktop no encontrado. Git embebido no disponible en local." Importance="high" Condition="$(GitSourcePath.Trim()) == ''" />
+	</Target>
 
 </Project>

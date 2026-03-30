@@ -1,4 +1,4 @@
-using System.IO;
+ï»¿using System.IO;
 using System.Text.Json;
 
 namespace Chapi.Infrastructure.Persistence.Settings;
@@ -45,7 +45,7 @@ public static class ProjectSettings
         if (projects.Contains(projectPath))
         {
             projects.Remove(projectPath);
-            SaveProjects(projects); // Reutilizamos tu método de guardado
+            SaveProjects(projects); // Reutilizamos tu m?todo de guardado
         }
     }
 }

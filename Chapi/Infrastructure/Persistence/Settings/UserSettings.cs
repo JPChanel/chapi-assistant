@@ -44,6 +44,7 @@ public class UserApiSettings
     public string OpenAiApiKey { get; set; } = string.Empty;
     public string ClaudeApiKey { get; set; } = string.Empty;
     public string PreferredAiProvider { get; set; } = "Gemini"; // Gemini, OpenAI, Claude
+    public string ThemeMode { get; set; } = "System"; // System, Dark, Light
 
     public bool ProxyEnabled { get; set; } = false;
     public string ProxyUrl { get; set; } = string.Empty;

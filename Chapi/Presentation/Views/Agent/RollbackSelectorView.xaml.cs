@@ -50,12 +50,12 @@ namespace Chapi.Presentation.Views.Agent
 
             // Mostrar detalles de lo que se va a revertir
             var details = string.Join("\n", entry.Changes.Select(c =>
-                $"  â€¢ {c.ChangeType}: {System.IO.Path.GetFileName(c.FilePath)}"
+                $"  • {c.ChangeType}: {System.IO.Path.GetFileName(c.FilePath)}"
             ));
 
             var confirm = await DialogService.ShowConfirmDialog(
                 "Confirmar Rollback",
-                $"Â¿Desea revertir los siguientes cambios?\n\nModulo: {entry.Module}\nMetodo: {entry.MethodName}\nOperacion: {entry.Operation}\n\n{details}",
+                $"¿Desea revertir los siguientes cambios?\n\nModulo: {entry.Module}\nMetodo: {entry.MethodName}\nOperacion: {entry.Operation}\n\n{details}",
                 Dialogs.DialogVariant.Warning,
                 Dialogs.DialogType.Confirm
             );
@@ -72,8 +72,8 @@ namespace Chapi.Presentation.Views.Agent
                 // 
 
                 await DialogService.ShowConfirmDialog(
-                    " ‰xito",
-                    $"âœ… Rollback completado exitosamente.\n\nMetodo '{entry.MethodName}' revertido del modulo '{entry.Module}'",
+                    "✅ Éxito",
+                    $"✅ Rollback completado exitosamente.\n\nMetodo '{entry.MethodName}' revertido del modulo '{entry.Module}'",
                     Dialogs.DialogVariant.Success,
                     Dialogs.DialogType.Info
                 );
@@ -85,7 +85,7 @@ namespace Chapi.Presentation.Views.Agent
             {
                 await DialogService.ShowConfirmDialog(
                     "Error",
-                    $"âŒ Error al ejecutar rollback:\n{ex.Message}",
+                    $"❌ Error al ejecutar rollback:\n{ex.Message}",
                     Dialogs.DialogVariant.Error,
                     Dialogs.DialogType.Info
                 );
@@ -112,7 +112,7 @@ namespace Chapi.Presentation.Views.Agent
             {
                 // Mostrar detalles de los cambios
                 var details = string.Join("\n", selected.Entry.Changes.Select(c =>
-                    $"  â€¢ {c.ChangeType}: {System.IO.Path.GetFileName(c.FilePath)}"
+                    $"  • {c.ChangeType}: {System.IO.Path.GetFileName(c.FilePath)}"
                 ));
 
                 txtDetails.Text = details;

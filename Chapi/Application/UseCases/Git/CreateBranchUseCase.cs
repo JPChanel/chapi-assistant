@@ -39,20 +39,20 @@ public class CreateBranchUseCase
 
             if (!result.IsSuccess)
             {
-                _notificationService.ShowError($"❌ Error al crear rama: {result.Error}");
+                _notificationService.ShowError($"? Error al crear rama: {result.Error}");
                 return result;
             }
 
             string message = string.IsNullOrWhiteSpace(fromCommitOrBranch)
-                ? $"✅ Rama '{branchName}' creada desde HEAD"
-                : $"✅ Rama '{branchName}' creada desde '{fromCommitOrBranch}'";
+                ? $"? Rama '{branchName}' creada desde HEAD"
+                : $"? Rama '{branchName}' creada desde '{fromCommitOrBranch}'";
 
             _notificationService.ShowSuccess(message);
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"âŒ Error al crear rama: {ex.Message}");
+            _notificationService.ShowError($"❌ Error al crear rama: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }

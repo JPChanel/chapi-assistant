@@ -41,7 +41,7 @@ public class StashDropUseCase
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"âŒ Error al eliminar stash: {ex.Message}");
+            _notificationService.ShowError($"❌ Error al eliminar stash: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }

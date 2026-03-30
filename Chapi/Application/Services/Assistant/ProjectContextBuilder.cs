@@ -1,6 +1,7 @@
 using Chapi.Domain.Common;
+using Chapi.Domain.Entities;
 using Chapi.Domain.Entities.Assistant;
-using LibGit2Sharp;
+using Chapi.Domain.Interfaces;
 using System.IO;
 
 namespace Chapi.Application.Services.Assistant;
@@ -10,6 +11,12 @@ namespace Chapi.Application.Services.Assistant;
 /// </summary>
 public class ProjectContextBuilder
 {
+    private readonly IGitRepository _gitRepository;
+
+    public ProjectContextBuilder(IGitRepository gitRepository)
+    {
+        _gitRepository = gitRepository;
+    }
     public async Task<Result<ProjectContext>> BuildContextAsync(string projectPath)
     {
         try
@@ -52,7 +59,7 @@ public class ProjectContextBuilder
             technologies.Add("Node.js");
 
         // Detectar Python
-        if (File.Exists(Path.Combine(projectPath, "requirements.txt")) || 
+        if (File.Exists(Path.Combine(projectPath, "requirements.txt")) ||
             File.Exists(Path.Combine(projectPath, "setup.py")))
             technologies.Add("Python");
 
@@ -88,9 +95,9 @@ public class ProjectContextBuilder
         {
             return Directory.GetDirectories(projectPath, "*", SearchOption.TopDirectoryOnly)
                 .Select(d => new DirectoryInfo(d).Name)
-                .Where(name => !name.StartsWith(".") && 
-                              name != "bin" && 
-                              name != "obj" && 
+                .Where(name => !name.StartsWith(".") &&
+                              name != "bin" &&
+                              name != "obj" &&
                               name != "node_modules" &&
                               name != "packages")
                 .Take(10)
@@ -107,11 +114,11 @@ public class ProjectContextBuilder
         try
         {
             var extensions = new[] { ".cs", ".xaml", ".js", ".ts", ".py", ".java", ".cpp", ".h" };
-            
+
             return Directory.GetFiles(projectPath, "*.*", SearchOption.AllDirectories)
                 .Where(f => extensions.Contains(Path.GetExtension(f).ToLower()))
-                .Where(f => !f.Contains("\\bin\\") && 
-                           !f.Contains("\\obj\\") && 
+                .Where(f => !f.Contains("\\bin\\") &&
+                           !f.Contains("\\obj\\") &&
                            !f.Contains("\\node_modules\\") &&
                            !f.Contains("\\.git\\"))
                 .OrderByDescending(f => File.GetLastWriteTime(f))
@@ -129,55 +136,51 @@ public class ProjectContextBuilder
     {
         try
         {
-            if (!Repository.IsValid(projectPath))
+            var metadataResult = await _gitRepository.GetMetadataAsync(projectPath);
+            if (!metadataResult.IsSuccess)
                 return null;
 
-            using var repo = new Repository(projectPath);
-            var status = repo.RetrieveStatus();
+            var metadata = metadataResult.Data;
+            var changes = await _gitRepository.GetChangesAsync(projectPath);
+            var commits = await _gitRepository.GetCommitsAsync(projectPath, 10);
 
             var gitContext = new GitContext
             {
-                CurrentBranch = repo.Head.FriendlyName,
-                HasUncommittedChanges = status.IsDirty
+                CurrentBranch = metadata.CurrentBranch,
+                HasUncommittedChanges = changes.Any()
             };
 
             // Commits recientes
-            gitContext.RecentCommits = repo.Commits
-                .Take(10)
+            gitContext.RecentCommits = commits
                 .Select(c => new CommitInfo
                 {
-                    Sha = c.Sha[..7],
-                    Message = c.MessageShort,
-                    Author = c.Author.Name,
-                    Date = c.Author.When.DateTime
+                    Sha = c.Hash[..7],
+                    Message = c.Message,
+                    Author = c.Author,
+                    Date = c.Date
                 })
                 .ToList();
 
-            // Archivos modificados (Incluye Staged, Modified, Missing, Renamed, etc.)
-            // Excluimos Ignored y Unaltered. Untracked va aparte.
-            var dirtyFiles = status
-                .Where(s => s.State != FileStatus.Ignored && s.State != FileStatus.Unaltered && s.State != FileStatus.NewInWorkdir)
+            // Archivos modificados
+            var modified = changes.Where(c => c.Status != ChangeStatus.Untracked).ToList();
+
+            gitContext.ModifiedFiles = modified
+                .Select(s => $"{s.FilePath} ({s.Status})")
                 .ToList();
 
-            gitContext.ModifiedFiles = dirtyFiles
-                .Select(s => $"{s.FilePath} ({s.State})")
-                .ToList();
-
-            gitContext.ModifiedFilePaths = dirtyFiles
+            gitContext.ModifiedFilePaths = modified
                 .Select(s => s.FilePath)
                 .ToList();
 
-            // Archivos untracked (NewInWorkdir)
-            gitContext.UntrackedFiles = status.Untracked.Select(u => u.FilePath).ToList();
+            // Archivos untracked
+            gitContext.UntrackedFiles = changes
+                .Where(c => c.Status == ChangeStatus.Untracked)
+                .Select(u => u.FilePath)
+                .ToList();
 
             // Ahead/Behind
-            var trackingBranch = repo.Head.TrackedBranch;
-            if (trackingBranch != null)
-            {
-                var divergence = repo.ObjectDatabase.CalculateHistoryDivergence(repo.Head.Tip, trackingBranch.Tip);
-                gitContext.AheadBy = divergence?.AheadBy ?? 0;
-                gitContext.BehindBy = divergence?.BehindBy ?? 0;
-            }
+            gitContext.AheadBy = metadata.Ahead;
+            gitContext.BehindBy = metadata.Behind;
 
             return gitContext;
         }
@@ -202,7 +205,7 @@ public class ProjectContextBuilder
                 var interfaces = Directory.GetFiles(domainInterfacesPath, "I*.cs")
                     .Select(Path.GetFileNameWithoutExtension)
                     .ToList();
-                
+
                 capabilities.AvailableServices.AddRange(interfaces!);
 
                 capabilities.CanCommit = interfaces.Contains("IGitRepository");

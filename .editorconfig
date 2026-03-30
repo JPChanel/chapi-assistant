@@ -1,0 +1,6 @@
+root = true
+
+[*.{cs,xaml,xml,json,md,txt,yml,yaml,config,csproj,sln}]
+charset = utf-8-bom
+end_of_line = crlf
+insert_final_newline = true

@@ -88,12 +88,12 @@
                         </Style>
                     </StackPanel.Style>
 
-                    <Button Content="NO"
+                    <Button Content="{Binding CancelButtonText, ElementName=Self}"
                             Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
                             CommandParameter="false"
                             Style="{StaticResource MaterialDesignFlatButton}"
                             Margin="0,0,8,0"/>
-                    <Button Content="SI"
+                    <Button Content="{Binding ConfirmButtonText, ElementName=Self}"
                             Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
                             CommandParameter="true"
                             Style="{StaticResource MaterialDesignRaisedButton}"/>

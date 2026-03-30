@@ -3,7 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:local="clr-namespace:Chapi.Presentation.Views"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:converters="clr-namespace:Chapi.Presentation.Converters"
              mc:Ignorable="d" 
@@ -11,9 +10,25 @@
 
     <UserControl.Resources>
         <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <Style x:Key="AssistantSendButtonStyle" TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+            <Setter Property="Background" Value="{DynamicResource AppPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppPrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource ActionTextOnAccentBrush}"/>
+            <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="22"/>
+            <Setter Property="Opacity" Value="1"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource MaterialDesignCardBackground}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
+                    <Setter Property="Opacity" Value="1"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
     
-    <Grid Background="#1A1A1A">
+    <Grid Background="{DynamicResource MaterialDesignPaper}">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -39,12 +54,13 @@
                                     Grid.Column="0" 
                                     Width="36" 
                                     Height="36" 
-                                    Background="#3F51B5" 
+                                    Background="{DynamicResource AppPrimaryBrush}" 
+                                    BorderBrush="{DynamicResource AppBorderBrush}"
+                                    BorderThickness="1"
                                     CornerRadius="18" 
                                     VerticalAlignment="Top" 
                                     Margin="0,0,12,0">
-                                <materialDesign:PackIcon Kind="Robot" 
-                                                        Foreground="White" 
+                                <materialDesign:PackIcon Kind="Robot" Foreground="White" 
                                                         Width="22" 
                                                         Height="22" 
                                                         HorizontalAlignment="Center" 
@@ -56,8 +72,8 @@
                                     Grid.Column="1" 
                                     Padding="16,12" 
                                     CornerRadius="12,12,12,4"
-                                    Background="#2A2A2A"
-                                    BorderBrush="#3A3A3A"
+                                    Background="{DynamicResource MaterialDesignCardBackground}"
+                                    BorderBrush="{DynamicResource MaterialDesignDivider}"
                                     BorderThickness="1"
                                     MaxWidth="1100"
                                     HorizontalAlignment="Left">
@@ -67,13 +83,15 @@
                                                TextWrapping="Wrap" 
                                                FontSize="14"
                                                LineHeight="22"
-                                               Foreground="#E0E0E0"/>
+                                               Foreground="{DynamicResource MaterialDesignBody}"/>
 
                                     <!-- Acción Sugerida -->
                                     <Button Margin="0,12,0,0"
                                             HorizontalAlignment="Left"
                                             Cursor="Hand"
-                                            Style="{StaticResource MaterialDesignFlatButton}"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                                            Foreground="{DynamicResource PrimaryHueMidBrush}"
+                                            BorderBrush="{DynamicResource PrimaryHueMidBrush}"
                                             Command="{Binding DataContext.ExecuteActionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}"
                                             Visibility="{Binding Action, Converter={StaticResource NullToVisibilityConverter}}">
@@ -86,6 +104,7 @@
                                     <TextBlock Text="{Binding FormattedTime}" 
                                                FontSize="10"
                                                HorizontalAlignment="Right"
+                                               Foreground="{DynamicResource MaterialDesignBodyLight}"
                                                Opacity="0.5"
                                                Margin="0,6,0,0"/>
                                 </StackPanel>
@@ -96,13 +115,15 @@
                                     Grid.Column="2" 
                                     Width="36" 
                                     Height="36" 
-                                    Background="#212121" 
+                                    Background="{DynamicResource AppSecondaryBrush}" 
+                                    BorderBrush="{DynamicResource AppBorderBrush}"
+                                    BorderThickness="1"
                                     CornerRadius="18" 
                                     VerticalAlignment="Top" 
                                     Margin="12,0,0,0" 
                                     Visibility="Collapsed">
                                 <materialDesign:PackIcon Kind="Account" 
-                                                        Foreground="#888" 
+                                                        Foreground="{DynamicResource ActionTextOnAccentBrush}" 
                                                         Width="22" 
                                                         Height="22" 
                                                         HorizontalAlignment="Center" 
@@ -114,10 +135,11 @@
                                 <Setter TargetName="AssistantAvatar" Property="Visibility" Value="Collapsed"/>
                                 <Setter TargetName="UserAvatar" Property="Visibility" Value="Visible"/>
                                 <Setter TargetName="MessageBubble" Property="HorizontalAlignment" Value="Right"/>
-                                <Setter TargetName="MessageBubble" Property="Background" Value="#311B92"/>
-                                <Setter TargetName="MessageBubble" Property="BorderThickness" Value="0"/>
+                                <Setter TargetName="MessageBubble" Property="Background" Value="{DynamicResource AppPrimaryBrush}"/>
+                                <Setter TargetName="MessageBubble" Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
+                                <Setter TargetName="MessageBubble" Property="BorderThickness" Value="1"/>
                                 <Setter TargetName="MessageBubble" Property="CornerRadius" Value="12,12,4,12"/>
-                                <Setter TargetName="MessageText" Property="Foreground" Value="White"/>
+                                <Setter TargetName="MessageText" Property="Foreground" Value="{DynamicResource ActionTextOnAccentBrush}"/>
                             </DataTrigger>
                         </DataTemplate.Triggers>
                     </DataTemplate>
@@ -127,8 +149,8 @@
 
         <!-- Área de input -->
         <Border Grid.Row="1" 
-                Background="#242424" 
-                BorderBrush="#3A3A3A" 
+                Background="{DynamicResource MaterialDesignCardBackground}" 
+                BorderBrush="{DynamicResource MaterialDesignDivider}" 
                 BorderThickness="0,1,0,0"
                 Padding="16">
             <Grid>
@@ -151,9 +173,9 @@
                          MaxHeight="100"
                          TextWrapping="Wrap"
                          AcceptsReturn="False"
-                         Background="#1A1A1A"
-                         Foreground="#E0E0E0"
-                         BorderBrush="#3A3A3A">
+                         Background="{DynamicResource MaterialDesignPaper}"
+                         Foreground="{DynamicResource MaterialDesignBody}"
+                         BorderBrush="{DynamicResource MaterialDesignDivider}">
                     <TextBox.InputBindings>
                         <KeyBinding Key="Enter" Command="{Binding SendMessageCommand}"/>
                     </TextBox.InputBindings>
@@ -171,16 +193,18 @@
                 <!-- Botón enviar -->
                 <Button Grid.Column="2"
                         Command="{Binding SendMessageCommand}"
-                        Width="48"
-                        Height="48"
-                        Style="{StaticResource MaterialDesignFloatingActionButton}"
-                        Background="#3F51B5"
-                        BorderBrush="{x:Null}"
+                        Width="44"
+                        Height="44"
+                        Margin="10,0,0,0"
+                        Padding="0"
+                        Style="{StaticResource AssistantSendButtonStyle}"
                         ToolTip="Enviar mensaje (Enter)">
-                    <materialDesign:PackIcon Kind="Send" 
-                                            Width="24" 
-                                            Height="24"
-                                            Foreground="White"/>
+                    <materialDesign:PackIcon Kind="Send"
+                                             Width="20"
+                                             Height="20"
+                                             HorizontalAlignment="Center"
+                                             VerticalAlignment="Center"
+                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                 </Button>
             </Grid>
         </Border>
@@ -195,11 +219,11 @@
                 <materialDesign:PackIcon Kind="FolderOpen" 
                                         Width="64" 
                                         Height="64" 
-                                        Foreground="#666"
+                                        Foreground="{DynamicResource MaterialDesignBodyLight}"
                                         HorizontalAlignment="Center"/>
                 <TextBlock Text="Selecciona un proyecto para comenzar"
                           FontSize="16"
-                          Foreground="#999"
+                          Foreground="{DynamicResource MaterialDesignBodyLight}"
                           Margin="0,16,0,0"
                           HorizontalAlignment="Center"/>
             </StackPanel>

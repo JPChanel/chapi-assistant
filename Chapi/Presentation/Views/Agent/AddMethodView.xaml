@@ -11,15 +11,9 @@ SizeToContent="Height" MaxHeight="800"
         MinWidth="750"
         WindowStartupLocation="CenterScreen"
         
-        Background="#F9FBFD">
+        Background="{DynamicResource MaterialDesignPaper}">
 
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="Orange" SecondaryColor="Lime" />
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
+    <Window.Resources />
 
     <Grid  Margin="20"
       VerticalAlignment="Top"
@@ -33,7 +27,7 @@ SizeToContent="Height" MaxHeight="800"
             <!-- Footer -->
         </Grid.RowDefinitions>
 
-        <!-- ðŸ§± HEADER -->
+        <!-- 🧱 HEADER -->
         <Grid Grid.Row="0" Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -50,7 +44,7 @@ SizeToContent="Height" MaxHeight="800"
                                VerticalAlignment="Center"/>
                 </StackPanel>
                 <TextBlock Text="Genera metodos automaticamente con o sin asistencia de IA"
-                   Foreground="#8899AA"
+                   Foreground="{DynamicResource MaterialDesignBodyLight}"
                    FontSize="13"
                    FontStyle="Italic"/>
             </StackPanel>
@@ -58,11 +52,11 @@ SizeToContent="Height" MaxHeight="800"
             <!-- Checkbox moderno -->
             <Border Grid.Column="1"
             CornerRadius="6"
-            Background="#F5F8FF"
+            Background="{DynamicResource PrimaryHueLightBrush}"
             Padding="10,6"
             VerticalAlignment="Center"
             Margin="8,0,0,0"
-            BorderBrush="#D0E3FF"
+            BorderBrush="{DynamicResource PrimaryHueLightBrush}"
             BorderThickness="1">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <CheckBox x:Name="chkUseIA"
@@ -75,12 +69,12 @@ SizeToContent="Height" MaxHeight="800"
                                                          Width="20" 
                                                          Height="20" 
                                                          Margin="0,0,8,0" 
-                                                         Foreground="#2E8BFF" 
+                                                         Foreground="{DynamicResource PrimaryHueMidBrush}" 
                                                          VerticalAlignment="Center"/>
                                 <TextBlock Text="Modo Avanzado (IA)"
                                    FontSize="14"
                                    FontWeight="SemiBold"
-                                   Foreground="#2E8BFF"/>
+                                   Foreground="{DynamicResource PrimaryHueMidBrush}"/>
                             </StackPanel>
                         </CheckBox.Content>
                     </CheckBox>
@@ -88,7 +82,7 @@ SizeToContent="Height" MaxHeight="800"
             </Border>
         </Grid>
 
-        <!-- ðŸ§­ CONTENIDO SCROLLEABLE -->
+        <!-- 🧭 CONTENIDO SCROLLEABLE -->
         <ScrollViewer Grid.Row="1"
               VerticalScrollBarVisibility="Auto"
               HorizontalScrollBarVisibility="Disabled"
@@ -201,16 +195,16 @@ SizeToContent="Height" MaxHeight="800"
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- ðŸ§  Ayuda -->
+                        <!-- 🧠 Ayuda -->
                         <Border Grid.Row="0"
-                                Background="#E3F2FD"
+                                Background="{DynamicResource MaterialDesignSelection}"
                                 Padding="15"
                                 CornerRadius="5"
                                 Margin="10">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                                    <materialDesign:PackIcon Kind="LightbulbOnOutline" Width="18" Height="18" Foreground="Orange" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="¿Como funciona?"
+                                    <materialDesign:PackIcon Kind="LightbulbOnOutline" Width="18" Height="18" Foreground="{DynamicResource StatusWarningBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="¿Cómo funciona?"
                                                FontWeight="Bold"
                                                FontSize="14"
                                                VerticalAlignment="Center"/>
@@ -218,14 +212,14 @@ SizeToContent="Height" MaxHeight="800"
                                 <TextBlock Text="Pega el correo con el detalle del procedimiento almacenado y deja que la IA analice los parametros y genere automaticamente las capas necesarias."
                                            TextWrapping="Wrap"
                                            FontSize="12"
-                                           Foreground="#555"/>
+                                           Foreground="{DynamicResource MaterialDesignBodyLight}"/>
                             </StackPanel>
                         </Border>
 
                         <!-- Panel de Contenido -->
                         <Grid Grid.Row="1">
 
-                            <!-- ðŸ“¥ Panel Input -->
+                            <!-- 📥 Panel Input -->
                             <Grid x:Name="panelInput" Visibility="Visible">
                               
                                     <StackPanel Margin="20" >
@@ -239,7 +233,7 @@ SizeToContent="Height" MaxHeight="800"
                                             <StackPanel Margin="15">
                                                 <TextBlock Text="Pegue aqui el correo con la definicion del SP:"
                                                            Margin="0,0,0,10"
-                                                           Foreground="#666"/>
+                                                           Foreground="{DynamicResource MaterialDesignBodyLight}"/>
                                                 <TextBox x:Name="txtEmailContent"
                                                          TextWrapping="Wrap"
                                                          AcceptsReturn="True"
@@ -265,7 +259,7 @@ SizeToContent="Height" MaxHeight="800"
                                
                             </Grid>
 
-                            <!-- â³ Panel Analizando -->
+                            <!-- ⏳ Panel Analizando -->
                             <Grid x:Name="panelAnalyzing" Visibility="Collapsed">
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
@@ -281,13 +275,13 @@ SizeToContent="Height" MaxHeight="800"
                                     <TextBlock x:Name="txtAnalyzingStatus"
                                                Text="Extrayendo informacion..."
                                                FontSize="12"
-                                               Foreground="#666"
+                                               Foreground="{DynamicResource MaterialDesignBodyLight}"
                                                Margin="0,10,0,0"
                                                HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
 
-                            <!-- ðŸ“„ Panel Resultados -->
+                            <!-- 📄 Panel Resultados -->
                             <ScrollViewer x:Name="panelResult"
                                           Visibility="Collapsed"
                                           VerticalScrollBarVisibility="Auto">
@@ -303,9 +297,9 @@ SizeToContent="Height" MaxHeight="800"
                                         <StackPanel Margin="10">
                                             <StackPanel Orientation="Horizontal">
                                                 <materialDesign:PackIcon Kind="CheckCircle" Foreground="#2ECC71" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                                <TextBlock Text="Analisis Completado" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Analisis Completado" Foreground="{DynamicResource MaterialDesignBody}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                                             </StackPanel>
-                                            <TextBlock Text="Revise y edite los campos generados antes de confirmar" Foreground="White" FontSize="12" Margin="0,5,0,0"/>
+                                            <TextBlock Text="Revise y edite los campos generados antes de confirmar" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="12" Margin="0,5,0,0"/>
                                             <!-- Seccion 1: Stored Procedure -->
                                             <Expander IsExpanded="True" Margin="0,0,0,10" Style="{StaticResource MaterialDesignExpander}">
                                                 <Expander.Header>
@@ -316,7 +310,7 @@ SizeToContent="Height" MaxHeight="800"
                                                 </Expander.Header>
                                                 <StackPanel Margin="15">
                                                     <TextBox x:Name="txtSPName" materialDesign:HintAssist.Hint="Nombre del SP" Margin="0,0,0,10" FontFamily="Consolas"/>
-                                                    <TextBlock Text="Ejemplo: sp_buscar_productos, pr_listar_clientes" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
+                                                    <TextBlock Text="Ejemplo: sp_buscar_productos, pr_listar_clientes" FontSize="10" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,0,5"/>
                                                 </StackPanel>
                                             </Expander>
                                             <!-- Seccion 2: Request (Parametros de entrada) -->
@@ -328,7 +322,7 @@ SizeToContent="Height" MaxHeight="800"
                                                     </StackPanel>
                                                 </Expander.Header>
                                                 <StackPanel Margin="15">
-                                                    <TextBlock Text="Formato: tipo nombre (uno por linea)" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
+                                                    <TextBlock Text="Formato: tipo nombre (uno por linea)" FontSize="10" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,0,5"/>
                                                     <TextBox x:Name="txtRequestParams" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="120" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo:&#x0a;int Codigo&#x0a;string Nombre&#x0a;DateTime? FechaInicio"/>
                                                 </StackPanel>
                                             </Expander>
@@ -341,7 +335,7 @@ SizeToContent="Height" MaxHeight="800"
                                                     </StackPanel>
                                                 </Expander.Header>
                                                 <StackPanel Margin="15">
-                                                    <TextBlock Text="Formato: tipo nombre (uno por linea)" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
+                                                    <TextBlock Text="Formato: tipo nombre (uno por linea)" FontSize="10" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,0,5"/>
                                                     <TextBox x:Name="txtParameters" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="120" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo:&#x0a;int Codigo&#x0a;string Nombre&#x0a;DateTime? FechaInicio"/>
                                                 </StackPanel>
                                             </Expander>
@@ -354,7 +348,7 @@ SizeToContent="Height" MaxHeight="800"
                                                     </StackPanel>
                                                 </Expander.Header>
                                                 <StackPanel Margin="15">
-                                                    <TextBlock Text="Campos que retorna la base de datos" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
+                                                    <TextBlock Text="Campos que retorna la base de datos" FontSize="10" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,0,5"/>
                                                     <TextBox x:Name="txtDTOFields" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo:&#x0a;int pro_codigo&#x0a;string pro_nombre&#x0a;decimal pro_precio"/>
                                                 </StackPanel>
                                             </Expander>
@@ -367,7 +361,7 @@ SizeToContent="Height" MaxHeight="800"
                                                     </StackPanel>
                                                 </Expander.Header>
                                                 <StackPanel Margin="15">
-                                                    <TextBlock Text="Mapeo: campoDTO â†’ propiedadAPI (formato JSON)" FontSize="10" Foreground="#999" Margin="0,0,0,5"/>
+                                                    <TextBlock Text="Mapeo: campoDTO -> propiedadAPI (formato JSON)" FontSize="10" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,0,5"/>
                                                     <TextBox x:Name="txtResponseMapper" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="150" FontFamily="Consolas" FontSize="12" materialDesign:HintAssist.Hint="Ejemplo (objeto anonimo):&#x0a;codigo = dto.pro_codigo,&#x0a;nombre = dto.pro_nombre,&#x0a;precio = dto.pro_precio"/>
                                                 </StackPanel>
                                             </Expander>
@@ -383,7 +377,7 @@ SizeToContent="Height" MaxHeight="800"
             </Grid>
         </ScrollViewer>
 
-        <!-- ðŸ¦¶ FOOTER -->
+        <!-- 🦶 FOOTER -->
         <StackPanel Grid.Row="2"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
@@ -412,5 +406,3 @@ SizeToContent="Height" MaxHeight="800"
         </StackPanel>
     </Grid>
 </Window>
-
-

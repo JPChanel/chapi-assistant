@@ -4,6 +4,7 @@ using Chapi.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using Velopack;
@@ -19,6 +20,7 @@ namespace Chapi
     public partial class App : System.Windows.Application
     {
         private const string AppMutexName = "ChapiAssistan-7E8F4A2B-1D6C-4B8A-9A8C-5D6B7E9F0A3D";
+        private const string AppSettingsFileName = "appsettings.json";
         private static Mutex _mutex;
 
         // 2. Importamos las funciones de Windows API para "despertar" la ventana
@@ -70,9 +72,8 @@ namespace Chapi
             var services = new ServiceCollection();
 
             // Infrastructure - Git
-            services.AddSingleton<Chapi.Infrastructure.Git.LibGit2SharpRepository>();
-            services.AddSingleton<Chapi.Infrastructure.Git.WslGitRepository>();
-            services.AddSingleton<IGitRepository, Chapi.Infrastructure.Git.GitRepositoryDispatcher>();
+            // Motor CLI (git.exe) único: mismo modelo que GitHub Desktop con dugite
+            services.AddSingleton<IGitRepository, Chapi.Infrastructure.Git.GitCliRepository>();
 
             // Configuración Auth
             services.Configure<Chapi.Infrastructure.Configuration.GitAuthConfig>(Configuration.GetSection("GitAuth"));
@@ -89,36 +90,51 @@ namespace Chapi
             services.AddSingleton<IModuleGeneratorService, ModuleGeneratorService>();
             services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
             services.AddSingleton<IAssistantCapabilityRegistry, Chapi.Application.Services.Assistant.AssistantCapabilityRegistry>();
-            
+
             // AI Services (Microsoft.Extensions.AI)
             // AI Services (Microsoft.Extensions.AI)
-            services.AddTransient<Microsoft.Extensions.AI.IChatClient>(sp => 
+            services.AddTransient<Microsoft.Extensions.AI.IChatClient>(sp =>
             {
                 var settings = Chapi.Infrastructure.Persistence.Settings.UserSettingsService.LoadSettings();
-                
-                // 1. Intentar proveedor preferido
-                if (settings.PreferredAiProvider == "OpenAI" && !string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
-                    return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
-                
-                if (settings.PreferredAiProvider == "Claude" && !string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
-                    return new Chapi.Infrastructure.AI.ClaudeChatClient(settings.ClaudeApiKey);
-                
-                if ((settings.PreferredAiProvider == "Gemini" || string.IsNullOrEmpty(settings.PreferredAiProvider)) && !string.IsNullOrWhiteSpace(settings.GeminiApiKey))
-                    return new Chapi.Infrastructure.AI.GeminiChatClient(settings.GeminiApiKey);
+                var preferred = (settings.PreferredAiProvider ?? string.Empty).Trim();
 
-                // 2. Fallback: Probar cualquiera disponible (Prioridad: Gemini > OpenAI > Claude)
+                // 1) Si el usuario definió proveedor preferido, respetarlo estrictamente.
+                if (preferred.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
+                        throw new InvalidOperationException("Proveedor IA = OpenAI, pero falta OpenAI API Key en Configuración > IA.");
+                    return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
+                }
+
+                if (preferred.Equals("Claude", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
+                        throw new InvalidOperationException("Proveedor IA = Claude, pero falta Claude API Key en Configuración > IA.");
+                    return new Chapi.Infrastructure.AI.ClaudeChatClient(settings.ClaudeApiKey);
+                }
+
+                if (preferred.Equals("Gemini", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(settings.GeminiApiKey))
+                        throw new InvalidOperationException("Proveedor IA = Gemini, pero falta Gemini API Key en Configuración > IA.");
+                    return new Chapi.Infrastructure.AI.GeminiChatClient(settings.GeminiApiKey);
+                }
+
+                if (!string.IsNullOrWhiteSpace(preferred))
+                {
+                    throw new InvalidOperationException($"Proveedor IA desconocido: '{preferred}'. Usa Gemini, OpenAI o Claude.");
+                }
+
+                // 2) Fallback solo si no se eligió preferido.
+                if (!string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
+                    return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
+
                 if (!string.IsNullOrWhiteSpace(settings.GeminiApiKey))
                     return new Chapi.Infrastructure.AI.GeminiChatClient(settings.GeminiApiKey);
 
-                if (!string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
-                    return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
-                
                 if (!string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
                     return new Chapi.Infrastructure.AI.ClaudeChatClient(settings.ClaudeApiKey);
 
-
-
-                // Si llegamos aquí, no hay configuración válida
                 throw new InvalidOperationException("No se ha configurado ningún proveedor de IA (Gemini, OpenAI o Claude). Por favor ve a Configuración > IA.");
             });
 
@@ -172,7 +188,7 @@ namespace Chapi
             services.AddTransient<Chapi.Application.UseCases.AI.GenerateCommitMessageUseCase>();
             services.AddTransient<Chapi.Application.UseCases.AI.SendChatMessageUseCase>();
             services.AddTransient<Chapi.Application.UseCases.AI.GenerateSqlQueryUseCase>();
-            
+
             // Core Assistant Services (Singleton para mantener estado en la sesión)
             services.AddSingleton<Chapi.Application.Services.Assistant.GeminiChatService>();
             services.AddSingleton<Chapi.Application.Services.Assistant.ConversationManager>();
@@ -197,7 +213,50 @@ namespace Chapi
             services.AddTransient<Presentation.ViewModels.GitProviderSelectionViewModel>();
             services.AddSingleton<Presentation.ViewModels.CloneRepositoryViewModel>();
 
+            // ─── Documentation Module ────────────────────────────────────────────────
+            // HttpClient ya está registrado arriba como Singleton (línea ~81), no duplicar
+            services.AddSingleton<Chapi.Application.Interfaces.IKrokiDiagramService,
+                Chapi.Infrastructure.Documentation.KrokiDiagramService>();
+            services.AddSingleton<Chapi.Application.Interfaces.IDocumentPersistenceService,
+                Chapi.Infrastructure.Documentation.AppDataDocPersistenceService>();
+            services.AddSingleton<Chapi.Application.Interfaces.IDocumentExportService,
+                Chapi.Infrastructure.Documentation.OpenXmlExportService>();
+            services.AddSingleton<Chapi.Application.Interfaces.IDocSynthesizerService,
+                Chapi.Infrastructure.Documentation.GeminiDocSynthesizer>();
+
+            // Application - Documentation Use Cases
+            services.AddTransient<Chapi.Application.UseCases.Documentation.ApplyTemplateUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.Documentation.ExportDocumentUseCase>();
+
+            // Application - AI Use Cases
+            services.AddTransient<Chapi.Application.UseCases.AI.GenerateDocumentSectionUseCase>();
+            services.AddTransient<Chapi.Application.UseCases.AI.GenerateAllDocumentSectionsUseCase>();
+
+            services.AddSingleton<Presentation.ViewModels.DocumentationViewModel>();
+
             ServiceProvider = services.BuildServiceProvider();
+        }
+
+        private static string EnsureAppSettingsFile()
+        {
+            var appDataDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Chapi");
+
+            Directory.CreateDirectory(appDataDirectory);
+
+            var appDataConfigPath = Path.Combine(appDataDirectory, AppSettingsFileName);
+            if (File.Exists(appDataConfigPath))
+                return appDataConfigPath;
+
+            var bundledConfigPath = Path.Combine(AppContext.BaseDirectory, AppSettingsFileName);
+            if (!File.Exists(bundledConfigPath))
+                throw new FileNotFoundException(
+                    $"No se encontró '{AppSettingsFileName}' ni en AppData ni en la carpeta de instalación.",
+                    bundledConfigPath);
+
+            File.Copy(bundledConfigPath, appDataConfigPath, overwrite: false);
+            return appDataConfigPath;
         }
 
 
@@ -258,9 +317,14 @@ namespace Chapi
                 return;
             }
             base.OnStartup(e);
+
+            var uiSettings = Chapi.Infrastructure.Persistence.Settings.UserSettingsService.LoadSettings();
+            ThemeService.ApplyTheme(uiSettings.ThemeMode);
+
+            var appSettingsPath = EnsureAppSettingsFile();
             var builder = new ConfigurationBuilder()
-               .SetBasePath(AppContext.BaseDirectory)
-               .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+               .SetBasePath(Path.GetDirectoryName(appSettingsPath)!)
+               .AddJsonFile(Path.GetFileName(appSettingsPath), optional: false, reloadOnChange: true);
 
             Configuration = builder.Build();
 

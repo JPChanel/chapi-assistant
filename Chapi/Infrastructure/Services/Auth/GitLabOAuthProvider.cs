@@ -20,6 +20,7 @@ namespace Chapi.Infrastructure.Services.Auth;
 /// </summary>
 public class GitLabOAuthProvider : IGitAuthProvider
 {
+    private static readonly SemaphoreSlim AuthenticationSemaphore = new(1, 1);
     private readonly ICredentialStorageService _credentialStorage;
     private readonly HttpClient _httpClient;
     private readonly GitLabConfig _config;
@@ -38,6 +39,7 @@ public class GitLabOAuthProvider : IGitAuthProvider
 
     public async Task<Result<GitCredential>> AuthenticateAsync()
     {
+        await AuthenticationSemaphore.WaitAsync();
         try
         {
             // 1. Verificar credenciales existentes
@@ -87,6 +89,10 @@ public class GitLabOAuthProvider : IGitAuthProvider
         catch (Exception ex)
         {
             return Result<GitCredential>.Fail($"Error en autenticación: {ex.Message}");
+        }
+        finally
+        {
+            AuthenticationSemaphore.Release();
         }
     }
 

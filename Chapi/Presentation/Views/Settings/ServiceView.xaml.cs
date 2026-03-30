@@ -31,6 +31,7 @@ namespace Chapi.Presentation.Views.Settings
         private readonly ImageConverterService _imageConverterService;
         private List<string> _selectedImageFiles = new();
         private string _imageOutputFolder = string.Empty;
+        private bool _isLoadingThemeMode;
 
         private bool _isServiceActive = false;
         public bool IsServiceActive
@@ -46,7 +47,9 @@ namespace Chapi.Presentation.Views.Settings
         }
 
         public string ServiceStatusText => IsServiceActive ? "Activo" : "Inactivo";
-        public Brush ServiceStatusBrush => IsServiceActive ? Brushes.Green : Brushes.Gray;
+        public Brush ServiceStatusBrush => IsServiceActive
+            ? ResolveThemeBrush("StatusSuccessBrush", Brushes.Green)
+            : ResolveThemeBrush("MaterialDesignBodyLight", Brushes.Gray);
 
         private bool _hasApiKey = false;
         public bool HasApiKey
@@ -63,7 +66,9 @@ namespace Chapi.Presentation.Views.Settings
         }
 
         public string ApiKeyStatusText => HasApiKey ? "Key Guardada" : "No se ha configurado una Key";
-        public Brush ApiKeyStatusBrush => HasApiKey ? Brushes.Green : Brushes.Gray;
+        public Brush ApiKeyStatusBrush => HasApiKey
+            ? ResolveThemeBrush("StatusSuccessBrush", Brushes.Green)
+            : ResolveThemeBrush("MaterialDesignBodyLight", Brushes.Gray);
         public string ApiKeyButtonText => HasApiKey ? "Actualizar Key" : "Guardar Key";
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -74,8 +79,17 @@ namespace Chapi.Presentation.Views.Settings
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 
+        private static Brush ResolveThemeBrush(string key, Brush fallback)
+        {
+            if (System.Windows.Application.Current?.Resources[key] is Brush brush)
+                return brush;
+
+            return fallback;
+        }
+
         public UpdateView(string selectedProjectPath)
         {
+            _isLoadingThemeMode = true;
             InitializeComponent();
             DataContext = this;
             _mgr = new UpdateManager(new GithubSource(updateUrl, null, false));
@@ -84,6 +98,7 @@ namespace Chapi.Presentation.Views.Settings
             LoadCurrentInfo();
             LoadGitAccountsInfo();
             LoadApiKey();
+            LoadSystemSettings();
             IsServiceActive = true;
 
 
@@ -121,6 +136,7 @@ namespace Chapi.Presentation.Views.Settings
             ViewConfiguracionRed.Visibility = Visibility.Collapsed;
             ViewConfiguracionGitHub.Visibility = Visibility.Collapsed;
             ViewOptimizadorWebP.Visibility = Visibility.Collapsed;
+            ViewConfiguracionSistema.Visibility = Visibility.Collapsed;
 
             // Mostrar la vista seleccionada
             if (sender == NavButtonEstado)
@@ -133,6 +149,11 @@ namespace Chapi.Presentation.Views.Settings
                 ViewConfiguracionGitHub.Visibility = Visibility.Visible;
             else if (sender == NavButtonImageConverter)
                 ViewOptimizadorWebP.Visibility = Visibility.Visible;
+            else if (sender == NavButtonSystemConfig)
+            {
+                LoadSystemSettings();
+                ViewConfiguracionSistema.Visibility = Visibility.Visible;
+            }
         }
         /// <summary>
         /// Carga la información de la tarjeta "Información"
@@ -455,13 +476,50 @@ namespace Chapi.Presentation.Views.Settings
             // Seleccionar proveedor preferido
             switch (settings.PreferredAiProvider)
             {
-                case "Gemini": cmbAiProvider.SelectedIndex = 0; break;
-                case "OpenAI": cmbAiProvider.SelectedIndex = 1; break;
-                case "Claude": cmbAiProvider.SelectedIndex = 2; break;
+                case "Gemini":
+                case "gemini":
+                    cmbAiProvider.SelectedIndex = 0;
+                    break;
+                case "OpenAI":
+                case "openai":
+                    cmbAiProvider.SelectedIndex = 1;
+                    break;
+                case "Claude":
+                case "claude":
+                    cmbAiProvider.SelectedIndex = 2;
+                    break;
                 default: cmbAiProvider.SelectedIndex = 0; break;
             }
 
             UpdateApiKeyStatus();
+        }
+
+        private void LoadSystemSettings()
+        {
+            _isLoadingThemeMode = true;
+            try
+            {
+                var settings = UserSettingsService.LoadSettings();
+                var themeMode = ThemeService.NormalizeThemeMode(settings.ThemeMode);
+
+                rbThemeLight.IsChecked = false;
+                rbThemeDark.IsChecked = false;
+                rbThemeSystem.IsChecked = false;
+
+                if (themeMode == ThemeService.LightMode)
+                    rbThemeLight.IsChecked = true;
+                else if (themeMode == ThemeService.SystemMode)
+                    rbThemeSystem.IsChecked = true;
+                else
+                    rbThemeDark.IsChecked = true;
+
+                if (rbThemeLight.IsChecked != true && rbThemeDark.IsChecked != true && rbThemeSystem.IsChecked != true)
+                    rbThemeSystem.IsChecked = true;
+            }
+            finally
+            {
+                _isLoadingThemeMode = false;
+            }
         }
 
         private void UpdateApiKeyStatus()
@@ -498,25 +556,42 @@ namespace Chapi.Presentation.Views.Settings
                 // Guardar Preferido
                 if (cmbAiProvider.SelectedItem is ComboBoxItem item)
                 {
-                    settings.PreferredAiProvider = item.Content.ToString() switch
-                    {
-                        "OpenAI" => "OpenAI",
-                        "Claude" => "Claude",
-                        _ => "Gemini"
-                    };
+                    settings.PreferredAiProvider = NormalizeAiProvider(item.Content?.ToString());
                 }
 
                 UserSettingsService.SaveSettings(settings);
                 UpdateApiKeyStatus();
 
-                txtStatus.Text = "¡Configuración de IA guardada! Reinicia Chapi para aplicar cambios.";
-                await DialogService.ShowConfirmDialog("Confirmación", "¡Configuración guardada! Reinicia Chapi para usar el nuevo proveedor.", DialogVariant.Info, DialogType.Info);
+                txtStatus.Text = "¡Configuración de IA guardada y aplicada!";
+                await DialogService.ShowConfirmDialog("Confirmación", "¡Configuración guardada! El proveedor seleccionado se aplicará en las siguientes solicitudes.", DialogVariant.Info, DialogType.Info);
 
             }
             catch (Exception ex)
             {
                 txtStatus.Text = $"Error al guardar configuración IA: {ex.Message}";
             }
+        }
+
+        private void ThemeModeRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_isLoadingThemeMode)
+                return;
+
+            if (sender is not RadioButton radioButton)
+                return;
+
+            var selectedMode = ThemeService.NormalizeThemeMode(radioButton.Tag?.ToString());
+            var settings = UserSettingsService.LoadSettings();
+
+            if (string.Equals(settings.ThemeMode, selectedMode, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            settings.ThemeMode = selectedMode;
+            UserSettingsService.SaveSettings(settings);
+
+            ThemeService.ApplyTheme(selectedMode);
+            OnPropertyChanged(nameof(ServiceStatusBrush));
+            OnPropertyChanged(nameof(ApiKeyStatusBrush));
         }
 
         #region Toggle Visibility Handlers
@@ -547,6 +622,16 @@ namespace Chapi.Presentation.Views.Settings
         }
 
         #endregion
+
+        private static string NormalizeAiProvider(string? raw)
+        {
+            var value = (raw ?? string.Empty).Trim();
+            if (value.Equals("OpenAI", StringComparison.OrdinalIgnoreCase) || value.Contains("OpenAI", StringComparison.OrdinalIgnoreCase))
+                return "OpenAI";
+            if (value.Equals("Claude", StringComparison.OrdinalIgnoreCase) || value.Contains("Claude", StringComparison.OrdinalIgnoreCase))
+                return "Claude";
+            return "Gemini";
+        }
 
 
         /// <summary>

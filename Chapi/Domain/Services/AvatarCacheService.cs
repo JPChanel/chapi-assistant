@@ -1,4 +1,4 @@
-using Chapi.Domain.Interfaces;
+﻿using Chapi.Domain.Interfaces;
 using System.IO;
 using System.Net.Http;
 using System.Text.RegularExpressions;
@@ -97,7 +97,7 @@ namespace Chapi.Domain.Services
 
             var remoteUrl = $"https://avatars.githubusercontent.com/{username}?v=4&s={size}";
 
-            // Descargar en background para la prÃ³xima vez
+            // Descargar en background para la próxima vez
             _ = Task.Run(async () =>
             {
                 var local = await EnsureLocalAvatarAsync("GitHub", username, remoteUrl);

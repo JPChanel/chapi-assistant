@@ -12,12 +12,44 @@
                                              SecondaryColor="Lime" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign3.Defaults.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <SolidColorBrush x:Key="HeaderBackground" Color="#000000"/>
-            <SolidColorBrush x:Key="HeaderForeground" Color="White"/>
+
+            <!-- Base palette (evita repetición de hex) -->
+            <Color x:Key="AppPrimaryColor">#F59E0B</Color>
+            <Color x:Key="AppSecondaryColor">#84CC16</Color>
+            <Color x:Key="AppBlackColor">#000000</Color>
+            <Color x:Key="AppWhiteColor">#FFFFFF</Color>
+            <Color x:Key="AppBodyOnLightColor">#0B1220</Color>
+
+            <SolidColorBrush x:Key="AppPrimaryBrush" Color="{StaticResource AppPrimaryColor}"/>
+            <SolidColorBrush x:Key="AppBorderBrush" Color="{StaticResource AppPrimaryColor}"/>
+            <SolidColorBrush x:Key="AppIconBrush" Color="{StaticResource AppPrimaryColor}"/>
+            <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource AppPrimaryColor}"/>
+            <SolidColorBrush x:Key="AppSecondaryBrush" Color="{StaticResource AppSecondaryColor}"/>
+            <SolidColorBrush x:Key="HeaderBackground" Color="{StaticResource AppBlackColor}"/>
+            <SolidColorBrush x:Key="HeaderForeground" Color="{StaticResource AppWhiteColor}"/>
+            <SolidColorBrush x:Key="ActionTextOnAccentBrush" Color="{StaticResource AppWhiteColor}"/>
+            <SolidColorBrush x:Key="ActionTextOnSecondaryBrush" Color="{StaticResource AppBodyOnLightColor}"/>
+            <SolidColorBrush x:Key="StatusDangerBrush" Color="#FF6B6B"/>
+            <SolidColorBrush x:Key="StatusSuccessBrush" Color="#5EDC7A"/>
+            <SolidColorBrush x:Key="StatusWarningMutedBackgroundBrush" Color="#2D240F"/>
+            <SolidColorBrush x:Key="StatusWarningSoftBorderBrush" Color="#A16207"/>
+            <SolidColorBrush x:Key="StatusInfoBrush" Color="#38BDF8"/>
+            <SolidColorBrush x:Key="StatusPriorityMediumBrush" Color="#FACC15"/>
+            <SolidColorBrush x:Key="StatusDangerMutedBackgroundBrush" Color="#331010"/>
+            <SolidColorBrush x:Key="StatusSuccessMutedBackgroundBrush" Color="#103310"/>
+            <SolidColorBrush x:Key="StatusInfoMutedBackgroundBrush" Color="#0F2436"/>
+            <SolidColorBrush x:Key="StatusDiffInsertedBackgroundBrush" Color="#102510"/>
+            <SolidColorBrush x:Key="StatusDiffDeletedBackgroundBrush" Color="#251010"/>
+            <SolidColorBrush x:Key="StatusDiffInsertedForegroundBrush" Color="#80C880"/>
+            <SolidColorBrush x:Key="StatusDiffDeletedForegroundBrush" Color="#C88080"/>
+            <SolidColorBrush x:Key="StatusSelectionOverlayBrush" Color="#26FFA500"/>
             <converters:IsNotDefaultBranchConverter x:Key="IsNotDefaultBranchConverter"/>
             <converters:BooleanToIconConverter x:Key="BooleanToIconConverter"/>
             <converters:StringToBoolConverter x:Key="StringToBoolConverter"/>
             <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+            <Style TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

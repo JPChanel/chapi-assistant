@@ -9,15 +9,8 @@
         Title="Generador de SQL (IA)" 
         Width="800" 
         SizeToContent="Height" 
-        Background="#f9fafb"
+        Background="{DynamicResource MaterialDesignPaper}"
         WindowStartupLocation="CenterOwner">
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="Orange" SecondaryColor="Lime" />
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -26,7 +19,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Text="Generador de SQL (IA)"
-                   FontSize="22" FontWeight="Bold" Foreground="#111827"
+                   FontSize="22" FontWeight="Bold" Foreground="{DynamicResource MaterialDesignBody}"
                    Margin="0,0,0,20"/>
 
         <Grid Grid.Row="1">
@@ -37,7 +30,7 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0">
-                <Border Background="White" CornerRadius="8" Padding="20" BorderBrush="#e5e7eb" BorderThickness="1" Margin="0,0,0,15">
+                <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="8" Padding="20" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1" Margin="0,0,0,15">
                     <StackPanel>
                         <ComboBox x:Name="CboDbType"
                                   materialDesign:HintAssist.Hint="Tipo de Base de Datos"
@@ -55,7 +48,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Background="White" CornerRadius="8" Padding="20" BorderBrush="#e5e7eb" BorderThickness="1">
+                <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="8" Padding="20" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1">
                     <StackPanel>
                         <TextBlock Text="Parametros de .NET" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10"/>
                         <TextBox x:Name="TxtNetParams"
@@ -75,10 +68,10 @@
                 <Button x:Name="BtnGenerate"
                         Content="Generar SQL"
                         Click="BtnGenerate_Click"                      
-                        Foreground="White"  Margin="0,0,0,15"
+                        Foreground="{DynamicResource ActionTextOnAccentBrush}"  Margin="0,0,0,15"
                         materialDesign:ButtonAssist.CornerRadius="6"/>
 
-                <Border Background="White" CornerRadius="8" Padding="20" BorderBrush="#e5e7eb" BorderThickness="1">
+                <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="8" Padding="20" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1">
                     <StackPanel>
                         <TextBlock Text="Resultado SQL" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10"/>
                         <TextBox x:Name="TxtSqlOutput"
@@ -107,7 +100,7 @@
         </StackPanel>
 
         <Grid x:Name="LoadingOverlay" Grid.RowSpan="3" 
-              Background="#88FFFFFF" Visibility="Collapsed">
+              Background="{DynamicResource MaterialDesignPaper}" Visibility="Collapsed">
             <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
                          IsIndeterminate="True"
                          Width="50" Height="50"

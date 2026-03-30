@@ -42,7 +42,7 @@ public interface IGitRepository
     // Remote
     Task<Result> PushAsync(string projectPath, string branch, bool force = false);
     Task<Result> PullAsync(string projectPath, string branch);
-    Task<Result> FetchAsync(string projectPath);
+    Task<Result> FetchAsync(string projectPath, bool allowInteractivePrompt = true);
     Task<(int Ahead, int Behind)> GetAheadBehindCountAsync(string projectPath);
     Task<string> GetRemoteUrlAsync(string projectPath, string remoteName = "origin");
     Task<Result> SetRemoteUrlAsync(string projectPath, string remoteName, string url);
@@ -71,6 +71,7 @@ public interface IGitRepository
     Task<Result> PushTagAsync(string projectPath, string tagName);
     Task<IEnumerable<GitTagItem>> GetTagsAsync(string projectPath);
     Task<Dictionary<string, List<string>>> GetTagCommitMapAsync(string projectPath);
+    Task<Dictionary<string, List<string>>> GetBranchRefCommitMapAsync(string projectPath);
 
     // Misc
     bool IsGitInstalled();

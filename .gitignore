@@ -4,8 +4,12 @@
 ## Get latest from `dotnet new gitignore`
 #credentials
 appsettings.Production.json
+.encoding-backup/
 
-# dotenv files
+# Git embebido (binarios de GitHub Desktop, se copian en tiempo de build)
+# Mismo patrón que dugite: los binarios NO se commitean al repo
+**/Resources/git/
+
 .env
 
 # User-specific files

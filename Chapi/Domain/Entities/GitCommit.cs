@@ -6,12 +6,16 @@ namespace Chapi.Domain.Entities;
 public class GitCommit
 {
     public string Hash { get; set; } = string.Empty;
+    public string GraphPrefix { get; set; } = string.Empty;
+    public List<string> ParentHashes { get; set; } = new();
     public string Author { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public DateTime Date { get; set; }
     public string RelativeDate { get; set; } = string.Empty;
     public bool IsUnpushed { get; set; }
+    public List<string> LocalBranches { get; set; } = new();
+    public List<string> RemoteBranches { get; set; } = new();
     public List<string> Tags { get; set; } = new();
 
     public bool HasTags => Tags != null && Tags.Any();

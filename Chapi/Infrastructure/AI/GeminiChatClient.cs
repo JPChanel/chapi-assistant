@@ -9,9 +9,9 @@ public class GeminiChatClient : Microsoft.Extensions.AI.IChatClient
 
     private readonly string[] _models = new[]
     {
+        "gemini-3.1-flash-lite-preview",
         "gemini-3.0-flash",
         "gemini-2.5-flash",
-        "gemma-3",
     };
 
     public GeminiChatClient(string apiKey)

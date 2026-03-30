@@ -33,12 +33,12 @@ public class StashClearUseCase
             if (!result.IsSuccess)
                 return result;
 
-            _notificationService.ShowSuccess("âœ… Todos los stashes han sido eliminados");
+            _notificationService.ShowSuccess("✅ Todos los stashes han sido eliminados");
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _notificationService.ShowError($"âŒ Error al limpiar stashes: {ex.Message}");
+            _notificationService.ShowError($"❌ Error al limpiar stashes: {ex.Message}");
             return Result.Fail(ex.Message);
         }
     }
