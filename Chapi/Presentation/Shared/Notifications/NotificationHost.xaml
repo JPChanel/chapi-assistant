@@ -1,4 +1,4 @@
-<UserControl x:Class="Chapi.Presentation.Shared.Notifications.NotificationHost"
+﻿<UserControl x:Class="Chapi.Presentation.Shared.Notifications.NotificationHost"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -7,7 +7,7 @@
              mc:Ignorable="d">
     <Border MaxWidth="420"
             MaxHeight="220"
-            Padding="18"
+            Padding="12"
             Background="{Binding CurrentBackgroundBrush}"
             BorderBrush="{Binding CurrentBorderBrush}"
             BorderThickness="1"
@@ -45,7 +45,7 @@
             </Border>
 
             <StackPanel Grid.Column="1"
-                        Margin="14,0,0,0">
+                        Margin="10,0,0,0">
                 <TextBlock FontSize="15"
                            FontWeight="Bold"
                            Foreground="{Binding CurrentForegroundBrush}"
