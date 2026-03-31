@@ -1,4 +1,6 @@
-﻿using System.Collections.ObjectModel;
+using Chapi.Presentation.Alerts.Models;
+using Chapi.Presentation.Alerts.Service;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 
 namespace Chapi.Infrastructure.Services;
@@ -36,7 +38,7 @@ public class MessageHelper : INotifyPropertyChanged
         });
     }
 
-    public void AddAssistantMessage(string text)
+    public void AddAssistantMessage(string text, bool showAlert = true)
     {
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
         {
@@ -51,9 +53,70 @@ public class MessageHelper : INotifyPropertyChanged
             ScrollRequested?.Invoke(this, EventArgs.Empty);
         });
 
+        if (showAlert)
+        {
+            TryShowAlert(text);
+        }
     }
 
-    // 🔄 Evento que MainWindow puede escuchar para hacer scroll automático
+    private static void TryShowAlert(string text)
+    {
+        if (!AppServices.IsConfigured || AppServices.AlertService is null || string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        var variant = InferVariant(text);
+        var title = variant switch
+        {
+            AlertVariant.Success => "Correcto",
+            AlertVariant.Warning => "Aviso",
+            AlertVariant.Error => "Error",
+            _ => "Información"
+        };
+
+        var duration = variant switch
+        {
+            AlertVariant.Error => TimeSpan.FromSeconds(6),
+            AlertVariant.Warning => TimeSpan.FromSeconds(5),
+            _ => TimeSpan.FromSeconds(4)
+        };
+
+        AppServices.AlertService.Show(text, title, variant, duration: duration);
+    }
+
+    private static AlertVariant InferVariant(string text)
+    {
+        var normalized = text.Trim();
+
+        if (normalized.Contains("❌", StringComparison.Ordinal) ||
+            normalized.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("fall", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("no se pudo", StringComparison.OrdinalIgnoreCase))
+        {
+            return AlertVariant.Error;
+        }
+
+        if (normalized.Contains("⚠", StringComparison.Ordinal) ||
+            normalized.Contains("advert", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("aviso", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("conflict", StringComparison.OrdinalIgnoreCase))
+        {
+            return AlertVariant.Warning;
+        }
+
+        if (normalized.Contains("✅", StringComparison.Ordinal) ||
+            normalized.Contains("exito", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("correctamente", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("completado", StringComparison.OrdinalIgnoreCase))
+        {
+            return AlertVariant.Success;
+        }
+
+        return AlertVariant.Info;
+    }
+
     public event EventHandler ScrollRequested;
 
     public event PropertyChangedEventHandler PropertyChanged;
@@ -76,8 +139,9 @@ public class MessageHelper : INotifyPropertyChanged
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }
+
 public static class Msg
 {
     public static void User(string msg) => MessageHelper.Instance.AddUserMessage(msg);
-    public static void Assistant(string msg) => MessageHelper.Instance.AddAssistantMessage(msg);
+    public static void Assistant(string msg, bool showAlert = true) => MessageHelper.Instance.AddAssistantMessage(msg, showAlert);
 }

@@ -1,6 +1,8 @@
 ﻿
 using Chapi.Domain.Interfaces;
 using Chapi.Infrastructure.Services;
+using Chapi.Presentation.Alerts.Service;
+using Chapi.Presentation.Alerts.ViewModels;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
@@ -86,10 +88,12 @@ namespace Chapi
             services.AddSingleton<IGitAuthProviderFactory, Chapi.Infrastructure.Services.Auth.GitAuthProviderFactory>();
 
             // Infrastructure - Services
+            services.AddSingleton<IAlertService, AlertService>();
             services.AddSingleton<INotificationService, MessageNotificationService>();
             services.AddSingleton<IModuleGeneratorService, ModuleGeneratorService>();
             services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
             services.AddSingleton<IAssistantCapabilityRegistry, Chapi.Application.Services.Assistant.AssistantCapabilityRegistry>();
+            services.AddSingleton<NotificationHostViewModel>();
 
             // AI Services (Microsoft.Extensions.AI)
             // AI Services (Microsoft.Extensions.AI)
@@ -330,6 +334,7 @@ namespace Chapi
 
             // Configurar Dependency Injection
             ConfigureServices();
+            AppServices.Configure(ServiceProvider.GetRequiredService<IAlertService>());
 
             // Init NetworkWatcher with DI
             var gitRepo = ServiceProvider.GetRequiredService<IGitRepository>();

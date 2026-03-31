@@ -79,7 +79,7 @@ namespace Chapi
             AssistantViewControl.DataContext = _assistantViewModel;
             DocumentationViewControl.DataContext = _documentationViewModel;
 
-            Msg.Assistant("¡Hey! Soy Chapi – Tu dev buddy para arquitectura.");
+            Msg.Assistant("¡Hey! Soy Chapi – Tu dev buddy para arquitectura.", showAlert: false);
 
             Task.Run(CheckForUpdates);
             LoadVersion();

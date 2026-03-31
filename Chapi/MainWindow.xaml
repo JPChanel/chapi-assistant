@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Chapi"
+        xmlns:alerts="clr-namespace:Chapi.Presentation.Alerts"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:views="clr-namespace:Chapi.Presentation.Views.Tabs"
         xmlns:converters="clr-namespace:Chapi.Presentation.Converters"
@@ -573,6 +574,10 @@
                     </StackPanel>
                 </Grid>
             </Border>
+            <alerts:NotificationHost Margin="0,0,24,24"
+                                     HorizontalAlignment="Right"
+                                     VerticalAlignment="Bottom"
+                                     Panel.ZIndex="100" />
         </Grid>
     </materialDesign:DialogHost>
 </Window>
