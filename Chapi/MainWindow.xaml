@@ -580,7 +580,7 @@
                 </Grid>
             </Border>
             <alerts:NotificationHost Grid.RowSpan="3"
-                                     Margin="0,0,24,72"
+                                     Margin="0,0,10,32"
                                      HorizontalAlignment="Right"
                                      VerticalAlignment="Bottom"
                                      Panel.ZIndex="1000" />
