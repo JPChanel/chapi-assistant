@@ -530,15 +530,35 @@ namespace Chapi
         {
             string path = GetPathFromMenuItem(sender);
             if (string.IsNullOrEmpty(path)) return;
+
             try
             {
-                var sln = Directory.EnumerateFiles(path)
-                   .FirstOrDefault(f =>
-                       f.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) ||
-                       f.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase));
-                if (sln != null) Process.Start(new ProcessStartInfo { FileName = sln, UseShellExecute = true });
+                var sln = Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories)
+                    .FirstOrDefault(f =>
+                        f.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) ||
+                        f.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase));
+
+                if (sln != null)
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = sln,
+                        UseShellExecute = true
+                    });
+                }
+                else
+                {
+                    Msg.Assistant("No se encontró ningún archivo .sln o .slnx");
+                }
             }
-            catch (Exception ex) { Msg.Assistant($"Error al abrir Visual Studio: {ex.Message}"); }
+            catch (UnauthorizedAccessException)
+            {
+                Msg.Assistant("No tienes permisos para acceder a algunas carpetas.");
+            }
+            catch (Exception ex)
+            {
+                Msg.Assistant($"Error al abrir Visual Studio: {ex.Message}");
+            }
         }
 
         private void ProjectMenuItem_OpenExplorer_Click(object sender, RoutedEventArgs e)
