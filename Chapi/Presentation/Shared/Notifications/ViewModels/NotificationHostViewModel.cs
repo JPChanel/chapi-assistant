@@ -2,6 +2,7 @@ using Chapi.Presentation.Shared.Notifications.Models;
 using Chapi.Presentation.Shared.Notifications.Services;
 using Chapi.Presentation.Shared.Notifications.Utilities;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using MaterialDesignThemes.Wpf;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -38,8 +39,7 @@ public partial class NotificationHostViewModel : ObservableObject
         _timer = new DispatcherTimer();
         _timer.Tick += (_, _) =>
         {
-            _timer.Stop();
-            IsOpen = false;
+            Dismiss();
         };
 
         alertService.AlertRaised += OnAlertRaised;
@@ -63,5 +63,17 @@ public partial class NotificationHostViewModel : ObservableObject
             _timer.Stop();
             _timer.Start();
         });
+    }
+
+    [RelayCommand]
+    private void Close()
+    {
+        Dismiss();
+    }
+
+    private void Dismiss()
+    {
+        _timer.Stop();
+        IsOpen = false;
     }
 }

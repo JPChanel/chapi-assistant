@@ -1,4 +1,4 @@
-using Chapi.Presentation.Views.Dialogs;
+using Chapi.Presentation.Shared.Dialogs.Views;
 
 namespace Chapi.Infrastructure.Services;
 

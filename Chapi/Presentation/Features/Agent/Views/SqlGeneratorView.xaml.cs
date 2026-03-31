@@ -1,0 +1,79 @@
+using Chapi.Application.UseCases.AI;
+using Chapi.Infrastructure.AI;
+using Microsoft.Extensions.DependencyInjection;
+using System.Windows;
+using System.Windows.Controls;
+
+namespace Chapi.Presentation.Features.Agent.Views
+{
+    /// <summary>
+    /// Lógica de interacción para SqlGeneratorView.xaml
+    /// </summary>
+    public partial class SqlGeneratorView : Window
+    {
+        public SqlGeneratorView()
+        {
+            InitializeComponent();
+            CboDbType.SelectedIndex = 0;
+        }
+
+        private async void BtnGenerate_Click(object sender, RoutedEventArgs e)
+        {
+            // 1. Validar entradas
+            if (string.IsNullOrWhiteSpace(TxtSpName.Text) ||
+                string.IsNullOrWhiteSpace(TxtNetParams.Text) ||
+                CboDbType.SelectedItem == null)
+            {
+                TxtSqlOutput.Text = "Error: Por favor, complete el tipo de BD, el nombre del SP/Función y los parámetros.";
+                return;
+            }
+
+            string dbType = (CboDbType.SelectedItem as ComboBoxItem).Content.ToString();
+            string spName = TxtSpName.Text.Trim();
+            string netParams = TxtNetParams.Text.Trim();
+
+            LoadingOverlay.Visibility = Visibility.Visible;
+            TxtSqlOutput.Text = "Generando SQL con IA, por favor espera...";
+
+            try
+            {
+                // 3. Llamar a la IA usando el UseCase
+                var useCase = App.ServiceProvider.GetRequiredService<GenerateSqlQueryUseCase>();
+                var result = await useCase.ExecuteAsync(spName, dbType, netParams);
+
+                // 4. Mostrar resultado
+                if (result.IsSuccess)
+                {
+                    TxtSqlOutput.Text = result.Data;
+                }
+                else
+                {
+                    TxtSqlOutput.Text = $"Error: {result.Error}";
+                }
+            }
+            catch (System.Exception ex)
+            {
+                TxtSqlOutput.Text = $"Error fatal al contactar la IA: {ex.Message}";
+            }
+            finally
+            {
+                LoadingOverlay.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void BtnCopy_Click(object sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(TxtSqlOutput.Text))
+            {
+                Clipboard.SetText(TxtSqlOutput.Text);
+            }
+        }
+
+        private void BtnClose_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
+    }
+}
+
+

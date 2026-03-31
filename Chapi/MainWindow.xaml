@@ -6,7 +6,12 @@
         xmlns:local="clr-namespace:Chapi"
         xmlns:alerts="clr-namespace:Chapi.Presentation.Shared.Notifications"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:views="clr-namespace:Chapi.Presentation.Views.Tabs"
+        xmlns:assistantViews="clr-namespace:Chapi.Presentation.Features.Assistant.Views"
+        xmlns:changesViews="clr-namespace:Chapi.Presentation.Features.Changes.Views"
+        xmlns:historyViews="clr-namespace:Chapi.Presentation.Features.History.Views"
+        xmlns:releasesViews="clr-namespace:Chapi.Presentation.Features.Releases.Views"
+        xmlns:workspaceViews="clr-namespace:Chapi.Presentation.Features.Workspace.Views"
+        xmlns:documentationViews="clr-namespace:Chapi.Presentation.Features.Documentation.Views"
         xmlns:converters="clr-namespace:Chapi.Presentation.Converters"
         mc:Ignorable="d"
         Title="Chapi Assistance"
@@ -447,7 +452,7 @@
                                 </StackPanel>
                             </DataTemplate>
                         </TabItem.HeaderTemplate>
-                        <views:AssistantView x:Name="AssistantViewControl"/>
+                        <assistantViews:AssistantView x:Name="AssistantViewControl"/>
                     </TabItem>
 
                     <TabItem x:Name="ChangesTab">
@@ -484,7 +489,7 @@
                                 </Button>
                             </StackPanel>
                         </TabItem.Header>
-                        <views:ChangesView x:Name="ChangesViewControl"/>
+                        <changesViews:ChangesView x:Name="ChangesViewControl"/>
                     </TabItem>
                     <TabItem x:Name="HistoryTab" Header="Historial">
                         <TabItem.HeaderTemplate>
@@ -495,7 +500,7 @@
                                 </StackPanel>
                             </DataTemplate>
                         </TabItem.HeaderTemplate>
-                        <views:HistoryView x:Name="HistoryViewControl"/>
+                        <historyViews:HistoryView x:Name="HistoryViewControl"/>
                     </TabItem>
                     <TabItem x:Name="TagsTab">
                         <TabItem.Header>
@@ -505,7 +510,7 @@
                             </StackPanel>
                         </TabItem.Header>
 
-                        <views:ReleasesView x:Name="ReleasesViewControl"/>
+                        <releasesViews:ReleasesView x:Name="ReleasesViewControl"/>
 
                     </TabItem>
                     <TabItem x:Name="WorkspaceTab" Header="Workspace">
@@ -517,7 +522,7 @@
                                  </StackPanel>
                              </DataTemplate>
                          </TabItem.HeaderTemplate>
-                         <views:WorkspaceView x:Name="WorkspaceViewControl"/>
+                         <workspaceViews:WorkspaceView x:Name="WorkspaceViewControl"/>
                      </TabItem>
 
                     <!-- ─── Tab Documentación ─────────────────────────────────── -->
@@ -529,7 +534,7 @@
                                 <TextBlock Text="Documentación" VerticalAlignment="Center" />
                             </StackPanel>
                         </TabItem.Header>
-                        <views:DocumentationView x:Name="DocumentationViewControl"/>
+                        <documentationViews:DocumentationView x:Name="DocumentationViewControl"/>
                     </TabItem>
 
                     
@@ -574,10 +579,11 @@
                     </StackPanel>
                 </Grid>
             </Border>
-            <alerts:NotificationHost Margin="0,0,24,24"
+            <alerts:NotificationHost Grid.RowSpan="3"
+                                     Margin="0,0,24,72"
                                      HorizontalAlignment="Right"
                                      VerticalAlignment="Bottom"
-                                     Panel.ZIndex="100" />
+                                     Panel.ZIndex="1000" />
         </Grid>
     </materialDesign:DialogHost>
 </Window>

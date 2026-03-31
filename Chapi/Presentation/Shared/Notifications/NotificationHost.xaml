@@ -6,6 +6,7 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d">
     <Border MaxWidth="420"
+            MaxHeight="220"
             Padding="18"
             Background="{Binding CurrentBackgroundBrush}"
             BorderBrush="{Binding CurrentBorderBrush}"
@@ -27,6 +28,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <Border Width="42"
@@ -48,12 +50,43 @@
                            FontWeight="Bold"
                            Foreground="{Binding CurrentForegroundBrush}"
                            Text="{Binding CurrentTitle}" />
-                <TextBlock Margin="0,6,0,0"
-                           Foreground="{Binding CurrentForegroundBrush}"
-                           Opacity="0.92"
-                           Text="{Binding CurrentMessage}"
-                           TextWrapping="Wrap" />
+                <ScrollViewer Margin="0,6,0,0"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock Foreground="{Binding CurrentForegroundBrush}"
+                               Opacity="0.92"
+                               Text="{Binding CurrentMessage}"
+                               TextWrapping="Wrap" />
+                </ScrollViewer>
             </StackPanel>
+
+            <Button Grid.Column="2"
+                    Width="28"
+                    Height="28"
+                    Margin="12,-4,-4,0"
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Right"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Command="{Binding CloseCommand}"
+                    Foreground="{Binding CurrentForegroundBrush}"
+                    Opacity="0.68"
+                    ToolTip="Cerrar">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Opacity" Value="0.68" />
+                        <Setter Property="Cursor" Value="Hand" />
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Opacity" Value="1" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+                <materialDesign:PackIcon Kind="Close"
+                                         Width="14"
+                                         Height="14" />
+            </Button>
         </Grid>
     </Border>
 </UserControl>

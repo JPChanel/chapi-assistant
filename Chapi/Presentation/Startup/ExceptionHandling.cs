@@ -1,5 +1,5 @@
 using Chapi.Infrastructure.Services;
-using Chapi.Presentation.Views.Dialogs;
+using Chapi.Presentation.Shared.Dialogs.Views;
 using System.Windows;
 
 namespace Chapi.Startup;

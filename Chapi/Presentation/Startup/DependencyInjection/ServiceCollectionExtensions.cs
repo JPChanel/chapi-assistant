@@ -170,16 +170,25 @@ public static class ServiceCollectionExtensions
     private static IServiceCollection AddPresentationServices(this IServiceCollection services)
     {
         services.AddSingleton<NotificationHostViewModel>();
-        services.AddSingleton<Presentation.Shell.Services.ProjectShellService>();
-        services.AddSingleton<Presentation.ViewModels.ChangesViewModel>();
-        services.AddSingleton<Presentation.ViewModels.HistoryViewModel>();
-        services.AddSingleton<Presentation.ViewModels.AssistantViewModel>();
-        services.AddSingleton<Presentation.ViewModels.ReleasesViewModel>();
-        services.AddSingleton<Presentation.ViewModels.WorkspaceViewModel>();
-        services.AddSingleton<Presentation.ViewModels.CloneRepositoryViewModel>();
-        services.AddSingleton<Presentation.ViewModels.DocumentationViewModel>();
-        services.AddTransient<Presentation.ViewModels.LoginGitHubViewModel>();
-        services.AddTransient<Presentation.ViewModels.GitProviderSelectionViewModel>();
+        services.AddSingleton<Presentation.Startup.Services.StartupTaskCoordinator>();
+        services.AddSingleton<Presentation.Features.Git.Workflows.ConflictResolutionWorkflow>();
+        services.AddSingleton<Presentation.Features.Git.Workflows.BranchSwitchWorkflow>();
+        services.AddSingleton<Presentation.Features.Git.Workflows.BranchManagementWorkflow>();
+        services.AddSingleton<Presentation.Features.Git.Workflows.MergeWorkflow>();
+        services.AddSingleton<Presentation.Features.Git.Workflows.GitSyncWorkflow>();
+        services.AddSingleton<Presentation.Features.Git.Services.GitWorkflowCoordinator>();
+        services.AddSingleton<Presentation.Features.Projects.Services.ProjectShellService>();
+        services.AddSingleton<Presentation.Features.Projects.Services.ProjectSyncCoordinator>();
+        services.AddSingleton<Presentation.Features.Projects.Services.ProjectToolLauncher>();
+        services.AddSingleton<Presentation.Features.Changes.ViewModels.ChangesViewModel>();
+        services.AddSingleton<Presentation.Features.History.ViewModels.HistoryViewModel>();
+        services.AddSingleton<Presentation.Features.Assistant.ViewModels.AssistantViewModel>();
+        services.AddSingleton<Presentation.Features.Releases.ViewModels.ReleasesViewModel>();
+        services.AddSingleton<Presentation.Features.Workspace.ViewModels.WorkspaceViewModel>();
+        services.AddSingleton<Presentation.Features.Projects.ViewModels.CloneRepositoryViewModel>();
+        services.AddSingleton<Presentation.Features.Documentation.ViewModels.DocumentationViewModel>();
+        services.AddTransient<Presentation.Features.Git.ViewModels.LoginGitHubViewModel>();
+        services.AddTransient<Presentation.Features.Git.ViewModels.GitProviderSelectionViewModel>();
 
         return services;
     }

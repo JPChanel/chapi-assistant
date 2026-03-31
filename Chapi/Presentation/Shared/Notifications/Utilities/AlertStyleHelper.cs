@@ -10,21 +10,21 @@ public static class AlertStyleHelper
     public static AlertPalette ResolvePalette(AlertVariant variant) => variant switch
     {
         AlertVariant.Success => new AlertPalette(
-            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#ECFDF5")),
-            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#34D399")),
-            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#065F46"))),
+            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#ECFDF3")),
+            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#22C55E")),
+            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#166534"))),
         AlertVariant.Warning => new AlertPalette(
-            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFFBEB")),
-            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F59E0B")),
-            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#92400E"))),
+            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFF7ED")),
+            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F97316")),
+            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9A3412"))),
         AlertVariant.Error => new AlertPalette(
             new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FEF2F2")),
-            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F87171")),
+            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EF4444")),
             new SolidColorBrush((Color)ColorConverter.ConvertFromString("#991B1B"))),
         _ => new AlertPalette(
-            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EEF2FF")),
-            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6366F1")),
-            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#312E81")))
+            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EFF6FF")),
+            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#38BDF8")),
+            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#0C4A6E")))
     };
 
     public static PackIconKind GetDefaultIcon(AlertVariant variant) => variant switch
