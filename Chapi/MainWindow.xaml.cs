@@ -174,19 +174,19 @@ namespace Chapi
 
             try
             {
-                var snapshot = await _projectShellService.LoadProjectContextAsync(
-                    new ProjectSelectionRequest
-                    {
-                        ProjectPath = projectDirectory,
-                        ProjectName = selectedProject.Name,
-                        ChangesViewModel = _changesViewModel,
-                        HistoryViewModel = _historyViewModel,
-                        ReleasesViewModel = _releasesViewModel,
-                        WorkspaceViewModel = _workspaceViewModel,
-                        AssistantViewModel = _assistantViewModel,
-                        DocumentationViewModel = _documentationViewModel
-                    },
-                    token);
+                var request = new ProjectSelectionRequest
+                {
+                    ProjectPath = projectDirectory,
+                    ProjectName = selectedProject.Name,
+                    ChangesViewModel = _changesViewModel,
+                    HistoryViewModel = _historyViewModel,
+                    ReleasesViewModel = _releasesViewModel,
+                    WorkspaceViewModel = _workspaceViewModel,
+                    AssistantViewModel = _assistantViewModel,
+                    DocumentationViewModel = _documentationViewModel
+                };
+
+                var snapshot = await _projectShellService.LoadProjectContextAsync(request, token);
 
                 if (token.IsCancellationRequested) return;
 
@@ -202,6 +202,7 @@ namespace Chapi
                     Msg.Assistant($"Tienes {snapshot.Ahead} commits pendientes de subir en '{selectedProject.Name}'. No olvides hacer Push!");
                 }
 
+                _projectShellService.WarmProjectContextAsync(request, token).Forget("cargando contexto del proyecto");
                 DoFetchAndRefreshAsync(isSilent: true).Forget("sincronizando cambios del proyecto");
             }
             catch (OperationCanceledException)

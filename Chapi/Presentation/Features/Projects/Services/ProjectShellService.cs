@@ -49,6 +49,7 @@ public sealed class ProjectShellService
             var currentBranch = string.Empty;
             var branches = new List<string>();
             var ahead = 0;
+            var needsPublish = false;
 
             var metadataResult = await _gitRepository.GetMetadataAsync(request.ProjectPath);
             cancellationToken.ThrowIfCancellationRequested();
@@ -57,6 +58,7 @@ public sealed class ProjectShellService
             {
                 currentBranch = metadataResult.Data.CurrentBranch ?? string.Empty;
                 ahead = metadataResult.Data.Ahead;
+                needsPublish = !metadataResult.Data.HasUpstream;
 
                 if (!string.IsNullOrWhiteSpace(currentBranch))
                 {
@@ -76,24 +78,6 @@ public sealed class ProjectShellService
                 }
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
-            await LoadWorkspaceAsync(request.ProjectPath, request.WorkspaceViewModel);
-
-            cancellationToken.ThrowIfCancellationRequested();
-            await UpdateAssistantContextAsync(
-                request.ProjectPath,
-                request.AssistantViewModel,
-                request.DocumentationViewModel);
-
-            cancellationToken.ThrowIfCancellationRequested();
-            await Task.Delay(100, cancellationToken);
-
-            var needsPublish = await CheckNeedsPublishAsync(request.ProjectPath, currentBranch);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            await LoadReleasesAsync(request.ProjectPath, request.ReleasesViewModel);
-            cancellationToken.ThrowIfCancellationRequested();
-
             return new ProjectSelectionSnapshot
             {
                 CurrentBranch = currentBranch,
@@ -102,6 +86,21 @@ public sealed class ProjectShellService
                 NeedsPublish = needsPublish
             };
         }, cancellationToken);
+    }
+
+    public async Task WarmProjectContextAsync(ProjectSelectionRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await LoadWorkspaceAsync(request.ProjectPath, request.WorkspaceViewModel);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await UpdateAssistantContextAsync(
+            request.ProjectPath,
+            request.AssistantViewModel,
+            request.DocumentationViewModel);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await LoadReleasesAsync(request.ProjectPath, request.ReleasesViewModel);
     }
 
     public async Task<bool> HasPendingChangesAsync(string projectPath, ChangesViewModel? changesViewModel)

@@ -1,0 +1,276 @@
+<UserControl x:Class="Chapi.Presentation.Features.Releases.Views.ReleasesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Chapi.Presentation.Features.Releases.Views"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:converters="clr-namespace:Chapi.Presentation.Converters"
+             mc:Ignorable="d" 
+             d:DesignHeight="700" d:DesignWidth="900">
+    <UserControl.Resources>
+        <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+    </UserControl.Resources>
+    
+    <Grid Background="{DynamicResource MaterialDesignPaper}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="380"/>
+            <ColumnDefinition Width="1*"/>
+            <ColumnDefinition Width="1*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Panel 1: Lista de Versiones -->
+        <Border Grid.Column="0" Background="{DynamicResource MaterialDesignCardBackground}" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header de Panel 1 -->
+                <Border Grid.Row="0" Padding="20,25" Background="{DynamicResource MaterialDesignCardBackground}">
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="HISTORIAL DE VERSIONES" FontSize="10" FontWeight="Black" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                            <TextBlock Text="Producción" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource MaterialDesignBody}" Margin="0,5,0,0"/>
+                        </StackPanel>
+                        <Button x:Name="btnCrearTag" 
+                                HorizontalAlignment="Right" 
+                                VerticalAlignment="Center"
+                                Width="36" Height="36"
+                                Padding="0"
+                                Style="{StaticResource MaterialDesignFloatingActionMiniButton}"
+                                Background="{DynamicResource AppPrimaryBrush}" BorderThickness="0"
+                                Command="{Binding CreateTagCommand}"
+                                ToolTip="Crear nuevo Release">
+                            <materialDesign:PackIcon Kind="Plus" Width="20" Height="20" Foreground="{DynamicResource ActionTextOnAccentBrush}"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <ListView x:Name="ReleasesListView" ItemsSource="{Binding Releases}" SelectedItem="{Binding SelectedRelease}" 
+                          Grid.Row="1"
+                          Background="Transparent" 
+                          BorderThickness="0" 
+                          Padding="5,4"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          VirtualizingPanel.IsVirtualizing="True">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem" BasedOn="{StaticResource MaterialDesignListBoxItem}">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0,0,0,8"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="materialDesign:RippleAssist.IsDisabled" Value="True"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <Border x:Name="CardBorder" Margin="8,0" Padding="15,12" CornerRadius="8" Background="{DynamicResource MaterialDesignCardBackground}" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1"
+                                                Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}">
+                                            <Border.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Eliminar Tag..." 
+                                                              Command="{Binding PlacementTarget.Tag.DeleteTagCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                              CommandParameter="{Binding}" 
+                                                              Foreground="{DynamicResource StatusDangerBrush}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="TagRemove" Foreground="{DynamicResource StatusDangerBrush}"/>
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <materialDesign:PackIcon Grid.Column="0" Kind="TagOutline" Width="18" Height="18" Foreground="{DynamicResource AppPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding TagName}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource MaterialDesignBody}"/>
+                                                    <TextBlock Text="{Binding RelativeDate}" FontSize="11" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                <Border Grid.Column="2" x:Name="LatestBadge" Background="{DynamicResource StatusSuccessBrush}" CornerRadius="4" Padding="6,2" Visibility="Collapsed" VerticalAlignment="Center">
+                                                    <TextBlock Text="LATEST" FontSize="9" FontWeight="Black" Foreground="{DynamicResource ActionTextOnAccentBrush}"/>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
+                                                <Setter TargetName="CardBorder" Property="Background" Value="{DynamicResource MaterialDesignSelection}"/>
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding IsLatest}" Value="True">
+                                                <Setter TargetName="LatestBadge" Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+
+                </ListView>
+            </Grid>
+        </Border>
+
+        <!-- Panel 2: Detalle Central -->
+        <Border Grid.Column="1" Padding="35,40" Background="Transparent">
+            <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                <StackPanel x:Name="ReleaseDetailContainer" Visibility="{Binding SelectedRelease, Converter={StaticResource NullToVisibilityConverter}}">
+                    <Grid Margin="0,0,0,30">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Width="48" Height="48" CornerRadius="8" Background="{DynamicResource MaterialDesignCardBackground}" Margin="0,0,20,0">
+                            <materialDesign:PackIcon Kind="ArchiveOutline" Width="24" Height="24" Foreground="{DynamicResource AppPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock x:Name="txtReleaseTitle" Text="{Binding SelectedRelease.TagName}" FontSize="28" FontWeight="Black" Foreground="{DynamicResource MaterialDesignBody}" LineHeight="32"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                <TextBlock x:Name="txtReleaseHash" Text="{Binding SelectedRelease.ShortHash, StringFormat='# {0}'}" FontSize="13" FontFamily="Consolas" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,15,0"/>
+                                <materialDesign:PackIcon Kind="AccountOutline" Width="14" Height="14" Foreground="{DynamicResource AppPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBlock x:Name="txtReleaseAuthor" Text="{Binding SelectedRelease.AuthorName}" FontSize="13" Foreground="{DynamicResource MaterialDesignBodyLight}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="NOTAS DE VERSIÓN" FontSize="11" FontWeight="Black" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,0,15"/>
+                    <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="8" Padding="25" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1">
+                        <ItemsControl x:Name="ReleaseNotesItemsControl" ItemsSource="{Binding ReleaseNotes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Ellipse Grid.Column="0" Width="6" Height="6" Fill="{DynamicResource AppPrimaryBrush}" VerticalAlignment="Top" Margin="0,8,15,0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding}" FontSize="14" Foreground="{DynamicResource MaterialDesignBody}" TextWrapping="Wrap" LineHeight="20"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+
+                    <TextBlock Text="DETALLE DEL COMMIT" FontSize="11" FontWeight="Black" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,30,0,15"/>
+                    <Border Background="{DynamicResource MaterialDesignCardBackground}" CornerRadius="8" Padding="25" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock x:Name="txtCommitFullMessage" Text="{Binding SelectedRelease.CommitMessage}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource MaterialDesignBody}" TextWrapping="Wrap" LineHeight="20"/>
+                            <TextBlock Text="{Binding SelectedRelease.CommitDescription}" FontSize="13" Foreground="{DynamicResource MaterialDesignBody}" TextWrapping="Wrap" Margin="0,10,0,0" FontStyle="Normal" Visibility="{Binding SelectedRelease.CommitDescription, Converter={StaticResource NullToVisibilityConverter}}"/>
+                            <TextBlock Text="{Binding SelectedRelease.TagMessage}" FontSize="13" Foreground="{DynamicResource MaterialDesignBodyLight}" TextWrapping="Wrap" Margin="0,10,0,0" FontStyle="Italic" Visibility="{Binding SelectedRelease.TagMessage, Converter={StaticResource NullToVisibilityConverter}}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Margin="0,30,0,0" Padding="20" CornerRadius="8" BorderBrush="{DynamicResource StatusSuccessBrush}" BorderThickness="1" Background="{DynamicResource StatusSuccessMutedBackgroundBrush}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Grid.Column="0" Kind="CheckCircleOutline" Width="20" Height="20" Foreground="{DynamicResource StatusSuccessBrush}" Margin="0,0,15,0" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Versión Verificada" FontWeight="Bold" Foreground="{DynamicResource MaterialDesignBody}" FontSize="14"/>
+                                <TextBlock Text="Integridad confirmada por el agente Chapi." Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="12" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Panel 3: Estadísticas y Archivos -->
+        <Border Grid.Column="2" Background="{DynamicResource MaterialDesignCardBackground}" BorderBrush="{DynamicResource MaterialDesignDivider}" Padding="35,40" BorderThickness="1,0,0,0">
+            <ScrollViewer x:Name="ReleaseStatsScrollViewer" VerticalScrollBarVisibility="Hidden" Padding="20,40">
+                <StackPanel x:Name="ReleaseStatsContainer" Visibility="{Binding SelectedRelease, Converter={StaticResource NullToVisibilityConverter}}">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                        <materialDesign:PackIcon Kind="ChartBoxOutline" Width="16" Height="16" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="RESUMEN DE CAMBIOS" FontSize="10" FontWeight="Black" Foreground="{DynamicResource MaterialDesignBodyLight}" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Grid Margin="0,0,0,30">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                            <TextBlock Text="ARCHIVOS" FontSize="9"  HorizontalAlignment="Center" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                            <TextBlock x:Name="txtFilesCount" Text="{Binding FilesCount}" FontSize="18" FontWeight="Black" Foreground="{DynamicResource MaterialDesignBody}" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                            <TextBlock Text="INSERCIONES" FontSize="9" HorizontalAlignment="Center" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                            <TextBlock x:Name="txtAdditionsCount" Text="{Binding Additions, StringFormat='+{0}'}" FontSize="18" FontWeight="Black" Foreground="{DynamicResource StatusSuccessBrush}" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                            <TextBlock Text="ELIMINADAS" FontSize="9"  HorizontalAlignment="Center" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                            <TextBlock x:Name="txtDeletionsCount" Text="{Binding Deletions, StringFormat='-{0}'}" FontSize="18" FontWeight="Black" Foreground="{DynamicResource StatusDangerBrush}" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="ARCHIVOS EN ESTA VERSIÓN" FontSize="10" FontWeight="Black" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,0,15"/>
+                    <ListView x:Name="ReleaseFilesListView"
+                              ItemsSource="{Binding ReleaseFiles}"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              ScrollViewer.CanContentScroll="False"
+                              PreviewMouseWheel="ReleaseFilesListView_PreviewMouseWheel">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListViewItem">
+                                            <Border x:Name="FileItemBorder" Padding="12,10" Margin="0,0,0,5" CornerRadius="6" Background="{DynamicResource MaterialDesignPaper}" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1">
+                                                <Grid Height="18" VerticalAlignment="Center">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <materialDesign:PackIcon Grid.Column="0" Kind="FileOutline" Width="14" Height="14" Foreground="{DynamicResource AppPrimaryBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding}" Foreground="{DynamicResource MaterialDesignBody}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="16" ToolTip="{Binding}"/>
+                                                    <materialDesign:PackIcon Grid.Column="2" Kind="ChevronRight" Width="12" Height="12" Foreground="{DynamicResource AppPrimaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="FileItemBorder" Property="Background" Value="{DynamicResource MaterialDesignSelection}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                    </ListView>
+
+                    <Border Margin="0,30,0,0" Padding="15" CornerRadius="8" Background="{DynamicResource StatusWarningMutedBackgroundBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <materialDesign:PackIcon Kind="CheckCircle" Width="16" Height="16" Foreground="{DynamicResource AppPrimaryBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="VERIFICACIÓN LISTA" FontSize="11" FontWeight="Black" Foreground="{DynamicResource MaterialDesignBody}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="Esta versión está lista para producción. Todos los archivos han sido compilados correctamente." FontSize="11" Foreground="{DynamicResource MaterialDesignBody}" TextWrapping="Wrap" LineHeight="16"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Empty State -->
+        <Grid Grid.Column="1" Grid.ColumnSpan="2" x:Name="ReleasesEmptyState" 
+              Visibility="{Binding SelectedRelease, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Inverted}" 
+              VerticalAlignment="Center" HorizontalAlignment="Center">
+            <StackPanel HorizontalAlignment="Center">
+                <materialDesign:PackIcon Kind="TagSearchOutline" Width="64" Height="64" Foreground="{DynamicResource MaterialDesignBodyLight}" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                <TextBlock Text="SIN VERSIÓN SELECCIONADA" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource MaterialDesignBody}" HorizontalAlignment="Center"/>
+                <TextBlock Text="Selecciona una versión de la lista para ver los detalles y estadísticas." FontSize="12" Foreground="{DynamicResource MaterialDesignBodyLight}" TextAlignment="Center" Margin="0,10,0,0"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>
