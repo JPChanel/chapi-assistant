@@ -1,4 +1,4 @@
-﻿<Window x:Class="Chapi.Presentation.Views.Dialogs.GitProviderSelectionDialog"
+<Window x:Class="Chapi.Presentation.Views.Dialogs.GitProviderSelectionDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
@@ -64,7 +64,7 @@
 
                         <!-- Body del Card -->
                         <StackPanel Grid.Row="1" Margin="20">
-                            <TextBlock Text="AutenticaciÃ³n segura vÃ­a navegador. Ideal para repositorios personales y de organizaciÃ³n." 
+                            <TextBlock Text="Autenticacion segura via navegador. Ideal para repositorios personales y de organizacion." 
                                        TextWrapping="Wrap" Margin="0,0,0,20" Opacity="0.8" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
                             
                             <Button Content="Conectar con GitHub"
@@ -99,7 +99,7 @@
 
                         <!-- Body del Card -->
                         <StackPanel Grid.Row="1" Margin="20">
-                            <TextBlock Text="Soporte para GitLab.com y servidores Self-Hosted. GestiÃ³n avanzada de CI/CD." 
+                            <TextBlock Text="Soporte para GitLab.com y servidores Self-Hosted. Gestion avanzada de CI/CD." 
                                        TextWrapping="Wrap" Margin="0,0,0,20" Opacity="0.8" Foreground="{DynamicResource MaterialDesignBodyLight}"/>
 
                             <Button Content="Conectar con GitLab"

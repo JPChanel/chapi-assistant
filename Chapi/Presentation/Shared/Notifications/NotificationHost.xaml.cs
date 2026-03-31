@@ -1,8 +1,8 @@
-using Chapi.Presentation.Alerts.ViewModels;
+using Chapi.Presentation.Shared.Notifications.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using System.Windows.Controls;
 
-namespace Chapi.Presentation.Alerts
+namespace Chapi.Presentation.Shared.Notifications
 {
     public partial class NotificationHost : UserControl
     {

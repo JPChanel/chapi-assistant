@@ -1,7 +1,7 @@
-﻿using Chapi.Presentation.Alerts.Models;
+using Chapi.Presentation.Shared.Notifications.Models;
 using MaterialDesignThemes.Wpf;
 
-namespace Chapi.Presentation.Alerts.Service;
+namespace Chapi.Presentation.Shared.Notifications.Services;
 
 public interface IAlertService
 {

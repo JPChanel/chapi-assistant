@@ -1,5 +1,5 @@
-using Chapi.Presentation.Alerts.Models;
-using Chapi.Presentation.Alerts.Service;
+using Chapi.Presentation.Shared.Notifications.Models;
+using Chapi.Presentation.Shared.Notifications.Services;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 
@@ -72,7 +72,7 @@ public class MessageHelper : INotifyPropertyChanged
             AlertVariant.Success => "Correcto",
             AlertVariant.Warning => "Aviso",
             AlertVariant.Error => "Error",
-            _ => "Información"
+            _ => "Informacion"
         };
 
         var duration = variant switch
@@ -89,8 +89,7 @@ public class MessageHelper : INotifyPropertyChanged
     {
         var normalized = text.Trim();
 
-        if (normalized.Contains("❌", StringComparison.Ordinal) ||
-            normalized.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ||
+        if (normalized.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ||
             normalized.Contains("error", StringComparison.OrdinalIgnoreCase) ||
             normalized.Contains("fall", StringComparison.OrdinalIgnoreCase) ||
             normalized.Contains("no se pudo", StringComparison.OrdinalIgnoreCase))
@@ -98,18 +97,19 @@ public class MessageHelper : INotifyPropertyChanged
             return AlertVariant.Error;
         }
 
-        if (normalized.Contains("⚠", StringComparison.Ordinal) ||
-            normalized.Contains("advert", StringComparison.OrdinalIgnoreCase) ||
+        if (normalized.Contains("advert", StringComparison.OrdinalIgnoreCase) ||
             normalized.Contains("aviso", StringComparison.OrdinalIgnoreCase) ||
-            normalized.Contains("conflict", StringComparison.OrdinalIgnoreCase))
+            normalized.Contains("conflict", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("necesito", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("por favor", StringComparison.OrdinalIgnoreCase))
         {
             return AlertVariant.Warning;
         }
 
-        if (normalized.Contains("✅", StringComparison.Ordinal) ||
-            normalized.Contains("exito", StringComparison.OrdinalIgnoreCase) ||
+        if (normalized.Contains("exito", StringComparison.OrdinalIgnoreCase) ||
             normalized.Contains("correctamente", StringComparison.OrdinalIgnoreCase) ||
-            normalized.Contains("completado", StringComparison.OrdinalIgnoreCase))
+            normalized.Contains("completado", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("agregado", StringComparison.OrdinalIgnoreCase))
         {
             return AlertVariant.Success;
         }

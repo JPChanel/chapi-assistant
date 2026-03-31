@@ -1,4 +1,4 @@
-﻿using Chapi.Application.UseCases.Git;
+using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Views.Dialogs;
@@ -86,7 +86,7 @@ public class ChangesViewModel : ViewModelBase
         _pushChangesUseCase = pushChangesUseCase;
         _generateCommitMessageUseCase = generateCommitMessageUseCase;
 
-        // Inicializar watcher y caché (como GitHub Desktop)
+        // Inicializar watcher y cache (como GitHub Desktop)
         _changeWatcher = new Chapi.Infrastructure.Git.GitChangeWatcher();
         _changesCache = new Chapi.Infrastructure.Git.GitChangesCache();
 
@@ -113,7 +113,7 @@ public class ChangesViewModel : ViewModelBase
         DiscardAllCommand = new AsyncRelayCommand(async _ => await DiscardAllAsync());
         _connectAccountCommand = new AsyncRelayCommand(async _ => await ConnectAccountAsync(), _ => !IsLoading);
 
-        // Suscribirse al evento de actualización de avatares
+        // Suscribirse al evento de actualizacion de avatares
         Chapi.Domain.Services.AvatarCacheService.Instance.AvatarUpdated += OnAvatarUpdated;
     }
 
@@ -127,7 +127,7 @@ public class ChangesViewModel : ViewModelBase
             // Ejecutar en el UI thread para evitar errores de cross-thread
             System.Windows.Application.Current?.Dispatcher.InvokeAsync(async () =>
             {
-                // Solo llamamos a LoadChangesAsync, que internamente llamará a LoadMetadataAsync
+                // Solo llamamos a LoadChangesAsync, que internamente llamar? a LoadMetadataAsync
                 await LoadChangesAsync();
             });
         }
@@ -135,13 +135,13 @@ public class ChangesViewModel : ViewModelBase
 
     private void OnAvatarUpdated(object sender, Chapi.Domain.Services.AvatarUpdatedEventArgs e)
     {
-        // Forzar actualización del DisplayUserName para que el binding se refresque
+        // Forzar actualizacion del DisplayUserName para que el binding se refresque
         OnPropertyChanged(nameof(DisplayUserName));
     }
 
     /// <summary>
-    /// Fuerza la recarga de cambios, invalidando la caché interna.
-    /// Útil cuando ocurren cambios externos (como un Undo Commit) que el watcher podría no detectar a tiempo.
+    /// Fuerza la recarga de cambios, invalidando la cache interna.
+    /// Util cuando ocurren cambios externos (como un Undo Commit) que el watcher podria no detectar a tiempo.
     /// </summary>
     public async Task ForceRefreshAsync()
     {
@@ -198,7 +198,7 @@ public class ChangesViewModel : ViewModelBase
                 }
                 catch
                 {
-                    // Fallback si no es JSON válido
+                    // Fallback si no es JSON valido
                     CommitSummary = jsonResponse;
                     CommitDescription = string.Empty;
                 }
@@ -242,7 +242,7 @@ public class ChangesViewModel : ViewModelBase
                     _changeWatcher.UnwatchRepository(previousPath);
                 }
 
-                // Silenciar el watcher durante la transición para evitar que los comandos de MainWindow o la carga inicial lo disparen
+                // Silenciar el watcher durante la transicion para evitar que los comandos de MainWindow o la carga inicial lo disparen
                 _manualSilencer?.Dispose();
                 _manualSilencer = _changeWatcher.Silence();
 
@@ -258,7 +258,7 @@ public class ChangesViewModel : ViewModelBase
                 if (!string.IsNullOrWhiteSpace(value))
                 {
                     // En rutas WSL (UNC), FileSystemWatcher es costoso e inestable.
-                    // El refresco se hace explícitamente al entrar al tab/activar ventana.
+                    // El refresco se hace explicitamente al entrar al tab/activar ventana.
                     if (!IsWslPath(value))
                     {
                         _changeWatcher.WatchRepository(value);
@@ -275,7 +275,7 @@ public class ChangesViewModel : ViewModelBase
                 // Lanzar carga inicial
                 _ = LoadChangesAsync();
 
-                // Programar el fin del silencio manual después de un tiempo prudencial o cuando Load termine
+                // Programar el fin del silencio manual despues de un tiempo prudencial o cuando Load termine
                 // Esto protege los comandos Git que corran en paralelo en MainWindow
                 Task.Run(async () =>
                 {
@@ -302,7 +302,7 @@ public class ChangesViewModel : ViewModelBase
                 GitUserName = m.UserName;
                 GitUserEmail = m.UserEmail;
 
-                // Actualizar indicadores de sincronización
+                // Actualizar indicadores de sincronizacion
                 Ahead = m.Ahead;
                 Behind = m.Behind;
 
@@ -318,13 +318,13 @@ public class ChangesViewModel : ViewModelBase
                 }
                 else if (AuthenticatedProvider != Chapi.Domain.Enums.GitProvider.Unknown)
                 {
-                    // Solo resetear si realmente el proveedor es válido pero no hay credenciales
+                    // Solo resetear si realmente el proveedor es valido pero no hay credenciales
                     AuthenticatedUserName = "Conectar";
                     IsUserLoggedIn = false;
                 }
                 // Si el proveedor es Desconocido, no tocamos el estado actual para evitar parpadeo
 
-                // Forzar actualización de iconos y colores
+                // Forzar actualizacion de iconos y colores
                 OnPropertyChanged(nameof(ProviderIcon));
                 OnPropertyChanged(nameof(ProviderColor));
 
@@ -603,22 +603,22 @@ public class ChangesViewModel : ViewModelBase
 
     /// <summary>
     /// Retorna el username para mostrar en el avatar
-    /// Solo retorna username si está autenticado Y el provider coincide con el del proyecto
+    /// Solo retorna username si esta autenticado Y el provider coincide con el del proyecto
     /// </summary>
     public string DisplayUserName
     {
         get
         {
             // Solo mostrar username si:
-            // 1. Está logueado
+            // 1. Est? logueado
             // 2. El provider del proyecto coincide con el provider autenticado
-            // 3. Tiene un username válido
+            // 3. Tiene un username valido
 
             if (!IsUserLoggedIn ||
                 AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.Unknown ||
                 string.IsNullOrWhiteSpace(AuthenticatedUserName))
             {
-                // Fallback al nombre de Git local si no hay sesión iniciada
+                // Fallback al nombre de Git local si no hay sesion iniciada
                 return !string.IsNullOrWhiteSpace(GitUserName) ? GitUserName : string.Empty;
             }
 
@@ -659,7 +659,7 @@ public class ChangesViewModel : ViewModelBase
             return;
 
         // Throttle: Evitar recargas masivas en menos de 1.5 segundos
-        // Importante: No saltar este control si Changes.Count == 0, ya que eso causa bucles en proyectos vacíos.
+        // Importante: No saltar este control si Changes.Count == 0, ya que eso causa bucles en proyectos vacios.
         var now = DateTime.Now;
         var sameProjectAsLastLoad = string.Equals(ProjectPath, _lastLoadedProjectPath, StringComparison.OrdinalIgnoreCase);
         if (sameProjectAsLastLoad && (now - _lastRefreshTime).TotalMilliseconds < 1500)
@@ -684,7 +684,7 @@ public class ChangesViewModel : ViewModelBase
             try { await LoadMetadataAsync(token); } catch { }
         }, token);
 
-        // Resetear solo si el proyecto es nuevo o está vacío, 
+        // Resetear solo si el proyecto es nuevo o esta vacio, 
         // de lo contrario mantener los cambios actuales hasta que lleguen los nuevos (evita parpadeo)
         bool isFullReload = !sameProjectAsLastLoad || Changes.Count == 0;
         bool hadVisibleChanges = Changes.Count > 0;
@@ -713,8 +713,8 @@ public class ChangesViewModel : ViewModelBase
             {
                 var cachedChangesList = cachedChanges.ToList();
 
-                // Si hay cambios visibles y el caché dice "cero", preferimos consultar Git de nuevo.
-                // Evita que un vacío transitorio "congele" la vista sin cambios reales.
+                // Si hay cambios visibles y el cache dice "cero", preferimos consultar Git de nuevo.
+                // Evita que un vacio transitorio "congele" la vista sin cambios reales.
                 if (hadVisibleChanges && cachedChangesList.Count == 0)
                 {
                     _changesCache.Invalidate(ProjectPath);
@@ -722,7 +722,7 @@ public class ChangesViewModel : ViewModelBase
                 else
                 {
 
-                    // Actualizar de forma atómica para evitar duplicados si es un refresco
+                    // Actualizar de forma atomica para evitar duplicados si es un refresco
                     await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         Changes.Clear();
@@ -772,8 +772,8 @@ public class ChangesViewModel : ViewModelBase
 
             var fileChanges = (await _loadChangesUseCase.ExecuteAsync(ProjectPath)).ToList();
 
-            // Si veníamos mostrando cambios y Git devuelve vacío, confirmamos una vez más
-            // para evitar "falsos vacíos" por condiciones transitorias.
+            // Si veniamos mostrando cambios y Git devuelve vacio, confirmamos una vez mas
+            // para evitar "falsos vacios" por condiciones transitorias.
             if (hadVisibleChanges && fileChanges.Count == 0)
             {
                 await Task.Delay(250, token);
@@ -840,7 +840,7 @@ public class ChangesViewModel : ViewModelBase
                 _ = LoadFileStatsInBackgroundAsync(token);
             }
 
-            // Si no hay cambios, no persistimos "vacío" en caché para evitar congelar estados transitorios.
+            // Si no hay cambios, no persistimos "vacio" en cache para evitar congelar estados transitorios.
             if (fileChanges.Count == 0)
             {
                 _changesCache.Invalidate(ProjectPath);
@@ -870,8 +870,8 @@ public class ChangesViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Carga las estadísticas de archivos en background sin bloquear la UI.
-    /// Esto permite mostrar la lista rápidamente y luego actualizar los números.
+    /// Carga las estadisticas de archivos en background sin bloquear la UI.
+    /// Esto permite mostrar la lista rapidamente y luego actualizar los numeros.
     /// </summary>
     private async Task LoadFileStatsInBackgroundAsync(CancellationToken token)
     {
@@ -921,7 +921,7 @@ public class ChangesViewModel : ViewModelBase
                 catch { }
             }
 
-            // 💾 Guardar en caché para la próxima vez (como GitHub Desktop)
+            // ?? Guardar en cache para la proxima vez (como GitHub Desktop)
             if (!token.IsCancellationRequested)
             {
                 var allChanges = Changes.Select(c => new FileChange
@@ -965,10 +965,10 @@ public class ChangesViewModel : ViewModelBase
     {
         if (AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.Unknown) return;
 
-        // Si ya está logueado, abrir configuración
+        // Si ya esta logueado, abrir configuracion
         if (IsUserLoggedIn)
         {
-            // Leer configuración actual de default branch
+            // Leer configuracion actual de default branch
             var defaultBranch = await _gitRepository.GetConfigAsync(ProjectPath, "init.defaultBranch", isGlobal: true);
             if (string.IsNullOrWhiteSpace(defaultBranch))
             {
@@ -991,7 +991,7 @@ public class ChangesViewModel : ViewModelBase
             }
             catch { }
 
-            // Crear y configurar el diálogo
+            // Crear y configurar el dialogo
             var dialog = new Chapi.Presentation.Views.Dialogs.GitConfigDialog
             {
                 // Git configuration
@@ -1011,10 +1011,10 @@ public class ChangesViewModel : ViewModelBase
             // Manejar sign out
             if (dialog.SignedOut)
             {
-                // Cerrar sesión
+                // Cerrar sesion
                 await _credentialStorage.DeleteCredentialAsync(AuthenticatedProvider.ToString());
 
-                // Limpiar caché de avatares del usuario
+                // Limpiar cache de avatares del usuario
                 Chapi.Domain.Services.AvatarCacheService.Instance.ClearUserCache(
                     AuthenticatedProvider.ToString(),
                     AuthenticatedUserName
@@ -1025,7 +1025,7 @@ public class ChangesViewModel : ViewModelBase
                 return;
             }
 
-            // Si el usuario guardó cambios en Git config, actualizar la configuración
+            // Si el usuario guardo cambios en Git config, actualizar la configuracion
             if (dialog.WasSaved)
             {
                 try
@@ -1048,23 +1048,23 @@ public class ChangesViewModel : ViewModelBase
                         await _gitRepository.SetConfigAsync(ProjectPath, "init.defaultBranch", dialog.DefaultBranch, isGlobal: true);
                     }
 
-                    // Recargar configuración
+                    // Recargar configuracion
                     _ = LoadMetadataAsync();
                 }
                 catch (Exception ex)
                 {
-                    await DialogService.ShowConfirmDialog("Error", $"No se pudo guardar la configuración: {ex.Message}", DialogVariant.Error, DialogType.Info);
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo guardar la configuracion: {ex.Message}", DialogVariant.Error, DialogType.Info);
                 }
             }
 
             return;
         }
 
-        // Si no está logueado, iniciar proceso de autenticación
+        // Si no esta logueado, iniciar proceso de autenticacion
         IsLoading = true;
         try
         {
-            // Usamos la factoría de proveedores para obtener el flujo de navegador (GitHub o GitLab)
+            // Usamos la factoria de proveedores para obtener el flujo de navegador (GitHub o GitLab)
             var provider = _authFactory.GetProvider(AuthenticatedProvider);
             var result = await provider.AuthenticateAsync();
 
@@ -1073,7 +1073,7 @@ public class ChangesViewModel : ViewModelBase
                 // Recargar el estado para mostrar el usuario logueado
                 _ = LoadMetadataAsync();
 
-                // Pre-cargar el avatar para evitar "vibración" al cambiar de proyecto
+                // Pre-cargar el avatar para evitar "vibracion" al cambiar de proyecto
                 if (AuthenticatedProvider == Chapi.Domain.Enums.GitProvider.GitLab &&
                     !string.IsNullOrWhiteSpace(AuthenticatedUserName))
                 {
@@ -1083,9 +1083,9 @@ public class ChangesViewModel : ViewModelBase
                     });
                 }
             }
-            else if (result.Error != "Autenticación cancelada")
+            else if (result.Error != "Autenticacion cancelada")
             {
-                await DialogService.ShowConfirmDialog("Error de Conexión", result.Error, DialogVariant.Error, DialogType.Info);
+                await DialogService.ShowConfirmDialog("Error de Conexion", result.Error, DialogVariant.Error, DialogType.Info);
             }
         }
         catch (Exception ex)
@@ -1343,7 +1343,7 @@ public class ChangesViewModel : ViewModelBase
 
         var confirmed = await DialogService.ShowConfirmDialog(
             "Descartar Cambios",
-            $"¿Estás seguro de que deseas descartar los cambios en '{item.FileName}'? Esta acción no se puede deshacer.",
+            $"Estas seguro de que deseas descartar los cambios en '{item.FileName}'? Esta accion no se puede deshacer.",
             DialogVariant.Warning);
 
         if (!confirmed) return;
@@ -1367,7 +1367,7 @@ public class ChangesViewModel : ViewModelBase
 
         var confirmed = await DialogService.ShowConfirmDialog(
             "Descartar TODOS los Cambios",
-            "¿Estás seguro de que deseas descartar TODOS los cambios locales? Esta acción eliminará permanentemente tus modificaciones.",
+            "Estas seguro de que deseas descartar TODOS los cambios locales? Esta accion eliminara permanentemente tus modificaciones.",
             DialogVariant.Warning);
 
         if (!confirmed) return;
@@ -1401,8 +1401,8 @@ public class ChangesViewModel : ViewModelBase
         var confirmed = await DialogService.ShowConfirmDialog(
             "Guardar en Stash",
             filesToStash.Count == 1
-                ? $"¿Deseas guardar '{System.IO.Path.GetFileName(filesToStash[0])}' en el stash?"
-                : $"¿Deseas guardar estos {filesToStash.Count} archivos en el stash?",
+                ? $"Deseas guardar '{System.IO.Path.GetFileName(filesToStash[0])}' en el stash?"
+                : $"Deseas guardar estos {filesToStash.Count} archivos en el stash?",
             DialogVariant.Info);
 
         if (!confirmed) return;
@@ -1480,7 +1480,7 @@ public class ChangesViewModel : ViewModelBase
 
         var confirmed = await DialogService.ShowConfirmDialog(
             "Eliminar Stash",
-            $"Â¿Estas seguro de eliminar el stash?\n\n'{stash.Message}'\n\nEsta accion es irreversible.",
+            $"Estas seguro de eliminar el stash?\n\n'{stash.Message}'\n\nEsta accion es irreversible.",
             DialogVariant.Warning,
             DialogType.Confirm);
 
@@ -1505,7 +1505,7 @@ public class ChangesViewModel : ViewModelBase
 
         var confirmed = await DialogService.ShowConfirmDialog(
             "Limpiar Stashes",
-            "Â¿Estas seguro de que deseas eliminar TODOS los stashes?\n\nEsta accion borrara permanentemente todas las entradas guardadas.",
+            "Estas seguro de que deseas eliminar TODOS los stashes?\n\nEsta accion borrara permanentemente todas las entradas guardadas.",
             DialogVariant.Warning,
             DialogType.Confirm);
 

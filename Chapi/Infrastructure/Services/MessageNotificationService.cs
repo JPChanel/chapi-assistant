@@ -1,6 +1,6 @@
 using Chapi.Domain.Interfaces;
-using Chapi.Presentation.Alerts.Models;
-using Chapi.Presentation.Alerts.Service;
+using Chapi.Presentation.Shared.Notifications.Models;
+using Chapi.Presentation.Shared.Notifications.Services;
 
 namespace Chapi.Infrastructure.Services;
 
@@ -31,7 +31,7 @@ public class MessageNotificationService : INotificationService
     public void ShowInfo(string message)
     {
         MessageHelper.Instance.AddAssistantMessage(message, showAlert: false);
-        _alertService.Show(message, title: "Información", variant: AlertVariant.Info);
+        _alertService.Show(message, title: "Informacion", variant: AlertVariant.Info);
     }
 
     public void ShowWarning(string message)

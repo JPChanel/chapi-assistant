@@ -1,6 +1,6 @@
-﻿using MaterialDesignThemes.Wpf;
+using MaterialDesignThemes.Wpf;
 
-namespace Chapi.Presentation.Alerts.Models;
+namespace Chapi.Presentation.Shared.Notifications.Models;
 
 public sealed class EstNotificationMessage
 {

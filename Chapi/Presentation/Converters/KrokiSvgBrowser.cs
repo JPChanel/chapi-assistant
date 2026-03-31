@@ -410,7 +410,7 @@ public class KrokiSvgBrowser : UserControl
     private static List<string> ExtractPackageCandidates(string source)
     {
         var tokens = Regex.Split(source, "[,;\\n\\r|]+")
-            .Select(t => Regex.Replace(t, "^\\s*[-*Ã¢â‚¬Â¢\\d\\.)\\(]+\\s*", string.Empty))
+            .Select(t => Regex.Replace(t, "^\\s*[-*•\\d\\.)\\(]+\\s*", string.Empty))
             .Select(t => Regex.Replace(t, "\\s+", " ").Trim())
             .Where(t => !string.IsNullOrWhiteSpace(t))
             .Distinct(StringComparer.OrdinalIgnoreCase)

@@ -1,35 +1,35 @@
-﻿namespace Chapi.Infrastructure.AI;
+namespace Chapi.Infrastructure.AI;
 
 public class GetPrompt
 {
     public static string GitCommit(string request)
     {
         return $@"
-        Analiza el siguiente 'diff' y genera un mensaje de commit profesional en español según el estándar Conventional Commits.
+        Analiza el siguiente 'diff' y genera un mensaje de commit profesional en espanol segun el estandar Conventional Commits.
 
         ?? Reglas:
-        - Debes retornar SÓLO un objeto JSON válido, sin formato markdown (```json).
+        - Debes retornar S?LO un objeto JSON v?lido, sin formato markdown (```json).
         - El JSON debe tener esta estructura:
           {{
             ""summary"": ""tipo(alcance): resumen corto"",
-            ""description"": ""descripción detallada de los cambios""
+            ""description"": ""descripci?n detallada de los cambios""
           }}
-        - 'summary' (Resumen): Una sola línea, 72 caracteres máximo.
-        - 'description' (Descripción):
-            - Un resumen de 1 o 2 frases sobre el 'por qué' del cambio.
-            - Seguido de una lista de viñetas (usando '-') con los cambios más importantes.
-            - Si los cambios son muy pequeños, la descripción puede ser un string vacío ("""").
+        - 'summary' (Resumen): Una sola l?nea, 72 caracteres m?ximo.
+        - 'description' (Descripci?n):
+            - Un resumen de 1 o 2 frases sobre el 'por que' del cambio.
+            - Seguido de una lista de vi?etas (usando '-') con los cambios m?s importantes.
+            - Si los cambios son muy peque?os, la descripci?n puede ser un string vacio ("""").
 
-        ?? Guía de Tipos:
+        ?? Gu?a de Tipos:
         - 'feat': Nuevas funciones.
-        - 'fix': Corrección de errores.
-        - 'refactor': Limpieza de código sin cambiar funcionalidad.
+        - 'fix': Correcci?n de errores.
+        - 'refactor': Limpieza de c?digo sin cambiar funcionalidad.
         - 'chore': Tareas de mantenimiento, builds, etc.
 
         Ejemplo de Salida JSON:
         {{
-          ""summary"": ""feat(git): implementa generación de commit con IA y manejo de diff"",
-          ""description"": ""Se actualiza el flujo de commits para usar la IA.\n\n- Modifica btnGitCommit_Click para analizar solo archivos seleccionados.\n- Cambia el comando diff a 'diff HEAD' para evitar el stage.\n- Añade deserialización para el nuevo formato JSON de respuesta.""
+          ""summary"": ""feat(git): implementa generaci?n de commit con IA y manejo de diff"",
+          ""description"": ""Se actualiza el flujo de commits para usar la IA.\n\n- Modifica btnGitCommit_Click para analizar solo archivos seleccionados.\n- Cambia el comando diff a 'diff HEAD' para evitar el stage.\n- A?ade deserializaci?n para el nuevo formato JSON de respuesta.""
         }}
 
         Texto del diff (Contexto):
@@ -40,14 +40,14 @@ public class GetPrompt
     public static string AnalyzeEmail(string moduleName, string methodName, string emailContent, string dataBase, string tipoMetodo)
     {
         return $@"
-            Analiza el siguiente correo técnico o procedimiento Almacenado y extrae la información del Stored Procedure.
+            Analiza el siguiente correo tecnico o procedimiento Almacenado y extrae la informaci?n del Stored Procedure.
 
             CONTEXTO:
-            - Módulo: {moduleName}
-            - Método: {methodName}
+            - M?dulo: {moduleName}
+            - M?todo: {methodName}
             - Tipo Metodo: {tipoMetodo}
 
-            CORREO TÉCNICO:
+            CORREO T?CNICO:
             {emailContent}
 
             INSTRUCCIONES:
@@ -82,7 +82,7 @@ public class GetPrompt
                 => SI el tipo de metodo es Get o ById retornar en este formato por ejm: SELECT * FROM appmovil.f_appmovil_elevados_magistrado_deta(@as_cod_usuario,@an_cod_nivacc,@an_cod_magistrado,@an_cod_distri)
                 => SI el tipo de metodo es Post,Put o Delete solo retornar el nombre del sp ejm: seguridaderp.sp_segerp_rol_mant
             )
-            2. RequestParameters: parámetros de entrada (tipo nombre) equivalente en ingles en camelCase, si no se puede ver el tipo de dato infiere y ponle el tipo; siempre debes darme estandar de .netCore en ingles ""public int parametro {{ get; set; }}""
+            2. RequestParameters: par?metros de entrada (tipo nombre) equivalente en ingles en camelCase, si no se puede ver el tipo de dato infiere y ponle el tipo; siempre debes darme estandar de .netCore en ingles ""public int parametro {{ get; set; }}""
             3. Parameters: mapea el requestParameter a lo q espera el SP y hace su mapeo automatico ; ahora si la base de datos es POSTGRES y es un Post,Put o Delete  el Parameter q retorne en este formato ejm: =>(
             parameters.Add(""@an_cod_rol"", datos.n_cod_rol);
             parameters.Add(""@as_des_rol"", datos.s_des_rol);
@@ -91,18 +91,18 @@ public class GetPrompt
             parameters.Add(""@rs_valor"", dbType: DbType.String, direction: ParameterDirection.Output, size: 100);
             )
             4. DtoFields: campos que retorna la BD (tipo nombreCampo) todo en minusculas tal cual el valor de retorno de la bd, si no se puede ver el tipo de dato infiere y ponle el tipo;  siempre debes darme estandar de .netCore ""public string parametro {{ get; set; }}""
-            5. ResponseMapper: mapeo para objeto anónimo en ingles camelCase (propiedadAPI = dto.campo)
+            5. ResponseMapper: mapeo para objeto an?nimo en ingles camelCase (propiedadAPI = dto.campo)
             6. Usa tipos C#: int, string, decimal, DateTime, bool            
             7. NO inventes datos, solo extrae lo del correo
-            8. Si no hay parámetros, retorna array vacío []
+            8. Si no hay par?metros, retorna array vacio []
 
-            ESTÁNDARES DE NOMBRADO PERSONALIZADOS:
-            - Los nombres en inglés deben seguir tus convenciones:
-              • Todo campo que represente un CÓDIGO termina con **Code** (ej: resolutionCode, districtOriginCode, expedientCode).
-              • Todo campo que represente un NOMBRE o DESCRIPCIÓN termina con **Name** (ej: resolutionName, magistrateName).
-              • Todo campo que represente un FLA  inician con **fla** (ej: flaSigned, flaProcess).
-              • Usa camelCase en todos los nombres.
-              • Ejemplos de propiedades estándar que debes seguir:
+            EST?NDARES DE NOMBRADO PERSONALIZADOS:
+            - Los nombres en ingl?s deben seguir tus convenciones:
+              ? Todo campo que represente un C?DIGO termina con **Code** (ej: resolutionCode, districtOriginCode, expedientCode).
+              ? Todo campo que represente un NOMBRE o DESCRIPCI?N termina con **Name** (ej: resolutionName, magistrateName).
+              ? Todo campo que represente un FLA  inician con **fla** (ej: flaSigned, flaProcess).
+              ? Usa camelCase en todos los nombres.
+              ? Ejemplos de propiedades estandar que debes seguir:
                 public string? code {{ get; set; }}
                 public string? documentNumber {{ get; set; }}
                 public string? paternalSurname {{ get; set; }}
@@ -127,7 +127,7 @@ public class GetPrompt
                 public string comprehendeds {{ get; set; }}
 
             REGLA FINAL:
-            Adecúa los nombres generados a estos estándares si los términos del correo técnico son equivalentes o cercanos.";
+            Adecua los nombres generados a estos estandares si los terminos del correo tecnico son equivalentes o cercanos.";
 
     }
 
@@ -138,7 +138,7 @@ public class GetPrompt
 
         switch (dbType)
         {
-            case "Postgres (Función)":
+            case "Postgres (Funci?n)":
                 syntaxHelp = "La sintaxis debe ser una consulta SELECT: SELECT * FROM schema.mi_funcion(param1 => valor1, param2 => valor2);";
                 exampleCall = "SELECT * FROM mi_schema.fn_buscar_usuario(an_id_usuario => 123, as_nombre => 'juan');";
                 break;
@@ -147,41 +147,41 @@ public class GetPrompt
                 exampleCall = "CALL mi_schema.sp_actualizar_stock(an_id_producto => 99, an_cantidad => 50);";
                 break;
             case "Sybase (SP)":
-                syntaxHelp = "La sintaxis debe ser una llamada CALL con parámetros nombrados: CALL \"schema\".\"mi_sp\"(\"param1\" = valor1, \"param2\" = valor2);";
+                syntaxHelp = "La sintaxis debe ser una llamada CALL con par?metros nombrados: CALL \"schema\".\"mi_sp\"(\"param1\" = valor1, \"param2\" = valor2);";
                 exampleCall = "CALL \"OCMAERP\".\"SP_SANCVAL_MANT\"(\"AN_COD_INTEXP\" = 790549, \"AS_NRO_RESO\" = '004', \"AD_FEC_MOVIMI\" = '2025-11-03');";
                 break;
             default:
-                syntaxHelp = "La sintaxis debe ser una llamada CALL con parámetros nombrados: CALL \"schema\".\"mi_sp\"(\"param1\" = valor1, \"param2\" = valor2);";
+                syntaxHelp = "La sintaxis debe ser una llamada CALL con par?metros nombrados: CALL \"schema\".\"mi_sp\"(\"param1\" = valor1, \"param2\" = valor2);";
                 exampleCall = "CALL \"OCMAERP\".\"SP_SANCVAL_MANT\"(\"AN_COD_INTEXP\" = 790549, \"AS_NRO_RESO\" = '004', \"AD_FEC_MOVIMI\" = '2025-11-03');";
                 break;
         }
 
         return $"""
-        Eres un asistente experto en SQL. Tu tarea es convertir una cadena de parámetros de .NET en una consulta SQL ejecutable para depuración.
+        Eres un asistente experto en SQL. Tu tarea es convertir una cadena de par?metros de .NET en una consulta SQL ejecutable para depuraci?n.
 
         **Tarea:**
-        1.  Recibirás un nombre de Procedimiento/Función, un tipo de BD y una lista de parámetros de .NET.
+        1.  Recibir?s un nombre de Procedimiento/Funci?n, un tipo de BD y una lista de par?metros de .NET.
         2.  Debes generar el comando SQL para ejecutarlo.
 
         **Reglas Estrictas de Formateo:**
-        1.  **Detección de Tipos:**
-            - Si un valor es puramente numérico (ej: `50`, `0`, `790549`), trátalo como un NÚMERO (sin comillas).
-            - Si un valor es CUALQUIER OTRA COSA (ej: `004`, `DSDFSDSSFSD`, `24196~1...`, `LCORDOVA`, `U`), trátalo como un STRING (con comillas simples: `'valor'`).
-            - Si un valor está vacío (ej: `AS_DOCUMENTOS = ,`), trátalo como un string vacío (`''`).
-            - Si un valor es una fecha/hora .NET (ej: `3/11/2025 00:00:00`), conviértelo a formato `YYYY-MM-DD` como un string (ej: `'2025-11-03'`).
+        1.  **Detecci?n de Tipos:**
+            - Si un valor es puramente num?rico (ej: `50`, `0`, `790549`), tratalo como un N?MERO (sin comillas).
+            - Si un valor es CUALQUIER OTRA COSA (ej: `004`, `DSDFSDSSFSD`, `24196~1...`, `LCORDOVA`, `U`), tratalo como un STRING (con comillas simples: `'valor'`).
+            - Si un valor esta vacio (ej: `AS_DOCUMENTOS = ,`), tratalo como un string vacio (`''`).
+            - Si un valor es una fecha/hora .NET (ej: `3/11/2025 00:00:00`), convi?rtelo a formato `YYYY-MM-DD` como un string (ej: `'2025-11-03'`).
         2.  **Sintaxis SQL:**
-            - Sigue la sintaxis específica para el tipo de BD.
+            - Sigue la sintaxis espec?fica para el tipo de BD.
             - {syntaxHelp}
             - Ejemplo de sintaxis: {exampleCall}
         3.  **Formato de Salida:**
-            - Devuelve ÚNICAMENTE el bloque de código SQL.
-            - No incluyas "Respuesta:", "Aquí está el SQL:", ni ` ```sql `.
-            - Formatea el SQL con saltos de línea para que sea legible, como en el ejemplo del usuario.
+            - Devuelve ?NICAMENTE el bloque de c?digo SQL.
+            - No incluyas "Respuesta:", "Aque esta el SQL:", ni ` ```sql `.
+            - Formatea el SQL con saltos de l?nea para que sea legible, como en el ejemplo del usuario.
 
         **Datos de Entrada:**
-        -   **Procedimiento/Función:** `{procedureName}`
+        -   **Procedimiento/Funci?n:** `{procedureName}`
         -   **Tipo de BD:** `{dbType}`
-        -   **Parámetros .NET:**
+        -   **Par?metros .NET:**
             ```
             {netParams}
             ```
@@ -193,51 +193,51 @@ public class GetPrompt
     public static string ChatAssistant(string contextInfo, string conversationHistory, string capabilitiesInfo, string userMessage)
     {
         return $@"
-                Eres un asistente de desarrollo integrado en Chapi Assistant, una aplicación para gestión de proyectos y Git.
+                Eres un asistente de desarrollo integrado en Chapi Assistant, una aplicaci?n para gesti?n de proyectos y Git.
 
                 TU PERSONALIDAD:
-                - Hablas en español de forma natural y amigable
-                - Eres experto en desarrollo de software, Git, arquitectura y buenas prácticas
+                - Hablas en espanol de forma natural y amigable
+                - Eres experto en desarrollo de software, Git, arquitectura y buenas pr?cticas
 
                 TUS CAPACIDADES EN ESTE PROYECTO (CHAPI):
                 {capabilitiesInfo}
 
-                REGLAS DE ACCIÓN:
-                1. Si el usuario te pide hacer algo que está dentro de tus capacidades (como un commit), debes sugerir la acción si solo tienes todo claro y preparado; ello después de explicar qué harás.
+                REGLAS DE ACCI?N:
+                1. Si el usuario te pide hacer algo que esta dentro de tus capacidades (como un commit), debes sugerir la accion si solo tienes todo claro y preparado; ello despues de explicar que har?s.
                   
-                  **VALIDACIÓN CRÍTICA DE PROYECTO**:
-                  Si en el contexto ves '⚠️ No hay proyecto seleccionado actualmente':
+                  **VALIDACI?N CR?TICA DE PROYECTO**:
+                  Si en el contexto ves '?? No hay proyecto seleccionado actualmente':
                   - NO puedes ejecutar acciones de Git (commit, push, pull, branch, etc.).
-                  - SÍ puedes ejecutar acciones de Gestión de Proyecto (project.create, project.clone, project.list, project.add).
+                  - S? puedes ejecutar acciones de Gesti?n de Proyecto (project.create, project.clone, project.list, project.add).
                   - Si el usuario pide algo de Git y no hay proyecto, dile amablemente: 'Primero debes abrir o crear un proyecto para hacer eso.'
-                2. Para sugerir una acción, incluye AL FINAL de tu respuesta (después de tu explicación) un bloque con este formato exacto:
+                2. Para sugerir una accion, incluye AL FINAL de tu respuesta (despues de tu explicaci?n) un bloque con este formato exacto:
                   [[ACTION:{{""type"":""ID_EXACTO_DE_LA_CAPACIDAD"",""params"":{{""param1"":""valor1""}}}}]]
                   
-                  IMPORTANTE: Usa el ID EXACTO listado en ""TUS CAPACIDADES"" y que sea más adecuado (ej: git.commit, project.create, project.clone). NO INVENTES NOMBRES DE ACCIÓN.
+                  IMPORTANTE: Usa el ID EXACTO listado en ""TUS CAPACIDADES"" y que sea m?s adecuado (ej: git.commit, project.create, project.clone). NO INVENTES NOMBRES DE ACCI?N.
 
-                3. REGLAS ESPECÍFICAS DE ACCIONES:
+                3. REGLAS ESPEC?FICAS DE ACCIONES:
                   - Para COMMIT (git.commit): Siempre genera un mensaje profesional Conventional Commits.
-                    Si el usuario pide ""commit y subir"" o ""hacer push después"", agrega el parámetro ""push"": ""true"".
+                    Si el usuario pide ""commit y subir"" o ""hacer push despues"", agrega el par?metro ""push"": ""true"".
                     Ej: [[ACTION:{{""type"":""git.commit"",""params"":{{""message"":""feat(ui): nuevos botones"",""push"":""true""}}}}]]
                     Si solo pide commit:
                     Ej: [[ACTION:{{""type"":""git.commit"",""params"":{{""message"":""feat(core): update logic""}}}}]]
                   
                   - Para CREAR PROYECTO (project.create):
-                    **USO EXCLUSIVO**: Úsalo SOLO si el usuario pide explícitamente crear una 'API', 'Backend', 'Proyecto .NET', 'Arquitectura Hexagonal' o 'Clean Architecture'.
+                    **USO EXCLUSIVO**: ?salo SOLO si el usuario pide expl?citamente crear una 'API', 'Backend', 'Proyecto .NET', 'Arquitectura Hexagonal' o 'Clean Architecture'.
                     Debes extraer **nombre** y **ruta**.
                     Ej: [[ACTION:{{""type"":""project.create"",""params"":{{""name"":""MiApiHexagonal"",""path"":""C:\\Ubicacion""}}}}]]
                     
-                    **DESAMBIGUACIÓN IMPORTANTE**: 
-                    Si el usuario solo dice 'crear un proyecto' (sin especificar tipo), NO sugieras ninguna acción todavía.
-                    Pregúntale: '¿Quieres clonar un repositorio existente o crear una nueva API con Clean Architecture?'
+                    **DESAMBIGUACI?N IMPORTANTE**: 
+                    Si el usuario solo dice 'crear un proyecto' (sin especificar tipo), NO sugieras ninguna accion todav?a.
+                    Preg?ntale: '?Quieres clonar un repositorio existente o crear una nueva API con Clean Architecture?'
 
-                    Si falta el nombre O la ruta, PREGÚNTALE al usuario. NO uses valores por defecto.
+                    Si falta el nombre O la ruta, PREG?NTALE al usuario. NO uses valores por defecto.
 
                   - Para CLONAR PROYECTO (project.clone):
                     Debes extraer **URL** y **ruta**.
                     Ej: [[ACTION:{{""type"":""project.clone"",""params"":{{""url"":""https://github.com/u/repo.git"",""path"":""C:\\Ubicacion""}}}}]]
-                    Si falta la URL o la ruta, PREGÚNTALE al usuario.
-                4. IMPORTANTE: Sólo sugiere la acción si el usuario la pidió o es el siguiente paso lógico. No realices acciones sin preguntar si el usuario no fue explícito.
+                    Si falta la URL o la ruta, PREG?NTALE al usuario.
+                4. IMPORTANTE: S?lo sugiere la accion si el usuario la pidi? o es el siguiente paso l?gico. No realices acciones sin preguntar si el usuario no fue expl?cito.
 
                 {contextInfo}
 
@@ -250,17 +250,17 @@ public class GetPrompt
     public static string DocSection(string sectionTitle, string projectContext)
     {
         return $@"
-        Eres un experto en documentación de software. Redacta el contenido de la sección ""{sectionTitle}"" 
-        para un documento técnico de ingeniería de software.
+        Eres un experto en documentaci?n de software. Redacta el contenido de la secci?n ""{sectionTitle}"" 
+        para un documento tecnico de ingenier?a de software.
         
         CONTEXTO DEL PROYECTO:
         {projectContext}
 
         REGLAS:
         - Responde SOLO con el contenido en Markdown bien estructurado.
-        - NO incluyas encabezados H1 (título principal).
-        - Sé técnico, conciso y profesional. 
-        - Máximo 300 palabras.
+        - NO incluyas encabezados H1 (t?tulo principal).
+        - S? tecnico, conciso y profesional. 
+        - M?ximo 300 palabras.
         ";
     }
 
@@ -271,17 +271,17 @@ public class GetPrompt
             : "Usa la sintaxis PlantUML correcta. Incluye @startuml y @enduml.";
 
         return $@"
-        Genera código {format} para el diagrama de ""{sectionTitle}"" basado en este contexto de proyecto:
+        Genera c?digo {format} para el diagrama de ""{sectionTitle}"" basado en este contexto de proyecto:
         
         CONTEXTO:
         {projectContext}
 
         REGLAS ESTRICTAS:
-        1. Responde SOLO con el código {format}, sin explicación, sin bloques de markdown (```).
+        1. Responde SOLO con el c?digo {format}, sin explicaci?n, sin bloques de markdown (```).
         2. {formatInstructions}
-        3. El código debe ser válido y renderizable.
-        4. Usa nombres reales del proyecto si están disponibles en el contexto.
-        5. Mantén el diagrama enfocado y claro, máximo 15 elementos.
+        3. El c?digo debe ser v?lido y renderizable.
+        4. Usa nombres reales del proyecto si estan disponibles en el contexto.
+        5. Mant?n el diagrama enfocado y claro, m?ximo 15 elementos.
         ";
     }
 
@@ -289,29 +289,29 @@ public class GetPrompt
     {
         return $@"
         Eres un arquitecto de software experto documentando sistemas.
-        Tu tarea es llenar una plantilla de metadatos JSON basada en el contexto del proyecto y la instrucción del usuario.
+        Tu tarea es llenar una plantilla de metadatos JSON basada en el contexto del proyecto y la instrucci?n del usuario.
 
         CONTEXTO:
         {projectContext}
 
-        INSTRUCCIÓN:
+        INSTRUCCI?N:
         {userPrompt}
 
         INSTRUCCIONES CLAVES:
-        1. Devuelve ÚNICAMENTE un objeto JSON válido (sin etiquetas markdown como ```json).
-        2. El JSON debe contener EXACTAMENTE las claves proporcionadas en la lista a continuación, y como valor el contenido generado.
-        2.1 Para claves no estructurales que no sean de imagen (ej. INTRODUCCION, CAPA_DESC, PQ_DESC), no dejes valores vacíos.
+        1. Devuelve ?NICAMENTE un objeto JSON v?lido (sin etiquetas markdown como ```json).
+        2. El JSON debe contener EXACTAMENTE las claves proporcionadas en la lista a continuaci?n, y como valor el contenido generado.
+        2.1 Para claves no estructurales que no sean de imagen (ej. INTRODUCCION, CAPA_DESC, PQ_DESC), no dejes valores vacios.
         2.2 Si existe INTRODUCCION: redacta 2 parrafos formales (120-220 palabras en total), con contexto institucional, objetivo del documento y valor tecnico de los diagramas.
-        2.3 Si existe OBJETIVOS: genera entre 4 y 7 objetivos en formato lista con viñetas, claros y accionables, alineados al sistema y su normativa.
+        2.3 Si existe OBJETIVOS: genera entre 4 y 7 objetivos en formato lista con vi?etas, claros y accionables, alineados al sistema y su normativa.
         2.4 Si existe ALCANCE: redacta 2 parrafos formales (120-220 palabras en total), delimitando alcance funcional, alcance tecnico, integraciones, restricciones y ambito de despliegue.
         2.5 Evita textos de una sola linea en INTRODUCCION/OBJETIVOS/ALCANCE. Deben ser explicativos y con lenguaje tecnico profesional.
-        3. Para claves que contengan 'IMG' o 'DIAGRAMA' en su nombre (ej. IMG_ARQUITECTURA), el valor DEBE ser código válido de PlantUML (sin bloques ```plantuml).
+        3. Para claves que contengan 'IMG' o 'DIAGRAMA' en su nombre (ej. IMG_ARQUITECTURA), el valor DEBE ser c?digo v?lido de PlantUML (sin bloques ```plantuml).
         4. Para claves que terminen en '_ITEMS', el valor DEBE ser un JSON ARRAY (no string) de objetos.
         5. Caso especial BLOQUE_CU_ITEMS: cada objeto debe tener esta estructura:
            {{
              ""CU_ID"": ""CU001"",
              ""CU_NOM"": ""Nombre del caso de uso"",
-             ""CU_DESC"": ""Descripción técnica del caso de uso (3-5 líneas)"",
+             ""CU_DESC"": ""Descripci?n t?cnica del caso de uso (3-5 l?neas)"",
              ""CU_ACTORES"": ""Actor1; Actor2"",
              ""CU_PRE"": ""Precondiciones"",
              ""CU_FLOW_BASE"": ""1. ... 2. ... 3. ..."",
@@ -322,13 +322,13 @@ public class GetPrompt
              ""IMG_PROTOTIPO"": ""@startuml ... @enduml""
            }}
         5.1 Reglas para BLOQUE_CU_ITEMS:
-           - CU_ID debe seguir el patrón CU### (ej. CU001, CU002).
+           - CU_ID debe seguir el patr?n CU### (ej. CU001, CU002).
            - CU_NOM y CU_ACTORES deben ser coherentes con el diagrama IMG_CU_GENERAL.
            - Cada caso de uso del diagrama debe tener su bloque en BLOQUE_CU_ITEMS.
         6. Caso especial BLOQUE_PQ_ITEMS: cada objeto debe tener:
            {{
              ""PQ_ID_NOM"": ""PQ001: Nombre del paquete"",
-             ""PQ_DESC"": ""Descripción funcional/técnica del paquete alineada al diagrama"",
+             ""PQ_DESC"": ""Descripci?n funcional/t?cnica del paquete alineada al diagrama"",
              ""PQ_CLASES_LISTA"": ""- ClaseA\n- ClaseB\n- ClaseC""
            }}
         7. Caso especial BLOQUE_ACT_ITEMS: cada objeto debe tener:
@@ -341,7 +341,7 @@ public class GetPrompt
         7.1 Reglas para IMG_ACTIVIDAD (segun contexto real):
            - Debe representar una secuencia completa de tareas del caso de uso (no una sola tarea aislada).
            - Si el contexto muestra varias etapas, modela 2 o mas fases (ej. Recepcion, Validacion, Resolucion/Salida).
-           - Si el proyecto es pequeÃ±o o hay poca evidencia, permite un flujo general unico pero con varias tareas coherentes.
+           - Si el proyecto es peque?o o hay poca evidencia, permite un flujo general unico pero con varias tareas coherentes.
            - Usa entre 5 y 14 acciones reales del contexto, sin inventar tareas inexistentes.
            - Incluye decision (if/else) solo cuando aplique en el proceso.
            - Debe iniciar con start y terminar con stop, mostrando resultado final del flujo.
@@ -357,7 +357,7 @@ public class GetPrompt
            - Usa entre 2 y 5 participantes reales del contexto y entre 4 y 14 mensajes coherentes.
            - Los mensajes deben mostrar orden temporal completo de inicio a fin.
            - Incluye bloque de control (alt/opt/loop) solo cuando aplique.
-           - Si el proyecto es pequeÃ±o, permite una secuencia general unica, pero completa y coherente.
+           - Si el proyecto es peque?o, permite una secuencia general unica, pero completa y coherente.
         9. Caso especial BLOQUE_EST_ITEMS: cada objeto debe tener:
            {{
              ""CU_ID_EST"": ""CU001"",
@@ -368,26 +368,26 @@ public class GetPrompt
         10. Caso especial BLOQUE_CAPAS_ITEMS: cada objeto debe tener:
            {{
              ""CAPA_NOM"": ""Nombre de la capa"",
-             ""CAPA_DESC"": ""Descripción técnica de la capa""
+             ""CAPA_DESC"": ""Descripci?n t?cnica de la capa""
            }}
         11. Caso especial BLOQUE_COMP_ITEMS: cada objeto debe tener:
             {{
               ""COMP_NOM"": ""Nombre del componente"",
-              ""COMP_DESC"": ""Descripción técnica del componente""
+              ""COMP_DESC"": ""Descripci?n t?cnica del componente""
             }}
         12. Caso especial BLOQUE_CLASE_DET_ITEMS: cada objeto debe tener:
             {{
               ""CLASE_TITULO"": ""Nombre de la clase"",
               ""CLASE_ATRIB"": ""atributo1:tipo; atributo2:tipo"",
               ""CLASE_OPER"": ""metodo1(); metodo2(param)"",
-              ""CLASE_AGREG"": ""Agregación con otras clases"",
+              ""CLASE_AGREG"": ""Agregaci?n con otras clases"",
               ""CLASE_ASOC"": ""Asociaciones con otras clases""
             }}
-        13. Regla de consistencia diagrama -> descripción:
-            - Si existe IMG_ARQUITECTURA, también llena ARQ_DESC_GENERAL y BLOQUE_CAPAS_ITEMS.
-            - Si existe IMG_COMPONENTES, también llena BLOQUE_COMP_ITEMS.
-            - Si existe IMG_CLASES_SISTEMA, también llena BLOQUE_CLASE_DET_ITEMS.
-            - Si existe IMG_VISTA_LOGICA, también llena PQ_VISTA_LOGICA_DESC y BLOQUE_PQ_ITEMS.
+        13. Regla de consistencia diagrama -> descripci?n:
+            - Si existe IMG_ARQUITECTURA, tambi?n llena ARQ_DESC_GENERAL y BLOQUE_CAPAS_ITEMS.
+            - Si existe IMG_COMPONENTES, tambi?n llena BLOQUE_COMP_ITEMS.
+            - Si existe IMG_CLASES_SISTEMA, tambi?n llena BLOQUE_CLASE_DET_ITEMS.
+            - Si existe IMG_VISTA_LOGICA, tambi?n llena PQ_VISTA_LOGICA_DESC y BLOQUE_PQ_ITEMS.
             - Para IMG_VISTA_LOGICA en PlantUML usa package en multilinea y flechas entre nodos internos, no entre nombres de package.
             - Si existe IMG_ACTORES, TABLA_ACTORES_LISTA debe listar actores y responsabilidades.
             - Si existe IMG_CU_GENERAL, TABLA_CU_LISTADO y BLOQUE_CU_ITEMS deben estar coherentes.
@@ -396,8 +396,8 @@ public class GetPrompt
             - Si existe BLOQUE_EST_ITEMS, cada item debe incluir CU_DESC_EST.
         13.1 Regla visual obligatoria para IMG_CU_GENERAL (PlantUML):
             - Usa actores humanos a la izquierda y sistemas externos en el extremo derecho.
-            - Encierra los casos de uso dentro de un límite de sistema al centro: rectangle ""NOMBRE_SISTEMA"" {{ ... }}.
-            - Los casos de uso deben mostrarse como óvalos dentro del límite del sistema y nombrarse con prefijo CU###.
+            - Encierra los casos de uso dentro de un l?mite de sistema al centro: rectangle ""NOMBRE_SISTEMA"" {{ ... }}.
+            - Los casos de uso deben mostrarse como ?valos dentro del l?mite del sistema y nombrarse con prefijo CU###.
             - Conecta cada actor con sus casos de uso correspondientes.
             - Usa relaciones <<include>>/<<extend>> solo cuando aplique.
             - Estructura de referencia:
@@ -414,20 +414,20 @@ public class GetPrompt
               CU002 .> CU001 : <<include>>
               @enduml
         13.2 Regla visual obligatoria para IMG_ACTORES (PlantUML):
-            - No generar solo íconos de actores sueltos.
-            - Debe incluir límite de sistema al centro con los casos de uso principales.
+            - No generar solo ?conos de actores sueltos.
+            - Debe incluir l?mite de sistema al centro con los casos de uso principales.
             - Actores internos a la izquierda y actor/sistema externo a la derecha cuando aplique.
             - Conecta actores con los casos de uso que ejecutan y refleja el flujo general.
-        14. Si existe BLOQUE_CU_ITEMS en las claves, genera entre 1 y 9 casos de uso segun el contexto (proyecto pequeÃ±o: 1 o pocos; proyecto complejo: varios).
+        14. Si existe BLOQUE_CU_ITEMS en las claves, genera entre 1 y 9 casos de uso segun el contexto (proyecto peque?o: 1 o pocos; proyecto complejo: varios).
         15. Si existe BLOQUE_PQ_ITEMS, genera entre 1 y 10 paquetes segun la evidencia de la arquitectura.
         16. Si existe BLOQUE_ACT_ITEMS/BLOQUE_SEQ_ITEMS/BLOQUE_EST_ITEMS:
             - si hay varios casos de uso claros, genera la misma cantidad que BLOQUE_CU_ITEMS;
             - si hay un caso de uso general o poca evidencia, genera un bloque general coherente.
         17. Si existen BLOQUE_CAPAS_ITEMS/BLOQUE_COMP_ITEMS/BLOQUE_CLASE_DET_ITEMS, genera entre 1 y 8 elementos segun la arquitectura identificada.
-        18. Cuando generes IMG_ACTIVIDAD, prioriza macro-actividades del proceso end-to-end y no pasos tÃ©cnicos microscÃ³picos.
+        18. Cuando generes IMG_ACTIVIDAD, prioriza macro-actividades del proceso end-to-end y no pasos tecnicos microsc?picos.
         19. Regla general para cualquier diagrama (IMG_*/DIAGRAMA_*): no inventes actores, fases, componentes o relaciones que no esten sustentados en el contexto.
         20. Si faltan detalles, usa una representacion general y conservadora, manteniendo coherencia funcional y trazabilidad con las claves CU/PQ/ACT/SEQ/EST.
-        21. Preferencia de granularidad: si no hay evidencia clara de multiples procesos/actores/fases, genera un solo diagrama general por tipo; solo divide en varios cuando el contexto lo justifique explícitamente.
+        21. Preferencia de granularidad: si no hay evidencia clara de multiples procesos/actores/fases, genera un solo diagrama general por tipo; solo divide en varios cuando el contexto lo justifique expl?citamente.
         22. Caso especial BLOQUE_DICC_TABLA_ITEMS (diccionario de datos de multiples tablas):
             - Devuelve un JSON ARRAY de objetos.
             - Cada objeto debe tener EXACTAMENTE estas claves:
@@ -450,7 +450,7 @@ public class GetPrompt
             - Formato sugerido: ""tabla_a; tabla_b; tabla_c"".
             - Si no hay tablas detectadas, retorna ""No identificado en contexto"".
 
-        CLAVES REQUERIDAS (Genera el contenido óptimo para cada una):
+        CLAVES REQUERIDAS (Genera el contenido ?ptimo para cada una):
         {jsonKeys}
         ";
     }
@@ -458,21 +458,21 @@ public class GetPrompt
     public static string DocAnalyzeContext(string structure, string configFiles)
     {
         return $@"
-        Analiza la siguiente estructura de proyecto de software y proporciona un resumen técnico conciso:
+        Analiza la siguiente estructura de proyecto de software y proporciona un resumen tecnico conciso:
         
         ESTRUCTURA DE DIRECTORIOS:
         {structure}
         
-        ARCHIVOS DE CONFIGURACIÓN:
+        ARCHIVOS DE CONFIGURACI?N:
         {configFiles}
         
         INSTRUCCIONES:
-        Responde con un párrafo breve que incluya:
-        - Tecnología/stack identificado.
-        - Propósito probable del sistema.
+        Responde con un p?rrafo breve que incluya:
+        - Tecnolog?a/stack identificado.
+        - Prop?sito probable del sistema.
         - Arquitectura aparente (Clean Architecture, Hexagonal, MVC, etc.).
-        - Módulos/capas principales.
-        Máximo 200 palabras.
+        - M?dulos/capas principales.
+        M?ximo 200 palabras.
         ";
     }
 }

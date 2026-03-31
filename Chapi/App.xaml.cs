@@ -1,18 +1,13 @@
-﻿
 using Chapi.Domain.Interfaces;
+using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
-using Chapi.Presentation.Alerts.Service;
-using Chapi.Presentation.Alerts.ViewModels;
+using Chapi.Presentation.Shared.Notifications.Services;
+using Chapi.Startup;
+using Chapi.Startup.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using System.Diagnostics;
-using System.IO;
-using System.Runtime.InteropServices;
 using System.Windows;
 using Velopack;
-using UseCases = Chapi.Application.UseCases.Git;
-
-
 
 namespace Chapi
 {
@@ -23,415 +18,88 @@ namespace Chapi
     {
         private const string AppMutexName = "ChapiAssistan-7E8F4A2B-1D6C-4B8A-9A8C-5D6B7E9F0A3D";
         private const string AppSettingsFileName = "appsettings.json";
-        private static Mutex _mutex;
+        private const string RestoreWindowMessageName = "CHAPI_RESTORE_WINDOW_MSG";
+        private const string MainWindowTitle = "Chapi Assistance";
 
-        // 2. Importamos las funciones de Windows API para "despertar" la ventana
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
+        private SingleInstanceManager? _singleInstanceManager;
+        private ExceptionHandling? _exceptionHandling;
 
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
-
-        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        private static extern uint RegisterWindowMessage(string lpString);
-
-        [DllImport("user32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, ref COPYDATASTRUCT lParam);
-
-        private const int SW_RESTORE = 9;
-        private const int WM_COPYDATA = 0x004A;
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct COPYDATASTRUCT
-        {
-            public IntPtr dwData;
-            public int cbData;
-            [MarshalAs(UnmanagedType.LPStr)]
-            public string lpData;
-        }
-
-        private static uint _restoreMessage;
         public static string GlobalDialogIdentifier => "RootDialog";
-        public static TrayIconManager TrayIconManager { get; private set; }
-        public static IConfiguration Configuration { get; private set; }
-
-        public static NetworkWatcherService NetworkWatcher { get; private set; }
-
-        // Dependency Injection
-        public static IServiceProvider ServiceProvider { get; private set; }
-
-        private static void ConfigureServices()
-        {
-            var services = new ServiceCollection();
-
-            // Infrastructure - Git
-            // Motor CLI (git.exe) único: mismo modelo que GitHub Desktop con dugite
-            services.AddSingleton<IGitRepository, Chapi.Infrastructure.Git.GitCliRepository>();
-
-            // Configuración Auth
-            services.Configure<Chapi.Infrastructure.Configuration.GitAuthConfig>(Configuration.GetSection("GitAuth"));
-
-            // Infrastructure - Auth Services
-            services.AddSingleton<ICredentialStorageService, WindowsCredentialStorageService>();
-            services.AddSingleton<System.Net.Http.HttpClient>();
-            services.AddSingleton<Chapi.Infrastructure.Services.Auth.GitHubOAuthProvider>();
-            services.AddSingleton<Chapi.Infrastructure.Services.Auth.GitLabOAuthProvider>();
-            services.AddSingleton<IGitAuthProviderFactory, Chapi.Infrastructure.Services.Auth.GitAuthProviderFactory>();
-
-            // Infrastructure - Services
-            services.AddSingleton<IAlertService, AlertService>();
-            services.AddSingleton<INotificationService, MessageNotificationService>();
-            services.AddSingleton<IModuleGeneratorService, ModuleGeneratorService>();
-            services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
-            services.AddSingleton<IAssistantCapabilityRegistry, Chapi.Application.Services.Assistant.AssistantCapabilityRegistry>();
-            services.AddSingleton<NotificationHostViewModel>();
-
-            // AI Services (Microsoft.Extensions.AI)
-            // AI Services (Microsoft.Extensions.AI)
-            services.AddTransient<Microsoft.Extensions.AI.IChatClient>(sp =>
-            {
-                var settings = Chapi.Infrastructure.Persistence.Settings.UserSettingsService.LoadSettings();
-                var preferred = (settings.PreferredAiProvider ?? string.Empty).Trim();
-
-                // 1) Si el usuario definió proveedor preferido, respetarlo estrictamente.
-                if (preferred.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
-                        throw new InvalidOperationException("Proveedor IA = OpenAI, pero falta OpenAI API Key en Configuración > IA.");
-                    return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
-                }
-
-                if (preferred.Equals("Claude", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
-                        throw new InvalidOperationException("Proveedor IA = Claude, pero falta Claude API Key en Configuración > IA.");
-                    return new Chapi.Infrastructure.AI.ClaudeChatClient(settings.ClaudeApiKey);
-                }
-
-                if (preferred.Equals("Gemini", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (string.IsNullOrWhiteSpace(settings.GeminiApiKey))
-                        throw new InvalidOperationException("Proveedor IA = Gemini, pero falta Gemini API Key en Configuración > IA.");
-                    return new Chapi.Infrastructure.AI.GeminiChatClient(settings.GeminiApiKey);
-                }
-
-                if (!string.IsNullOrWhiteSpace(preferred))
-                {
-                    throw new InvalidOperationException($"Proveedor IA desconocido: '{preferred}'. Usa Gemini, OpenAI o Claude.");
-                }
-
-                // 2) Fallback solo si no se eligió preferido.
-                if (!string.IsNullOrWhiteSpace(settings.OpenAiApiKey))
-                    return new Chapi.Infrastructure.AI.OpenAiChatClient(settings.OpenAiApiKey);
-
-                if (!string.IsNullOrWhiteSpace(settings.GeminiApiKey))
-                    return new Chapi.Infrastructure.AI.GeminiChatClient(settings.GeminiApiKey);
-
-                if (!string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
-                    return new Chapi.Infrastructure.AI.ClaudeChatClient(settings.ClaudeApiKey);
-
-                throw new InvalidOperationException("No se ha configurado ningún proveedor de IA (Gemini, OpenAI o Claude). Por favor ve a Configuración > IA.");
-            });
-
-            // Application - Use Cases
-            services.AddTransient<UseCases.CommitChangesUseCase>();
-            services.AddTransient<UseCases.LoadChangesUseCase>();
-            services.AddTransient<UseCases.LoadHistoryUseCase>();
-            services.AddTransient<UseCases.LoadReleasesUseCase>();
-            services.AddTransient<UseCases.PushChangesUseCase>();
-            services.AddTransient<UseCases.PullChangesUseCase>();
-            services.AddTransient<UseCases.FetchChangesUseCase>();
-            services.AddTransient<UseCases.SwitchBranchUseCase>();
-            services.AddTransient<UseCases.GetBranchesUseCase>();
-            services.AddTransient<UseCases.StashChangesUseCase>();
-            services.AddTransient<UseCases.StashPopUseCase>();
-            services.AddTransient<UseCases.StashClearUseCase>();
-            services.AddTransient<UseCases.StashDropUseCase>();
-            services.AddTransient<UseCases.DiscardChangesUseCase>();
-            services.AddTransient<UseCases.ResetCommitUseCase>();
-            services.AddTransient<UseCases.CreateBranchUseCase>();
-            services.AddTransient<UseCases.CreateTagUseCase>();
-            services.AddTransient<UseCases.GetFilesChangedInCommitUseCase>();
-            services.AddTransient<UseCases.GetFileDiffUseCase>();
-            services.AddTransient<UseCases.AssociateGitUseCase>();
-            services.AddTransient<UseCases.DeleteTagUseCase>();
-            services.AddTransient<UseCases.GetCommitStatsUseCase>();
-            services.AddTransient<UseCases.GetConflictsUseCase>();
-            services.AddTransient<UseCases.ResolveConflictUseCase>();
-
-            // Application - Project Use Cases
-            services.AddTransient<Chapi.Application.UseCases.Projects.AddProjectUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.Projects.LoadProjectsUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.Projects.RemoveProjectUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.Projects.SwitchProjectUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.Projects.CreateProjectUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.Projects.UpdateProjectIndicatorsUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.Projects.CloneProjectUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.Projects.DeployProjectReleaseUseCase>();
-
-            // Application - Code Generation Use Cases
-            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.GenerateModuleUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.GenerateModuleStructureUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddApiControllerUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddApiEndpointUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddApplicationMethodUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddDependencyInjectionUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddDomainMethodUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.CodeGeneration.AddInfrastructureMethodUseCase>();
-
-            // Application - AI Use Cases
-            services.AddTransient<Chapi.Application.UseCases.AI.GenerateCommitMessageUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.AI.SendChatMessageUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.AI.GenerateSqlQueryUseCase>();
-
-            // Core Assistant Services (Singleton para mantener estado en la sesión)
-            services.AddSingleton<Chapi.Application.Services.Assistant.GeminiChatService>();
-            services.AddSingleton<Chapi.Application.Services.Assistant.ConversationManager>();
-
-            // Application - Auth
-            services.AddTransient<Chapi.Application.UseCases.Auth.LoginGitHubUseCase>();
-
-            // Infrastructure - Template Service
-            services.AddSingleton<ITemplateService, ProjectTemplateService>();
-            services.AddSingleton<IProjectRepository, Chapi.Infrastructure.Persistence.Settings.ProjectSettingsRepository>();
-
-            // Infrastructure - Workspace
-            services.AddSingleton<Chapi.Application.Interfaces.Workspace.IWorkspaceService, Chapi.Infrastructure.Services.WorkspaceService>();
-
-            // Presentation - ViewModels
-            services.AddSingleton<Presentation.ViewModels.ChangesViewModel>();
-            services.AddSingleton<Presentation.ViewModels.HistoryViewModel>();
-            services.AddSingleton<Presentation.ViewModels.AssistantViewModel>();
-            services.AddSingleton<Presentation.ViewModels.ReleasesViewModel>();
-            services.AddSingleton<Presentation.ViewModels.WorkspaceViewModel>();
-            services.AddTransient<Presentation.ViewModels.LoginGitHubViewModel>();
-            services.AddTransient<Presentation.ViewModels.GitProviderSelectionViewModel>();
-            services.AddSingleton<Presentation.ViewModels.CloneRepositoryViewModel>();
-
-            // ─── Documentation Module ────────────────────────────────────────────────
-            // HttpClient ya está registrado arriba como Singleton (línea ~81), no duplicar
-            services.AddSingleton<Chapi.Application.Interfaces.IKrokiDiagramService,
-                Chapi.Infrastructure.Documentation.KrokiDiagramService>();
-            services.AddSingleton<Chapi.Application.Interfaces.IDocumentPersistenceService,
-                Chapi.Infrastructure.Documentation.AppDataDocPersistenceService>();
-            services.AddSingleton<Chapi.Application.Interfaces.IDocumentExportService,
-                Chapi.Infrastructure.Documentation.OpenXmlExportService>();
-            services.AddSingleton<Chapi.Application.Interfaces.IDocSynthesizerService,
-                Chapi.Infrastructure.Documentation.GeminiDocSynthesizer>();
-
-            // Application - Documentation Use Cases
-            services.AddTransient<Chapi.Application.UseCases.Documentation.ApplyTemplateUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.Documentation.ExportDocumentUseCase>();
-
-            // Application - AI Use Cases
-            services.AddTransient<Chapi.Application.UseCases.AI.GenerateDocumentSectionUseCase>();
-            services.AddTransient<Chapi.Application.UseCases.AI.GenerateAllDocumentSectionsUseCase>();
-
-            services.AddSingleton<Presentation.ViewModels.DocumentationViewModel>();
-
-            ServiceProvider = services.BuildServiceProvider();
-        }
-
-        private static string EnsureAppSettingsFile()
-        {
-            var appDataDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Chapi");
-
-            Directory.CreateDirectory(appDataDirectory);
-
-            var appDataConfigPath = Path.Combine(appDataDirectory, AppSettingsFileName);
-            if (File.Exists(appDataConfigPath))
-                return appDataConfigPath;
-
-            var bundledConfigPath = Path.Combine(AppContext.BaseDirectory, AppSettingsFileName);
-            if (!File.Exists(bundledConfigPath))
-                throw new FileNotFoundException(
-                    $"No se encontró '{AppSettingsFileName}' ni en AppData ni en la carpeta de instalación.",
-                    bundledConfigPath);
-
-            File.Copy(bundledConfigPath, appDataConfigPath, overwrite: false);
-            return appDataConfigPath;
-        }
-
+        public static TrayIconManager TrayIconManager { get; private set; } = null!;
+        public static IConfiguration Configuration { get; private set; } = null!;
+        public static NetworkWatcherService NetworkWatcher { get; private set; } = null!;
+        public static IServiceProvider ServiceProvider { get; private set; } = null!;
 
         [STAThread]
         private static void Main(string[] args)
         {
-            // IMPORTANTE: AutoApply=false para evitar que Velopack marque la sesión como
-            // "restarted=True". Ese flag hace que `ApplyUpdatesAndRestart` falle con
-            // "Pre-condition failed" y la actualización manual nunca se aplique.
-            // La actualización se controla manualmente desde ServiceView.
             VelopackApp.Build()
                 .SetAutoApplyOnStartup(false)
                 .Run();
-            App app = new();
+
+            var app = new App();
             app.InitializeComponent();
             app.Run();
         }
+
         protected override void OnStartup(StartupEventArgs e)
         {
-            _restoreMessage = RegisterWindowMessage("CHAPI_RESTORE_WINDOW_MSG");
-            _mutex = new Mutex(true, AppMutexName, out bool isNewInstance);
-            if (!isNewInstance)
+            _singleInstanceManager = new SingleInstanceManager(
+                AppMutexName,
+                MainWindowTitle,
+                RestoreWindowMessageName);
+
+            if (_singleInstanceManager.TryRedirectToExistingInstance(Environment.GetCommandLineArgs().Skip(1).ToArray()))
             {
-                var currentProcess = Process.GetCurrentProcess();
-                var otherProcess = Process.GetProcessesByName(currentProcess.ProcessName)
-                    .FirstOrDefault(p => p.Id != currentProcess.Id);
-
-                IntPtr hWnd = IntPtr.Zero;
-                if (otherProcess != null)
-                {
-                    hWnd = otherProcess.MainWindowHandle;
-                }
-
-                if (hWnd == IntPtr.Zero)
-                {
-                    hWnd = FindWindow(null, "Chapi Assistance");
-                }
-
-                if (hWnd != IntPtr.Zero)
-                {
-                    // Si hay argumentos (ej: abrir archivo), los enviamos vía WM_COPYDATA
-                    string args = string.Join(" ", Environment.GetCommandLineArgs().Skip(1));
-                    if (!string.IsNullOrEmpty(args))
-                    {
-                        byte[] s_Data = System.Text.Encoding.Default.GetBytes(args);
-                        COPYDATASTRUCT cds;
-                        cds.dwData = (IntPtr)100; // ID personalizado
-                        cds.cbData = s_Data.Length + 1;
-                        cds.lpData = args;
-
-                        SendMessage(hWnd, WM_COPYDATA, IntPtr.Zero, ref cds);
-                    }
-
-                    PostMessage(hWnd, _restoreMessage, IntPtr.Zero, IntPtr.Zero);
-                }
-
                 Shutdown();
                 return;
             }
+
             base.OnStartup(e);
 
-            var uiSettings = Chapi.Infrastructure.Persistence.Settings.UserSettingsService.LoadSettings();
+            var uiSettings = UserSettingsService.LoadSettings();
             ThemeService.ApplyTheme(uiSettings.ThemeMode);
 
-            var appSettingsPath = EnsureAppSettingsFile();
-            var builder = new ConfigurationBuilder()
-               .SetBasePath(Path.GetDirectoryName(appSettingsPath)!)
-               .AddJsonFile(Path.GetFileName(appSettingsPath), optional: false, reloadOnChange: true);
+            Configuration = AppConfigurationLoader.Load(AppSettingsFileName);
+            ServiceProvider = new ServiceCollection()
+                .AddChapiServices(Configuration)
+                .BuildServiceProvider();
 
-            Configuration = builder.Build();
-
-            // Configurar Dependency Injection
-            ConfigureServices();
             AppServices.Configure(ServiceProvider.GetRequiredService<IAlertService>());
 
-            // Init NetworkWatcher with DI
             var gitRepo = ServiceProvider.GetRequiredService<IGitRepository>();
             NetworkWatcher = new NetworkWatcherService(gitRepo);
 
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            MainWindow = new MainWindow();
 
-            // Hook para escuchar el mensaje de restauracion
-            MainWindow.Loaded += (s, ev) =>
-            {
-                var source = System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(MainWindow).Handle);
-                source.AddHook(HandleMessages);
-            };
+            var mainWindow = new MainWindow();
+            MainWindow = mainWindow;
 
-            TrayIconManager = new TrayIconManager((MainWindow)MainWindow);
-            MainWindow.Show();
-            ConfigureExceptionHandling();
+            _singleInstanceManager.AttachToWindow(mainWindow, mainWindow.ProcessExternalArguments);
+
+            TrayIconManager = new TrayIconManager(mainWindow);
+
+            _exceptionHandling = new ExceptionHandling(this);
+            _exceptionHandling.Register();
+
+            mainWindow.Show();
         }
 
-        private IntPtr HandleMessages(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-        {
-            if (msg == _restoreMessage)
-            {
-                MainWindow.Show();
-                MainWindow.WindowState = WindowState.Normal;
-                MainWindow.Activate();
-                handled = true;
-            }
-            else if (msg == WM_COPYDATA)
-            {
-                COPYDATASTRUCT cds = (COPYDATASTRUCT)Marshal.PtrToStructure(lParam, typeof(COPYDATASTRUCT));
-                if (cds.lpData != null)
-                {
-                    string args = cds.lpData;
-                    // Notificamos a la ventana principal para que procese los nuevos argumentos
-                    if (MainWindow is MainWindow mw)
-                    {
-                        mw.ProcessExternalArguments(args);
-                    }
-                }
-                handled = true;
-            }
-            return IntPtr.Zero;
-        }
-
-        private void ConfigureExceptionHandling()
-        {
-            DispatcherUnhandledException += App_DispatcherUnhandledException;
-            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-            TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
-        }
-
-        private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
-        {
-            ShowAlert(e.Exception);
-            e.Handled = true;
-        }
-
-        private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
-        {
-            ShowAlert(e.ExceptionObject as Exception);
-        }
-
-        private void TaskScheduler_UnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
-        {
-            ShowAlert(e.Exception);
-            e.SetObserved();
-        }
-
-        private void ShowAlert(Exception ex)
-        {
-            if (ex == null) return;
-            Current.Dispatcher.Invoke(async () =>
-            {
-                await DialogService.ShowConfirmDialog("Error", ex.Message, Chapi.Presentation.Views.Dialogs.DialogVariant.Error, Chapi.Presentation.Views.Dialogs.DialogType.Info);
-
-            });
-        }
         public static void ReleaseMutex()
         {
-            try { _mutex?.ReleaseMutex(); } catch { }
-            try { _mutex?.Dispose(); } catch { }
-            _mutex = null;
+            if (Current is App app)
+            {
+                app._singleInstanceManager?.Release();
+            }
         }
 
         protected override void OnExit(ExitEventArgs e)
         {
             TrayIconManager?.Dispose();
             NetworkWatcher?.Dispose();
-            ReleaseMutex();
+            _exceptionHandling?.Dispose();
+            _singleInstanceManager?.Dispose();
             base.OnExit(e);
         }
     }
-
 }
-
-
-
-

@@ -2,6 +2,7 @@ using Chapi.Application.UseCases.Git;
 using Chapi.Application.UseCases.Projects;
 using Chapi.Domain.Interfaces; 
 using Chapi.Domain.Models;
+using Chapi.Presentation.Shared.Dialogs;
 using Chapi.Presentation.Views.Dialogs;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -161,7 +162,7 @@ public class ReleasesViewModel : ViewModelBase
 
         // 1. Mostrar Diálogo de Configuración
         var (confirmed, tagName, message, isRemote, isLocal, buildAppName, buildPackageId, buildAuthor, localPath, ftpUrl, ftpUser, ftpPass, iconPath, splashPath) =
-            await Infrastructure.Services.DialogService.ShowCreateReleaseDialog(defaultAppName, defaultPackageId, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser, defaultIconPath, defaultSplashPath);
+            await DialogService.ShowCreateReleaseDialog(defaultAppName, defaultPackageId, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser, defaultIconPath, defaultSplashPath);
 
         if (!confirmed || string.IsNullOrWhiteSpace(tagName)) return;
 
@@ -290,7 +291,7 @@ public class ReleasesViewModel : ViewModelBase
 
         if (string.IsNullOrEmpty(tagName) || string.IsNullOrEmpty(ProjectPath)) return;
 
-        var confirm = await Infrastructure.Services.DialogService.ShowConfirmDialog("Eliminar Tag", $"¿Estas seguro de eliminar el tag '{tagName}'?", DialogVariant.Warning, DialogType.Confirm);
+        var confirm = await DialogService.ShowConfirmDialog("Eliminar Tag", $"¿Estas seguro de eliminar el tag '{tagName}'?", DialogVariant.Warning, DialogType.Confirm);
         if (!confirm) return;
 
         var result = await _deleteTagUseCase.ExecuteAsync(ProjectPath, tagName);
@@ -350,7 +351,7 @@ public class ReleasesViewModel : ViewModelBase
     {
         if (SelectedRelease == null || string.IsNullOrEmpty(ProjectPath)) return;
 
-        var confirm = await Infrastructure.Services.DialogService.ShowConfirmDialog(
+        var confirm = await DialogService.ShowConfirmDialog(
             "Despliegue Local",
             $"¿Generar build y desplegar versión '{SelectedRelease.TagName}'?",
             DialogVariant.Info,

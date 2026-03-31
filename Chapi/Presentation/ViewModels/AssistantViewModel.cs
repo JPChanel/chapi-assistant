@@ -4,8 +4,8 @@ using Chapi.Domain.Entities.Assistant;
 using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
 using Chapi.Infrastructure.Services;
-using Chapi.Presentation.Alerts.Models;
-using Chapi.Presentation.Alerts.Service;
+using Chapi.Presentation.Shared.Notifications.Models;
+using Chapi.Presentation.Shared.Notifications.Services;
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.ObjectModel;
 using System.Windows.Data;
@@ -53,7 +53,7 @@ public class AssistantViewModel : ViewModelBase
         _capabilityRegistry = capabilityRegistry;
         _alertService = alertService;
 
-        // Habilitar sincronización para que la colección pueda ser modificada desde hilos secundarios
+        // Habilitar sincronizacion para que la coleccion pueda ser modificada desde hilos secundarios
         BindingOperations.EnableCollectionSynchronization(Messages, _messagesLock);
 
         SendMessageCommand = new AsyncRelayCommand(async _ => await SendMessageAsync(), _ => CanSendMessage());
@@ -90,13 +90,13 @@ public class AssistantViewModel : ViewModelBase
     private void AddWelcomeMessage()
     {
         AddAssistantMessage(
-            "👋 ¡Hola! Soy tu asistente de desarrollo.\n\n" +
-            "Estoy aquí para ayudarte con:\n" +
-            "🔎 Explicar la arquitectura de tu proyecto\n" +
-            "📝 Analizar commits y cambios recientes\n" +
-            "🌿 Resolver dudas sobre Git y control de versiones\n" +
-            "🤖 Ejecutar operaciones del asistente Chapi\n\n" +
-            "Cuéntame, ¿qué necesitas hacer hoy? 🚀",
+            "Hola. Soy tu asistente de desarrollo.\n\n" +
+            "Estoy aqui para ayudarte con:\n" +
+            "- Explicar la arquitectura de tu proyecto\n" +
+            "- Analizar commits y cambios recientes\n" +
+            "- Resolver dudas sobre Git y control de versiones\n" +
+            "- Ejecutar operaciones del asistente Chapi\n\n" +
+            "Cuentame, que necesitas hacer hoy?",
             showAlert: false);
     }
 
@@ -122,7 +122,7 @@ public class AssistantViewModel : ViewModelBase
             if (projectContext != null)
             {
                 AddAssistantMessage(
-                    $"📁 Proyecto actualizado: **{projectContext.Name}**\n🔧 Tecnología: {projectContext.Technology}",
+                    $"Proyecto actualizado: **{projectContext.Name}**\nTecnologia: {projectContext.Technology}",
                     showAlert: true,
                     variant: AlertVariant.Info,
                     title: "Proyecto");
@@ -139,7 +139,7 @@ public class AssistantViewModel : ViewModelBase
         {
             // NOTA: Se comentan estos refrescos redundantes.
             // MainWindow ya se encarga de actualizar los ViewModels al cambiar de proyecto.
-            // Forzar el refresco aquí causa bucles de I/O innecesarios con el FileSystemWatcher.
+            // Forzar el refresco aqui causa bucles de I/O innecesarios con el FileSystemWatcher.
 
             /*
             var historyVM = App.ServiceProvider.GetService<HistoryViewModel>();
@@ -234,13 +234,13 @@ public class AssistantViewModel : ViewModelBase
                 {
                     if (assistantMessage != null)
                     {
-                        assistantMessage.Text += $"\n\n⚠️ Error: {result.Error}";
+                        assistantMessage.Text += $"\n\nError: {result.Error}";
                     }
                     else
                     {
                         Messages.Add(new ChatMessage
                         {
-                            Text = $"⚠️ Error: {result.Error ?? "Desconocido"}",
+                            Text = $"Error: {result.Error ?? "Desconocido"}",
                             Author = MessageAuthor.Assistant,
                             Timestamp = DateTime.Now
                         });
@@ -260,7 +260,7 @@ public class AssistantViewModel : ViewModelBase
         catch (Exception ex)
         {
             AddAssistantMessage(
-                $"❌ Ocurrió un error inesperado: {ex.Message}",
+                $"Ocurrio un error inesperado: {ex.Message}",
                 showAlert: true,
                 variant: AlertVariant.Error,
                 title: "Asistente");
@@ -299,7 +299,7 @@ public class AssistantViewModel : ViewModelBase
             if (useCase == null)
             {
                 AddAssistantMessage(
-                    $"❌ Error: No se pudo encontrar el motor para la acción '{capability.Name}'.",
+                    $"Error: No se pudo encontrar el motor para la accion '{capability.Name}'.",
                     showAlert: true,
                     variant: AlertVariant.Error,
                     title: capability.Name);
@@ -314,7 +314,7 @@ public class AssistantViewModel : ViewModelBase
         catch (Exception ex)
         {
             AddAssistantMessage(
-                $"❌ Error al ejecutar {capability.Name}: {ex.Message}",
+                $"Error al ejecutar {capability.Name}: {ex.Message}",
                 showAlert: true,
                 variant: AlertVariant.Error,
                 title: capability.Name);
@@ -355,7 +355,7 @@ public class AssistantViewModel : ViewModelBase
 
                 if (cResult.IsSuccess && shouldPush)
                 {
-                    AddAssistantMessage("🚀 Iniciando push automático...", showAlert: true, variant: AlertVariant.Info, title: capability.Name);
+                    AddAssistantMessage("Iniciando push automatico...", showAlert: true, variant: AlertVariant.Info, title: capability.Name);
 
                     var pushUC = App.ServiceProvider.GetService(typeof(PushChangesUseCase)) as PushChangesUseCase;
                     if (pushUC != null)
@@ -363,7 +363,7 @@ public class AssistantViewModel : ViewModelBase
                         var branch = context?.Git?.CurrentBranch ?? "main";
                         var pushRes = await pushUC.ExecuteAsync(_currentProjectPath, branch);
                         AddAssistantMessage(
-                            pushRes.IsSuccess ? "✅ Push completado." : $"❌ Error en Push: {pushRes.Error}",
+                            pushRes.IsSuccess ? "Push completado." : $"Error en push: {pushRes.Error}",
                             showAlert: true,
                             variant: pushRes.IsSuccess ? AlertVariant.Success : AlertVariant.Error,
                             title: "Push");
@@ -442,59 +442,59 @@ public class AssistantViewModel : ViewModelBase
             case Chapi.Application.UseCases.Projects.CloneProjectUseCase cloneUC:
                 if (!intent.Parameters.TryGetValue("url", out var repoUrl) || string.IsNullOrWhiteSpace(repoUrl))
                 {
-                    AddAssistantMessage("🔗 Necesito la URL del repositorio para clonar. ¿Cuál es?", showAlert: true, variant: AlertVariant.Warning, title: "Clonar");
+                    AddAssistantMessage("Necesito la URL del repositorio para clonar. Cual es?", showAlert: true, variant: AlertVariant.Warning, title: "Clonar");
                     break;
                 }
 
                 if (!intent.Parameters.TryGetValue("path", out var clonePath) || string.IsNullOrWhiteSpace(clonePath))
                 {
-                    AddAssistantMessage("📂 ¿En qué carpeta quieres que clone este repositorio?", showAlert: true, variant: AlertVariant.Warning, title: "Clonar");
+                    AddAssistantMessage("En que carpeta quieres que clone este repositorio?", showAlert: true, variant: AlertVariant.Warning, title: "Clonar");
                     break;
                 }
 
-                AddAssistantMessage($"⏳ Clonando desde '{repoUrl}' en '{clonePath}'...", showAlert: true, variant: AlertVariant.Info, title: "Clonar");
+                AddAssistantMessage($"Clonando desde '{repoUrl}' en '{clonePath}'...", showAlert: true, variant: AlertVariant.Info, title: "Clonar");
 
                 var cloneResult = await cloneUC.ExecuteAsync(repoUrl, clonePath);
 
                 if (cloneResult.IsSuccess)
                 {
-                    AddAssistantMessage($"✅ Clonado exitoso en {cloneResult.Data}. Cambiando contexto...", showAlert: true, variant: AlertVariant.Success, title: "Clonar");
+                    AddAssistantMessage($"Clonado exitoso en {cloneResult.Data}. Cambiando contexto...", showAlert: true, variant: AlertVariant.Success, title: "Clonar");
                     await UpdateProjectContextAsync(cloneResult.Data, true);
                 }
                 else
                 {
-                    AddAssistantMessage($"❌ Error al clonar: {cloneResult.Error}", showAlert: true, variant: AlertVariant.Error, title: "Clonar");
+                    AddAssistantMessage($"Error al clonar: {cloneResult.Error}", showAlert: true, variant: AlertVariant.Error, title: "Clonar");
                 }
                 break;
 
             case Chapi.Application.UseCases.Projects.CreateProjectUseCase createUC:
                 if (!intent.Parameters.TryGetValue("name", out var pName) || string.IsNullOrWhiteSpace(pName))
                 {
-                    AddAssistantMessage("📝 Para crear el proyecto necesito un nombre. ¿Cómo quieres llamarlo?", showAlert: true, variant: AlertVariant.Warning, title: "Crear proyecto");
+                    AddAssistantMessage("Para crear el proyecto necesito un nombre. Como quieres llamarlo?", showAlert: true, variant: AlertVariant.Warning, title: "Crear proyecto");
                     break;
                 }
 
                 if (!intent.Parameters.TryGetValue("path", out var pPath) || string.IsNullOrWhiteSpace(pPath))
                 {
-                    AddAssistantMessage("📂 ¿En qué carpeta quieres que cree el proyecto?", showAlert: true, variant: AlertVariant.Warning, title: "Crear proyecto");
+                    AddAssistantMessage("En que carpeta quieres que cree el proyecto?", showAlert: true, variant: AlertVariant.Warning, title: "Crear proyecto");
                     break;
                 }
 
                 var pTemplate = intent.Parameters.GetValueOrDefault("template", "https://github.com/Start-Z/CleanArchitecture-Template.git");
 
-                AddAssistantMessage($"⏳ Creando proyecto '{pName}' en '{pPath}' usando plantilla Clean Architecture...", showAlert: true, variant: AlertVariant.Info, title: "Crear proyecto");
+                AddAssistantMessage($"Creando proyecto '{pName}' en '{pPath}' usando plantilla Clean Architecture...", showAlert: true, variant: AlertVariant.Info, title: "Crear proyecto");
 
                 var createReq = new Chapi.Application.UseCases.Projects.CreateProjectRequest(pName, pPath, pTemplate);
                 var createResult = await createUC.ExecuteAsync(createReq);
 
                 if (createResult.IsSuccess)
                 {
-                    AddAssistantMessage($"✅ Proyecto creado en {createResult.Data}. Cambiando contexto...", showAlert: true, variant: AlertVariant.Success, title: "Crear proyecto");
+                    AddAssistantMessage($"Proyecto creado en {createResult.Data}. Cambiando contexto...", showAlert: true, variant: AlertVariant.Success, title: "Crear proyecto");
                     await UpdateProjectContextAsync(createResult.Data, true);
                 }
                 else
                 {
-                    AddAssistantMessage($"❌ Error al crear proyecto: {createResult.Error}", showAlert: true, variant: AlertVariant.Error, title: "Crear proyecto");
+                    AddAssistantMessage($"Error al crear proyecto: {createResult.Error}", showAlert: true, variant: AlertVariant.Error, title: "Crear proyecto");
                 }
                 break;
 
@@ -502,12 +502,12 @@ public class AssistantViewModel : ViewModelBase
                 var listResult = await listUC.ExecuteAsync();
                 if (listResult.IsSuccess)
                 {
-                    var fileList = string.Join("\n", listResult.Data.Select(p => $"• {p.Name} ({p.FullPath})"));
-                    AddAssistantMessage($"📂 **Mis Proyectos**:\n{fileList}", showAlert: true, variant: AlertVariant.Info, title: "Proyectos");
+                    var fileList = string.Join("\n", listResult.Data.Select(p => $"- {p.Name} ({p.FullPath})"));
+                    AddAssistantMessage($"**Mis Proyectos**:\n{fileList}", showAlert: true, variant: AlertVariant.Info, title: "Proyectos");
                 }
                 else
                 {
-                    AddAssistantMessage($"❌ Error al listar: {listResult.Error}", showAlert: true, variant: AlertVariant.Error, title: "Proyectos");
+                    AddAssistantMessage($"Error al listar: {listResult.Error}", showAlert: true, variant: AlertVariant.Error, title: "Proyectos");
                 }
                 break;
 
@@ -515,12 +515,12 @@ public class AssistantViewModel : ViewModelBase
                 var addPath = intent.Parameters.GetValueOrDefault("path", "");
                 if (string.IsNullOrEmpty(addPath))
                 {
-                    AddAssistantMessage("❌ Por favor indica la ruta de la carpeta.", showAlert: true, variant: AlertVariant.Warning, title: "Agregar proyecto");
+                    AddAssistantMessage("Por favor indica la ruta de la carpeta.", showAlert: true, variant: AlertVariant.Warning, title: "Agregar proyecto");
                     break;
                 }
                 var addResult = await addProjectUC.ExecuteAsync(addPath);
                 AddAssistantMessage(
-                    addResult.IsSuccess ? "✅ Proyecto agregado a la lista." : $"❌ {addResult.Error}",
+                    addResult.IsSuccess ? "Proyecto agregado a la lista." : $"Error: {addResult.Error}",
                     showAlert: true,
                     variant: addResult.IsSuccess ? AlertVariant.Success : AlertVariant.Error,
                     title: "Agregar proyecto");
@@ -530,7 +530,7 @@ public class AssistantViewModel : ViewModelBase
                 var remPath = intent.Parameters.GetValueOrDefault("path", _currentProjectPath);
                 var remResult = await removeProjectUC.ExecuteAsync(remPath);
                 AddAssistantMessage(
-                    remResult.IsSuccess ? "✅ Proyecto removido de la lista." : $"❌ {remResult.Error}",
+                    remResult.IsSuccess ? "Proyecto removido de la lista." : $"Error: {remResult.Error}",
                     showAlert: true,
                     variant: remResult.IsSuccess ? AlertVariant.Success : AlertVariant.Error,
                     title: "Eliminar proyecto");
@@ -538,7 +538,7 @@ public class AssistantViewModel : ViewModelBase
 
             default:
                 AddAssistantMessage(
-                    $"⚠️ La capacidad '{capability.Name}' está registrada pero el despachador no sabe cómo llamarla.",
+                    $"La capacidad '{capability.Name}' esta registrada pero el despachador no sabe como llamarla.",
                     showAlert: true,
                     variant: AlertVariant.Warning,
                     title: capability.Name);
@@ -549,7 +549,7 @@ public class AssistantViewModel : ViewModelBase
     private async Task ExecuteManualIntentAsync(ChatMessage message)
     {
         AddAssistantMessage(
-            "⚠️ Esta acción requiere ser mapeada al nuevo sistema de capacidades.",
+            "Esta accion requiere ser mapeada al nuevo sistema de capacidades.",
             showAlert: true,
             variant: AlertVariant.Warning,
             title: "Asistente");
@@ -572,7 +572,7 @@ public class AssistantViewModel : ViewModelBase
     private void AddAssistantResultMessage(string capabilityName, bool isSuccess, string? error)
     {
         AddAssistantMessage(
-            isSuccess ? $"✅ {capabilityName} completado." : $"❌ {error}",
+            isSuccess ? $"{capabilityName} completado." : $"Error: {error}",
             showAlert: true,
             variant: isSuccess ? AlertVariant.Success : AlertVariant.Error,
             title: capabilityName);
@@ -607,17 +607,19 @@ public class AssistantViewModel : ViewModelBase
 
     private static AlertVariant InferAlertVariant(string text)
     {
-        if (text.Contains("❌", StringComparison.Ordinal) || text.Contains("error", StringComparison.OrdinalIgnoreCase))
+        if (text.Contains("error", StringComparison.OrdinalIgnoreCase))
         {
             return AlertVariant.Error;
         }
 
-        if (text.Contains("⚠", StringComparison.Ordinal) || text.Contains("necesito", StringComparison.OrdinalIgnoreCase))
+        if (text.Contains("necesito", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains("por favor", StringComparison.OrdinalIgnoreCase))
         {
             return AlertVariant.Warning;
         }
 
-        if (text.Contains("✅", StringComparison.Ordinal) || text.Contains("completado", StringComparison.OrdinalIgnoreCase))
+        if (text.Contains("completado", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains("exitoso", StringComparison.OrdinalIgnoreCase))
         {
             return AlertVariant.Success;
         }
@@ -630,6 +632,6 @@ public class AssistantViewModel : ViewModelBase
         AlertVariant.Success => "Correcto",
         AlertVariant.Warning => "Aviso",
         AlertVariant.Error => "Error",
-        _ => "Información"
+        _ => "Informacion"
     };
 }

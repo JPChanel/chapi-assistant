@@ -1,4 +1,4 @@
-﻿using Chapi.Domain.Common;
+using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
 using Chapi.Infrastructure.Persistence.Settings;
@@ -79,7 +79,7 @@ namespace Chapi
             AssistantViewControl.DataContext = _assistantViewModel;
             DocumentationViewControl.DataContext = _documentationViewModel;
 
-            Msg.Assistant("¡Hey! Soy Chapi – Tu dev buddy para arquitectura.", showAlert: false);
+            Msg.Assistant("Hey! Soy Chapi. Tu dev buddy para arquitectura.", showAlert: false);
 
             Task.Run(CheckForUpdates);
             LoadVersion();
@@ -246,7 +246,7 @@ namespace Chapi
 
                                 if (metadata.Ahead > 0)
                                 {
-                                    Msg.Assistant($"Tienes {metadata.Ahead} commits pendientes de subir en '{selectedProject.Name}'. ¡No olvides hacer Push!");
+                                    Msg.Assistant($"Tienes {metadata.Ahead} commits pendientes de subir en '{selectedProject.Name}'. No olvides hacer Push!");
                                 }
                             });
                         }
@@ -371,14 +371,14 @@ namespace Chapi
                     catch (Exception ex)
                     {
                         BranchesComboBox.SelectedItem = _currentlySelectedBranch;
-                        await DialogService.ShowConfirmDialog("Error al cambiar de rama", $"Excepción inesperada:\n{ex.Message}", DialogVariant.Error, DialogType.Info);
+                        await DialogService.ShowConfirmDialog("Error al cambiar de rama", $"Excepcion inesperada:\n{ex.Message}", DialogVariant.Error, DialogType.Info);
                     }
                 });
 
                 if (!switchedSuccessfully)
                     return;
 
-                // Actualizaciones fuera del camino crítico del checkout.
+                // Actualizaciones fuera del camino critico del checkout.
                 _ = RefreshBranchesAsync();
                 if (_changesViewModel != null)
                 {
@@ -548,7 +548,7 @@ namespace Chapi
                 }
                 else
                 {
-                    Msg.Assistant("No se encontró ningún archivo .sln o .slnx");
+                    Msg.Assistant("No se encontro ningun archivo .sln o .slnx");
                 }
             }
             catch (UnauthorizedAccessException)
@@ -613,7 +613,7 @@ namespace Chapi
         {
             string path = GetPathFromMenuItem(sender);
             if (string.IsNullOrEmpty(path)) return;
-            var confirm = await DialogService.ShowConfirmDialog("Remover Proyecto", $"¿Seguro que quieres remover '{new DirectoryInfo(path).Name}'?", DialogVariant.Warning, DialogType.Confirm);
+            var confirm = await DialogService.ShowConfirmDialog("Remover Proyecto", $"Seguro que quieres remover '{new DirectoryInfo(path).Name}'?", DialogVariant.Warning, DialogType.Confirm);
             if (confirm) { ProjectSettings.RemoveProject(path); LoadProjects(); }
         }
         #endregion
@@ -680,7 +680,7 @@ namespace Chapi
                 await UpdateProjectStatusesAsync();
             }
 
-            // Verificar si el usuario ha iniciado sesion en algÃºn proveedor Git
+            // Verificar si el usuario ha iniciado sesion en algun proveedor Git
             await CheckSetupAsync();
         }
 
@@ -911,7 +911,7 @@ namespace Chapi
 
                 var parentDir = folderDialog.SelectedPath;
 
-                var associateGit = await DialogService.ShowConfirmDialog("¿Deseas asociar un repositorio remoto ahora?", "Asociar Git");
+                var associateGit = await DialogService.ShowConfirmDialog("Deseas asociar un repositorio remoto ahora?", "Asociar Git");
                 string remoteUrl = null;
                 if (associateGit)
                 {
@@ -1144,11 +1144,11 @@ namespace Chapi
                 return;
             }
 
-            var confirm = await DialogService.ShowConfirmDialog("Eliminar Rama", $"¿Estas seguro de eliminar la rama '{branchName}'?", DialogVariant.Warning, DialogType.Confirm);
+            var confirm = await DialogService.ShowConfirmDialog("Eliminar Rama", $"Estas seguro de eliminar la rama '{branchName}'?", DialogVariant.Warning, DialogType.Confirm);
             if (!confirm) return;
 
             // Preguntar si borrar remoto tambien
-            var confirmRemote = await DialogService.ShowConfirmDialog("Eliminar Remoto", $"¿Deseas eliminar tambien la rama '{branchName}' del repositorio remoto (origin)?", DialogVariant.Info, DialogType.Confirm);
+            var confirmRemote = await DialogService.ShowConfirmDialog("Eliminar Remoto", $"Deseas eliminar tambien la rama '{branchName}' del repositorio remoto (origin)?", DialogVariant.Info, DialogType.Confirm);
 
             await RunWithLoading(async () =>
             {
@@ -1276,21 +1276,21 @@ namespace Chapi
 
             if (mergeType == "Squash")
             {
-                prompt = $"¿Estas seguro de hacer SQUASH MERGE de '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiara a '{targetBranch}', realizara la operacion y volvera.";
+                prompt = $"Estas seguro de hacer SQUASH MERGE de '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiara a '{targetBranch}', realizara la operacion y volvera.";
             }
             else if (mergeType == "Rebase")
             {
-                prompt = $"EL REBASE REQUERIRÁ FORCE PUSH\n\n" +
-                         $"¿Estas seguro de que deseas hacer rebase a '{sourceBranch}' de '{targetBranch}'?\n\n" +
+                prompt = $"EL REBASE REQUERIRA FORCE PUSH\n\n" +
+                         $"Estas seguro de que deseas hacer rebase a '{sourceBranch}' de '{targetBranch}'?\n\n" +
                          $"Al finalizar el rebase, tu historia local cambiara y divergiras del remoto.\n" +
                          $"Para actualizar el servidor, necesitaras hacer un FORCE PUSH posteriormente.\n" +
-                         $"Esto alterara la historia en el remoto y podrÃ­a causar problemas a otros colaboradores en esta rama.\n\n" +
-                         $"¿Deseas continuar?";
+                         $"Esto alterara la historia en el remoto y podria causar problemas a otros colaboradores en esta rama.\n\n" +
+                         $"Deseas continuar?";
                 variant = DialogVariant.Warning;
             }
             else
             {
-                prompt = $"¿Estas seguro de fusionar '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiara a '{targetBranch}', realizara la operacion y volvera.";
+                prompt = $"Estas seguro de fusionar '{sourceBranch}' en '{targetBranch}'?\n\nEl sistema cambiara a '{targetBranch}', realizara la operacion y volvera.";
             }
 
             string? squashCommitMessage = null;
@@ -1358,7 +1358,7 @@ namespace Chapi
 
                             var forcePushConfirm = await DialogService.ShowConfirmDialog(
                                 "Rebase Exitoso - Force Push Requerido",
-                                "La rama actual se ha rebasado correctamente.\n\n¸ Tu historia local ha divergido del remoto.\n¿Deseas realizar un FORCE PUSH ahora para actualizar el servidor?\n(Solo hazlo si estas seguro de que nadie mas trabaja sobre esta rama)",
+                                "La rama actual se ha rebasado correctamente.\n\nTu historia local ha divergido del remoto.\nDeseas realizar un FORCE PUSH ahora para actualizar el servidor?\n(Solo hazlo si estas seguro de que nadie mas trabaja sobre esta rama)",
                                 DialogVariant.Warning,
                                 DialogType.Confirm);
 
@@ -1386,7 +1386,7 @@ namespace Chapi
                             // Preguntar si quiere hacer Push de la rama DESTINO (targetBranch)
                             var pushConfirm = await DialogService.ShowConfirmDialog(
                                 "Push al Servidor",
-                                $"El merge local en '{targetBranch}' fue exitoso.\n\n¿Quieres subir (Push) los cambios de '{targetBranch}' a origin ahora mismo para que se reflejen en GitHub/GitLab?",
+                                $"El merge local en '{targetBranch}' fue exitoso.\n\nQuieres subir (Push) los cambios de '{targetBranch}' a origin ahora mismo para que se reflejen en GitHub/GitLab?",
                                 DialogVariant.Info,
                                 DialogType.Confirm);
 
@@ -1413,7 +1413,7 @@ namespace Chapi
 
                             if (deleteResult.IsSuccess)
                             {
-                                Msg.Assistant($"ðŸ—‘ï¸ Rama '{sourceBranch}' eliminada (Local y Remoto).");
+                                Msg.Assistant($"Rama '{sourceBranch}' eliminada (Local y Remoto).");
                             }
                             else
                             {
@@ -1494,7 +1494,7 @@ namespace Chapi
                 {
                     var proceedWithStash = await DialogService.ShowConfirmDialog(
                         "Cambios sin confirmar",
-                        "Tienes cambios locales que podrÃ­an entrar en conflicto. ¿Deseas guardarlos automaticamente en un Stash antes de hacer Pull?",
+                        "Tienes cambios locales que podrian entrar en conflicto. Deseas guardarlos automaticamente en un Stash antes de hacer Pull?",
                         DialogVariant.Warning,
                         DialogType.Confirm,
                         confirmButtonText: "Guardar y continuar",
@@ -1678,7 +1678,7 @@ namespace Chapi
                         try {{
                             $hasHandle = $false
                             # Usamos el comando 'handle' de Sysinternals si estuviera, 
-                            # pero como fallback buscamos procesos cuyo CWD o modulos esten ahÃ­
+                            # pero como fallback buscamos procesos cuyo CWD o modulos esten ahi
                             if ($p.MainModule.FileName -like ""$path*"" -or $p.StartInfo.WorkingDirectory -like ""$path*"") {{
                                 $hasHandle = $true
                             }}

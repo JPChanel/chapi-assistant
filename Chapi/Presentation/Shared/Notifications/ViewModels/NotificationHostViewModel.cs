@@ -1,12 +1,12 @@
-using Chapi.Presentation.Alerts.Models;
-using Chapi.Presentation.Alerts.Service;
-using Chapi.Presentation.Alerts.Utilities;
+using Chapi.Presentation.Shared.Notifications.Models;
+using Chapi.Presentation.Shared.Notifications.Services;
+using Chapi.Presentation.Shared.Notifications.Utilities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MaterialDesignThemes.Wpf;
 using System.Windows.Media;
 using System.Windows.Threading;
 
-namespace Chapi.Presentation.Alerts.ViewModels;
+namespace Chapi.Presentation.Shared.Notifications.ViewModels;
 
 public partial class NotificationHostViewModel : ObservableObject
 {

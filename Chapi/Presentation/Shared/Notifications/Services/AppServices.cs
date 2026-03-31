@@ -1,4 +1,4 @@
-﻿namespace Chapi.Presentation.Alerts.Service;
+namespace Chapi.Presentation.Shared.Notifications.Services;
 
 public static class AppServices
 {

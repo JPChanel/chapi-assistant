@@ -1,9 +1,9 @@
-﻿using Chapi.Presentation.Alerts.Models;
+using Chapi.Presentation.Shared.Notifications.Models;
 using MaterialDesignThemes.Wpf;
 using System.Windows;
 using System.Windows.Media;
 
-namespace Chapi.Presentation.Alerts.Utilities;
+namespace Chapi.Presentation.Shared.Notifications.Utilities;
 
 public static class AlertStyleHelper
 {
