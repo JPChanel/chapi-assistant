@@ -1,6 +1,7 @@
 ﻿using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities;
 using Chapi.Infrastructure.Services;
+using Chapi.Presentation.Shared.Tasks;
 using Chapi.Presentation.Views.Dialogs;
 using DiffPlex.DiffBuilder;
 using DiffPlex.DiffBuilder.Model;
@@ -88,7 +89,7 @@ public class HistoryViewModel : ViewModelBase
         {
             if (SetProperty(ref _projectPath, value))
             {
-                _ = LoadHistoryAsync();
+                LoadHistoryAsync().Forget("cargando historial");
             }
         }
     }
@@ -107,7 +108,7 @@ public class HistoryViewModel : ViewModelBase
             if (SetProperty(ref _selectedCommit, value))
             {
                 UpdateCommitDetails();
-                _ = LoadCommitFilesAsync();
+                LoadCommitFilesAsync().Forget("cargando archivos del commit");
             }
         }
     }
@@ -119,7 +120,7 @@ public class HistoryViewModel : ViewModelBase
         {
             if (SetProperty(ref _selectedFile, value))
             {
-                _ = LoadFileDiffAsync();
+                LoadFileDiffAsync().Forget("cargando diff del archivo");
             }
         }
     }

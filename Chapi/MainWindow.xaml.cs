@@ -3,6 +3,9 @@ using Chapi.Domain.Interfaces;
 using Chapi.Domain.Models;
 using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
+using Chapi.Presentation.Shell.Models;
+using Chapi.Presentation.Shell.Services;
+using Chapi.Presentation.Shared.Tasks;
 using Chapi.Presentation.Views.Dialogs;
 using MaterialDesignThemes.Wpf;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +33,6 @@ namespace Chapi
         private string updateUrl = App.Configuration["AppConfig:UpdateUrl"] ?? throw new Exception("No se encontro Url Updater");
         public static MainWindow Instance { get; private set; }
 
-        private List<string> _repositories = new List<string>();
         private readonly object _lock = new object();
         private bool _isGitInstalled = false;
         private System.Windows.Threading.DispatcherTimer _fetchTimer;
@@ -57,6 +59,7 @@ namespace Chapi
         private Presentation.ViewModels.AssistantViewModel? _assistantViewModel;
         private Presentation.ViewModels.DocumentationViewModel? _documentationViewModel;
         private readonly IGitRepository _gitRepository;
+        private readonly ProjectShellService _projectShellService;
 
         public MainWindow()
         {
@@ -65,6 +68,7 @@ namespace Chapi
             DataContext = MessageHelper.Instance;
 
             _gitRepository = App.ServiceProvider.GetRequiredService<IGitRepository>();
+            _projectShellService = App.ServiceProvider.GetRequiredService<ProjectShellService>();
             _changesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ChangesViewModel)) as Presentation.ViewModels.ChangesViewModel;
             _historyViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.HistoryViewModel)) as Presentation.ViewModels.HistoryViewModel;
             _releasesViewModel = App.ServiceProvider.GetService(typeof(Presentation.ViewModels.ReleasesViewModel)) as Presentation.ViewModels.ReleasesViewModel;
@@ -81,7 +85,7 @@ namespace Chapi
 
             Msg.Assistant("Hey! Soy Chapi. Tu dev buddy para arquitectura.", showAlert: false);
 
-            Task.Run(CheckForUpdates);
+            CheckForUpdates().Forget("buscando actualizaciones");
             LoadVersion();
 
             _fetchTimer = new System.Windows.Threading.DispatcherTimer();
@@ -112,15 +116,15 @@ namespace Chapi
             _ = App.ServiceProvider.GetService<Chapi.Presentation.ViewModels.CloneRepositoryViewModel>();
 
             // Pre-cargar avatares de usuario
-            _ = Task.Run(async () =>
+            Task.Run(async () =>
             {
                 var storage = App.ServiceProvider.GetService<Chapi.Domain.Interfaces.ICredentialStorageService>();
                 if (storage != null)
                 {
                     await Chapi.Domain.Services.AvatarCacheService.Instance.PreloadAvatarsAsync(storage);
                 }
-            });
-            _ = Task.Run(async () => await CheckGitInstallationAsync());
+            }).Forget("precargando avatares");
+            Task.Run(CheckGitInstallationAsync).Forget("validando git");
 
             if (_changesViewModel != null)
             {
@@ -182,23 +186,17 @@ namespace Chapi
 
         private void LoadProjects()
         {
-            _repositories = ProjectSettings.LoadProjects();
-            var projectVMs = _repositories.Select(r => new ProjectViewModel
-            {
-                FullPath = r,
-                Name = new DirectoryInfo(r).Name,
-                Icon = PackIconKind.FolderOutline
-            }).ToList();
+            var projectVMs = _projectShellService.LoadProjects().ToList();
 
             ProjectsComboBox.ItemsSource = projectVMs;
             App.TrayIconManager?.UpdateProjectList(projectVMs);
 
             // Ejecutar la actualizacion de estados con retardo para no competir por CPU/Disco al inicio
-            _ = Task.Run(async () =>
+            Task.Run(async () =>
             {
                 await Task.Delay(1500);
                 await UpdateProjectStatusesAsync(projectVMs);
-            });
+            }).Forget("actualizando estados de proyectos");
         }
 
         // El monitoreo del sistema de archivos ahora lo gestiona ChangesViewModel._changeWatcher
@@ -207,7 +205,6 @@ namespace Chapi
         {
             if (ProjectsComboBox.SelectedItem is not ProjectViewModel selectedProject) return;
 
-            // Cancelar cualquier secuencia de carga anterior
             _projectSwitchCts?.Cancel();
             _projectSwitchCts = new CancellationTokenSource();
             var token = _projectSwitchCts.Token;
@@ -218,97 +215,54 @@ namespace Chapi
                 _changesViewModel.ProjectPath = projectDirectory;
             }
 
+            if (_historyViewModel != null)
+            {
+                _historyViewModel.ProjectPath = projectDirectory;
+            }
+
+            if (_releasesViewModel != null)
+            {
+                _releasesViewModel.ProjectPath = projectDirectory;
+            }
+
             if (!_isGitInstalled) return;
 
             App.TrayIconManager?.UpdateProjectMenuItem(selectedProject.Name, false);
 
             try
             {
-                // Mover todo el peso logico al pool de hilos para no congelar la UI visualmente
-                _ = Task.Run(async () =>
-                {
-                    try
+                var snapshot = await _projectShellService.LoadProjectContextAsync(
+                    new ProjectSelectionRequest
                     {
-                        var metadataResult = await _gitRepository.GetMetadataAsync(projectDirectory);
-                        if (token.IsCancellationRequested) return;
+                        ProjectPath = projectDirectory,
+                        ProjectName = selectedProject.Name,
+                        ChangesViewModel = _changesViewModel,
+                        HistoryViewModel = _historyViewModel,
+                        ReleasesViewModel = _releasesViewModel,
+                        WorkspaceViewModel = _workspaceViewModel,
+                        AssistantViewModel = _assistantViewModel,
+                        DocumentationViewModel = _documentationViewModel
+                    },
+                    token);
 
-                        if (metadataResult.IsSuccess)
-                        {
-                            var metadata = metadataResult.Data;
-                            _currentlySelectedBranch = metadata.CurrentBranch;
+                if (token.IsCancellationRequested) return;
 
-                            await Dispatcher.InvokeAsync(() =>
-                            {
-                                BranchesComboBox.ItemsSource = new List<string> { metadata.CurrentBranch };
-                                BranchesComboBox.SelectedItem = metadata.CurrentBranch;
+                _currentlySelectedBranch = snapshot.CurrentBranch;
+                BranchesComboBox.ItemsSource = snapshot.Branches;
+                BranchesComboBox.SelectedItem = snapshot.CurrentBranch;
+                NeedsPublish = snapshot.NeedsPublish;
 
-                                UpdateGitActionButton();
+                UpdateGitActionButton();
 
-                                if (metadata.Ahead > 0)
-                                {
-                                    Msg.Assistant($"Tienes {metadata.Ahead} commits pendientes de subir en '{selectedProject.Name}'. No olvides hacer Push!");
-                                }
-                            });
-                        }
+                if (snapshot.Ahead > 0)
+                {
+                    Msg.Assistant($"Tienes {snapshot.Ahead} commits pendientes de subir en '{selectedProject.Name}'. No olvides hacer Push!");
+                }
 
-                        // 2. Carga secundaria: Listado completo de todas las ramas (incluyendo remotas)
-                        var getBranchesUseCase = App.ServiceProvider.GetService(typeof(UseCases.GetBranchesUseCase)) as UseCases.GetBranchesUseCase;
-                        // getBranchesUseCase puede devolver nulo si IServiceProvider falla
-                        if (getBranchesUseCase != null)
-                        {
-                            var branches = (await getBranchesUseCase.ExecuteAsync(projectDirectory)).ToList();
-                            if (token.IsCancellationRequested) return;
-
-                            // Combinar la rama actual detectada con la lista completa
-                            if (!string.IsNullOrEmpty(_currentlySelectedBranch) && !branches.Contains(_currentlySelectedBranch))
-                            {
-                                branches.Insert(0, _currentlySelectedBranch);
-                            }
-
-                            await Dispatcher.InvokeAsync(() =>
-                            {
-                                BranchesComboBox.ItemsSource = branches;
-                                BranchesComboBox.SelectedItem = _currentlySelectedBranch;
-                            });
-                        }
-
-                        if (token.IsCancellationRequested) return;
-
-                        // 3. Configurar ViewModels (Esto es rapido y debe hacerse en el Dispatcher)
-                        await Dispatcher.InvokeAsync(() =>
-                        {
-                            if (token.IsCancellationRequested) return;
-                            if (_historyViewModel != null) _historyViewModel.ProjectPath = projectDirectory;
-                            if (_releasesViewModel != null) _releasesViewModel.ProjectPath = projectDirectory;
-                        });
-
-                        // 4. Cargar datos pesados secuencialmente en background
-                        // NOTA: Los ViewModels de Historia y Cambios ya inician su carga automaticamente 
-                        // al asignarles la propiedad ProjectPath arriba.
-
-                        if (token.IsCancellationRequested) return;
-                        await LoadWorkspaceAsync();
-
-                        if (token.IsCancellationRequested) return;
-                        await UpdateAssistantContextAsync();
-
-                        if (token.IsCancellationRequested) return;
-                        await Task.Delay(100, token);
-
-                        // 5. Operaciones de red (Muy pesadas)
-                        if (token.IsCancellationRequested) return;
-                        await CheckBranchStatusAsync();
-
-                        if (token.IsCancellationRequested) return;
-                        await LoadReleasesAsync();
-                        if (!token.IsCancellationRequested)
-                        {
-                            await Dispatcher.InvokeAsync(() => _ = DoFetchAndRefreshAsync(isSilent: true));
-                        }
-                    }
-                    catch (OperationCanceledException) { }
-                    catch (Exception) { }
-                }, token);
+                DoFetchAndRefreshAsync(isSilent: true).Forget("sincronizando cambios del proyecto");
+            }
+            catch (OperationCanceledException)
+            {
             }
             catch (Exception ex)
             {
@@ -379,7 +333,7 @@ namespace Chapi
                     return;
 
                 // Actualizaciones fuera del camino critico del checkout.
-                _ = RefreshBranchesAsync();
+                RefreshBranchesAsync().Forget("refrescando ramas");
                 if (_changesViewModel != null)
                 {
                     await _changesViewModel.ForceRefreshAsync();
@@ -397,82 +351,53 @@ namespace Chapi
 
         private async Task<bool> HasPendingChangesBeforeBranchSwitchAsync()
         {
-            if (_changesViewModel != null &&
-                string.Equals(_changesViewModel.ProjectPath, projectDirectory, StringComparison.OrdinalIgnoreCase))
-            {
-                return _changesViewModel.HasPendingChanges;
-            }
-
-            var changes = await _gitRepository.GetChangesAsync(projectDirectory);
-            return changes.Any();
+            return await _projectShellService.HasPendingChangesAsync(projectDirectory, _changesViewModel);
         }
 
         private async Task LoadChangesAsync()
         {
-            if (string.IsNullOrEmpty(projectDirectory) || _changesViewModel == null) return;
-            await _changesViewModel.LoadChangesAsync();
+            await _projectShellService.LoadChangesAsync(projectDirectory, _changesViewModel);
         }
 
         private async Task LoadReleasesAsync()
         {
-            if (string.IsNullOrEmpty(projectDirectory) || _releasesViewModel == null) return;
-            _releasesViewModel.ProjectPath = projectDirectory;
-            await _releasesViewModel.LoadReleasesAsync();
+            await _projectShellService.LoadReleasesAsync(projectDirectory, _releasesViewModel);
         }
 
         private async Task LoadHistoryAsync()
         {
-            if (string.IsNullOrEmpty(projectDirectory) || _historyViewModel == null) return;
-            _historyViewModel.ProjectPath = projectDirectory;
-            await _historyViewModel.ReloadHistoryAsync();
+            await _projectShellService.LoadHistoryAsync(projectDirectory, _historyViewModel);
         }
 
         private async Task LoadWorkspaceAsync()
         {
-            if (string.IsNullOrEmpty(projectDirectory) || _workspaceViewModel == null) return;
-            await _workspaceViewModel.InitializeAsync(projectDirectory);
+            await _projectShellService.LoadWorkspaceAsync(projectDirectory, _workspaceViewModel);
         }
 
         private async Task UpdateAssistantContextAsync()
         {
-            if (string.IsNullOrEmpty(projectDirectory)) return;
-            if (_assistantViewModel != null) await _assistantViewModel.UpdateProjectContextAsync(projectDirectory);
-            if (_documentationViewModel != null) await _documentationViewModel.SetProjectContextAsync(new DirectoryInfo(projectDirectory).Name, projectDirectory);
+            await _projectShellService.UpdateAssistantContextAsync(projectDirectory, _assistantViewModel, _documentationViewModel);
         }
 
         private async Task CheckBranchStatusAsync()
         {
-            if (string.IsNullOrEmpty(projectDirectory) || string.IsNullOrEmpty(_currentlySelectedBranch))
-            {
-                NeedsPublish = false;
-                return;
-            }
-
-            NeedsPublish = !await _gitRepository.HasUpstreamAsync(projectDirectory, _currentlySelectedBranch);
+            NeedsPublish = await _projectShellService.CheckNeedsPublishAsync(projectDirectory, _currentlySelectedBranch);
         }
 
         private async Task RefreshBranchesAsync()
         {
             try
             {
-                // Refrescar ramas tras operaciones que pueden crearlas o borrarlas
-                var branches = (await _gitRepository.GetBranchesAsync(projectDirectory)).ToList();
-                string activeBranch = await _gitRepository.GetCurrentBranchAsync(projectDirectory);
+                var snapshot = await _projectShellService.RefreshBranchesAsync(projectDirectory);
+                BranchesComboBox.ItemsSource = snapshot.Branches;
 
-                if (!string.IsNullOrEmpty(activeBranch) && !branches.Contains(activeBranch))
+                if (!string.IsNullOrWhiteSpace(snapshot.CurrentBranch))
                 {
-                    branches.Add(activeBranch);
-                }
-
-                BranchesComboBox.ItemsSource = branches;
-
-                if (!string.IsNullOrEmpty(activeBranch))
-                {
-                    _currentlySelectedBranch = activeBranch;
-                    BranchesComboBox.SelectedItem = activeBranch;
+                    _currentlySelectedBranch = snapshot.CurrentBranch;
+                    BranchesComboBox.SelectedItem = snapshot.CurrentBranch;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
 
             }
@@ -757,29 +682,29 @@ namespace Chapi
 
             var useCase = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Projects.UpdateProjectIndicatorsUseCase>();
 
-            // Ejecutar en hilos de background, no en el Dispatcher
-            _ = Task.Run(async () =>
+            await Task.Run(async () =>
             {
                 var tasks = projects.Select(proj =>
                 {
                     return useCase.ExecuteAsync(proj.FullPath, (ahead, behind) =>
                     {
-                        Dispatcher.InvokeAsync(async () =>
+                        Dispatcher.Invoke(() =>
                         {
                             proj.Ahead = ahead;
                             proj.Behind = behind;
-                            if (proj.FullPath == projectDirectory && !ProjectsComboBox.IsDropDownOpen)
-                            {
-                                UpdateGitActionButton();
-                                await RefreshBranchesAsync();
-                                await CheckBranchStatusAsync();
-                            }
                         });
                     });
                 }).ToList();
 
                 await Task.WhenAll(tasks);
             });
+
+            if (projects.Any(p => p.FullPath == projectDirectory) && !ProjectsComboBox.IsDropDownOpen)
+            {
+                UpdateGitActionButton();
+                await RefreshBranchesAsync();
+                await CheckBranchStatusAsync();
+            }
         }
 
         private void UpdateGitActionButton()
@@ -1551,7 +1476,7 @@ namespace Chapi
                 await UpdateProjectStatusesAsync();
                 if (action != GitActionState.Fetch)
                 {
-                    _ = DoFetchAndRefreshAsync(isSilent: true);
+                    DoFetchAndRefreshAsync(isSilent: true).Forget("sincronizando cambios despues de accion git");
                 }
 
                 if (_changesViewModel != null &&
@@ -1717,7 +1642,7 @@ namespace Chapi
                 (DateTime.Now - _lastActivationFetch).TotalSeconds > 90)
             {
                 _lastActivationFetch = DateTime.Now;
-                _ = DoFetchAndRefreshAsync(isSilent: true);
+                DoFetchAndRefreshAsync(isSilent: true).Forget("sincronizando cambios al activar la ventana");
             }
 
             if (!string.IsNullOrEmpty(projectDirectory) && IsWslPath(projectDirectory))

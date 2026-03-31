@@ -1,6 +1,7 @@
 using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities;
 using Chapi.Infrastructure.Services;
+using Chapi.Presentation.Shared.Tasks;
 using Chapi.Presentation.Views.Dialogs;
 using DiffPlex;
 using DiffPlex.DiffBuilder;
@@ -273,7 +274,7 @@ public class ChangesViewModel : ViewModelBase
                 OnPropertyChanged(nameof(TotalChangesCount));
 
                 // Lanzar carga inicial
-                _ = LoadChangesAsync();
+                LoadChangesAsync().Forget("cargando cambios");
 
                 // Programar el fin del silencio manual despues de un tiempo prudencial o cuando Load termine
                 // Esto protege los comandos Git que corran en paralelo en MainWindow
@@ -282,7 +283,7 @@ public class ChangesViewModel : ViewModelBase
                     await Task.Delay(3000); // 3 segundos de gracia para que MainWindow termine sus comandos
                     _manualSilencer?.Dispose();
                     _manualSilencer = null;
-                });
+                }).Forget("restaurando watcher de cambios");
             }
         }
     }

@@ -64,11 +64,13 @@ public sealed class ExceptionHandling : IDisposable
             return;
         }
 
+        var root = ex.GetBaseException();
+
         System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
         {
             await DialogService.ShowConfirmDialog(
                 "Error",
-                ex.Message,
+                root.Message,
                 DialogVariant.Error,
                 DialogType.Info);
         });

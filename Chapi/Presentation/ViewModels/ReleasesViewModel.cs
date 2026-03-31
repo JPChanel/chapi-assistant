@@ -3,6 +3,7 @@ using Chapi.Application.UseCases.Projects;
 using Chapi.Domain.Interfaces; 
 using Chapi.Domain.Models;
 using Chapi.Presentation.Shared.Dialogs;
+using Chapi.Presentation.Shared.Tasks;
 using Chapi.Presentation.Views.Dialogs;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -89,7 +90,7 @@ public class ReleasesViewModel : ViewModelBase
         {
             if (SetProperty(ref _projectPath, value))
             {
-                _ = LoadReleasesAsync();
+                LoadReleasesAsync().Forget("cargando releases");
             }
         }
     }
@@ -248,7 +249,7 @@ public class ReleasesViewModel : ViewModelBase
             try
             {
                 await Task.Delay(500); // Dar tiempo al renderizado inicial
-                _ = Task.Run(runReleaseProcess);
+                Task.Run(runReleaseProcess).Forget("ejecutando despliegue de release");
             }
             catch(Exception ex) 
             {

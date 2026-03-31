@@ -170,6 +170,7 @@ public static class ServiceCollectionExtensions
     private static IServiceCollection AddPresentationServices(this IServiceCollection services)
     {
         services.AddSingleton<NotificationHostViewModel>();
+        services.AddSingleton<Presentation.Shell.Services.ProjectShellService>();
         services.AddSingleton<Presentation.ViewModels.ChangesViewModel>();
         services.AddSingleton<Presentation.ViewModels.HistoryViewModel>();
         services.AddSingleton<Presentation.ViewModels.AssistantViewModel>();

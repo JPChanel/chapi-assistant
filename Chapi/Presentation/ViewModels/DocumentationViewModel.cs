@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Windows.Input;
 using System.Windows.Threading;
+using Chapi.Presentation.Shared.Tasks;
 
 namespace Chapi.Presentation.ViewModels;
 
@@ -76,7 +77,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
         _autoSaveTimer.Start();
 
         // Carga plantilla inicial
-        _ = ApplyTemplateAsync(DocTemplate.ModeloSoftware);
+        ApplyTemplateAsync(DocTemplate.ModeloSoftware).Forget("cargando plantilla inicial");
     }
 
 
@@ -178,7 +179,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(IsTextSection));
             OnPropertyChanged(nameof(IsDiagramSection));
             OnPropertyChanged(nameof(IsImageSection));
-            _ = RefreshPreviewAsync();
+            RefreshPreviewAsync().Forget("actualizando vista previa");
         }
     }
 
@@ -502,7 +503,7 @@ public class DocumentationViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(CurrentTemplate));
             OnPropertyChanged(nameof(Sections)); // ADD TO REPAINT THE LISTBOX
 
-            _ = RefreshPreviewAsync();
+            RefreshPreviewAsync().Forget("actualizando vista previa");
         }
         finally
         {

@@ -56,7 +56,7 @@ public class GitTagItem
     public List<string> ModifiedFiles { get; set; } = new List<string>();
 }
 /// <summary>
-/// Representa un proyecto en la UI, incluyendo su ?cono de host y estado de Git.
+/// Representa un proyecto en la UI, incluyendo su icono de host y estado de Git.
 /// </summary>
 public class ProjectViewModel : System.ComponentModel.INotifyPropertyChanged
 {
