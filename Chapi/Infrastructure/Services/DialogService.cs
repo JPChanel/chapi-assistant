@@ -29,13 +29,14 @@ public static class DialogService
     public static void ShowTrayNotification(string title, string message)
         => Chapi.Presentation.Shared.Dialogs.DialogService.ShowTrayNotification(title, message);
 
-    public static Task<(bool Confirmed, string TagName, string Message, bool IsRemote, bool IsLocal, string BuildAppName, string PackageId, string BuildAuthor, string LocalPath, string FtpUrl, string FtpUser, string FtpPassword, string IconPath, string SplashPath)> ShowCreateReleaseDialog(
+    public static Task<(bool Confirmed, string TagName, string Message, bool IsRemote, bool IsLocal, string BuildAppName, string PackageId, string BuildAuthor, string BuildPlatform, string LocalPath, string FtpUrl, string FtpUser, string FtpPassword, string IconPath, string SplashPath)> ShowCreateReleaseDialog(
         string defaultAppName = "",
         string defaultPackageId = "",
         string defaultAuthor = "",
         string defaultLocalPath = "",
         string defaultFtpUrl = "",
         string defaultFtpUser = "",
+        string defaultPlatform = "",
         string defaultIconPath = "",
         string defaultSplashPath = "")
         => Chapi.Presentation.Shared.Dialogs.DialogService.ShowCreateReleaseDialog(
@@ -45,6 +46,7 @@ public static class DialogService
             defaultLocalPath,
             defaultFtpUrl,
             defaultFtpUser,
+            defaultPlatform,
             defaultIconPath,
             defaultSplashPath);
 }

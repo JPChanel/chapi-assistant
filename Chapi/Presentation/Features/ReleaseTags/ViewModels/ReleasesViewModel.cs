@@ -157,6 +157,7 @@ public class ReleasesViewModel : ViewModelBase
         string defaultAppName = !string.IsNullOrEmpty(currentConfig.Deployment?.AppName) ? currentConfig.Deployment.AppName : Path.GetFileNameWithoutExtension(ProjectPath);
         string defaultPackageId = !string.IsNullOrEmpty(currentConfig.Deployment?.PackageId) ? currentConfig.Deployment.PackageId : defaultAppName.Replace(" ", "");
         string defaultAuthor = !string.IsNullOrEmpty(currentConfig.Deployment?.Author) ? currentConfig.Deployment.Author : "ANC";
+        string defaultPlatform = currentConfig.Deployment?.Platform ?? "";
         string defaultLocalPath = currentConfig.Deployment?.LocalPath ?? "";
         string defaultFtpUrl = currentConfig.Deployment?.FtpUrl ?? "";
         string defaultFtpUser = "";
@@ -164,8 +165,8 @@ public class ReleasesViewModel : ViewModelBase
         string defaultSplashPath = currentConfig.Deployment?.SplashPath ?? "";
 
         // 1. Mostrar Diálogo de Configuración
-        var (confirmed, tagName, message, isRemote, isLocal, buildAppName, buildPackageId, buildAuthor, localPath, ftpUrl, ftpUser, ftpPass, iconPath, splashPath) =
-            await DialogService.ShowCreateReleaseDialog(defaultAppName, defaultPackageId, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser, defaultIconPath, defaultSplashPath);
+        var (confirmed, tagName, message, isRemote, isLocal, buildAppName, buildPackageId, buildAuthor, buildPlatform, localPath, ftpUrl, ftpUser, ftpPass, iconPath, splashPath) =
+            await DialogService.ShowCreateReleaseDialog(defaultAppName, defaultPackageId, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser, defaultPlatform, defaultIconPath, defaultSplashPath);
 
         if (!confirmed || string.IsNullOrWhiteSpace(tagName)) return;
 
@@ -198,6 +199,7 @@ public class ReleasesViewModel : ViewModelBase
                         buildAppName, 
                         buildPackageId,
                         buildAuthor, 
+                        buildPlatform,
                         localPath, 
                         ftpUrl, 
                         ftpUser, 

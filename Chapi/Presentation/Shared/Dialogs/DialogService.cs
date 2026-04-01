@@ -59,20 +59,21 @@ namespace Chapi.Presentation.Shared.Dialogs
             App.TrayIconManager.ShowNotification(title, message);
         }
 
-        public static async Task<(bool Confirmed, string TagName, string Message, bool IsRemote, bool IsLocal, string BuildAppName, string PackageId, string BuildAuthor, string LocalPath, string FtpUrl, string FtpUser, string FtpPassword, string IconPath, string SplashPath)> ShowCreateReleaseDialog(
+        public static async Task<(bool Confirmed, string TagName, string Message, bool IsRemote, bool IsLocal, string BuildAppName, string PackageId, string BuildAuthor, string BuildPlatform, string LocalPath, string FtpUrl, string FtpUser, string FtpPassword, string IconPath, string SplashPath)> ShowCreateReleaseDialog(
             string defaultAppName = "", 
             string defaultPackageId = "",
             string defaultAuthor = "", 
             string defaultLocalPath = "", 
             string defaultFtpUrl = "", 
             string defaultFtpUser = "",
+            string defaultPlatform = "",
             string defaultIconPath = "",
             string defaultSplashPath = "")
         {
             var dialog = new CreateReleaseDialog();
             
             // Set defaults for Build Config & Destination
-            dialog.SetDefaults(defaultAppName, defaultPackageId, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser, defaultIconPath, defaultSplashPath);
+            dialog.SetDefaults(defaultAppName, defaultPackageId, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser, defaultPlatform, defaultIconPath, defaultSplashPath);
 
             var result = await DialogHost.Show(dialog, App.GlobalDialogIdentifier);
 
@@ -91,6 +92,7 @@ namespace Chapi.Presentation.Shared.Dialogs
                         dialog.AppName ?? string.Empty, 
                         dialog.PackageId ?? string.Empty,
                         dialog.Author ?? string.Empty,
+                        dialog.Platform ?? string.Empty,
                         finalLocalPath,
                         finalFtpUrl,
                         dialog.FtpUser,
@@ -99,7 +101,7 @@ namespace Chapi.Presentation.Shared.Dialogs
                         dialog.SplashPath);
             }
 
-            return (false, string.Empty, string.Empty, false, false, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
+            return (false, string.Empty, string.Empty, false, false, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
         }
     }
 }

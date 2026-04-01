@@ -15,6 +15,7 @@ public class DeploymentConfig
     public string AppName { get; set; } = string.Empty; // Título visual de la app (ej: Firma Digital)
     public string PackageId { get; set; } = string.Empty; // ID único para Velopack/NuGet (ej: ANC.FirmaDigital)
     public string Author { get; set; } = string.Empty;  // Autor/Empresa (ej: ANC)
+    public string Platform { get; set; } = string.Empty; // RuntimeIdentifier opcional (ej: win-x64)
     public string Type { get; set; } = "Local"; // Local, FTP
     public string LocalPath { get; set; } = string.Empty;
     public string FtpUrl { get; set; } = string.Empty;

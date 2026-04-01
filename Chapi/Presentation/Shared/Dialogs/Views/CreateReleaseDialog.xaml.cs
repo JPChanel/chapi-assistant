@@ -24,6 +24,9 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
         public string AppName => AppNameBox.Text;
         public string PackageId => PackageIdBox.Text;
         public string Author => AuthorBox.Text;
+        public string Platform => (PlatformBox.SelectedItem as ComboBoxItem)?.Content?.ToString() == "Sin especificar"
+            ? string.Empty
+            : (PlatformBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? string.Empty;
         public string IconPath => IconPathBox.Text;
         public string SplashPath => SplashPathBox.Text;
 
@@ -35,11 +38,12 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
         public string FtpPassword => FtpPassBox.Password;
 
         // Método para cargar datos iniciales
-        public void SetDefaults(string appName, string packageId, string author, string localPath, string ftpUrl, string ftpUser, string iconPath = "", string splashPath = "")
+        public void SetDefaults(string appName, string packageId, string author, string localPath, string ftpUrl, string ftpUser, string platform = "", string iconPath = "", string splashPath = "")
         {
             AppNameBox.Text = appName;
             PackageIdBox.Text = packageId;
             AuthorBox.Text = author;
+            SelectPlatform(platform);
             IconPathBox.Text = iconPath;
             SplashPathBox.Text = splashPath;
             
@@ -57,6 +61,21 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
             }
 
             UpdatePreviews();
+        }
+
+        private void SelectPlatform(string platform)
+        {
+            foreach (var item in PlatformBox.Items)
+            {
+                if (item is ComboBoxItem comboItem &&
+                    string.Equals(comboItem.Content?.ToString(), platform, StringComparison.OrdinalIgnoreCase))
+                {
+                    PlatformBox.SelectedItem = comboItem;
+                    return;
+                }
+            }
+
+            PlatformBox.SelectedIndex = 0;
         }
 
         private void TagNameBox_TextChanged(object sender, TextChangedEventArgs e)

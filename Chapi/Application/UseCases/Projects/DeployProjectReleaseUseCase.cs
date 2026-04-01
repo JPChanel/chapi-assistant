@@ -3,6 +3,7 @@ using Chapi.Domain.Interfaces;
 using FluentFTP;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 
 namespace Chapi.Application.UseCases.Projects;
 
@@ -24,6 +25,7 @@ public class DeployProjectReleaseUseCase
         string? overrideAppName = null,
         string? overridePackageId = null,
         string? overrideAuthor = null,
+        string? overridePlatform = null,
         string? overrideLocalPath = null,
         string? overrideFtpUrl = null,
         string? overrideFtpUser = null,
@@ -63,11 +65,12 @@ public class DeployProjectReleaseUseCase
         string author = !string.IsNullOrWhiteSpace(overrideAuthor)
             ? overrideAuthor
             : (!string.IsNullOrWhiteSpace(config.Deployment.Author) ? config.Deployment.Author : "ANC");
+        string platform = ResolveOptionalOverride(overridePlatform, config.Deployment.Platform);
 
-        Log($"ℹ️ Configuración Build: App={appName}, ID={packageId}, Autor={author}");
+        Log($"ℹ️ Configuración Build: App={appName}, ID={packageId}, Autor={author}, Plataforma={(string.IsNullOrWhiteSpace(platform) ? "predeterminada" : platform)}");
 
-        string iconPath = !string.IsNullOrWhiteSpace(overrideIconPath) ? overrideIconPath : (config.Deployment.IconPath ?? "");
-        string splashPath = !string.IsNullOrWhiteSpace(overrideSplashPath) ? overrideSplashPath : (config.Deployment.SplashPath ?? "");
+        string iconPath = ResolveOptionalOverride(overrideIconPath, config.Deployment.IconPath);
+        string splashPath = ResolveOptionalOverride(overrideSplashPath, config.Deployment.SplashPath);
 
         // --- LÓGICA DE OVERRIDES DE DESTINO ---
         string localPath = !string.IsNullOrWhiteSpace(overrideLocalPath) ? overrideLocalPath : (config.Deployment.LocalPath ?? "");
@@ -105,6 +108,7 @@ public class DeployProjectReleaseUseCase
         config.Deployment.AppName = appName;
         config.Deployment.PackageId = packageId;
         config.Deployment.Author = author;
+        config.Deployment.Platform = platform;
         config.Deployment.LocalPath = finalDeploymentPath;
         config.Deployment.FtpUrl = finalFtpUrl;
         config.Deployment.IconPath = iconPath;
@@ -188,14 +192,29 @@ public class DeployProjectReleaseUseCase
             Log($"⚠️ Referencias COM detectadas. Usando MSBuild: {msBuildExe}");
 
             // Argumentos MSBuild para Publish
-            var msBuildArgs = $"\"{mainCsproj}\" /t:Publish /p:Configuration=Release /p:Platform=x64 /p:PublishDir=\"{publishDir}\" /p:Version={version} /p:Authors=\"{author}\" /p:Product=\"{appName}\"";
+            var msBuildArgs = new System.Text.StringBuilder();
+            msBuildArgs.Append($"\"{mainCsproj}\" /restore /t:Publish /p:Configuration=Release /p:PublishDir=\"{publishDir}\" /p:Version={version} /p:Authors=\"{author}\" /p:Product=\"{appName}\"");
 
-            buildResult = await RunCommandAsync(msBuildExe, msBuildArgs, projectPath, onLog);
+            if (!string.IsNullOrWhiteSpace(platform))
+            {
+                msBuildArgs.Append($" /p:Platform={ToMsBuildPlatform(platform)}");
+                msBuildArgs.Append($" /p:RuntimeIdentifier={platform}");
+                msBuildArgs.Append(" /p:SelfContained=true /p:PublishReadyToRun=true /p:PublishSingleFile=false");
+            }
+
+            buildResult = await RunCommandAsync(msBuildExe, msBuildArgs.ToString(), projectPath, onLog);
         }
         else
         {
-            var publishArgs = $"publish \"{mainCsproj}\" -c Release -r win-x64 --self-contained -o \"{publishDir}\" -p:Version={version} -p:Authors=\"{author}\" -p:Product=\"{appName}\"";
-            buildResult = await RunCommandAsync("dotnet", publishArgs, projectPath, onLog);
+            var publishArgs = new System.Text.StringBuilder();
+            publishArgs.Append($"publish \"{mainCsproj}\" -c Release -o \"{publishDir}\" -p:Version={version} -p:Authors=\"{author}\" -p:Product=\"{appName}\"");
+
+            if (!string.IsNullOrWhiteSpace(platform))
+            {
+                publishArgs.Append($" -r {platform} --self-contained true");
+            }
+
+            buildResult = await RunCommandAsync("dotnet", publishArgs.ToString(), projectPath, onLog);
         }
 
         if (!buildResult.Success)
@@ -365,6 +384,8 @@ public class DeployProjectReleaseUseCase
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
             CreateNoWindow = true
         };
 
@@ -411,6 +432,22 @@ public class DeployProjectReleaseUseCase
             onLog?.Invoke($"EXCEPTION: {ex.Message}");
             return (false, ex.Message);
         }
+    }
+
+    private string ResolveOptionalOverride(string? overrideValue, string? configuredValue)
+    {
+        // null = no override desde UI; string vacía = limpiar el valor guardado
+        return overrideValue is null ? (configuredValue ?? "") : overrideValue.Trim();
+    }
+
+    private string ToMsBuildPlatform(string runtimeIdentifier)
+    {
+        return runtimeIdentifier.ToLowerInvariant() switch
+        {
+            "win-x86" => "x86",
+            "win-x64" => "x64",
+            _ => runtimeIdentifier
+        };
     }
 
     private string FindMainCsproj(string solutionRoot, string[] csprojFiles, Action<string> log)
