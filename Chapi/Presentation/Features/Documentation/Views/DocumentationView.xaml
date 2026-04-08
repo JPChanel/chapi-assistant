@@ -1,9 +1,10 @@
-<UserControl x:Class="Chapi.Presentation.Features.Documentation.Views.DocumentationView"
+﻿<UserControl x:Class="Chapi.Presentation.Features.Documentation.Views.DocumentationView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:wpf="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:doc="clr-namespace:Chapi.Domain.Documentation"
+             xmlns:documentationViewModels="clr-namespace:Chapi.Presentation.Features.Documentation.ViewModels"
              xmlns:conv="clr-namespace:Chapi.Presentation.Converters"
              Background="{DynamicResource MaterialDesignPaper}">
 
@@ -159,6 +160,7 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="AcceptsReturn" Value="True"/>
             <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <EventSetter Event="TextChanged" Handler="DynamicItemTextBox_TextChanged"/>
             <EventSetter Event="LostFocus" Handler="DynamicItemTextBox_LostFocus"/>
         </Style>
 
@@ -218,37 +220,176 @@
             <Setter Property="VerticalAlignment" Value="Stretch"/>
         </Style>
 
+        <Style x:Key="ShellPanelStyle" TargetType="Border">
+            <Setter Property="Background" Value="#FDFEFF"/>
+            <Setter Property="BorderBrush" Value="#D6E1EE"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="28"/>
+        </Style>
+
+        <Style x:Key="SidebarMetricCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#18FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#30FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="Padding" Value="14,12"/>
+        </Style>
+
+        <Style x:Key="SidebarActionButtonStyle" TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource ActionTextOnAccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AppPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppPrimaryBrush}"/>
+            <Setter Property="md:ButtonAssist.CornerRadius" Value="14"/>
+        </Style>
+
+        <Style x:Key="SidebarGhostButtonStyle" TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
+            <Setter Property="Background" Value="#80FFFFFF"/>
+            <Setter Property="md:ButtonAssist.CornerRadius" Value="14"/>
+        </Style>
+
+        <Style x:Key="ToolbarChipStyle" TargetType="Border">
+            <Setter Property="Background" Value="#F5F8FC"/>
+            <Setter Property="BorderBrush" Value="#D9E4F1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="10,6"/>
+        </Style>
+
     </UserControl.Resources>
 
     <!-- Layout raíz: Sidebar + Contenido principal -->
     <Grid>
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#F7FAFC" Offset="0"/>
+                <GradientStop Color="#EEF4FF" Offset="0.58"/>
+                <GradientStop Color="#F9FBFF" Offset="1"/>
+            </LinearGradientBrush>
+        </Grid.Background>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="280"/>
+            <ColumnDefinition Width="400"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
         <!-- ==- SIDEBAR OSCURO ================================================== -->
-        <Border Grid.Column="0" Background="{DynamicResource MaterialDesignCardBackground}" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0">
+        <Border Grid.Column="0"
+                Style="{StaticResource ShellPanelStyle}"
+                Margin="18,18,10,18"
+                Effect="{DynamicResource MaterialDesignElevationShadow2}">
             <DockPanel>
 
                 <!-- Header del sidebar -->
-                <Border DockPanel.Dock="Top" Background="{DynamicResource MaterialDesignCardBackground}" Padding="24,24,24,16" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1">
-                    <StackPanel Orientation="Horizontal" >
-                        <Border Background="{DynamicResource AppPrimaryBrush}" CornerRadius="8" Padding="8" Margin="0,0,12,0">
-                            <md:PackIcon Kind="FileDocument" Foreground="{DynamicResource ActionTextOnAccentBrush}" Width="20" Height="20"/>
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="ChapiDocs" FontWeight="Black" FontSize="16" Foreground="{DynamicResource MaterialDesignBody}"/>
-                        </StackPanel>
+                <Border DockPanel.Dock="Top"
+                        Margin="0"
+                        Padding="0"
+                        Height="0"
+                        Visibility="Collapsed"
+                        CornerRadius="20">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#1E3A8A" Offset="0"/>
+                            <GradientStop Color="#2563EB" Offset="0.55"/>
+                            <GradientStop Color="#0F766E" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,10">
+                            <Border Background="#1AFFFFFF"
+                                    Width="38"
+                                    Height="38"
+                                    CornerRadius="12"
+                                    VerticalAlignment="Center">
+                                <md:PackIcon Kind="FileDocumentEditOutline"
+                                             Foreground="White"
+                                             Width="18"
+                                             Height="18"
+                                             HorizontalAlignment="Center"
+                                             VerticalAlignment="Center"/>
+                            </Border>
+                            <Border DockPanel.Dock="Right"
+                                    Background="#1AFFFFFF"
+                                    BorderBrush="#30FFFFFF"
+                                    BorderThickness="1"
+                                    CornerRadius="999"
+                                    Padding="8,3"
+                                    Margin="10,0,0,0"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding CurrentTemplate, Converter={StaticResource TemplateTitleConverter}}"
+                                           Foreground="White"
+                                           FontSize="9"
+                                           FontWeight="Bold"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxWidth="130"/>
+                            </Border>
+                        </DockPanel>
+
+                        <TextBlock Text="ChapiDocs"
+                                   FontSize="20"
+                                   FontWeight="Black"
+                                   Foreground="White"/>
+                        <TextBlock Text="{Binding Session.Metadata[PROYECTO_NOMBRE], FallbackValue=Proyecto activo}"
+                                   Margin="0,2,0,0"
+                                   Foreground="#E6FFFFFF"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"/>
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Style="{StaticResource SidebarMetricCardStyle}" Margin="0,0,6,0">
+                                <StackPanel>
+                                    <TextBlock Text="Secciones"
+                                               Foreground="#CCFFFFFF"
+                                               FontSize="10"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding Sections.Count}"
+                                               Margin="0,4,0,0"
+                                               Foreground="White"
+                                               FontSize="18"
+                                               FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="1" Style="{StaticResource SidebarMetricCardStyle}" Margin="6,0,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Etiquetas"
+                                               Foreground="#CCFFFFFF"
+                                               FontSize="10"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding ShowTags, StringFormat={}{0}}"
+                                               Margin="0,4,0,0"
+                                               Foreground="White"
+                                               FontSize="16"
+                                               FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                     </StackPanel>
                 </Border>
 
                 <!-- Panel Inferior (Toggle + Botón Generar) -->
-                <Border DockPanel.Dock="Bottom" Background="{DynamicResource MaterialDesignCardBackground}" Padding="16,16,16,24" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,1,0,0">
+                <Border DockPanel.Dock="Bottom"
+                        Margin="14,10,14,14"
+                        Padding="14"
+                        Background="#F7FAFD"
+                        BorderBrush="#D9E4EF"
+                        BorderThickness="1"
+                        CornerRadius="22">
                     <StackPanel>
-                        <!-- Toggle Mostrar Etiquetas -->
-                        <DockPanel Margin="8,0,8,16">
-                            <TextBlock Text="Mostrar Etiquetas" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <DockPanel Margin="0,0,0,12">
+                            <TextBlock Text="Mostrar Etiquetas" Foreground="{DynamicResource MaterialDesignBody}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
                             <ToggleButton IsChecked="{Binding ShowTags}" HorizontalAlignment="Right" Cursor="Hand" BorderThickness="0" Background="Transparent" Padding="0" Width="40">
                                 <ToggleButton.Style>
                                     <Style TargetType="ToggleButton">
@@ -277,27 +418,20 @@
 
                         <!-- Botón Guardar Ahora -->
                         <Button Command="{Binding SaveCommand}"
-                                Style="{StaticResource MaterialDesignRaisedButton}"
-                                md:ButtonAssist.CornerRadius="12"
-                                Background="{DynamicResource AppPrimaryBrush}"
-                                BorderBrush="{DynamicResource AppPrimaryBrush}"
-                                Foreground="{DynamicResource ActionTextOnAccentBrush}"
-                                Height="44" FontWeight="Bold"
-                                Cursor="Hand"
+                                Click="SaveButton_Click"
+                                Style="{StaticResource SidebarActionButtonStyle}"
                                 Margin="0,0,0,10">
-                            <StackPanel Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                 <md:PackIcon Kind="ContentSaveEdit" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Guardar Ahora" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
 
                         <!-- Botón Generar Word -->
-                        <Button Command="{Binding ExportWordCommand}" 
-                                Style="{StaticResource MaterialDesignRaisedButton}"
-                                Background="{DynamicResource AppSecondaryBrush}" BorderBrush="{DynamicResource AppSecondaryBrush}"
-                                md:ButtonAssist.CornerRadius="12"
-                                Height="48" FontWeight="Bold" Foreground="{DynamicResource ActionTextOnSecondaryBrush}" Cursor="Hand">
-                            <StackPanel Orientation="Horizontal">
+                        <Button Command="{Binding ExportWordCommand}"
+                                Click="ExportWordButton_Click"
+                                Style="{StaticResource SidebarGhostButtonStyle}">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                 <md:PackIcon Kind="FileWordBox" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Generar Word" VerticalAlignment="Center"/>
                             </StackPanel>
@@ -306,9 +440,9 @@
                 </Border>
 
                 <!-- PLANTILLAS -->
-                <StackPanel DockPanel.Dock="Top" Margin="16,20,16,0">
-                    <TextBlock Text="PLANTILLAS BASE" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="4,0,0,12" FontFamily="Cascadia Code, Consolas"/>
-                    <Grid Height="50">
+                <StackPanel DockPanel.Dock="Top" Margin="18,18,18,0">
+                    
+                    <Grid Height="54" Margin="0,0,0,14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
@@ -380,62 +514,253 @@
                 <!-- ESTRUCTURA -->
             
 
-                <!-- Lista de secciones -->
-                <ListBox ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}" Background="Transparent" BorderThickness="0" Margin="12,0">
-                    <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
-                            <Setter Property="Background" Value="Transparent"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,2"/>
+                <!-- Índice jerárquico -->
+                <TreeView ItemsSource="{Binding IndexSections}"
+                          SelectedItemChanged="IndexTree_SelectedItemChanged"
+                          Background="Transparent"
+                          BorderThickness="0"
+                          Margin="18,0,18,0">
+                    <TreeView.Resources>
+                        <HierarchicalDataTemplate DataType="{x:Type documentationViewModels:DocumentationIndexItem}"
+                                                  ItemsSource="{Binding Children}">
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Width="34"
+                                        Height="24"
+                                        Background="#EAF1F8"
+                                        CornerRadius="9"
+                                        VerticalAlignment="Top">
+                                    <Grid>
+                                        <TextBlock Text="{Binding Number}"
+                                                   Foreground="{DynamicResource AppPrimaryBrush}"
+                                                   FontSize="10"
+                                                   FontWeight="Bold"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Title}"
+                                           Margin="10,2,10,0"
+                                           Foreground="{DynamicResource MaterialDesignBody}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <Button Grid.Column="2"
+                                        Command="{Binding DataContext.RemoveSectionCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
+                                        CommandParameter="{Binding Section}"
+                                        Style="{StaticResource MaterialDesignIconButton}"
+                                        Width="22"
+                                        Height="22"
+                                        Padding="0"
+                                        Foreground="{DynamicResource MaterialDesignBodyLight}"
+                                        VerticalAlignment="Top">
+                                    <md:PackIcon Kind="Close" Width="12"/>
+                                </Button>
+                            </Grid>
+                        </HierarchicalDataTemplate>
+                    </TreeView.Resources>
+                    <TreeView.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem">
+                            <Setter Property="IsExpanded" Value="True"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="BorderBrush" Value="Transparent"/>
+                            <Setter Property="BorderThickness" Value="1"/>
                             <Setter Property="Template">
                                 <Setter.Value>
-                                    <ControlTemplate TargetType="ListBoxItem">
-                                        <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">
-                                            <ContentPresenter/>
-                                        </Border>
+                                    <ControlTemplate TargetType="TreeViewItem">
+                                        <StackPanel>
+                                            <Border x:Name="ItemBorder"
+                                                    Background="Transparent"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="16"
+                                                    Padding="0,10,8,8">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <ToggleButton x:Name="Expander"
+                                                                  Grid.Column="0"
+                                                                  Width="30"
+                                                                  Height="30"
+                                                                  Margin="0,0,8,0"
+                                                                  IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                  Background="Transparent"
+                                                                  BorderThickness="0"
+                                                                  Cursor="Hand"
+                                                                  Focusable="False">
+                                                        <ToggleButton.Style>
+                                                            <Style TargetType="ToggleButton">
+                                                                <Setter Property="Template">
+                                                                    <Setter.Value>
+                                                                        <ControlTemplate TargetType="ToggleButton">
+                                                                            <Border Background="Transparent"
+                                                                                    Width="30"
+                                                                                    Height="30"
+                                                                                    CornerRadius="10">
+                                                                                <md:PackIcon x:Name="Chevron"
+                                                                                             Kind="ChevronRight"
+                                                                                             Width="18"
+                                                                                             Height="18"
+                                                                                             HorizontalAlignment="Center"
+                                                                                             VerticalAlignment="Center"
+                                                                                             Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                                                                            </Border>
+                                                                            <ControlTemplate.Triggers>
+                                                                                <Trigger Property="IsChecked" Value="True">
+                                                                                    <Setter TargetName="Chevron" Property="Kind" Value="ChevronDown"/>
+                                                                                </Trigger>
+                                                                            </ControlTemplate.Triggers>
+                                                                        </ControlTemplate>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </Style>
+                                                        </ToggleButton.Style>
+                                                    </ToggleButton>
+                                                    <ContentPresenter Grid.Column="1"
+                                                                      ContentSource="Header"
+                                                                      RecognizesAccessKey="True"/>
+                                                </Grid>
+                                            </Border>
+                                            <ItemsPresenter x:Name="ItemsHost" Margin="18,0,0,0"/>
+                                        </StackPanel>
                                         <ControlTemplate.Triggers>
+                                            <Trigger Property="HasItems" Value="False">
+                                                <Setter TargetName="Expander" Property="Visibility" Value="Hidden"/>
+                                            </Trigger>
                                             <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MaterialDesignSelection}"/>
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="#E9F1FF"/>
+                                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#BFD4F6"/>
                                             </Trigger>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MaterialDesignSelection}"/>
-                                                <Setter TargetName="Bd" Property="Opacity" Value="0.7"/>
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="#F1F6FC"/>
+                                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#D9E4EF"/>
+                                            </Trigger>
+                                            <Trigger Property="IsExpanded" Value="False">
+                                                <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>
                         </Style>
-                    </ListBox.ItemContainerStyle>
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <md:PackIcon Kind="{Binding Type, Converter={StaticResource SectionTypeIconConverter}}" Foreground="{DynamicResource MaterialDesignBodyLight}" Width="14" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="{Binding Title}" Foreground="{DynamicResource MaterialDesignBody}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <Button Grid.Column="2" Command="{Binding DataContext.RemoveSectionCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}" Style="{StaticResource MaterialDesignIconButton}" Width="20" Height="20" Padding="0" Foreground="{DynamicResource MaterialDesignBodyLight}">
-                                    <md:PackIcon Kind="Close" Width="12"/>
-                                </Button>
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                    </TreeView.ItemContainerStyle>
+                </TreeView>
 
             </DockPanel>
         </Border>
 
         <!-- ==- ÁREA PRINCIPAL: Hoja A4 + Editor + Consola AI ==================- -->
-        <Grid Grid.Column="1" Background="{DynamicResource MaterialDesignPaper}" ClipToBounds="True">
+        <Grid Grid.Column="1" Background="Transparent" ClipToBounds="True" Margin="0,18,18,18">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
+            <Border Grid.Row="0"
+                    Style="{StaticResource ShellPanelStyle}"
+                    Padding="16,12"
+                    Margin="0,0,0,10"
+                    Effect="{DynamicResource MaterialDesignElevationShadow1}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Editor de documentación"
+                                    FontSize="18"
+                                    FontWeight="Black"
+                                    Foreground="{DynamicResource MaterialDesignBody}"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   Foreground="{DynamicResource MaterialDesignBodyLight}"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="NoWrap"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxWidth="360"
+                                   Margin="0,0,12,0"/>
+
+                        <Border Style="{StaticResource ToolbarChipStyle}" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <md:PackIcon Kind="LayersOutline" Width="12" Height="12" Margin="0,0,5,0" Foreground="{DynamicResource AppPrimaryBrush}"/>
+                                <TextBlock Text="{Binding CurrentTemplate, Converter={StaticResource TemplateTitleConverter}}"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource MaterialDesignBody}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource ToolbarChipStyle}" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <md:PackIcon Kind="TableOfContents" Width="12" Height="12" Margin="0,0,5,0" Foreground="{DynamicResource AppPrimaryBrush}"/>
+                                <TextBlock Text="{Binding Sections.Count, StringFormat={}{0} secciones}"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource MaterialDesignBody}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource ToolbarChipStyle}">
+                            <StackPanel Orientation="Horizontal">
+                                <md:PackIcon Kind="TagMultipleOutline" Width="12" Height="12" Margin="0,0,5,0" Foreground="{DynamicResource AppPrimaryBrush}"/>
+                                <TextBlock Text="{Binding ShowTags, StringFormat=Etiquetas: {0}}"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource MaterialDesignBody}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Command="{Binding RefreshPreviewCommand}"
+                                Style="{StaticResource SidebarGhostButtonStyle}"
+                                Width="108"
+                                Height="36"
+                                Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <md:PackIcon Kind="Refresh" Width="14" Height="14" Margin="0,0,5,0"/>
+                                <TextBlock Text="Refrescar" FontSize="11"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button Command="{Binding SaveCommand}"
+                                Click="SaveButton_Click"
+                                Style="{StaticResource SidebarActionButtonStyle}"
+                                Width="112"
+                                Height="36">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <md:PackIcon Kind="ContentSaveOutline" Width="14" Height="14" Margin="0,0,5,0"/>
+                                <TextBlock Text="Guardar" FontSize="11"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
             <!-- Fondo gris con la "hoja" A4 centrada -->
-            <ScrollViewer Grid.Row="0"
+            <ScrollViewer x:Name="DocumentScrollViewer" Grid.Row="1"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           ClipToBounds="True"
                           PanningMode="Both">
-                <Grid Margin="10,40,10,120">
+                <Grid x:Name="DocumentContentRoot" Margin="18,24,18,110">
 
                     <!-- Hoja A4 blanca -->
                     <Border Style="{StaticResource WordPageStyle}">
@@ -1903,16 +2228,16 @@
             </ScrollViewer>
 
             <!-- == CONSOLA AI FLOTANTE (dock al fondo) ========================- -->
-            <Border Grid.Row="1"
-                    Background="{DynamicResource MaterialDesignPaper}"
-                    BorderBrush="{DynamicResource MaterialDesignDivider}"
-                    BorderThickness="0,1,0,0"
-                    Padding="12,12">
-                <Border Background="{DynamicResource MaterialDesignCardBackground}"
-                        BorderBrush="{DynamicResource MaterialDesignDivider}"
+            <Border Grid.Row="2"
+                    Style="{StaticResource ShellPanelStyle}"
+                    Padding="12"
+                    Margin="0,16,0,0"
+                    Effect="{DynamicResource MaterialDesignElevationShadow1}">
+                <Border Background="#F7FAFD"
+                        BorderBrush="#D9E4EF"
                         BorderThickness="1"
-                        CornerRadius="12"
-                        Padding="12,10">
+                        CornerRadius="20"
+                        Padding="14,12">
                     <Grid HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>

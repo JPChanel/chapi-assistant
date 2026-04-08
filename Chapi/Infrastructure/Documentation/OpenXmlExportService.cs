@@ -266,15 +266,15 @@ public class OpenXmlExportService : IDocumentExportService
                 break;
             case 14:
                 if (!await TryAppendSectionVisualAsync(mainPart, elements, section, "Diagrama de actividad"))
-                    await AppendRepeatedDiagramAsync(mainPart, elements, session, "BLOQUE_ACT_ITEMS", "CU_NOM_ACT", "IMG_ACTIVIDAD", "Diagrama de actividad");
+                    await AppendRepeatedDiagramAsync(mainPart, elements, session, "BLOQUE_ACT_ITEMS", "CU_NOM_ACT", "IMG_ACTIVIDAD", "Diagrama de actividad", "CU_ID_ACT", "CU_DESC_ACT");
                 break;
             case 15:
                 if (!await TryAppendSectionVisualAsync(mainPart, elements, section, "Diagrama de secuencia"))
-                    await AppendRepeatedDiagramAsync(mainPart, elements, session, "BLOQUE_SEQ_ITEMS", "CU_NOM_SEQ", "IMG_SECUENCIA", "Diagrama de secuencia");
+                    await AppendRepeatedDiagramAsync(mainPart, elements, session, "BLOQUE_SEQ_ITEMS", "CU_NOM_SEQ", "IMG_SECUENCIA", "Diagrama de secuencia", "CU_ID_SEQ", "CU_DESC_SEQ");
                 break;
             case 16:
                 if (!await TryAppendSectionVisualAsync(mainPart, elements, section, "Diagrama de estados"))
-                    await AppendRepeatedDiagramAsync(mainPart, elements, session, "BLOQUE_EST_ITEMS", "CU_NOM_EST", "IMG_ESTADO", "Diagrama de estados");
+                    await AppendRepeatedDiagramAsync(mainPart, elements, session, "BLOQUE_EST_ITEMS", "CU_NOM_EST", "IMG_ESTADO", "Diagrama de estados", "CU_ID_EST", "CU_DESC_EST");
                 break;
             default:
                 AppendMarkdownOrMetadata(elements, section, section.Content);
@@ -307,7 +307,7 @@ public class OpenXmlExportService : IDocumentExportService
                 break;
             case 5:
                 AppendCaption(elements, "Tabla", "Descripción de capas");
-                elements.Add(CreateJsonRowsTable(GetMetadataValue(session, "BLOQUE_CAPAS_ITEMS"), [("CAPA_NOM", "Capa"), ("CAPA_DESC", "Descripción")]));
+                elements.Add(CreateJsonRowsTable(session, "BLOQUE_CAPAS_ITEMS", [("CAPA_NOM", "Capa"), ("CAPA_DESC", "Descripción")]));
                 break;
             case 6:
                 AppendMarkdownOrMetadata(elements, section, section.Content);
@@ -317,7 +317,7 @@ public class OpenXmlExportService : IDocumentExportService
                 break;
             case 8:
                 AppendCaption(elements, "Tabla", "Descripción de componentes");
-                elements.Add(CreateJsonRowsTable(GetMetadataValue(session, "BLOQUE_COMP_ITEMS"), [("COMP_NOM", "Componente"), ("COMP_DESC", "Descripción")]));
+                elements.Add(CreateJsonRowsTable(session, "BLOQUE_COMP_ITEMS", [("COMP_NOM", "Componente"), ("COMP_DESC", "Descripción")]));
                 break;
             case 9:
                 AppendMarkdownOrMetadata(elements, section, section.Content);
@@ -378,7 +378,20 @@ public class OpenXmlExportService : IDocumentExportService
     private async Task AppendUseCaseSpecificationAsync(MainDocumentPart mainPart, List<OpenXmlElement> elements, DocumentSession session)
     {
         var raw = GetMetadataValue(session, "BLOQUE_CU_ITEMS");
-        var rows = ParseDynamicRows(raw);
+        var rows = GetDynamicRowsWithFallback(
+            session,
+            "BLOQUE_CU_ITEMS",
+            "CU_ID",
+            "CU_NOM",
+            "CU_DESC",
+            "CU_ACTORES",
+            "CU_PRE",
+            "CU_FLOW_BASE",
+            "CU_FLOW_ALT",
+            "CU_POST",
+            "CU_RESTRIC",
+            "CU_PADRE",
+            "IMG_PROTOTIPO");
         LogDebug($"BLOCK BLOQUE_CU_ITEMS rawLen={raw.Length} rows={rows.Count}");
         if (rows.Count == 0)
         {
@@ -414,7 +427,12 @@ public class OpenXmlExportService : IDocumentExportService
     private static void AppendPackageSpecification(List<OpenXmlElement> elements, DocumentSession session)
     {
         var raw = GetMetadataValue(session, "BLOQUE_PQ_ITEMS");
-        var rows = ParseDynamicRows(raw);
+        var rows = GetDynamicRowsWithFallback(
+            session,
+            "BLOQUE_PQ_ITEMS",
+            "PQ_ID_NOM",
+            "PQ_DESC",
+            "PQ_CLASES_LISTA");
         LogDebug($"BLOCK BLOQUE_PQ_ITEMS rawLen={raw.Length} rows={rows.Count}");
         if (rows.Count == 0)
         {
@@ -437,7 +455,14 @@ public class OpenXmlExportService : IDocumentExportService
 
     private static void AppendClassSpecification(List<OpenXmlElement> elements, DocumentSession session)
     {
-        var rows = ParseDynamicRows(GetMetadataValue(session, "BLOQUE_CLASE_DET_ITEMS"));
+        var rows = GetDynamicRowsWithFallback(
+            session,
+            "BLOQUE_CLASE_DET_ITEMS",
+            "CLASE_TITULO",
+            "CLASE_ATRIB",
+            "CLASE_OPER",
+            "CLASE_AGREG",
+            "CLASE_ASOC");
         if (rows.Count == 0)
         {
             elements.Add(CreateParagraph("No hay clases detalladas generadas.", italic: true, color: "6B7280"));
@@ -461,7 +486,14 @@ public class OpenXmlExportService : IDocumentExportService
 
     private static void AppendDictionaryDetails(List<OpenXmlElement> elements, DocumentSession session)
     {
-        var rows = ParseDynamicRows(GetMetadataValue(session, "BLOQUE_DICC_TABLA_ITEMS"));
+        var rows = GetDynamicRowsWithFallback(
+            session,
+            "BLOQUE_DICC_TABLA_ITEMS",
+            "DICC_TABLA_TITULO",
+            "COL_NOM",
+            "COL_TIPO",
+            "COL_PK",
+            "COL_DESC");
         if (rows.Count == 0)
         {
             elements.Add(CreateParagraph("No hay tablas detalladas generadas para el diccionario de datos.", italic: true, color: "6B7280"));
@@ -502,10 +534,18 @@ public class OpenXmlExportService : IDocumentExportService
         string itemsKey,
         string titleKey,
         string imageKey,
-        string baseCaption)
+        string baseCaption,
+        string? idKey = null,
+        string? descriptionKey = null)
     {
         var raw = GetMetadataValue(session, itemsKey);
-        var rows = ParseDynamicRows(raw);
+        var fallbackKeys = new List<string> { titleKey, imageKey };
+        if (!string.IsNullOrWhiteSpace(idKey))
+            fallbackKeys.Add(idKey);
+        if (!string.IsNullOrWhiteSpace(descriptionKey))
+            fallbackKeys.Add(descriptionKey);
+
+        var rows = GetDynamicRowsWithFallback(session, itemsKey, fallbackKeys.ToArray());
         LogDebug($"BLOCK {itemsKey} rawLen={raw.Length} rows={rows.Count}");
         if (rows.Count == 0)
         {
@@ -515,9 +555,19 @@ public class OpenXmlExportService : IDocumentExportService
 
         foreach (var row in rows)
         {
+            var id = string.IsNullOrWhiteSpace(idKey) ? string.Empty : row.GetValueOrDefault(idKey, string.Empty);
             var name = row.GetValueOrDefault(titleKey, "Elemento");
-            elements.Add(CreateParagraph(name, bold: true, fontSize: "24", color: "1F3A5F", spacingBefore: 180, spacingAfter: 100));
-            await AppendDiagramFromMetadataAsync(mainPart, elements, row.GetValueOrDefault(imageKey, string.Empty), $"{baseCaption} - {name}");
+            var heading = string.IsNullOrWhiteSpace(id) ? name : $"{id} - {name}";
+            elements.Add(CreateParagraph(heading, bold: true, fontSize: "24", color: "1F3A5F", spacingBefore: 180, spacingAfter: 100));
+
+            if (!string.IsNullOrWhiteSpace(descriptionKey))
+            {
+                var description = row.GetValueOrDefault(descriptionKey, string.Empty);
+                if (!string.IsNullOrWhiteSpace(description))
+                    elements.Add(CreateKeyValueTable([("Descripción", description)]));
+            }
+
+            await AppendDiagramFromMetadataAsync(mainPart, elements, row.GetValueOrDefault(imageKey, string.Empty), $"{baseCaption} - {heading}");
         }
     }
 
@@ -803,6 +853,21 @@ public class OpenXmlExportService : IDocumentExportService
         return CreateTable(columns.Select(c => c.Header).ToList(), dataRows);
     }
 
+    private static Table CreateJsonRowsTable(
+        DocumentSession session,
+        string itemsKey,
+        IReadOnlyList<(string Key, string Header)> columns)
+    {
+        var rows = GetDynamicRowsWithFallback(session, itemsKey, columns.Select(column => column.Key).ToArray());
+        if (rows.Count == 0)
+            return CreateTable(columns.Select(c => c.Header).ToList(), [["No identificado en contexto"]]);
+
+        var dataRows = rows
+            .Select(row => (IReadOnlyList<string>)columns.Select(column => row.GetValueOrDefault(column.Key, string.Empty)).ToList())
+            .ToList();
+        return CreateTable(columns.Select(c => c.Header).ToList(), dataRows);
+    }
+
     private static bool TryReadStructuredTable(string raw, out IReadOnlyList<string> headers, out IReadOnlyList<IReadOnlyList<string>> rows)
     {
         headers = Array.Empty<string>();
@@ -866,6 +931,26 @@ public class OpenXmlExportService : IDocumentExportService
 
     private static List<string> SplitByNewLine(string raw) =>
         raw.Replace("\r\n", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+
+    private static List<Dictionary<string, string>> GetDynamicRowsWithFallback(DocumentSession session, string itemsKey, params string[] fallbackKeys)
+    {
+        var rows = ParseDynamicRows(GetMetadataValue(session, itemsKey));
+        if (rows.Count > 0)
+            return rows;
+
+        if (fallbackKeys.Length == 0)
+            return [];
+
+        var fallbackRow = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in fallbackKeys.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var value = GetMetadataValue(session, key);
+            if (!string.IsNullOrWhiteSpace(value))
+                fallbackRow[key] = value;
+        }
+
+        return fallbackRow.Count > 0 ? [fallbackRow] : [];
+    }
 
     private static Table CreateKeyValueTable(IEnumerable<(string Label, string Value)> rows)
     {

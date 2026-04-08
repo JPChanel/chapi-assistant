@@ -1,12 +1,14 @@
-using System.Collections.Generic;
-using System.Linq;
+﻿using Chapi.Domain.Documentation;
+using Chapi.Presentation.Features.Documentation.ViewModels;
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Media;
 using System.Windows.Input;
-using Chapi.Presentation.Features.Documentation.ViewModels;
+using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace Chapi.Presentation.Features.Documentation.Views;
 
@@ -62,6 +64,7 @@ public partial class DocumentationView : UserControl
         if (sender is TextBox textBox)
         {
             BindingOperations.GetBindingExpression(textBox, TextBox.TextProperty)?.UpdateSource();
+            SerializeDynamicItemsForTextBox(textBox);
         }
 
         _debounceToken?.Cancel();
@@ -77,6 +80,15 @@ public partial class DocumentationView : UserControl
             }
         }
         catch (TaskCanceledException) { }
+    }
+
+    private void DynamicItemTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is not TextBox textBox)
+            return;
+
+        BindingOperations.GetBindingExpression(textBox, TextBox.TextProperty)?.UpdateSource();
+        SerializeDynamicItemsForTextBox(textBox);
     }
 
 
@@ -113,12 +125,62 @@ public partial class DocumentationView : UserControl
         if (sender is not TextBox textBox)
             return;
 
+        SerializeDynamicItemsForTextBox(textBox);
+        await _viewModel.RefreshPreviewAsync();
+    }
+
+    private void IndexTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    {
+        if (e.NewValue is not DocumentationIndexItem indexItem)
+            return;
+
+        _viewModel ??= DataContext as DocumentationViewModel;
+        if (_viewModel == null)
+            return;
+
+        _viewModel.SelectedSection = indexItem.Section;
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            new Action(() => ScrollToSection(indexItem.Section.Title)));
+    }
+
+    private void SaveButton_Click(object sender, RoutedEventArgs e) => FlushPendingDocumentationEdits();
+
+    private void ExportWordButton_Click(object sender, RoutedEventArgs e) => FlushPendingDocumentationEdits();
+
+    private void FlushPendingDocumentationEdits()
+    {
+        _viewModel ??= DataContext as DocumentationViewModel;
+        if (_viewModel?.Session?.Metadata == null)
+            return;
+
+        foreach (var textBox in FindVisualChildren<TextBox>(this))
+            BindingOperations.GetBindingExpression(textBox, TextBox.TextProperty)?.UpdateSource();
+
+        foreach (var itemsControl in FindVisualChildren<ItemsControl>(this))
+        {
+            if (itemsControl.Tag is not string itemsKey || string.IsNullOrWhiteSpace(itemsKey))
+                continue;
+
+            SerializeItemsControl(itemsControl, itemsKey);
+        }
+
+        _viewModel.NotifyMetadataBindingsChanged();
+    }
+
+    private void SerializeDynamicItemsForTextBox(TextBox textBox)
+    {
         var itemsControl = FindAncestor<ItemsControl>(textBox);
         if (itemsControl?.Tag is not string itemsKey || string.IsNullOrWhiteSpace(itemsKey))
             return;
 
+        SerializeItemsControl(itemsControl, itemsKey);
+    }
+
+    private void SerializeItemsControl(ItemsControl itemsControl, string itemsKey)
+    {
         _viewModel ??= DataContext as DocumentationViewModel;
-        if (_viewModel == null || _viewModel.Session?.Metadata == null)
+        if (_viewModel?.Session?.Metadata == null)
             return;
 
         var rows = new List<Dictionary<string, string>>();
@@ -131,7 +193,6 @@ public partial class DocumentationView : UserControl
         }
 
         _viewModel.Session.Metadata[itemsKey] = JsonSerializer.Serialize(rows);
-        await _viewModel.RefreshPreviewAsync();
     }
 
     private static T? FindAncestor<T>(DependencyObject? child) where T : DependencyObject
@@ -148,6 +209,23 @@ public partial class DocumentationView : UserControl
         return null;
     }
 
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject? parent) where T : DependencyObject
+    {
+        if (parent == null)
+            yield break;
+
+        var count = VisualTreeHelper.GetChildrenCount(parent);
+        for (var i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T typed)
+                yield return typed;
+
+            foreach (var descendant in FindVisualChildren<T>(child))
+                yield return descendant;
+        }
+    }
+
     public void NavigatePreview()
     {
         if (!_isInitialized || _viewModel == null) return;
@@ -156,6 +234,96 @@ public partial class DocumentationView : UserControl
             PreviewWebView.NavigateToString(_viewModel.PreviewHtml);
         }
         catch { }
+    }
+
+    private void ScrollToSection(string? sectionTitle)
+    {
+        if (string.IsNullOrWhiteSpace(sectionTitle))
+            return;
+
+        var match = FindVisualChildren<TextBlock>(DocumentContentRoot)
+            .Select(textBlock => new
+            {
+                Element = textBlock,
+                Score = GetSectionMatchScore(sectionTitle, textBlock.Text)
+            })
+            .Where(x => x.Score >= 0 && x.Element.IsVisible)
+            .OrderBy(x => x.Score)
+            .ThenBy(x => GetVerticalPosition(x.Element))
+            .FirstOrDefault();
+
+        if (match?.Element == null)
+            return;
+
+        var targetPoint = match.Element.TransformToAncestor(DocumentContentRoot).Transform(new Point(0, 0));
+        DocumentScrollViewer.ScrollToVerticalOffset(Math.Max(0, targetPoint.Y - 20));
+    }
+
+    private static double GetVerticalPosition(FrameworkElement element)
+    {
+        try
+        {
+            return element.TransformToAncestor(System.Windows.Application.Current.MainWindow).Transform(new Point(0, 0)).Y;
+        }
+        catch
+        {
+            return double.MaxValue;
+        }
+    }
+
+    private static int GetSectionMatchScore(string targetTitle, string? candidateText)
+    {
+        var target = NormalizeSectionKey(targetTitle);
+        var candidate = NormalizeSectionKey(candidateText);
+
+        if (string.IsNullOrWhiteSpace(target) || string.IsNullOrWhiteSpace(candidate))
+            return -1;
+
+        if (candidate == target)
+            return 0;
+
+        if (candidate.Contains(target, StringComparison.Ordinal))
+            return 1;
+
+        if (target.Contains(candidate, StringComparison.Ordinal))
+            return 2;
+
+        return -1;
+    }
+
+    private static string NormalizeSectionKey(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        var lastWasSpace = false;
+
+        foreach (var ch in normalized)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (category == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            if (char.IsLetterOrDigit(ch))
+            {
+                builder.Append(char.ToLowerInvariant(ch));
+                lastWasSpace = false;
+                continue;
+            }
+
+            if (char.IsWhiteSpace(ch) || ch is '.' or ':' or '/' or '-' or '_')
+            {
+                if (!lastWasSpace)
+                {
+                    builder.Append(' ');
+                    lastWasSpace = true;
+                }
+            }
+        }
+
+        return builder.ToString().Trim();
     }
 
 

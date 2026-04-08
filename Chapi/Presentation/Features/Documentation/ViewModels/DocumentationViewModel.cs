@@ -2,6 +2,7 @@ using Chapi.Application.Interfaces;
 using Chapi.Application.UseCases.AI;
 using Chapi.Application.UseCases.Documentation;
 using Chapi.Domain.Documentation;
+using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Text.RegularExpressions;
@@ -166,7 +167,29 @@ public class DocumentationViewModel : ViewModelBase
     public ObservableCollection<DocSection> Sections
     {
         get => _sections;
-        set { _sections = value; OnPropertyChanged(); }
+        set
+        {
+            if (ReferenceEquals(_sections, value))
+                return;
+
+            if (_sections != null)
+                _sections.CollectionChanged -= Sections_CollectionChanged;
+
+            _sections = value;
+
+            if (_sections != null)
+                _sections.CollectionChanged += Sections_CollectionChanged;
+
+            RebuildIndexSections();
+            OnPropertyChanged();
+        }
+    }
+
+    private ObservableCollection<DocumentationIndexItem> _indexSections = new();
+    public ObservableCollection<DocumentationIndexItem> IndexSections
+    {
+        get => _indexSections;
+        private set { _indexSections = value; OnPropertyChanged(); }
     }
 
     public DocSection? SelectedSection
@@ -176,6 +199,7 @@ public class DocumentationViewModel : ViewModelBase
         {
             _selectedSection = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IndexSections));
             OnPropertyChanged(nameof(IsTextSection));
             OnPropertyChanged(nameof(IsDiagramSection));
             OnPropertyChanged(nameof(IsImageSection));
@@ -1129,6 +1153,74 @@ public class DocumentationViewModel : ViewModelBase
 
     private void SyncSectionsToSession() =>
         _session.Sections = Sections.ToList();
+
+    private void Sections_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RebuildIndexSections();
+    }
+
+    private void RebuildIndexSections()
+    {
+        var indexItems = new ObservableCollection<DocumentationIndexItem>();
+        var parentsByNumber = new Dictionary<int, DocumentationIndexItem>();
+        var topLevelCounter = 0;
+
+        foreach (var section in Sections.OrderBy(s => s.Order))
+        {
+            if (TryParseSubSection(section.Title, out var mainNumber, out var subsectionNumber, out var cleanTitle)
+                && parentsByNumber.TryGetValue(mainNumber, out var parent))
+            {
+                parent.Children.Add(new DocumentationIndexItem
+                {
+                    Number = subsectionNumber,
+                    Title = cleanTitle,
+                    Section = section
+                });
+
+                continue;
+            }
+
+            topLevelCounter++;
+            var item = new DocumentationIndexItem
+            {
+                Number = topLevelCounter.ToString(),
+                Title = CleanSectionTitle(section.Title),
+                Section = section
+            };
+
+            indexItems.Add(item);
+            parentsByNumber[topLevelCounter] = item;
+        }
+
+        IndexSections = indexItems;
+    }
+
+    private static bool TryParseSubSection(string? title, out int mainNumber, out string subsectionNumber, out string cleanTitle)
+    {
+        mainNumber = 0;
+        subsectionNumber = string.Empty;
+        cleanTitle = CleanSectionTitle(title);
+
+        if (string.IsNullOrWhiteSpace(title))
+            return false;
+
+        var match = Regex.Match(title, @"^\s*(\d+)\.(\d+)\s+(.*)$");
+        if (!match.Success)
+            return false;
+
+        mainNumber = int.Parse(match.Groups[1].Value);
+        subsectionNumber = $"{match.Groups[1].Value}.{match.Groups[2].Value}";
+        cleanTitle = match.Groups[3].Value.Trim();
+        return true;
+    }
+
+    private static string CleanSectionTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return string.Empty;
+
+        return Regex.Replace(title, @"^\s*\d+(\.\d+)?\s+", string.Empty).Trim();
+    }
 
     private async Task HydrateStructuredMetadataForExportAsync()
     {
