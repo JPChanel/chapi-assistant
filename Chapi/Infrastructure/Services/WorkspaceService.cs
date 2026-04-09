@@ -1,6 +1,7 @@
 using Chapi.Application.Interfaces.Workspace;
 using Chapi.Domain.Common;
 using Chapi.Domain.Entities.Workspace;
+using Chapi.Domain.Interfaces;
 using Chapi.Infrastructure.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,7 @@ public class WorkspaceService : IWorkspaceService
     private readonly string _appDataPath;
     private readonly string _tipsCachePath;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IGitRepository _gitRepository;
 
     private class DailyTipsCache
     {
@@ -25,6 +27,7 @@ public class WorkspaceService : IWorkspaceService
     public WorkspaceService(IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider;
+        _gitRepository = serviceProvider.GetRequiredService<IGitRepository>();
         _appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ChapiAssistant", "Workspaces");
         _tipsCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ChapiAssistant", "daily_tips.json");
 
@@ -173,6 +176,76 @@ public class WorkspaceService : IWorkspaceService
         }
     }
 
+    public async Task<Result<IReadOnlyList<WorkspaceActivityRecord>>> LoadActivityRecordsAsync()
+    {
+        try
+        {
+            if (!Directory.Exists(_appDataPath))
+                return Result<IReadOnlyList<WorkspaceActivityRecord>>.Success(Array.Empty<WorkspaceActivityRecord>());
+
+            var records = new List<WorkspaceActivityRecord>();
+            var ownerCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var workspaceDirectories = Directory.GetDirectories(_appDataPath);
+
+            foreach (var workspaceDirectory in workspaceDirectories)
+            {
+                var metadataPath = Path.Combine(workspaceDirectory, "metadata.json");
+                var tasksPath = Path.Combine(workspaceDirectory, "tasks");
+                if (!Directory.Exists(tasksPath))
+                    continue;
+
+                var workspaceData = await LoadWorkspaceMetadataAsync(metadataPath);
+                var projectPath = workspaceData?.ProjectPath ?? string.Empty;
+                var projectName = !string.IsNullOrWhiteSpace(projectPath) && Directory.Exists(projectPath)
+                    ? new DirectoryInfo(projectPath).Name
+                    : new DirectoryInfo(workspaceDirectory).Name;
+                var owner = await ResolveOwnerAsync(projectPath, ownerCache);
+
+                foreach (var taskFile in Directory.GetFiles(tasksPath, "*.json"))
+                {
+                    try
+                    {
+                        var taskJson = await File.ReadAllTextAsync(taskFile);
+                        var task = JsonSerializer.Deserialize<WorkspaceTask>(taskJson);
+                        if (task == null || task.IsDeleted || task.ShouldBePermanentlyDeleted)
+                            continue;
+
+                        var updatedAt = task.UpdatedAt == default
+                            ? (task.CreatedAt == default ? DateTime.Now : task.CreatedAt)
+                            : task.UpdatedAt;
+
+                        records.Add(new WorkspaceActivityRecord
+                        {
+                            TaskId = task.Id,
+                            ProjectPath = projectPath,
+                            ProjectName = projectName,
+                            Title = task.Title ?? string.Empty,
+                            Owner = owner,
+                            Priority = task.Priority,
+                            Status = task.Status,
+                            CreatedAt = task.CreatedAt == default ? updatedAt : task.CreatedAt,
+                            UpdatedAt = updatedAt,
+                            CompletedAt = task.CompletedAt
+                        });
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+
+            return Result<IReadOnlyList<WorkspaceActivityRecord>>.Success(
+                records
+                    .OrderByDescending(record => record.UpdatedAt)
+                    .ThenBy(record => record.ProjectName)
+                    .ToList());
+        }
+        catch (Exception ex)
+        {
+            return Result<IReadOnlyList<WorkspaceActivityRecord>>.Fail($"Error al cargar actividades globales: {ex.Message}");
+        }
+    }
+
     public async Task<Result<string>> GetRandomQuoteAsync()
     {
         // 1. Try to load from cache
@@ -278,5 +351,44 @@ public class WorkspaceService : IWorkspaceService
         {
             return Result.Fail($"No se pudo abrir el explorador: {ex.Message}");
         }
+    }
+
+    private static async Task<WorkspaceData?> LoadWorkspaceMetadataAsync(string metadataPath)
+    {
+        if (!File.Exists(metadataPath))
+            return null;
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(metadataPath);
+            return JsonSerializer.Deserialize<WorkspaceData>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task<string> ResolveOwnerAsync(string projectPath, IDictionary<string, string> ownerCache)
+    {
+        var cacheKey = string.IsNullOrWhiteSpace(projectPath) ? "__global__" : projectPath;
+        if (ownerCache.TryGetValue(cacheKey, out var cachedOwner))
+            return cachedOwner;
+
+        var owner = string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(projectPath) && Directory.Exists(projectPath))
+        {
+            owner = await _gitRepository.GetConfigAsync(projectPath, "user.name");
+        }
+
+        if (string.IsNullOrWhiteSpace(owner))
+        {
+            owner = await _gitRepository.GetConfigAsync(string.Empty, "user.name", isGlobal: true);
+        }
+
+        owner = string.IsNullOrWhiteSpace(owner) ? "(Sin usuario Git)" : owner.Trim();
+        ownerCache[cacheKey] = owner;
+        return owner;
     }
 }

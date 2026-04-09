@@ -1,15 +1,23 @@
-using Chapi.Domain.Interfaces;
-using Chapi.Domain.Models;
+﻿using Chapi.Domain.Models;
 using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
-using Chapi.Presentation.Shared.Tasks;
+using Chapi.Presentation.Features.ActivityOverview.ViewModels;
+using Chapi.Presentation.Features.ActivityOverview.Views;
+using Chapi.Presentation.Features.Assistant.ViewModels;
+using Chapi.Presentation.Features.Changes.ViewModels;
+using Chapi.Presentation.Features.Documentation.ViewModels;
 using Chapi.Presentation.Features.Git.Models;
 using Chapi.Presentation.Features.Git.Services;
+using Chapi.Presentation.Features.History.ViewModels;
 using Chapi.Presentation.Features.Projects.Models;
 using Chapi.Presentation.Features.Projects.Services;
+using Chapi.Presentation.Features.Projects.ViewModels;
+using Chapi.Presentation.Features.Releases.ViewModels;
+using Chapi.Presentation.Features.Workspace.ViewModels;
+using Chapi.Presentation.Shared.Dialogs.Views;
+using Chapi.Presentation.Shared.Tasks;
 using Chapi.Presentation.Startup.Models;
 using Chapi.Presentation.Startup.Services;
-using Chapi.Presentation.Shared.Dialogs.Views;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
 using System.IO;
@@ -18,13 +26,6 @@ using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Media;
 using UseCases = Chapi.Application.UseCases.Git;
-using Chapi.Presentation.Features.Assistant.ViewModels;
-using Chapi.Presentation.Features.Changes.ViewModels;
-using Chapi.Presentation.Features.Documentation.ViewModels;
-using Chapi.Presentation.Features.History.ViewModels;
-using Chapi.Presentation.Features.Projects.ViewModels;
-using Chapi.Presentation.Features.Releases.ViewModels;
-using Chapi.Presentation.Features.Workspace.ViewModels;
 
 namespace Chapi
 {
@@ -63,6 +64,7 @@ namespace Chapi
         private WorkspaceViewModel? _workspaceViewModel;
         private AssistantViewModel? _assistantViewModel;
         private DocumentationViewModel? _documentationViewModel;
+        private ActivityOverviewWindow? _activityOverviewWindow;
         private readonly GitWorkflowCoordinator _gitWorkflowCoordinator;
         private readonly ProjectShellService _projectShellService;
         private readonly ProjectSyncCoordinator _projectSyncCoordinator;
@@ -118,7 +120,9 @@ namespace Chapi
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            await _startupTaskCoordinator.HandleWindowLoadedAsync(CreateStartupTaskContext());
+            await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
+            _startupTaskCoordinator.HandleWindowLoadedAsync(CreateStartupTaskContext())
+                .Forget("inicializando ventana principal");
         }
 
 
@@ -130,6 +134,53 @@ namespace Chapi
         }
 
         private void LogoButton_Click(object sender, RoutedEventArgs e) => ShowUpdateView();
+
+        private async void GlobalActivityButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_activityOverviewWindow != null)
+            {
+                _activityOverviewWindow.Show();
+                _activityOverviewWindow.Activate();
+                return;
+            }
+
+            var viewModel = App.ServiceProvider.GetRequiredService<ActivityOverviewViewModel>();
+            viewModel.NavigateToProject = path =>
+            {
+                Dispatcher.Invoke(() => SwitchToProject(path));
+            };
+
+            _activityOverviewWindow = new ActivityOverviewWindow
+            {
+                Owner = this,
+                DataContext = viewModel
+            };
+            _activityOverviewWindow.Closed += (_, _) => _activityOverviewWindow = null;
+
+            _activityOverviewWindow.Show();
+            _activityOverviewWindow.Activate();
+            await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+            await viewModel.LoadAsync();
+        }
+
+        private void FloatingOptionsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button button || button.ContextMenu is null)
+                return;
+
+            button.ContextMenu.PlacementTarget = button;
+            button.ContextMenu.IsOpen = true;
+        }
+
+        private void FloatingMenu_Services_Click(object sender, RoutedEventArgs e)
+        {
+            ShowUpdateView();
+        }
+
+        private void FloatingMenu_ActivityLog_Click(object sender, RoutedEventArgs e)
+        {
+            GlobalActivityButton_Click(sender, e);
+        }
 
         private void LoadProjects()
         {

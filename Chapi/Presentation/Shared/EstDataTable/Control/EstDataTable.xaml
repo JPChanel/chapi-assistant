@@ -1,0 +1,573 @@
+﻿<UserControl x:Class="app_desktop_base.Controls.EstDataTable"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:app_desktop_base.Controls"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             x:Name="Root"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <controls:ResponsiveDetailItemsConverter x:Key="ResponsiveDetailItemsConverter" />
+        <SolidColorBrush x:Key="CardBorderBrush" Color="#D1D5DB" />
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="CardMutedBackgroundBrush" Color="#F9FAFB" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#111827" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#4B5563" />
+        <SolidColorBrush x:Key="TextTertiaryBrush" Color="#6B7280" />
+        <SolidColorBrush x:Key="ToggleTrackBrush" Color="#D1D5DB" />
+        <SolidColorBrush x:Key="ToggleTrackCheckedBrush" Color="#93C5FD" />
+        <SolidColorBrush x:Key="PrimaryActionSurfaceBrush" Color="#111827" />
+        <SolidColorBrush x:Key="PrimaryActionBorderBrush" Color="#111827" />
+        <SolidColorBrush x:Key="PrimaryActionForegroundBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="DangerForegroundBrush" Color="#B91C1C" />
+        <SolidColorBrush x:Key="DangerBorderBrush" Color="#FCA5A5" />
+        <SolidColorBrush x:Key="DangerBackgroundBrush" Color="#FEF2F2" />
+        <Style x:Key="TableToolbarIconButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+        <Style x:Key="TableCellIconButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+            <Setter Property="Background" Value="{DynamicResource CardMutedBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+        <Style x:Key="TableRowActionButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Background" Value="{DynamicResource CardMutedBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDestructive}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource DangerForegroundBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource DangerBorderBrush}" />
+                    <Setter Property="Background" Value="{DynamicResource DangerBackgroundBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsVisible}" Value="False">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="TableHeaderIconButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+            <Setter Property="ToolTip" Value="Mostrar filtros" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding FilterText}" Value="">
+                    <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FilterText}" Value="{x:Null}">
+                    <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+                </DataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#2563EB" />
+                    <Setter Property="Background" Value="#EFF6FF" />
+                </Trigger>
+                <DataTrigger Binding="{Binding Source={x:Reference Root}, Path=AreFiltersVisible}"
+                             Value="True">
+                    <Setter Property="Foreground" Value="#2563EB" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="TableColumnToggleStyle"
+               TargetType="ToggleButton">
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Track"
+                                Background="{DynamicResource ToggleTrackBrush}"
+                                CornerRadius="11">
+                            <Ellipse x:Name="Thumb"
+                                     Width="16"
+                                     Height="16"
+                                     Margin="3"
+                                     HorizontalAlignment="Left"
+                                     Fill="White" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="{DynamicResource ToggleTrackCheckedBrush}" />
+                                <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="EstDataGridStyle"
+       TargetType="{x:Type DataGrid}"
+       BasedOn="{StaticResource MaterialDesignDataGrid}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CanUserResizeRows" Value="False" />
+            <Setter Property="CanUserReorderColumns" Value="True" />
+            <Setter Property="CanUserSortColumns" Value="True" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="RowHeaderWidth" Value="0" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="AlternatingRowBackground" Value="{DynamicResource CardMutedBackgroundBrush}" />
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource CardBorderBrush}" />
+            <Setter Property="VerticalGridLinesBrush" Value="#00000000" />
+            <Setter Property="ColumnHeaderStyle">
+                <Setter.Value>
+                    <Style TargetType="{x:Type DataGridColumnHeader}" BasedOn="{StaticResource MaterialDesignDataGridColumnHeader}">
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                        <Setter Property="Padding" Value="18,14" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="CellStyle">
+                <Setter.Value>
+                    <Style TargetType="{x:Type DataGridCell}" BasedOn="{StaticResource MaterialDesignDataGridCell}">
+                        <Setter Property="Padding" Value="14,10" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <DataTemplate x:Key="TableColumnHeaderTemplate">
+            <Grid Margin="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right"
+                            Click="HeaderFilterButton_Click">
+                        <Button.Style>
+                            <Style TargetType="Button"
+                                   BasedOn="{StaticResource TableHeaderIconButtonStyle}">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFilterable}" Value="False">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <materialDesign:PackIcon Width="14"
+                                                 Height="14"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Kind="FilterVariant" />
+                    </Button>
+
+                    <TextBlock VerticalAlignment="Center"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Text="{Binding Header}"
+                               TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+
+                <TextBox Grid.Row="1"
+                         Margin="0,10,0,0"
+                         Padding="0,2,0,6"
+                         Background="Transparent"
+                         BorderBrush="{DynamicResource CardBorderBrush}"
+                         BorderThickness="0,0,0,1"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         Text="{Binding FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{Binding Placeholder}">
+                    <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsFilterable}" Value="True" />
+                                            <Condition Binding="{Binding Source={x:Reference Root}, Path=AreFiltersVisible}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                    </TextBox.Style>
+                </TextBox>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="TableRowActionsCellTemplate">
+            <ItemsControl ItemsSource="{Binding Source={x:Reference Root}, Path=ResolvedRowActions}"
+                          Tag="{Binding}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Command="{Binding Command}"
+                                CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=ItemsControl}, Path=Tag}"
+                                Style="{StaticResource TableRowActionButtonStyle}"
+                                ToolTip="{Binding ToolTip}">
+                            <Grid>
+                                <materialDesign:PackIcon Width="16"
+                                                         Height="16"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Kind="{Binding IconKind}"
+                                                         Visibility="{Binding HasIcon, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                <TextBlock HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="{Binding Label}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasIcon}" Value="False">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Padding="12,12,12,10"
+                Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource CardBorderBrush}"
+                BorderThickness="1,1,1,0"
+                CornerRadius="22,22,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <WrapPanel Grid.Column="2"
+                           Margin="16,0,0,0"
+                           VerticalAlignment="Center">
+                    <TextBox Width="236"
+                             MinWidth="220"
+                             Margin="0,0,12,0"
+                             Padding="12,8"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                             Text="{Binding GlobalSearchText, ElementName=Root, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             materialDesign:HintAssist.Hint="Buscar" />
+                    <Button Click="ToggleFiltersButton_Click"
+                            ToolTip="{Binding FiltersButtonLabel, ElementName=Root}">
+                        <Button.Style>
+                            <Style TargetType="Button"
+                                   BasedOn="{StaticResource TableToolbarIconButtonStyle}">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasFilterableColumns, ElementName=Root}" Value="False">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <materialDesign:PackIcon Width="18"
+                                                 Height="18"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Kind="FilterVariant" />
+                    </Button>
+
+                    <Button Click="ResetStateButton_Click"
+                            ToolTip="Restablecer tabla"
+                            IsEnabled="{Binding HasActiveTableState, ElementName=Root}">
+                        <Button.Style>
+                            <Style TargetType="Button"
+                                   BasedOn="{StaticResource TableToolbarIconButtonStyle}">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding AllowResetState, ElementName=Root}" Value="False">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <materialDesign:PackIcon Width="18"
+                                                 Height="18"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Kind="Restore" />
+                    </Button>
+
+                    <ItemsControl VerticalAlignment="Center"
+                                  ItemsSource="{Binding ResolvedTopToolbarCustomActions, ElementName=Root}"
+                                  Visibility="{Binding HasTopToolbarCustomActions, ElementName=Root, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Click="ToolbarCustomActionButton_Click"
+                                        ContextMenu="{Binding ContextMenu}"
+                                        Style="{StaticResource TableToolbarIconButtonStyle}"
+                                        Tag="{Binding}"
+                                        ToolTip="{Binding ToolTip}">
+                                    <Grid>
+                                        <materialDesign:PackIcon Width="18"
+                                                                 Height="18"
+                                                                 HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center"
+                                                                 Kind="{Binding IconKind}"
+                                                                 Visibility="{Binding HasIcon, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding Label}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasIcon}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Button x:Name="ColumnVisibilityButton"
+                            Click="ColumnVisibilityButton_Click"
+                            Tag="{Binding ElementName=Root}"
+                            ToolTip="Columnas visibles">
+                        <Button.Style>
+                            <Style TargetType="Button"
+                                   BasedOn="{StaticResource TableToolbarIconButtonStyle}">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding AllowColumnVisibilityToggle, ElementName=Root}" Value="False">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Button.ContextMenu>
+                            <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}" />
+                        </Button.ContextMenu>
+                        <materialDesign:PackIcon Width="18"
+                                                 Height="18"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Kind="ViewColumnOutline" />
+                    </Button>
+
+                    <Button Margin="12,0,0,0"
+                            Click="DeleteButton_Click"
+                            Content="Eliminar seleccion"
+                            IsEnabled="{Binding HasSelection, ElementName=Root}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignOutlinedButton}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding AllowDelete, ElementName=Root}" Value="True" />
+                                            <Condition Binding="{Binding EnableMultiSelection, ElementName=Root}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </WrapPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Padding="0,0,0,0"
+                Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource CardBorderBrush}"
+                BorderThickness="1,0,1,1"
+                CornerRadius="0,0,22,22">
+            <Grid>
+                <DataGrid x:Name="PART_DataGrid"
+                          AlternationCount="1000000"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          EnableColumnVirtualization="True"
+                          EnableRowVirtualization="True"
+                          HeadersVisibility="Column"
+                          ItemsSource="{Binding PagedItems, ElementName=Root}"
+                          LoadingRow="PART_DataGrid_LoadingRow"
+                          RowDetailsVisibilityMode="Collapsed"
+                          SelectedItem="{Binding SelectedItem, ElementName=Root, Mode=TwoWay}"
+                          SelectionChanged="PART_DataGrid_SelectionChanged"
+                          SelectionMode="{Binding GridSelectionMode, ElementName=Root}"
+                          Sorting="PART_DataGrid_Sorting"
+                          Style="{StaticResource EstDataGridStyle}"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling">
+                    <DataGrid.RowDetailsTemplate>
+                        <DataTemplate>
+                            <Border Margin="16,0,16,16"
+                                    Padding="16"
+                                    Background="{DynamicResource CardMutedBackgroundBrush}"
+                                    BorderBrush="{DynamicResource CardBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="16">
+                                <ItemsControl>
+                                    <ItemsControl.ItemsSource>
+                                        <MultiBinding Converter="{StaticResource ResponsiveDetailItemsConverter}">
+                                            <Binding />
+                                            <Binding ElementName="Root" />
+                                        </MultiBinding>
+                                    </ItemsControl.ItemsSource>
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="210"
+                                                    Margin="0,0,12,12"
+                                                    Padding="12"
+                                                    Background="{DynamicResource CardBackgroundBrush}"
+                                                    BorderBrush="{DynamicResource CardBorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="14">
+                                                <StackPanel>
+                                                    <TextBlock FontSize="12"
+                                                               Foreground="{DynamicResource TextTertiaryBrush}"
+                                                               Text="{Binding Label}" />
+                                                    <TextBlock Margin="0,6,0,0"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               Text="{Binding Value}" 
+                                                               TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                        </DataTemplate>
+                    </DataGrid.RowDetailsTemplate>
+                </DataGrid>
+
+                <Border Margin="14,88,14,14"
+                        Padding="24"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        BorderThickness="1"
+                        CornerRadius="18">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasNoResults, ElementName=Root}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <materialDesign:PackIcon Width="44"
+                                                 Height="44"
+                                                 HorizontalAlignment="Center"
+                                                 Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
+                                                 Kind="Magnify" />
+                        <TextBlock Margin="0,12,0,0"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
+                                   Text="No hay resultados para los filtros actuales." />
+                        <TextBlock Margin="0,6,0,0"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
+                                   Text="Prueba limpiando la busqueda global o los filtros por columna." />
+                        <Button Margin="0,18,0,0"
+                                Padding="14,6"
+                                Click="ResetStateButton_Click"
+                                Content="Limpiar filtros"
+                                IsEnabled="{Binding HasActiveTableState, ElementName=Root}"
+                                Style="{StaticResource MaterialDesignOutlinedButton}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2"
+              Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock VerticalAlignment="Center"
+                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
+                       Text="{Binding StatusSummary, ElementName=Root}" />
+
+            <WrapPanel Grid.Column="1"
+                       VerticalAlignment="Center">
+                <TextBlock Margin="0,0,10,0"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
+                           Text="Filas por pagina" />
+                <ComboBox Width="90"
+                          Margin="0,0,16,0"
+                          ItemsSource="{Binding PageSizeOptions, ElementName=Root}"
+                          SelectedItem="{Binding PageSize, ElementName=Root, Mode=TwoWay}" />
+                <Button Margin="0,0,8,0"
+                        Click="PreviousPageButton_Click"
+                        Content="Anterior"
+                        IsEnabled="{Binding CanGoPrevious, ElementName=Root}"
+                        Style="{StaticResource MaterialDesignOutlinedButton}" />
+                <Button Click="NextPageButton_Click"
+                        Content="Siguiente"
+                        IsEnabled="{Binding CanGoNext, ElementName=Root}"
+                        Style="{StaticResource MaterialDesignOutlinedButton}" />
+            </WrapPanel>
+        </Grid>
+    </Grid>
+</UserControl>

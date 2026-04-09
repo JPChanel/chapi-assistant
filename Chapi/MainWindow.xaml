@@ -129,8 +129,6 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <!-- Logo -->
-                        <ColumnDefinition Width="*"/>
-                        <!-- Espaciador -->
                         <ColumnDefinition Width="Auto"/>
                         <!-- Proyecto Combo -->
                         <ColumnDefinition Width="Auto"/>
@@ -150,9 +148,9 @@
                         </Button>
                     </StackPanel>
 
-                    <!-- 2. PROYECTO (Columnas 2-3) -->
+                    <!-- 2. PROYECTO -->
                     <ComboBox x:Name="ProjectsComboBox"
-                              Grid.Column="2"
+                              Grid.Column="1"
                               Width="260"
                               Height="40"
                               VerticalAlignment="Center"
@@ -239,7 +237,7 @@
                     </ComboBox>
 
                     <Button x:Name="btnAddProject"
-                            Grid.Column="3"
+                            Grid.Column="2"
                             Style="{StaticResource MaterialDesignIconButton}"
                             ToolTip="Agregar o Clonar Repositorio"
                             VerticalAlignment="Center"
@@ -251,7 +249,7 @@
                     </Button>
 
                     <!-- 3. RAMA (Columna 4) -->
-                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                         <ComboBox x:Name="BranchesComboBox"
                                     Width="180"
                                     Height="40"
@@ -349,7 +347,7 @@
                     </StackPanel>
                     <!-- 4. ACCIONES (Columnas 5-6) -->
                     <ComboBox x:Name="GitActionsComboBox"
-                              Grid.Column="5"
+                              Grid.Column="4"
                               Height="40"
                               Width="170"
                               SelectedIndex="0"
@@ -395,7 +393,7 @@
                     </ComboBox>
 
                     <ComboBox x:Name="ModoAgenteComboBox"
-                              Grid.Column="6"
+                              Grid.Column="5"
                               Height="40"
                               Width="155"
                               SelectedIndex="0"
@@ -584,6 +582,55 @@
                                      HorizontalAlignment="Right"
                                      VerticalAlignment="Bottom"
                                      Panel.ZIndex="1000" />
+
+            <Button x:Name="FloatingOptionsButton"
+                    Grid.RowSpan="3"
+                    Width="54"
+                    Height="54"
+                    Margin="0,0,10,120"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Click="FloatingOptionsButton_Click"
+                    ToolTip="Opciones"
+                    Panel.ZIndex="900"
+                    Style="{StaticResource MaterialDesignIconButton}">
+                <Button.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Servicios"
+                                  Click="FloatingMenu_Services_Click">
+                            <MenuItem.Icon>
+                                <materialDesign:PackIcon Kind="CogOutline" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Registro de actividades"
+                                  Click="FloatingMenu_ActivityLog_Click">
+                            <MenuItem.Icon>
+                                <materialDesign:PackIcon Kind="ViewList" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </ContextMenu>
+                </Button.ContextMenu>
+                <materialDesign:PackIcon Kind="CogOutline"
+                                         Width="24"
+                                         Height="24"
+                                         RenderTransformOrigin="0.5,0.5">
+                    <materialDesign:PackIcon.RenderTransform>
+                        <RotateTransform />
+                    </materialDesign:PackIcon.RenderTransform>
+                    <materialDesign:PackIcon.Triggers>
+                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                            <BeginStoryboard>
+                                <Storyboard RepeatBehavior="Forever">
+                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Angle"
+                                                     From="0"
+                                                     To="360"
+                                                     Duration="0:0:6" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </materialDesign:PackIcon.Triggers>
+                </materialDesign:PackIcon>
+            </Button>
         </Grid>
     </materialDesign:DialogHost>
 </Window>

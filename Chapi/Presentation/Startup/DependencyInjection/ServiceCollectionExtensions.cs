@@ -185,6 +185,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Presentation.Features.Assistant.ViewModels.AssistantViewModel>();
         services.AddSingleton<Presentation.Features.Releases.ViewModels.ReleasesViewModel>();
         services.AddSingleton<Presentation.Features.Workspace.ViewModels.WorkspaceViewModel>();
+        services.AddTransient<Presentation.Features.ActivityOverview.ViewModels.ActivityOverviewViewModel>();
         services.AddSingleton<Presentation.Features.Projects.ViewModels.CloneRepositoryViewModel>();
         services.AddSingleton<Presentation.Features.Documentation.ViewModels.DocumentationViewModel>();
         services.AddTransient<Presentation.Features.Git.ViewModels.LoginGitHubViewModel>();

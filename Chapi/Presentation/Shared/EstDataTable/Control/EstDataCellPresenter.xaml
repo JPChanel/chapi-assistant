@@ -1,0 +1,62 @@
+<UserControl x:Class="app_desktop_base.Controls.EstDataCellPresenter"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <Style x:Key="PlainButtonStyle"
+               TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Border x:Name="StaticBorder">
+            <DockPanel LastChildFill="False">
+                <materialDesign:PackIcon x:Name="StaticIcon"
+                                         Width="16"
+                                         Height="16"
+                                         Margin="0,0,6,0"
+                                         VerticalAlignment="Center"
+                                         Visibility="Collapsed" />
+                <TextBlock x:Name="StaticText"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
+
+        <Button x:Name="ClickButton"
+                Click="ClickButton_OnClick"
+                Cursor="Hand"
+                Style="{StaticResource PlainButtonStyle}"
+                Visibility="Collapsed">
+            <Border x:Name="ClickBorder">
+                <DockPanel LastChildFill="False">
+                    <materialDesign:PackIcon x:Name="ClickIcon"
+                                             Width="16"
+                                             Height="16"
+                                             Margin="0,0,6,0"
+                                             VerticalAlignment="Center"
+                                             Visibility="Collapsed" />
+                    <TextBlock x:Name="ClickText"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+            </Border>
+        </Button>
+    </Grid>
+</UserControl>

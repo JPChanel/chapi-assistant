@@ -11,6 +11,15 @@ namespace Chapi.Presentation.Features.Workspace.ViewModels;
 
 public class WorkspaceViewModel : ViewModelBase
 {
+    private sealed class WorkspaceLoadSnapshot
+    {
+        public List<WorkspaceTask> ActiveTasks { get; init; } = [];
+        public List<WorkspaceTask> HistoryTasks { get; init; } = [];
+        public List<DeploymentAsset> DeploymentAssets { get; init; } = [];
+        public string SessionNotes { get; init; } = string.Empty;
+        public bool NeedsCleanupSave { get; init; }
+    }
+
     private readonly IWorkspaceService _workspaceService;
     private string _currentProjectPath;
     private string _newNoteContent;
@@ -20,6 +29,7 @@ public class WorkspaceViewModel : ViewModelBase
     private bool _hasPendingCriticalAssets;
     private DispatcherTimer _autosaveTimer;
     private bool _isHistoryVisible;
+    private bool _isAdjustingTaskMetadata;
 
     public WorkspaceViewModel(IWorkspaceService workspaceService)
     {
@@ -68,6 +78,10 @@ public class WorkspaceViewModel : ViewModelBase
         ChangePriorityCommand = new RelayCommand<WorkspaceTask?>(task =>
         {
             if (task != null) CyclePriority(task);
+        });
+        ToggleTaskInProgressCommand = new RelayCommand<WorkspaceTask?>(task =>
+        {
+            if (task != null) ToggleTaskInProgress(task);
         });
 
         // Autosave for notes (Debounce)
@@ -126,6 +140,7 @@ public class WorkspaceViewModel : ViewModelBase
     public ICommand OpenAssetCommand { get; }
     public ICommand ToggleAssetStatusCommand { get; }
     public ICommand ChangePriorityCommand { get; }
+    public ICommand ToggleTaskInProgressCommand { get; }
 
     private bool _isLoading;
 
@@ -195,8 +210,8 @@ public class WorkspaceViewModel : ViewModelBase
             if (result.IsSuccess)
             {
                 var data = result.Data!;
+                var snapshot = await Task.Run(() => BuildLoadSnapshot(data));
 
-                // Ensure we interact with ObservableCollections on the UI thread
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     try
@@ -210,17 +225,12 @@ public class WorkspaceViewModel : ViewModelBase
 
                         DeploymentQueue.Clear();
 
-                        // Auto-cleanup permanent deletions first
-                        var toRemove = data.Tasks.Where(t => t.ShouldBePermanentlyDeleted).ToList();
-                        bool needsCleanupSave = toRemove.Any();
-
-                        foreach (var item in toRemove) data.Tasks.Remove(item);
-
-                        // Add Active Tasks
-                        foreach (var t in data.Tasks.Where(x => !x.IsDeleted).OrderByDescending(x => x.Priority).ToList())
+                        foreach (var t in snapshot.ActiveTasks)
                         {
                             try
                             {
+                                NormalizeTaskState(t);
+
                                 // Defensive coding: Ensure UI doesn't crash on bad data
                                 if (t.Id == Guid.Empty) t.Id = Guid.NewGuid();
                                 if (t.Title == null) t.Title = "(Sin título recuperado)";
@@ -235,10 +245,12 @@ public class WorkspaceViewModel : ViewModelBase
                         }
 
                         // Add History Tasks
-                        foreach (var t in data.Tasks.Where(x => x.IsDeleted).OrderByDescending(x => x.DeletedAt).ToList())
+                        foreach (var t in snapshot.HistoryTasks)
                         {
                             try
                             {
+                                NormalizeTaskState(t);
+
                                 if (t.Id == Guid.Empty) t.Id = Guid.NewGuid();
                                 if (t.Title == null) t.Title = "(Historial sin título)";
 
@@ -252,10 +264,10 @@ public class WorkspaceViewModel : ViewModelBase
                         }
 
                         // Add Deployment Assets
-                        foreach (var d in data.DeploymentQueue.ToList())
+                        foreach (var d in snapshot.DeploymentAssets)
                             DeploymentQueue.Add(d);
 
-                        SessionNotes = data.SessionNotes;
+                        SessionNotes = snapshot.SessionNotes;
 
                         UpdatePendingStatus();
                     }
@@ -264,6 +276,11 @@ public class WorkspaceViewModel : ViewModelBase
                         System.Windows.MessageBox.Show($"Error inicializando Workspace (UI): {ex.Message}\n{ex.StackTrace}");
                     }
                 });
+
+                if (snapshot.NeedsCleanupSave)
+                {
+                    _ = SaveWorkspaceAsync();
+                }
             }
 
             var quoteResult = await _workspaceService.GetRandomQuoteAsync();
@@ -275,6 +292,58 @@ public class WorkspaceViewModel : ViewModelBase
             _isLoading = false;
             RecalculateProgress();
         }
+    }
+
+    private WorkspaceLoadSnapshot BuildLoadSnapshot(WorkspaceData data)
+    {
+        var activeTasks = new List<WorkspaceTask>();
+        var historyTasks = new List<WorkspaceTask>();
+        var needsCleanupSave = false;
+
+        foreach (var task in data.Tasks.ToList())
+        {
+            try
+            {
+                if (task.ShouldBePermanentlyDeleted)
+                {
+                    needsCleanupSave = true;
+                    continue;
+                }
+
+                NormalizeTaskState(task);
+
+                if (task.Id == Guid.Empty)
+                {
+                    task.Id = Guid.NewGuid();
+                }
+
+                if (task.Title == null)
+                {
+                    task.Title = task.IsDeleted ? "(Historial sin titulo)" : "(Sin titulo recuperado)";
+                }
+
+                if (task.IsDeleted)
+                {
+                    historyTasks.Add(task);
+                }
+                else
+                {
+                    activeTasks.Add(task);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        return new WorkspaceLoadSnapshot
+        {
+            ActiveTasks = activeTasks.OrderByDescending(x => x.Priority).ToList(),
+            HistoryTasks = historyTasks.OrderByDescending(x => x.DeletedAt).ToList(),
+            DeploymentAssets = data.DeploymentQueue.ToList(),
+            SessionNotes = data.SessionNotes ?? string.Empty,
+            NeedsCleanupSave = needsCleanupSave
+        };
     }
 
     private void Tasks_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -309,11 +378,39 @@ public class WorkspaceViewModel : ViewModelBase
     private void Task_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (_isLoading) return;
+        if (sender is not WorkspaceTask task) return;
+        if (_isAdjustingTaskMetadata) return;
 
         // Recalculate progress if relevant property changes
         if (e.PropertyName == nameof(WorkspaceTask.IsCompleted) || e.PropertyName == nameof(WorkspaceTask.IsDeleted))
         {
             RecalculateProgress();
+        }
+
+        if (e.PropertyName != nameof(WorkspaceTask.UpdatedAt) &&
+            e.PropertyName != nameof(WorkspaceTask.CompletedAt) &&
+            e.PropertyName != nameof(WorkspaceTask.DaysRemaining) &&
+            e.PropertyName != nameof(WorkspaceTask.DaysSinceDeletion) &&
+            e.PropertyName != nameof(WorkspaceTask.ShouldBePermanentlyDeleted))
+        {
+            try
+            {
+                _isAdjustingTaskMetadata = true;
+                task.UpdatedAt = DateTime.Now;
+
+                if (task.IsCompleted)
+                {
+                    task.CompletedAt ??= task.UpdatedAt;
+                }
+                else if (task.CompletedAt.HasValue)
+                {
+                    task.CompletedAt = null;
+                }
+            }
+            finally
+            {
+                _isAdjustingTaskMetadata = false;
+            }
         }
 
         TriggerAutoSave();
@@ -334,7 +431,8 @@ public class WorkspaceViewModel : ViewModelBase
             {
                 Title = string.Empty,
                 Priority = TaskPriority.Media,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
             };
 
             // This triggers CollectionChanged, which subscribes events and triggers AutoSave
@@ -359,6 +457,15 @@ public class WorkspaceViewModel : ViewModelBase
                 break;
         }
 
+        TriggerAutoSave();
+    }
+
+    private void ToggleTaskInProgress(WorkspaceTask task)
+    {
+        if (task == null || task.IsCompleted)
+            return;
+
+        task.IsInProgress = !task.IsInProgress;
         TriggerAutoSave();
     }
 
@@ -401,6 +508,34 @@ public class WorkspaceViewModel : ViewModelBase
         Tasks.Insert(0, task);
 
         SaveWorkspaceAsync();
+    }
+
+    private void NormalizeTaskState(WorkspaceTask task)
+    {
+        if (task.CreatedAt == default)
+        {
+            task.CreatedAt = DateTime.Now;
+        }
+
+        if (task.UpdatedAt == default || task.UpdatedAt < task.CreatedAt)
+        {
+            task.UpdatedAt = task.CreatedAt;
+        }
+
+        if (task.CompletedAt.HasValue && !task.IsCompleted)
+        {
+            task.IsCompleted = true;
+        }
+
+        if (task.IsCompleted)
+        {
+            task.IsInProgress = false;
+            task.CompletedAt ??= task.UpdatedAt;
+        }
+        else if (task.CompletedAt.HasValue)
+        {
+            task.CompletedAt = null;
+        }
     }
 
     private async Task AddAssetAsync(string path)
