@@ -207,6 +207,7 @@ namespace Chapi
             if (_changesViewModel != null)
             {
                 _changesViewModel.ProjectPath = projectDirectory;
+                _changesViewModel.SetLiveRefreshEnabled(GitTabs.SelectedItem == ChangesTab);
             }
 
             if (_historyViewModel != null)
@@ -825,18 +826,11 @@ namespace Chapi
         {
             if (e.OriginalSource is not System.Windows.Controls.TabControl) return;
 
+            _changesViewModel?.SetLiveRefreshEnabled(GitTabs.SelectedItem == ChangesTab);
+
             if (GitTabs.SelectedItem == ChangesTab && _changesViewModel != null)
             {
-                if (!string.IsNullOrEmpty(projectDirectory) &&
-                    (projectDirectory.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) ||
-                     projectDirectory.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase)))
-                {
-                    await _changesViewModel.ForceRefreshAsync();
-                }
-                else
-                {
-                    await _changesViewModel.RefreshIfNecessaryAsync();
-                }
+                await _changesViewModel.RefreshIfNecessaryAsync();
             }
 
             if (GitTabs.SelectedItem == TagsTab)
@@ -1127,7 +1121,7 @@ namespace Chapi
                     _lastActivationRefresh = DateTime.Now;
                     if (_changesViewModel != null)
                     {
-                        await _changesViewModel.ForceRefreshAsync();
+                        await _changesViewModel.RefreshIfNecessaryAsync();
                     }
                 }
             }

@@ -37,6 +37,7 @@ public class ChangesViewModel : ViewModelBase
     private readonly Chapi.Infrastructure.Git.GitChangeWatcher _changeWatcher;
     private readonly Chapi.Infrastructure.Git.GitChangesCache _changesCache;
     private readonly IAsyncRelayCommand _connectAccountCommand;
+    private const int WslPollingIntervalMs = 1200;
 
     private string _projectPath = string.Empty;
     private int _totalAdditions;
@@ -53,8 +54,14 @@ public class ChangesViewModel : ViewModelBase
     private int _behind;
     private bool _isSyncing;
     private CancellationTokenSource? _loadCts;
+    private CancellationTokenSource? _wslPollingCts;
+    private CancellationTokenSource? _diffLoadCts;
     private DateTime _lastRefreshTime = DateTime.MinValue;
+    private DateTime _lastMetadataRefreshTime = DateTime.MinValue;
     private string _lastLoadedProjectPath = string.Empty;
+    private string _lastAppliedChangesSignature = string.Empty;
+    private string _lastRenderedDiffFingerprint = string.Empty;
+    private bool _isLiveRefreshEnabled;
 
     public event EventHandler? CommitCompleted;
 
@@ -152,8 +159,12 @@ public class ChangesViewModel : ViewModelBase
 
         _lastRefreshTime = DateTime.MinValue;
         _lastLoadedProjectPath = string.Empty;
-        _changesCache.Invalidate(ProjectPath);
-        await LoadChangesAsync();
+        _lastMetadataRefreshTime = DateTime.MinValue;
+        await LoadChangesAsync(
+            bypassThrottle: true,
+            invalidateCache: true,
+            refreshMetadata: true,
+            forceMetadataRefresh: true);
     }
 
     /// <summary>
@@ -245,6 +256,8 @@ public class ChangesViewModel : ViewModelBase
                     _changeWatcher.UnwatchRepository(previousPath);
                 }
 
+                StopWslPolling();
+
                 // Silenciar el watcher durante la transicion para evitar que los comandos de MainWindow o la carga inicial lo disparen
                 _manualSilencer?.Dispose();
                 _manualSilencer = _changeWatcher.Silence();
@@ -252,21 +265,31 @@ public class ChangesViewModel : ViewModelBase
                 CommitSummary = string.Empty;
                 CommitDescription = string.Empty;
                 _lastRefreshTime = DateTime.MinValue;
+                _lastMetadataRefreshTime = DateTime.MinValue;
                 _lastLoadedProjectPath = string.Empty;
+                _lastAppliedChangesSignature = string.Empty;
+                _lastRenderedDiffFingerprint = string.Empty;
                 _loadCts?.Cancel();
                 _loadCts?.Dispose();
                 _loadCts = null;
+                _diffLoadCts?.Cancel();
+                _diffLoadCts?.Dispose();
+                _diffLoadCts = null;
+                _selectedChange = null;
+                DiffLines.Clear();
 
                 // Iniciar monitoreo del nuevo proyecto
                 if (!string.IsNullOrWhiteSpace(value))
                 {
                     // En rutas WSL (UNC), FileSystemWatcher es costoso e inestable.
-                    // El refresco se hace explicitamente al entrar al tab/activar ventana.
+                    // En su lugar usamos polling ligero cuando la vista de cambios esta activa.
                     if (!IsWslPath(value))
                     {
                         _changeWatcher.WatchRepository(value);
                     }
                 }
+
+                UpdateWslPollingState();
 
                 // Limpiar contadores
                 TotalAdditions = 0;
@@ -653,19 +676,44 @@ public class ChangesViewModel : ViewModelBase
 
     #region Methods
 
+    public void SetLiveRefreshEnabled(bool isEnabled)
+    {
+        if (_isLiveRefreshEnabled == isEnabled)
+            return;
+
+        _isLiveRefreshEnabled = isEnabled;
+        UpdateWslPollingState();
+    }
+
     /// <summary>
     /// Carga los cambios del repositorio.
     /// </summary>
-    public async Task LoadChangesAsync()
+    public Task LoadChangesAsync() =>
+        LoadChangesAsync(
+            bypassThrottle: false,
+            invalidateCache: false,
+            refreshMetadata: true,
+            forceMetadataRefresh: false);
+
+    private async Task LoadChangesAsync(
+        bool bypassThrottle,
+        bool invalidateCache,
+        bool refreshMetadata,
+        bool forceMetadataRefresh)
     {
         if (string.IsNullOrWhiteSpace(ProjectPath))
             return;
+
+        if (invalidateCache)
+        {
+            _changesCache.Invalidate(ProjectPath);
+        }
 
         // Throttle: Evitar recargas masivas en menos de 1.5 segundos
         // Importante: No saltar este control si Changes.Count == 0, ya que eso causa bucles en proyectos vacios.
         var now = DateTime.Now;
         var sameProjectAsLastLoad = string.Equals(ProjectPath, _lastLoadedProjectPath, StringComparison.OrdinalIgnoreCase);
-        if (sameProjectAsLastLoad && (now - _lastRefreshTime).TotalMilliseconds < 1500)
+        if (!bypassThrottle && sameProjectAsLastLoad && (now - _lastRefreshTime).TotalMilliseconds < 1500)
         {
             return;
         }
@@ -679,13 +727,6 @@ public class ChangesViewModel : ViewModelBase
         IsSyncing = true;
 
         using var silencer = _changeWatcher.Silence();
-
-        // Carga de metadata en segundo plano (no bloquear render de la lista de cambios)
-        _ = Task.Run(async () =>
-        {
-            using var metadataSilencer = _changeWatcher.Silence();
-            try { await LoadMetadataAsync(token); } catch { }
-        }, token);
 
         // Resetear solo si el proyecto es nuevo o esta vacio, 
         // de lo contrario mantener los cambios actuales hasta que lleguen los nuevos (evita parpadeo)
@@ -764,9 +805,13 @@ public class ChangesViewModel : ViewModelBase
 
                     TotalAdditions = cachedAdditions;
                     TotalDeletions = cachedDeletions;
+                    _lastAppliedChangesSignature = BuildChangesSignature(cachedChangesList);
                     OnPropertyChanged(nameof(AreAllSelected));
                     OnPropertyChanged(nameof(SelectedCount));
                     OnPropertyChanged(nameof(TotalChangesCount));
+
+                    TriggerMetadataRefreshIfNeeded(refreshMetadata, forceMetadataRefresh, sameProjectAsLastLoad, token);
+                    await LoadDiffAsync();
 
                     IsSyncing = false;
                     return;
@@ -774,6 +819,7 @@ public class ChangesViewModel : ViewModelBase
             }
 
             var fileChanges = (await _loadChangesUseCase.ExecuteAsync(ProjectPath)).ToList();
+            var changesSignature = BuildChangesSignature(fileChanges);
 
             // Si veniamos mostrando cambios y Git devuelve vacio, confirmamos una vez mas
             // para evitar "falsos vacios" por condiciones transitorias.
@@ -784,10 +830,20 @@ public class ChangesViewModel : ViewModelBase
                 if (retryChanges.Count > 0)
                 {
                     fileChanges = retryChanges;
+                    changesSignature = BuildChangesSignature(fileChanges);
                 }
             }
 
             if (token.IsCancellationRequested) return;
+
+            if (sameProjectAsLastLoad &&
+                string.Equals(changesSignature, _lastAppliedChangesSignature, StringComparison.Ordinal))
+            {
+                TriggerMetadataRefreshIfNeeded(refreshMetadata, forceMetadataRefresh, sameProjectAsLastLoad, token);
+                await LoadDiffAsync();
+                return;
+            }
+
             var viewModels = fileChanges.Select(fileChange =>
             {
                 var vm = MapToViewModel(fileChange);
@@ -832,6 +888,8 @@ public class ChangesViewModel : ViewModelBase
                 IsLoading = false;
             });
 
+            _lastAppliedChangesSignature = changesSignature;
+
             if (IsWslPath(ProjectPath))
             {
                 // En WSL evitamos numstats por archivo para priorizar render inmediato.
@@ -848,6 +906,8 @@ public class ChangesViewModel : ViewModelBase
             {
                 _changesCache.Invalidate(ProjectPath);
             }
+
+            TriggerMetadataRefreshIfNeeded(refreshMetadata, forceMetadataRefresh, sameProjectAsLastLoad, token);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -870,6 +930,119 @@ public class ChangesViewModel : ViewModelBase
 
         return path.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) ||
                path.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void TriggerMetadataRefreshIfNeeded(
+        bool refreshMetadata,
+        bool forceMetadataRefresh,
+        bool sameProjectAsLastLoad,
+        CancellationToken token)
+    {
+        if (!refreshMetadata)
+            return;
+
+        var metadataIsFresh =
+            sameProjectAsLastLoad &&
+            !forceMetadataRefresh &&
+            (DateTime.Now - _lastMetadataRefreshTime).TotalSeconds < 15;
+
+        if (metadataIsFresh)
+            return;
+
+        _lastMetadataRefreshTime = DateTime.Now;
+
+        _ = Task.Run(async () =>
+        {
+            using var metadataSilencer = _changeWatcher.Silence();
+            try { await LoadMetadataAsync(token); } catch { }
+        }, token);
+    }
+
+    private static string BuildChangesSignature(IEnumerable<FileChange> changes)
+    {
+        var builder = new System.Text.StringBuilder();
+        foreach (var change in changes)
+        {
+            builder.Append(change.FilePath)
+                .Append('|')
+                .Append((int)change.Status)
+                .Append('\n');
+        }
+
+        return builder.ToString();
+    }
+
+    private void UpdateWslPollingState()
+    {
+        if (_isLiveRefreshEnabled && IsWslPath(ProjectPath))
+        {
+            StartWslPolling();
+        }
+        else
+        {
+            StopWslPolling();
+        }
+    }
+
+    private void StartWslPolling()
+    {
+        if (_wslPollingCts != null || string.IsNullOrWhiteSpace(ProjectPath) || !IsWslPath(ProjectPath))
+            return;
+
+        _wslPollingCts = new CancellationTokenSource();
+        var token = _wslPollingCts.Token;
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    await Task.Delay(WslPollingIntervalMs, token);
+
+                    if (token.IsCancellationRequested ||
+                        !_isLiveRefreshEnabled ||
+                        string.IsNullOrWhiteSpace(ProjectPath) ||
+                        !IsWslPath(ProjectPath) ||
+                        IsLoading ||
+                        IsSyncing ||
+                        _changeWatcher.IsSilenced)
+                    {
+                        continue;
+                    }
+
+                    await InvokeOnUiThreadAsync(() =>
+                        LoadChangesAsync(
+                            bypassThrottle: true,
+                            invalidateCache: true,
+                            refreshMetadata: false,
+                            forceMetadataRefresh: false));
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }, token).Forget("monitoreando cambios WSL");
+    }
+
+    private void StopWslPolling()
+    {
+        _wslPollingCts?.Cancel();
+        _wslPollingCts?.Dispose();
+        _wslPollingCts = null;
+    }
+
+    private static async Task InvokeOnUiThreadAsync(Func<Task> action)
+    {
+        var application = System.Windows.Application.Current;
+        if (application?.Dispatcher == null || application.Dispatcher.CheckAccess())
+        {
+            await action();
+            return;
+        }
+
+        var dispatcherOperation = application.Dispatcher.InvokeAsync(action);
+        await await dispatcherOperation.Task;
     }
 
     /// <summary>
@@ -1192,27 +1365,67 @@ public class ChangesViewModel : ViewModelBase
     /// </summary>
     public async Task LoadDiffAsync()
     {
-        DiffLines.Clear();
-        if (SelectedChange == null || string.IsNullOrEmpty(ProjectPath)) return;
+        if (SelectedChange == null || string.IsNullOrEmpty(ProjectPath))
+        {
+            _diffLoadCts?.Cancel();
+            _lastRenderedDiffFingerprint = string.Empty;
+            DiffLines.Clear();
+            return;
+        }
+
+        var selectedChange = SelectedChange;
+        var diffFingerprint = BuildDiffFingerprint(selectedChange);
+        if (string.Equals(diffFingerprint, _lastRenderedDiffFingerprint, StringComparison.Ordinal) &&
+            DiffLines.Count > 0)
+        {
+            return;
+        }
+
+        _diffLoadCts?.Cancel();
+        _diffLoadCts?.Dispose();
+        _diffLoadCts = new CancellationTokenSource();
+        var token = _diffLoadCts.Token;
+
         using var silencer = _changeWatcher.Silence();
 
         try
         {
             string oldText = string.Empty;
             string newText = string.Empty;
-            if (SelectedChange.ShortStatus != "A" && SelectedChange.ShortStatus != "?")
+            if (selectedChange.ShortStatus != "A" && selectedChange.ShortStatus != "?")
             {
-                try { oldText = await _gitRepository.GetFileContentAsync(ProjectPath, "HEAD", SelectedChange.FilePath); } catch { }
+                try { oldText = await _gitRepository.GetFileContentAsync(ProjectPath, "HEAD", selectedChange.FilePath); } catch { }
             }
-            if (SelectedChange.ShortStatus != "D")
+            if (selectedChange.ShortStatus != "D")
             {
-                string fullPath = GetAbsoluteProjectFilePath(ProjectPath, SelectedChange.FilePath);
+                string fullPath = GetAbsoluteProjectFilePath(ProjectPath, selectedChange.FilePath);
                 if (File.Exists(fullPath))
                 {
                     newText = await File.ReadAllTextAsync(fullPath);
                 }
             }
-            GenerateDiff(oldText, newText);
+
+            if (token.IsCancellationRequested)
+                return;
+
+            var filteredLines = BuildDiffLines(oldText, newText);
+            if (token.IsCancellationRequested)
+                return;
+
+            if (!IsSameSelectedChange(selectedChange, SelectedChange))
+                return;
+
+            await InvokeOnUiThreadAsync(() =>
+            {
+                DiffLines.Clear();
+                foreach (var line in filteredLines)
+                {
+                    DiffLines.Add(line);
+                }
+
+                _lastRenderedDiffFingerprint = diffFingerprint;
+                return Task.CompletedTask;
+            });
         }
         catch (Exception)
         {
@@ -1234,24 +1447,62 @@ public class ChangesViewModel : ViewModelBase
             string newText = await _gitRepository.GetFileContentAsync(ProjectPath, SelectedStash.Name, SelectedStashedFile.FilePath);
             string oldText = string.Empty;
             try { oldText = await _gitRepository.GetFileContentAsync(ProjectPath, $"{SelectedStash.Name}^1", SelectedStashedFile.FilePath); } catch { }
-
-            GenerateDiff(oldText, newText);
+            var filteredLines = BuildDiffLines(oldText, newText);
+            foreach (var line in filteredLines)
+            {
+                DiffLines.Add(line);
+            }
         }
         catch (Exception ex)
         {
         }
     }
 
-    private void GenerateDiff(string oldText, string newText)
+    private List<DiffPiece> BuildDiffLines(string oldText, string newText)
     {
         var diffBuilder = new InlineDiffBuilder(new Differ());
         var diff = diffBuilder.BuildDiffModel(oldText, newText);
+        return FilterHunks(diff.Lines);
+    }
 
-        var filteredLines = FilterHunks(diff.Lines);
-        foreach (var line in filteredLines)
+    private static bool IsSameSelectedChange(ChangeItemViewModel? left, ChangeItemViewModel? right)
+    {
+        if (left == null || right == null)
+            return left == right;
+
+        return string.Equals(left.FilePath, right.FilePath, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(left.ShortStatus, right.ShortStatus, StringComparison.Ordinal);
+    }
+
+    private string BuildDiffFingerprint(ChangeItemViewModel change)
+    {
+        var builder = new System.Text.StringBuilder()
+            .Append(change.FilePath)
+            .Append('|')
+            .Append(change.ShortStatus)
+            .Append('|');
+
+        if (change.ShortStatus != "D")
         {
-            DiffLines.Add(line);
+            var fullPath = GetAbsoluteProjectFilePath(ProjectPath, change.FilePath);
+            if (File.Exists(fullPath))
+            {
+                var fileInfo = new FileInfo(fullPath);
+                builder.Append(fileInfo.LastWriteTimeUtc.Ticks)
+                    .Append(':')
+                    .Append(fileInfo.Length);
+            }
+            else
+            {
+                builder.Append("missing");
+            }
         }
+        else
+        {
+            builder.Append("deleted");
+        }
+
+        return builder.ToString();
     }
 
     private List<DiffPiece> FilterHunks(IList<DiffPiece> lines)
@@ -1660,10 +1911,14 @@ public class ChangesViewModel : ViewModelBase
         if (string.IsNullOrEmpty(ProjectPath)) return;
 
         var diff = DateTime.Now - _lastRefreshTime;
-        if (diff.TotalSeconds > 5)
+        var minSeconds = IsWslPath(ProjectPath) ? 2 : 5;
+        if (diff.TotalSeconds > minSeconds)
         {
-            _changesCache.Invalidate(ProjectPath);
-            await LoadChangesAsync();
+            await LoadChangesAsync(
+                bypassThrottle: true,
+                invalidateCache: true,
+                refreshMetadata: !IsWslPath(ProjectPath),
+                forceMetadataRefresh: false);
         }
     }
 
@@ -1672,6 +1927,9 @@ public class ChangesViewModel : ViewModelBase
     /// </summary>
     public void Dispose()
     {
+        StopWslPolling();
+        _diffLoadCts?.Cancel();
+        _diffLoadCts?.Dispose();
         _changeWatcher?.Dispose();
         _loadCts?.Cancel();
         _loadCts?.Dispose();
