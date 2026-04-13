@@ -110,6 +110,19 @@ public class GitCliRepository : IGitRepository
         return path.Replace('\\', '/').Trim();
     }
 
+    private static bool IsConflictError(string? error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+            return false;
+
+        return error.Contains("CONFLICT", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("Pulling is not possible because you have unmerged files", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("you have unmerged files", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("unmerged files", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("fix them up in the work tree", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("resolve your current index first", StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task<string> GetRepoRootAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -748,6 +761,11 @@ public class GitCliRepository : IGitRepository
     {
         var stashRef = $"stash@{{{index ?? 0}}}";
         var result = await Git(projectPath, "stash", "pop", stashRef);
+        if (!result.IsSuccess && IsConflictError(result.Error))
+        {
+            return Result.Fail("CONFLICTO_DETECTADO");
+        }
+
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 
@@ -799,8 +817,8 @@ public class GitCliRepository : IGitRepository
             return r.IsSuccess ? Result<string?>.Success(r.Data) : Result<string?>.Fail(r.Error);
         });
 
-        if (!result.IsSuccess && result.Error.Contains("CONFLICT"))
-            return Result.Fail("Conflictos al hacer pull");
+        if (!result.IsSuccess && IsConflictError(result.Error))
+            return Result.Fail("CONFLICTO_DETECTADO");
 
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
@@ -1250,24 +1268,170 @@ public class GitCliRepository : IGitRepository
 
     public async Task<IEnumerable<GitConflict>> GetMergeConflictsAsync(string projectPath)
     {
-        var result = await Git(projectPath, "diff", "--name-only", "--diff-filter=U");
-        if (!result.IsSuccess) return Enumerable.Empty<GitConflict>();
-
         var conflicts = new List<GitConflict>();
-        foreach (var f in result.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        var repoRoot = await GetRepoRootAsync(projectPath);
+        var unmergedFiles = await GetUnmergedFilePathsAsync(projectPath);
+
+        if (!unmergedFiles.Any())
         {
-            var filePath = f.Trim();
-            var absolutePath = Path.Combine(projectPath, filePath);
-            var gc = new GitConflict { FilePath = filePath.Replace('/', Path.DirectorySeparatorChar) };
+            var result = await Git(projectPath, "diff", "--name-only", "--diff-filter=U");
+            if (!result.IsSuccess)
+            {
+                return Enumerable.Empty<GitConflict>();
+            }
+
+            unmergedFiles = result.Data
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(path => NormalizeGitPath(path))
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        foreach (var filePath in unmergedFiles)
+        {
+            var absolutePath = Path.Combine(repoRoot, filePath);
+            var gc = new GitConflict
+            {
+                FilePath = filePath.Replace('/', Path.DirectorySeparatorChar),
+                FullPath = absolutePath
+            };
 
             if (File.Exists(absolutePath))
             {
-                var lines = await File.ReadAllLinesAsync(absolutePath);
-                gc.Blocks = ParseConflictBlocks(lines);
+                try
+                {
+                    var lines = await File.ReadAllLinesAsync(absolutePath);
+                    gc.Blocks = ParseConflictBlocks(lines);
+                    gc.HasInlineMarkers = gc.Blocks.Count > 0;
+                }
+                catch
+                {
+                    gc.Blocks.Clear();
+                    gc.HasInlineMarkers = false;
+                }
             }
+
+            if (!gc.Blocks.Any())
+            {
+                gc.Blocks = await BuildWholeFileConflictBlockAsync(projectPath, filePath, absolutePath);
+                gc.HasInlineMarkers = false;
+            }
+
             conflicts.Add(gc);
         }
         return conflicts;
+    }
+
+    private async Task<List<ConflictBlock>> BuildWholeFileConflictBlockAsync(string projectPath, string filePath, string absolutePath)
+    {
+        var localContentTask = GetConflictStageContentAsync(projectPath, 2, filePath);
+        var incomingContentTask = GetConflictStageContentAsync(projectPath, 3, filePath);
+        await Task.WhenAll(localContentTask, incomingContentTask);
+
+        var localContent = await localContentTask;
+        var incomingContent = await incomingContentTask;
+
+        if (string.IsNullOrWhiteSpace(localContent) &&
+            string.IsNullOrWhiteSpace(incomingContent) &&
+            File.Exists(absolutePath))
+        {
+            try
+            {
+                localContent = await File.ReadAllTextAsync(absolutePath);
+            }
+            catch
+            {
+                localContent = "[Chapi no pudo leer este archivo como texto. Puede ser binario, eliminado o renombrado durante el conflicto.]";
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(localContent))
+        {
+            localContent = "[Git marco conflicto, pero no pudo reconstruirse el lado local automaticamente.]";
+        }
+
+        if (string.IsNullOrWhiteSpace(incomingContent))
+        {
+            incomingContent = "[Git marco conflicto, pero no pudo reconstruirse el lado entrante automaticamente.]";
+        }
+
+        return new List<ConflictBlock>
+        {
+            new()
+            {
+                StartLine = 1,
+                SeparatorLine = 1,
+                EndLine = 1,
+                LocalContent = localContent,
+                IncomingContent = incomingContent,
+                ReplaceWholeFile = true
+            }
+        };
+    }
+
+    private async Task<string> GetConflictStageContentAsync(string projectPath, int stage, string filePath)
+    {
+        var gitPath = filePath.Replace(Path.DirectorySeparatorChar, '/');
+        var result = await Git(projectPath, "show", $":{stage}:{gitPath}");
+        return result.IsSuccess ? result.Data : string.Empty;
+    }
+
+    private async Task<List<string>> GetUnmergedFilePathsAsync(string projectPath)
+    {
+        var result = await Git(projectPath, "--no-optional-locks", "status", "--porcelain=v1", "-z");
+        if (!result.IsSuccess || string.IsNullOrEmpty(result.Data))
+        {
+            return new List<string>();
+        }
+
+        var paths = new List<string>();
+        var data = result.Data;
+        var index = 0;
+
+        while (index < data.Length)
+        {
+            if (index + 3 >= data.Length)
+            {
+                break;
+            }
+
+            var xy = data.Substring(index, 2);
+            index += 3;
+
+            var nulIndex = data.IndexOf('\0', index);
+            if (nulIndex < 0)
+            {
+                break;
+            }
+
+            var path = data.Substring(index, nulIndex - index);
+            index = nulIndex + 1;
+
+            if (xy.IndexOf('R') >= 0 || xy.IndexOf('C') >= 0)
+            {
+                var nextNul = data.IndexOf('\0', index);
+                if (nextNul < 0)
+                {
+                    break;
+                }
+
+                index = nextNul + 1;
+            }
+
+            if (xy.Contains('U') || xy == "AA" || xy == "DD")
+            {
+                var normalizedPath = NormalizeGitPath(path);
+                if (!string.IsNullOrWhiteSpace(normalizedPath))
+                {
+                    paths.Add(normalizedPath);
+                }
+            }
+        }
+
+        return paths
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private List<ConflictBlock> ParseConflictBlocks(string[] lines)
@@ -1293,6 +1457,7 @@ public class GitCliRepository : IGitRepository
             }
             else if (line.StartsWith("=======") && currentBlock != null)
             {
+                currentBlock.SeparatorLine = i + 1;
                 inLocal = false;
                 inIncoming = true;
             }
@@ -1317,7 +1482,8 @@ public class GitCliRepository : IGitRepository
 
     public async Task<Result> ResolveConflictAsync(string projectPath, string filePath, string resolvedContent)
     {
-        await File.WriteAllTextAsync(Path.Combine(projectPath, filePath), resolvedContent);
+        var repoRoot = await GetRepoRootAsync(projectPath);
+        await File.WriteAllTextAsync(Path.Combine(repoRoot, filePath), resolvedContent);
         var result = await Git(projectPath, "add", "--", filePath.Replace(Path.DirectorySeparatorChar, '/'));
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }

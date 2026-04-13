@@ -40,6 +40,7 @@ public static class UserSettingsService
 
 public class UserApiSettings
 {
+    public string InstallId { get; set; } = string.Empty;
     public string GeminiApiKey { get; set; } = string.Empty;
     public string OpenAiApiKey { get; set; } = string.Empty;
     public string ClaudeApiKey { get; set; } = string.Empty;

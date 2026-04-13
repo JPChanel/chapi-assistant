@@ -1,7 +1,9 @@
+using Chapi.Application.Interfaces;
 using Chapi.Domain.Interfaces;
 using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Shared.Notifications.Services;
+using Chapi.Presentation.Shared.Tasks;
 using Chapi.Startup;
 using Chapi.Startup.DependencyInjection;
 using Microsoft.Extensions.Configuration;
@@ -83,6 +85,10 @@ namespace Chapi
             _exceptionHandling.Register();
 
             mainWindow.Show();
+
+            ServiceProvider.GetRequiredService<IUsageTelemetryService>()
+                .TrackAppOpenAsync()
+                .Forget("registrando apertura en Supabase");
         }
 
         public static void ReleaseMutex()

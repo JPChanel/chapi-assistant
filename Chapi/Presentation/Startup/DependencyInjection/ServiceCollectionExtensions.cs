@@ -1,4 +1,5 @@
 using Chapi.Domain.Interfaces;
+using Chapi.Infrastructure.Configuration;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Shared.Notifications.Services;
 using Chapi.Presentation.Shared.Notifications.ViewModels;
@@ -23,6 +24,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IGitRepository, Chapi.Infrastructure.Git.GitCliRepository>();
         services.Configure<Chapi.Infrastructure.Configuration.GitAuthConfig>(configuration.GetSection("GitAuth"));
+        services.Configure<SupabaseTelemetryConfig>(configuration.GetSection("SupabaseTelemetry"));
 
         services.AddSingleton<ICredentialStorageService, WindowsCredentialStorageService>();
         services.AddSingleton<System.Net.Http.HttpClient>();
@@ -97,6 +99,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITemplateService, ProjectTemplateService>();
         services.AddSingleton<IProjectRepository, Chapi.Infrastructure.Persistence.Settings.ProjectSettingsRepository>();
         services.AddSingleton<Chapi.Application.Interfaces.Workspace.IWorkspaceService, Chapi.Infrastructure.Services.WorkspaceService>();
+        services.AddSingleton<Chapi.Application.Interfaces.IUsageTelemetryService, SupabaseUsageTelemetryService>();
 
         services.AddSingleton<Chapi.Application.Interfaces.IKrokiDiagramService, Chapi.Infrastructure.Documentation.KrokiDiagramService>();
         services.AddSingleton<Chapi.Application.Interfaces.IDocumentPersistenceService, Chapi.Infrastructure.Documentation.AppDataDocPersistenceService>();

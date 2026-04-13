@@ -14,9 +14,9 @@ public partial class ConflictResolutionDialog : UserControl
         // Si el ViewModel solicita cerrar, cerramos el Host del dialogo de MaterialDesign
         viewModel.RequestClose += (s, e) =>
         {
-            if (MaterialDesignThemes.Wpf.DialogHost.IsDialogOpen(null))
+            if (MaterialDesignThemes.Wpf.DialogHost.IsDialogOpen(App.GlobalDialogIdentifier))
             {
-                MaterialDesignThemes.Wpf.DialogHost.Close(null);
+                MaterialDesignThemes.Wpf.DialogHost.Close(App.GlobalDialogIdentifier);
             }
         };
     }

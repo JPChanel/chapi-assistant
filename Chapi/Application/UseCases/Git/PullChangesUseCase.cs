@@ -32,16 +32,13 @@ public class PullChangesUseCase
             return Result.Fail("Nombre de rama invalido");
         }
 
-        string? temporaryStashName = null;
+        const string TemporaryStashRef = "stash@{0}";
+        var stashCreated = false;
 
         // Si se solicita, hacer stash antes del pull
         if (stashChanges)
         {
             _notifications.ShowInfo("Guardando cambios locales en un stash temporal...");
-
-            var stashNamesBefore = (await _gitRepo.ListStashesAsync(projectPath))
-                .Select(s => s.Name)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             var stashResult = await _gitRepo.StashChangesAsync(projectPath, $"Auto-stash antes de pull en {branch}");
             if (!stashResult.IsSuccess)
@@ -50,23 +47,8 @@ public class PullChangesUseCase
                 return stashResult;
             }
 
-            var stashesAfter = (await _gitRepo.ListStashesAsync(projectPath)).ToList();
-            temporaryStashName = stashesAfter
-                .Select(s => s.Name)
-                .FirstOrDefault(name => !stashNamesBefore.Contains(name));
-
-            if (string.IsNullOrWhiteSpace(temporaryStashName))
-            {
-                temporaryStashName = stashesAfter.FirstOrDefault()?.Name;
-            }
-
-            if (string.IsNullOrWhiteSpace(temporaryStashName))
-            {
-                _notifications.ShowWarning("No se pudo confirmar la creacion del stash temporal.");
-                return Result.Fail("No se pudo confirmar la creacion del stash temporal.");
-            }
-
-            _notifications.ShowInfo($"Cambios guardados en {temporaryStashName}.");
+            stashCreated = true;
+            _notifications.ShowInfo($"Cambios guardados temporalmente en {TemporaryStashRef}.");
         }
 
         var result = await _gitRepo.PullAsync(projectPath, branch);
@@ -76,7 +58,7 @@ public class PullChangesUseCase
             _notifications.ShowSuccess($"✅ Pull exitoso desde {branch}");
 
             // Si hicimos stash, opcionalmente intentamos recuperarlo
-            if (stashChanges)
+            if (stashCreated)
             {
                 if (restoreAfterPull)
                 {
@@ -84,23 +66,35 @@ public class PullChangesUseCase
                     var popResult = await _gitRepo.StashPopAsync(projectPath, 0);
                     if (!popResult.IsSuccess)
                     {
+                        if (IsConflictError(popResult.Error))
+                        {
+                            _notifications.ShowWarning("El pull termino, pero hubo conflictos al restaurar tus cambios locales.");
+                            return Result.Fail("CONFLICTO_DETECTADO");
+                        }
+
                         _notifications.ShowWarning("Pull completado, pero hubo conflictos al restaurar tus cambios locales. Por favor revisa los stashes.");
                     }
                 }
-                else if (!string.IsNullOrWhiteSpace(temporaryStashName))
+                else
                 {
-                    _notifications.ShowInfo($"Tus cambios quedaron en {temporaryStashName}. Puedes recuperarlos desde la seccion Stash.");
+                    _notifications.ShowInfo($"Tus cambios quedaron en {TemporaryStashRef}. Puedes recuperarlos desde la seccion Stash.");
                 }
             }
         }
         else
         {
-            if (stashChanges && restoreAfterPull)
+            if (stashCreated && restoreAfterPull)
             {
                 _notifications.ShowWarning("El pull fallo. Intentando restaurar los cambios guardados...");
                 var popResult = await _gitRepo.StashPopAsync(projectPath, 0);
                 if (!popResult.IsSuccess)
                 {
+                    if (IsConflictError(popResult.Error))
+                    {
+                        _notifications.ShowWarning("No se pudieron restaurar automaticamente tus cambios sin conflictos.");
+                        return Result.Fail("CONFLICTO_DETECTADO");
+                    }
+
                     _notifications.ShowWarning("No se pudieron restaurar automaticamente tus cambios. Revisa la lista de stashes.");
                 }
             }
@@ -134,5 +128,17 @@ public class PullChangesUseCase
             || error.Contains("tus cambios locales", StringComparison.OrdinalIgnoreCase)
             || error.Contains("serian sobrescritos", StringComparison.OrdinalIgnoreCase)
             || error.Contains("serán sobrescritos", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool IsConflictError(string? error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+            return false;
+
+        return error.Equals("CONFLICTO_DETECTADO", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("CONFLICT", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("unmerged files", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("resolve your current index first", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("fix them up in the work tree", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -57,7 +57,7 @@ public sealed class GitSyncWorkflow
                             context.ProjectPath,
                             currentBranch,
                             stashChanges: true,
-                            restoreAfterPull: false);
+                            restoreAfterPull: true);
                     }
                     break;
 
@@ -77,7 +77,7 @@ public sealed class GitSyncWorkflow
 
             await context.ForceRefreshChangesAsync();
 
-            if (!result.IsSuccess && result.Error == "CONFLICTO_DETECTADO")
+            if (!result.IsSuccess && UseCases.PullChangesUseCase.IsConflictError(result.Error))
             {
                 await _conflictResolutionWorkflow.HandleAsync(context);
             }

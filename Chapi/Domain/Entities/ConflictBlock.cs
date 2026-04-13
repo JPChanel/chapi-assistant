@@ -16,6 +16,11 @@ public class ConflictBlock
     public int EndLine { get; set; }
 
     /// <summary>
+    /// Número de línea donde el bloque cambia del lado local al entrante (donde está =======). 1-indexed.
+    /// </summary>
+    public int SeparatorLine { get; set; }
+
+    /// <summary>
     /// Contenido de los cambios locales (Current/HEAD).
     /// </summary>
     public string LocalContent { get; set; } = string.Empty;
@@ -30,6 +35,8 @@ public class ConflictBlock
     /// Puede ser local, entrante o una edición manual combinada.
     /// </summary>
     public string? ResolvedContent { get; set; }
+
+    public bool ReplaceWholeFile { get; set; }
 
     /// <summary>
     /// Si este bloque en específico ya fue resuelto por el usuario.
