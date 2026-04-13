@@ -7,15 +7,18 @@ public static class AppConfigurationLoader
 {
     public static IConfiguration Load(string appSettingsFileName)
     {
-        var appSettingsPath = EnsureAppSettingsFile(appSettingsFileName);
+        var (bundledConfigPath, appDataConfigPath) = EnsureAppSettingsFiles(appSettingsFileName);
 
         return new ConfigurationBuilder()
-            .SetBasePath(Path.GetDirectoryName(appSettingsPath)!)
-            .AddJsonFile(Path.GetFileName(appSettingsPath), optional: false, reloadOnChange: true)
+            .SetBasePath(Path.GetDirectoryName(bundledConfigPath)!)
+            // El archivo empaquetado aporta defaults y nuevas secciones.
+            .AddJsonFile(Path.GetFileName(bundledConfigPath), optional: false, reloadOnChange: true)
+            // AppData conserva overrides del usuario sin perder claves nuevas.
+            .AddJsonFile(appDataConfigPath, optional: true, reloadOnChange: true)
             .Build();
     }
 
-    private static string EnsureAppSettingsFile(string appSettingsFileName)
+    private static (string bundledConfigPath, string appDataConfigPath) EnsureAppSettingsFiles(string appSettingsFileName)
     {
         var appDataDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -24,20 +27,20 @@ public static class AppConfigurationLoader
         Directory.CreateDirectory(appDataDirectory);
 
         var appDataConfigPath = Path.Combine(appDataDirectory, appSettingsFileName);
-        if (File.Exists(appDataConfigPath))
-        {
-            return appDataConfigPath;
-        }
-
         var bundledConfigPath = Path.Combine(AppContext.BaseDirectory, appSettingsFileName);
+
         if (!File.Exists(bundledConfigPath))
         {
             throw new FileNotFoundException(
-                $"No se encontró '{appSettingsFileName}' ni en AppData ni en la carpeta de instalación.",
+                $"No se encontro '{appSettingsFileName}' ni en AppData ni en la carpeta de instalacion.",
                 bundledConfigPath);
         }
 
-        File.Copy(bundledConfigPath, appDataConfigPath, overwrite: false);
-        return appDataConfigPath;
+        if (!File.Exists(appDataConfigPath))
+        {
+            File.Copy(bundledConfigPath, appDataConfigPath, overwrite: false);
+        }
+
+        return (bundledConfigPath, appDataConfigPath);
     }
 }

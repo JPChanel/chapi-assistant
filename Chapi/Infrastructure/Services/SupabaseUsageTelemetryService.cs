@@ -70,7 +70,7 @@ public sealed class SupabaseUsageTelemetryService : IUsageTelemetryService
                 return;
             }
 
-            var requestUri = BuildInsertUri();
+            var requestUri = BuildUpsertUri();
             var payload = JsonSerializer.Serialize(pending, JsonOptions);
 
             using var request = new HttpRequestMessage(HttpMethod.Post, requestUri)
@@ -80,7 +80,7 @@ public sealed class SupabaseUsageTelemetryService : IUsageTelemetryService
 
             request.Headers.Add("apikey", _config.AnonKey);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.AnonKey);
-            request.Headers.Add("Prefer", "return=minimal");
+            request.Headers.Add("Prefer", "resolution=merge-duplicates,return=minimal");
 
             using var response = await _httpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
@@ -149,7 +149,8 @@ public sealed class SupabaseUsageTelemetryService : IUsageTelemetryService
             UserName = userName,
             AppVersion = ResolveAppVersion(),
             EventType = eventType,
-            MachineName = Environment.MachineName
+            MachineName = Environment.MachineName,
+            UpdatedAt = DateTime.UtcNow
         };
     }
 
@@ -177,9 +178,9 @@ public sealed class SupabaseUsageTelemetryService : IUsageTelemetryService
         return string.IsNullOrWhiteSpace(version) ? "unknown" : version.Split('+')[0];
     }
 
-    private string BuildInsertUri()
+    private string BuildUpsertUri()
     {
-        return $"{_config.Url.TrimEnd('/')}/rest/v1/{_config.TableName}";
+        return $"{_config.Url.TrimEnd('/')}/rest/v1/{_config.TableName}?on_conflict={Uri.EscapeDataString("install_id")}";
     }
 
     private async Task EnqueueAsync(UsageTelemetryEvent telemetryEvent)
@@ -189,12 +190,24 @@ public sealed class SupabaseUsageTelemetryService : IUsageTelemetryService
         {
             var pending = await LoadQueueInternalAsync();
             pending.Add(telemetryEvent);
-            await SaveQueueInternalAsync(pending);
+            await SaveQueueInternalAsync(MergePendingEvents(pending));
         }
         finally
         {
             _queueLock.Release();
         }
+    }
+
+    private static List<UsageTelemetryEvent> MergePendingEvents(List<UsageTelemetryEvent> pending)
+    {
+        var merged = new Dictionary<string, UsageTelemetryEvent>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var telemetryEvent in pending)
+        {
+            merged[telemetryEvent.InstallId] = telemetryEvent;
+        }
+
+        return merged.Values.ToList();
     }
 
     private async Task<List<UsageTelemetryEvent>> LoadQueueInternalAsync()
@@ -239,5 +252,6 @@ public sealed class SupabaseUsageTelemetryService : IUsageTelemetryService
         public string AppVersion { get; init; } = string.Empty;
         public string EventType { get; init; } = string.Empty;
         public string MachineName { get; init; } = string.Empty;
+        public DateTime UpdatedAt { get; init; }
     }
 }
