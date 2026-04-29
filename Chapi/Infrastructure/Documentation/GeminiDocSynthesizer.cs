@@ -62,7 +62,8 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         var jsonKeys = string.Join("\n", requestedKeys.Select(k => $"- {k}"));
-        var prompt = Chapi.Infrastructure.AI.GetPrompt.DocMetadata(jsonKeys, projectContext, userPrompt);
+        var promptContext = OptimizeProjectContextForMetadata(projectContext, requestedKeys);
+        var prompt = Chapi.Infrastructure.AI.GetPrompt.DocMetadata(jsonKeys, promptContext, userPrompt);
 
         var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
         var response = await GetChatClient().GetResponseAsync(messages, cancellationToken: cancellationToken);
@@ -96,6 +97,63 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
 
         ApplyDatabaseObjectGuardrails(dict, requestedKeys, projectContext);
         return dict;
+    }
+
+    private static string OptimizeProjectContextForMetadata(string projectContext, IReadOnlyCollection<string> requestedKeys)
+    {
+        if (string.IsNullOrWhiteSpace(projectContext))
+            return string.Empty;
+
+        var normalized = projectContext.Trim();
+        var dbStart = normalized.IndexOf(DbObjectsStart, StringComparison.OrdinalIgnoreCase);
+        var summary = dbStart < 0 ? normalized : normalized[..dbStart].Trim();
+        var dbBlock = dbStart < 0 ? string.Empty : normalized[dbStart..].Trim();
+
+        var needsDbContext = requestedKeys.Any(IsDatabaseContextKey);
+        var needsSummaryContext = requestedKeys.Any(key => !IsDatabaseOnlyKey(key));
+        var maxSummaryChars = requestedKeys.Any(IsDiagramContextKey) ? 3000 : 1800;
+        var maxDbChars = requestedKeys.Any(key => string.Equals(key, "BLOQUE_DICC_TABLA_ITEMS", StringComparison.OrdinalIgnoreCase))
+            ? 4000
+            : 2500;
+
+        summary = needsSummaryContext || (needsDbContext && string.IsNullOrWhiteSpace(dbBlock))
+            ? TrimPromptBlock(summary, maxSummaryChars)
+            : string.Empty;
+
+        dbBlock = needsDbContext
+            ? TrimPromptBlock(dbBlock, maxDbChars)
+            : string.Empty;
+
+        if (string.IsNullOrWhiteSpace(summary))
+            return dbBlock;
+
+        if (string.IsNullOrWhiteSpace(dbBlock))
+            return summary;
+
+        return $"{summary}{Environment.NewLine}{Environment.NewLine}{dbBlock}";
+    }
+
+    private static bool IsDiagramContextKey(string key) =>
+        key.Contains("IMG", StringComparison.OrdinalIgnoreCase)
+        || key.Contains("DIAGRAMA", StringComparison.OrdinalIgnoreCase)
+        || key.EndsWith("_ITEMS", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsDatabaseContextKey(string key) =>
+        IsDatabaseOnlyKey(key)
+        || string.Equals(key, "IMG_DER", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsDatabaseOnlyKey(string key) =>
+        key.StartsWith("TABLA_OBJ_", StringComparison.OrdinalIgnoreCase)
+        || key.StartsWith("TABLA_DICC_", StringComparison.OrdinalIgnoreCase)
+        || key.StartsWith("DICC_TABLA_", StringComparison.OrdinalIgnoreCase)
+        || key.StartsWith("COL_", StringComparison.OrdinalIgnoreCase);
+
+    private static string TrimPromptBlock(string value, int maxChars)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length <= maxChars)
+            return value;
+
+        return $"{value[..maxChars].TrimEnd()}{Environment.NewLine}...[contexto truncado]";
     }
 
     public async Task<string> AnalyzeProjectContextAsync(string projectPath, CancellationToken cancellationToken = default)
@@ -522,7 +580,7 @@ public class GeminiDocSynthesizer : IDocSynthesizerService
     }
 
     private static bool ShouldSkip(string name) =>
-        name is "bin" or "obj" or "node_modules" or ".git" or ".vs" or "dist" or "build";
+        name is "bin" or "obj" or "node_modules" or ".git" or ".vs" or ".idea" or ".vscode" or ".tmp" or ".dotnet" or ".dotnet-home" or ".nuget" or "dist" or "build" or "packages" or "coverage" or "TestResults";
 
     private static string FindConfigFiles(string path)
     {

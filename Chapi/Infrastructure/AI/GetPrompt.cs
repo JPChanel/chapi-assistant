@@ -1,4 +1,4 @@
-namespace Chapi.Infrastructure.AI;
+﻿namespace Chapi.Infrastructure.AI;
 
 public class GetPrompt
 {
@@ -8,28 +8,28 @@ public class GetPrompt
         Analiza el siguiente 'diff' y genera un mensaje de commit profesional en espanol segun el estandar Conventional Commits.
 
         ?? Reglas:
-        - Debes retornar S?LO un objeto JSON v?lido, sin formato markdown (```json).
+        - Debes retornar SOLO un objeto JSON valido, sin formato markdown (```json).
         - El JSON debe tener esta estructura:
           {{
             ""summary"": ""tipo(alcance): resumen corto"",
-            ""description"": ""descripci?n detallada de los cambios""
+            ""description"": ""descripcion detallada de los cambios""
           }}
-        - 'summary' (Resumen): Una sola l?nea, 72 caracteres m?ximo.
-        - 'description' (Descripci?n):
+        - 'summary' (Resumen): Una sola linea, 72 caracteres maximo.
+        - 'description' (Descripcion):
             - Un resumen de 1 o 2 frases sobre el 'por que' del cambio.
-            - Seguido de una lista de vi?etas (usando '-') con los cambios m?s importantes.
-            - Si los cambios son muy peque?os, la descripci?n puede ser un string vacio ("""").
+            - Seguido de una lista de viñetas (usando '-') con los cambios mas importantes.
+            - Si los cambios son muy peque?os, la descripcion puede ser un string vacio ("""").
 
-        ?? Gu?a de Tipos:
+        ?? Guia de Tipos:
         - 'feat': Nuevas funciones.
-        - 'fix': Correcci?n de errores.
-        - 'refactor': Limpieza de c?digo sin cambiar funcionalidad.
+        - 'fix': Correccion de errores.
+        - 'refactor': Limpieza de codigo sin cambiar funcionalidad.
         - 'chore': Tareas de mantenimiento, builds, etc.
 
         Ejemplo de Salida JSON:
         {{
-          ""summary"": ""feat(git): implementa generaci?n de commit con IA y manejo de diff"",
-          ""description"": ""Se actualiza el flujo de commits para usar la IA.\n\n- Modifica btnGitCommit_Click para analizar solo archivos seleccionados.\n- Cambia el comando diff a 'diff HEAD' para evitar el stage.\n- A?ade deserializaci?n para el nuevo formato JSON de respuesta.""
+          ""summary"": ""feat(git): implementa generacipn de commit con IA y manejo de diff"",
+          ""description"": ""Se actualiza el flujo de commits para usar la IA.\n\n- Modifica btnGitCommit_Click para analizar solo archivos seleccionados.\n- Cambia el comando diff a 'diff HEAD' para evitar el stage.\n- Añade deserializaci?n para el nuevo formato JSON de respuesta.""
         }}
 
         Texto del diff (Contexto):
@@ -40,14 +40,14 @@ public class GetPrompt
     public static string AnalyzeEmail(string moduleName, string methodName, string emailContent, string dataBase, string tipoMetodo)
     {
         return $@"
-            Analiza el siguiente correo tecnico o procedimiento Almacenado y extrae la informaci?n del Stored Procedure.
+            Analiza el siguiente correo tecnico o procedimiento Almacenado y extrae la informacion del Stored Procedure.
 
             CONTEXTO:
-            - M?dulo: {moduleName}
-            - M?todo: {methodName}
+            - Modulo: {moduleName}
+            - Metodo: {methodName}
             - Tipo Metodo: {tipoMetodo}
 
-            CORREO T?CNICO:
+            CORREO TECNICO:
             {emailContent}
 
             INSTRUCCIONES:
@@ -174,14 +174,14 @@ public class GetPrompt
             - {syntaxHelp}
             - Ejemplo de sintaxis: {exampleCall}
         3.  **Formato de Salida:**
-            - Devuelve ?NICAMENTE el bloque de c?digo SQL.
+            - Devuelve UNICAMENTE el bloque de codigo SQL.
             - No incluyas "Respuesta:", "Aque esta el SQL:", ni ` ```sql `.
-            - Formatea el SQL con saltos de l?nea para que sea legible, como en el ejemplo del usuario.
+            - Formatea el SQL con saltos de linea para que sea legible, como en el ejemplo del usuario.
 
         **Datos de Entrada:**
-        -   **Procedimiento/Funci?n:** `{procedureName}`
+        -   **Procedimiento/Funcion:** `{procedureName}`
         -   **Tipo de BD:** `{dbType}`
-        -   **Par?metros .NET:**
+        -   **Parametros .NET:**
             ```
             {netParams}
             ```
@@ -193,11 +193,11 @@ public class GetPrompt
     public static string ChatAssistant(string contextInfo, string conversationHistory, string capabilitiesInfo, string userMessage)
     {
         return $@"
-                Eres un asistente de desarrollo integrado en Chapi Assistant, una aplicaci?n para gesti?n de proyectos y Git.
+                Eres un asistente de desarrollo integrado en Chapi Assistant, una aplicacion para gestion de proyectos y Git.
 
                 TU PERSONALIDAD:
                 - Hablas en espanol de forma natural y amigable
-                - Eres experto en desarrollo de software, Git, arquitectura y buenas pr?cticas
+                - Eres experto en desarrollo de software, Git, arquitectura y buenas practicas
 
                 TUS CAPACIDADES EN ESTE PROYECTO (CHAPI):
                 {capabilitiesInfo}
@@ -205,7 +205,7 @@ public class GetPrompt
                 REGLAS DE ACCI?N:
                 1. Si el usuario te pide hacer algo que esta dentro de tus capacidades (como un commit), debes sugerir la accion si solo tienes todo claro y preparado; ello despues de explicar que har?s.
                   
-                  **VALIDACI?N CR?TICA DE PROYECTO**:
+                  **VALIDACION CRITICA DE PROYECTO**:
                   Si en el contexto ves '?? No hay proyecto seleccionado actualmente':
                   - NO puedes ejecutar acciones de Git (commit, push, pull, branch, etc.).
                   - S? puedes ejecutar acciones de Gesti?n de Proyecto (project.create, project.clone, project.list, project.add).
@@ -213,7 +213,7 @@ public class GetPrompt
                 2. Para sugerir una accion, incluye AL FINAL de tu respuesta (despues de tu explicaci?n) un bloque con este formato exacto:
                   [[ACTION:{{""type"":""ID_EXACTO_DE_LA_CAPACIDAD"",""params"":{{""param1"":""valor1""}}}}]]
                   
-                  IMPORTANTE: Usa el ID EXACTO listado en ""TUS CAPACIDADES"" y que sea m?s adecuado (ej: git.commit, project.create, project.clone). NO INVENTES NOMBRES DE ACCI?N.
+                  IMPORTANTE: Usa el ID EXACTO listado en ""TUS CAPACIDADES"" y que sea mas adecuado (ej: git.commit, project.create, project.clone). NO INVENTES NOMBRES DE ACCION.
 
                 3. REGLAS ESPEC?FICAS DE ACCIONES:
                   - Para COMMIT (git.commit): Siempre genera un mensaje profesional Conventional Commits.
@@ -229,7 +229,7 @@ public class GetPrompt
                     
                     **DESAMBIGUACI?N IMPORTANTE**: 
                     Si el usuario solo dice 'crear un proyecto' (sin especificar tipo), NO sugieras ninguna accion todav?a.
-                    Preg?ntale: '?Quieres clonar un repositorio existente o crear una nueva API con Clean Architecture?'
+                    Preguntale: '?Quieres clonar un repositorio existente o crear una nueva API con Clean Architecture?'
 
                     Si falta el nombre O la ruta, PREG?NTALE al usuario. NO uses valores por defecto.
 
@@ -258,9 +258,9 @@ public class GetPrompt
 
         REGLAS:
         - Responde SOLO con el contenido en Markdown bien estructurado.
-        - NO incluyas encabezados H1 (t?tulo principal).
-        - S? tecnico, conciso y profesional. 
-        - M?ximo 300 palabras.
+        - NO incluyas encabezados H1 (titulo principal).
+        - Se tecnico, conciso y profesional. 
+        - Maximo 300 palabras.
         ";
     }
 
@@ -277,11 +277,11 @@ public class GetPrompt
         {projectContext}
 
         REGLAS ESTRICTAS:
-        1. Responde SOLO con el c?digo {format}, sin explicaci?n, sin bloques de markdown (```).
+        1. Responde SOLO con el codigo {format}, sin explicacion, sin bloques de markdown (```).
         2. {formatInstructions}
-        3. El c?digo debe ser v?lido y renderizable.
+        3. El código debe ser valido y renderizable.
         4. Usa nombres reales del proyecto si estan disponibles en el contexto.
-        5. Mant?n el diagrama enfocado y claro, m?ximo 15 elementos.
+        5. Manten el diagrama enfocado y claro, maximo 15 elementos.
         ";
     }
 
@@ -289,168 +289,121 @@ public class GetPrompt
     {
         return $@"
         Eres un arquitecto de software experto documentando sistemas.
-        Tu tarea es llenar una plantilla de metadatos JSON basada en el contexto del proyecto y la instrucci?n del usuario.
+        Completa una plantilla JSON usando solo el contexto del proyecto y la instruccion del usuario.
 
         CONTEXTO:
         {projectContext}
 
-        INSTRUCCI?N:
+        INSTRUCCION:
         {userPrompt}
 
-        INSTRUCCIONES CLAVES:
-        1. Devuelve ?NICAMENTE un objeto JSON v?lido (sin etiquetas markdown como ```json).
-        2. El JSON debe contener EXACTAMENTE las claves proporcionadas en la lista a continuaci?n, y como valor el contenido generado.
-        2.1 Para claves no estructurales que no sean de imagen (ej. INTRODUCCION, CAPA_DESC, PQ_DESC), no dejes valores vacios.
-        2.2 Si existe INTRODUCCION: redacta 2 parrafos formales (120-220 palabras en total), con contexto institucional, objetivo del documento y valor tecnico de los diagramas.
-        2.3 Si existe OBJETIVOS: genera entre 4 y 7 objetivos en formato lista con vi?etas, claros y accionables, alineados al sistema y su normativa.
-        2.4 Si existe ALCANCE: redacta 2 parrafos formales (120-220 palabras en total), delimitando alcance funcional, alcance tecnico, integraciones, restricciones y ambito de despliegue.
-        2.5 Evita textos de una sola linea en INTRODUCCION/OBJETIVOS/ALCANCE. Deben ser explicativos y con lenguaje tecnico profesional.
-        3. Para claves que contengan 'IMG' o 'DIAGRAMA' en su nombre (ej. IMG_ARQUITECTURA), el valor DEBE ser c?digo v?lido de PlantUML (sin bloques ```plantuml).
-        4. Para claves que terminen en '_ITEMS', el valor DEBE ser un JSON ARRAY (no string) de objetos.
-        5. Caso especial BLOQUE_CU_ITEMS: cada objeto debe tener esta estructura:
-           {{
-             ""CU_ID"": ""CU001"",
-             ""CU_NOM"": ""Nombre del caso de uso"",
-             ""CU_DESC"": ""Descripci?n t?cnica del caso de uso (3-5 l?neas)"",
-             ""CU_ACTORES"": ""Actor1; Actor2"",
-             ""CU_PRE"": ""Precondiciones"",
-             ""CU_FLOW_BASE"": ""1. ... 2. ... 3. ..."",
-             ""CU_FLOW_ALT"": ""1. ... 2. ..."",
-             ""CU_POST"": ""Postcondiciones"",
-             ""CU_RESTRIC"": ""Restricciones"",
-             ""CU_PADRE"": ""CU padre o Ninguno"",
-             ""IMG_PROTOTIPO"": ""@startuml ... @enduml""
-           }}
-        5.1 Reglas para BLOQUE_CU_ITEMS:
-           - CU_ID debe seguir el patr?n CU### (ej. CU001, CU002).
-           - CU_NOM y CU_ACTORES deben ser coherentes con el diagrama IMG_CU_GENERAL.
-           - Cada caso de uso del diagrama debe tener su bloque en BLOQUE_CU_ITEMS.
-        6. Caso especial BLOQUE_PQ_ITEMS: cada objeto debe tener:
-           {{
-             ""PQ_ID_NOM"": ""PQ001: Nombre del paquete"",
-             ""PQ_DESC"": ""Descripci?n funcional/t?cnica del paquete alineada al diagrama"",
-             ""PQ_CLASES_LISTA"": ""- ClaseA\n- ClaseB\n- ClaseC""
-           }}
-        7. Caso especial BLOQUE_ACT_ITEMS: cada objeto debe tener:
-           {{
-             ""CU_ID_ACT"": ""CU001"",
-             ""CU_NOM_ACT"": ""Nombre del caso de uso"",
-             ""CU_DESC_ACT"": ""Descripcion funcional del flujo de actividad (3-5 lineas)"",
-             ""IMG_ACTIVIDAD"": ""@startuml ... @enduml""
-           }}
-        7.1 Reglas para IMG_ACTIVIDAD (segun contexto real):
-           - Debe representar una secuencia completa de tareas del caso de uso (no una sola tarea aislada).
-           - Si el contexto muestra varias etapas, modela 2 o mas fases (ej. Recepcion, Validacion, Resolucion/Salida).
-           - Si el proyecto es peque?o o hay poca evidencia, permite un flujo general unico pero con varias tareas coherentes.
-           - Usa entre 5 y 14 acciones reales del contexto, sin inventar tareas inexistentes.
-           - Incluye decision (if/else) solo cuando aplique en el proceso.
-           - Debe iniciar con start y terminar con stop, mostrando resultado final del flujo.
-        8. Caso especial BLOQUE_SEQ_ITEMS: cada objeto debe tener:
-           {{
-             ""CU_ID_SEQ"": ""CU001"",
-             ""CU_NOM_SEQ"": ""Nombre del caso de uso"",
-             ""CU_DESC_SEQ"": ""Descripcion de la interaccion secuencial (3-5 lineas)"",
-             ""IMG_SECUENCIA"": ""@startuml ... @enduml""
-           }}
-        8.1 Reglas para IMG_SECUENCIA (segun contexto real):
-           - Si el contexto lo permite, representa 2 o mas fases del proceso (ej. Solicitud y Validacion/Respuesta).
-           - Usa entre 2 y 5 participantes reales del contexto y entre 4 y 14 mensajes coherentes.
-           - Los mensajes deben mostrar orden temporal completo de inicio a fin.
-           - Incluye bloque de control (alt/opt/loop) solo cuando aplique.
-           - Si el proyecto es peque?o, permite una secuencia general unica, pero completa y coherente.
-        9. Caso especial BLOQUE_EST_ITEMS: cada objeto debe tener:
-           {{
-             ""CU_ID_EST"": ""CU001"",
-             ""CU_NOM_EST"": ""Nombre del caso de uso"",
-             ""CU_DESC_EST"": ""Descripcion de estados y transiciones (3-5 lineas)"",
-             ""IMG_ESTADO"": ""@startuml ... @enduml""
-           }}
-        10. Caso especial BLOQUE_CAPAS_ITEMS: cada objeto debe tener:
-           {{
-             ""CAPA_NOM"": ""Nombre de la capa"",
-             ""CAPA_DESC"": ""Descripci?n t?cnica de la capa""
-           }}
-        11. Caso especial BLOQUE_COMP_ITEMS: cada objeto debe tener:
-            {{
-              ""COMP_NOM"": ""Nombre del componente"",
-              ""COMP_DESC"": ""Descripci?n t?cnica del componente""
-            }}
-        12. Caso especial BLOQUE_CLASE_DET_ITEMS: cada objeto debe tener:
-            {{
-              ""CLASE_TITULO"": ""Nombre de la clase"",
-              ""CLASE_ATRIB"": ""atributo1:tipo; atributo2:tipo"",
-              ""CLASE_OPER"": ""metodo1(); metodo2(param)"",
-              ""CLASE_AGREG"": ""Agregaci?n con otras clases"",
-              ""CLASE_ASOC"": ""Asociaciones con otras clases""
-            }}
-        13. Regla de consistencia diagrama -> descripci?n:
-            - Si existe IMG_ARQUITECTURA, tambi?n llena ARQ_DESC_GENERAL y BLOQUE_CAPAS_ITEMS.
-            - Si existe IMG_COMPONENTES, tambi?n llena BLOQUE_COMP_ITEMS.
-            - Si existe IMG_CLASES_SISTEMA, tambi?n llena BLOQUE_CLASE_DET_ITEMS.
-            - Si existe IMG_VISTA_LOGICA, tambi?n llena PQ_VISTA_LOGICA_DESC y BLOQUE_PQ_ITEMS.
-            - Para IMG_VISTA_LOGICA en PlantUML usa package en multilinea y flechas entre nodos internos, no entre nombres de package.
-            - Si existe IMG_ACTORES, TABLA_ACTORES_LISTA debe listar actores y responsabilidades.
-            - Si existe IMG_CU_GENERAL, TABLA_CU_LISTADO y BLOQUE_CU_ITEMS deben estar coherentes.
-            - Si existe BLOQUE_ACT_ITEMS, cada item debe incluir CU_DESC_ACT.
-            - Si existe BLOQUE_SEQ_ITEMS, cada item debe incluir CU_DESC_SEQ.
-            - Si existe BLOQUE_EST_ITEMS, cada item debe incluir CU_DESC_EST.
-        13.1 Regla visual obligatoria para IMG_CU_GENERAL (PlantUML):
-            - Usa actores humanos a la izquierda y sistemas externos en el extremo derecho.
-            - Encierra los casos de uso dentro de un l?mite de sistema al centro: rectangle ""NOMBRE_SISTEMA"" {{ ... }}.
-            - Los casos de uso deben mostrarse como ?valos dentro del l?mite del sistema y nombrarse con prefijo CU###.
-            - Conecta cada actor con sus casos de uso correspondientes.
-            - Usa relaciones <<include>>/<<extend>> solo cuando aplique.
-            - Estructura de referencia:
-              @startuml
-              left to right direction
-              actor ""Actor Interno"" as A1
-              actor ""Sistema Externo"" as EXT
-              rectangle ""NOMBRE_SISTEMA"" {{
-                usecase ""CU001: Caso 1"" as CU001
-                usecase ""CU002: Caso 2"" as CU002
-              }}
-              A1 --> CU001
-              EXT --> CU002
-              CU002 .> CU001 : <<include>>
-              @enduml
-        13.2 Regla visual obligatoria para IMG_ACTORES (PlantUML):
-            - No generar solo ?conos de actores sueltos.
-            - Debe incluir l?mite de sistema al centro con los casos de uso principales.
-            - Actores internos a la izquierda y actor/sistema externo a la derecha cuando aplique.
-            - Conecta actores con los casos de uso que ejecutan y refleja el flujo general.
-        14. Si existe BLOQUE_CU_ITEMS en las claves, genera entre 1 y 9 casos de uso segun el contexto (proyecto peque?o: 1 o pocos; proyecto complejo: varios).
-        15. Si existe BLOQUE_PQ_ITEMS, genera entre 1 y 10 paquetes segun la evidencia de la arquitectura.
-        16. Si existe BLOQUE_ACT_ITEMS/BLOQUE_SEQ_ITEMS/BLOQUE_EST_ITEMS:
-            - si hay varios casos de uso claros, genera la misma cantidad que BLOQUE_CU_ITEMS;
-            - si hay un caso de uso general o poca evidencia, genera un bloque general coherente.
-        17. Si existen BLOQUE_CAPAS_ITEMS/BLOQUE_COMP_ITEMS/BLOQUE_CLASE_DET_ITEMS, genera entre 1 y 8 elementos segun la arquitectura identificada.
-        18. Cuando generes IMG_ACTIVIDAD, prioriza macro-actividades del proceso end-to-end y no pasos tecnicos microsc?picos.
-        19. Regla general para cualquier diagrama (IMG_*/DIAGRAMA_*): no inventes actores, fases, componentes o relaciones que no esten sustentados en el contexto.
-        20. Si faltan detalles, usa una representacion general y conservadora, manteniendo coherencia funcional y trazabilidad con las claves CU/PQ/ACT/SEQ/EST.
-        21. Preferencia de granularidad: si no hay evidencia clara de multiples procesos/actores/fases, genera un solo diagrama general por tipo; solo divide en varios cuando el contexto lo justifique expl?citamente.
-        22. Caso especial BLOQUE_DICC_TABLA_ITEMS (diccionario de datos de multiples tablas):
-            - Devuelve un JSON ARRAY de objetos.
-            - Cada objeto debe tener EXACTAMENTE estas claves:
-              {{
-                ""DICC_TABLA_TITULO"": ""Nombre de tabla"",
-                ""COL_NOM"": ""columna1\\ncolumna2\\ncolumna3"",
-                ""COL_TIPO"": ""tipo1\\ntipo2\\ntipo3"",
-                ""COL_PK"": ""SI\\nNO\\nNO"",
-                ""COL_DESC"": ""descripcion1\\ndescripcion2\\ndescripcion3""
-              }}
-            - Genera un objeto por cada tabla identificada en el contexto.
-            - Si hay evidencia parcial, incluye solo las tablas confirmadas (no inventes tablas).
-        23. Caso especial de listados de objetos BD (TABLA_OBJ_PQ, TABLA_OBJ_PROC, TABLA_OBJ_VISTAS, TABLA_OBJ_FUNC, TABLA_OBJ_IDX):
-            - Usa unicamente objetos existentes en el contexto.
-            - Prioriza el bloque [DB_OBJECTS] del contexto.
-            - Si no hay objetos para una clave, retorna ""No identificado en contexto"".
-            - No inventes procedimientos, funciones, vistas, paquetes ni indices.
-        24. Si existe TABLA_DICC_RESUMEN:
-            - Lista TODAS las tablas detectadas en contexto.
-            - Formato sugerido: ""tabla_a; tabla_b; tabla_c"".
-            - Si no hay tablas detectadas, retorna ""No identificado en contexto"".
+        REGLAS GENERALES:
+        1. Devuelve UNICAMENTE un objeto JSON valido, sin markdown.
+        2. Incluye EXACTAMENTE las claves solicitadas; no agregues ni elimines claves.
+        3. Para claves narrativas, no dejes valores vacios; si falta evidencia, responde de forma conservadora y coherente con el contexto.
+        4. Para claves que contengan IMG o DIAGRAMA, devuelve codigo PlantUML valido sin bloques ```.
+        5. Para claves que terminen en _ITEMS, devuelve un JSON ARRAY de objetos, no string.
+        6. No inventes actores, procesos, componentes, tablas, paquetes, procedimientos, vistas, funciones ni indices.
+        7. Si existe [DB_OBJECTS], usalo como fuente principal para objetos de base de datos.
 
-        CLAVES REQUERIDAS (Genera el contenido ?ptimo para cada una):
+        FORMATO POR TIPO:
+        - INTRODUCCION: 2 parrafos formales, 120-220 palabras en total, con contexto institucional, objetivo del documento y valor tecnico.
+        - OBJETIVOS: 4 a 7 objetivos accionables en lista con vinetas.
+        - ALCANCE: 2 parrafos formales, 120-220 palabras, con alcance funcional, tecnico, integraciones, restricciones y ambito.
+        - TABLA_DICC_RESUMEN: lista todas las tablas detectadas con formato ""tabla_a; tabla_b; tabla_c""; si no hay evidencia, ""No identificado en contexto"".
+        - TABLA_OBJ_PQ/TABLA_OBJ_PROC/TABLA_OBJ_VISTAS/TABLA_OBJ_FUNC/TABLA_OBJ_IDX: usa solo objetos reales del contexto; si no hay evidencia, ""No identificado en contexto"".
+
+        ESTRUCTURAS ESPECIALES:
+        - BLOQUE_CU_ITEMS:
+          {{
+            ""CU_ID"": ""CU001"",
+            ""CU_NOM"": ""Nombre del caso de uso"",
+            ""CU_DESC"": ""Descripcion tecnica del caso de uso (3-5 lineas)"",
+            ""CU_ACTORES"": ""Actor1; Actor2"",
+            ""CU_PRE"": ""Precondiciones"",
+            ""CU_FLOW_BASE"": ""1. ... 2. ... 3. ..."",
+            ""CU_FLOW_ALT"": ""1. ... 2. ..."",
+            ""CU_POST"": ""Postcondiciones"",
+            ""CU_RESTRIC"": ""Restricciones"",
+            ""CU_PADRE"": ""CU padre o Ninguno"",
+            ""IMG_PROTOTIPO"": ""@startuml ... @enduml""
+          }}
+          Reglas: CU_ID sigue CU###; CU_NOM y CU_ACTORES deben ser coherentes con IMG_CU_GENERAL; genera entre 1 y 9 casos segun la evidencia.
+        - BLOQUE_PQ_ITEMS:
+          {{
+            ""PQ_ID_NOM"": ""PQ001: Nombre del paquete"",
+            ""PQ_DESC"": ""Descripcion funcional/tecnica del paquete alineada al diagrama"",
+            ""PQ_CLASES_LISTA"": ""- ClaseA\n- ClaseB\n- ClaseC""
+          }}
+          Genera entre 1 y 10 paquetes segun la arquitectura identificada.
+        - BLOQUE_ACT_ITEMS:
+          {{
+            ""CU_ID_ACT"": ""CU001"",
+            ""CU_NOM_ACT"": ""Nombre del caso de uso"",
+            ""CU_DESC_ACT"": ""Descripcion funcional del flujo de actividad (3-5 lineas)"",
+            ""IMG_ACTIVIDAD"": ""@startuml ... @enduml""
+          }}
+        - BLOQUE_SEQ_ITEMS:
+          {{
+            ""CU_ID_SEQ"": ""CU001"",
+            ""CU_NOM_SEQ"": ""Nombre del caso de uso"",
+            ""CU_DESC_SEQ"": ""Descripcion de la interaccion secuencial (3-5 lineas)"",
+            ""IMG_SECUENCIA"": ""@startuml ... @enduml""
+          }}
+        - BLOQUE_EST_ITEMS:
+          {{
+            ""CU_ID_EST"": ""CU001"",
+            ""CU_NOM_EST"": ""Nombre del caso de uso"",
+            ""CU_DESC_EST"": ""Descripcion de estados y transiciones (3-5 lineas)"",
+            ""IMG_ESTADO"": ""@startuml ... @enduml""
+          }}
+        - BLOQUE_CAPAS_ITEMS:
+          {{
+            ""CAPA_NOM"": ""Nombre de la capa"",
+            ""CAPA_DESC"": ""Descripcion tecnica de la capa""
+          }}
+        - BLOQUE_COMP_ITEMS:
+          {{
+            ""COMP_NOM"": ""Nombre del componente"",
+            ""COMP_DESC"": ""Descripcion tecnica del componente""
+          }}
+        - BLOQUE_CLASE_DET_ITEMS:
+          {{
+            ""CLASE_TITULO"": ""Nombre de la clase"",
+            ""CLASE_ATRIB"": ""atributo1:tipo; atributo2:tipo"",
+            ""CLASE_OPER"": ""metodo1(); metodo2(param)"",
+            ""CLASE_AGREG"": ""Agregacion con otras clases"",
+            ""CLASE_ASOC"": ""Asociaciones con otras clases""
+          }}
+        - BLOQUE_DICC_TABLA_ITEMS: devuelve un array; cada objeto debe tener EXACTAMENTE
+          {{
+            ""DICC_TABLA_TITULO"": ""Nombre de tabla"",
+            ""COL_NOM"": ""columna1\ncolumna2\ncolumna3"",
+            ""COL_TIPO"": ""tipo1\ntipo2\ntipo3"",
+            ""COL_PK"": ""SI\nNO\nNO"",
+            ""COL_DESC"": ""descripcion1\ndescripcion2\ndescripcion3""
+          }}
+          Genera un objeto por cada tabla confirmada en contexto; no inventes tablas.
+
+        CONSISTENCIA ENTRE CLAVES:
+        - Si existe IMG_ARQUITECTURA, tambien llena ARQ_DESC_GENERAL y BLOQUE_CAPAS_ITEMS.
+        - Si existe IMG_COMPONENTES, tambien llena BLOQUE_COMP_ITEMS.
+        - Si existe IMG_CLASES_SISTEMA, tambien llena BLOQUE_CLASE_DET_ITEMS.
+        - Si existe IMG_VISTA_LOGICA, tambien llena PQ_VISTA_LOGICA_DESC y BLOQUE_PQ_ITEMS.
+        - Si existe IMG_ACTORES, TABLA_ACTORES_LISTA debe listar actores y responsabilidades.
+        - Si existe IMG_CU_GENERAL, TABLA_CU_LISTADO y BLOQUE_CU_ITEMS deben ser coherentes.
+        - Si existe BLOQUE_ACT_ITEMS/BLOQUE_SEQ_ITEMS/BLOQUE_EST_ITEMS, cada item debe incluir su campo descriptivo correspondiente.
+
+        REGLAS DE DIAGRAMAS:
+        - Usa solo elementos sustentados en el contexto.
+        - Si falta detalle, genera un diagrama general y conservador.
+        - IMG_ACTIVIDAD: flujo end-to-end, 5-14 acciones reales, puede incluir decisiones, inicia con start y termina con stop.
+        - IMG_SECUENCIA: 2-5 participantes reales, 4-14 mensajes, orden temporal completo, usa alt/opt/loop solo si aplica.
+        - IMG_CU_GENERAL: actores humanos a la izquierda, sistemas externos a la derecha, casos de uso dentro de rectangle ""NOMBRE_SISTEMA"", nombres con prefijo CU###.
+        - IMG_ACTORES: no dejes actores sueltos; incluye limite de sistema y relacion con casos de uso principales.
+        - IMG_VISTA_LOGICA: usa package en multilinea y relaciones entre nodos internos, no entre nombres de package.
+
+        CLAVES REQUERIDAS:
         {jsonKeys}
         ";
     }
@@ -468,11 +421,11 @@ public class GetPrompt
         
         INSTRUCCIONES:
         Responde con un p?rrafo breve que incluya:
-        - Tecnolog?a/stack identificado.
-        - Prop?sito probable del sistema.
+        - Tecnologia/stack identificado.
+        - Proposito probable del sistema.
         - Arquitectura aparente (Clean Architecture, Hexagonal, MVC, etc.).
-        - M?dulos/capas principales.
-        M?ximo 200 palabras.
+        - Modulos/capas principales.
+        Maximo 200 palabras.
         ";
     }
 }

@@ -646,20 +646,21 @@ public class DocumentationViewModel : ViewModelBase
         {
             await EnsureProjectContextAsync($"Analizando proyecto para '{selectedSection.Title}'...");
 
-            var keys = GetKeysForSection(selectedSection, forceRegenerate: !string.IsNullOrWhiteSpace(instruction));
-            if (!keys.Any())
+            var forceRegenerate = !string.IsNullOrWhiteSpace(instruction);
+            var scope = BuildGenerationScope(selectedSection, forceRegenerate);
+            if (scope.Keys.Count == 0)
             {
                 StatusMessage = $"'{selectedSection.Title}' no tiene etiquetas pendientes.";
                 return;
             }
 
-            var sectionPrompt = string.IsNullOrWhiteSpace(instruction)
-                ? $"Genera los valores de metadata para la seccion: {selectedSection.Title}"
-                : instruction;
+            var sectionPrompt = BuildGenerationPrompt(scope, instruction, isGenerateAll: false);
+            StatusMessage = scope.Sections.Count > 1
+                ? $"Generando metadata para '{selectedSection.Title}' y sus subitems..."
+                : $"Generando metadata para '{selectedSection.Title}'...";
 
-            StatusMessage = $"Generando metadata para '{selectedSection.Title}'...";
-            var generatedData = await _synthesizer.GenerateMetadataAsync(keys, _projectContext, sectionPrompt);
-            var updated = ApplyGeneratedMetadata(generatedData, keys);
+            var generatedData = await _synthesizer.GenerateMetadataAsync(scope.Keys, _projectContext, sectionPrompt);
+            var updated = ApplyGeneratedMetadata(generatedData, scope.Keys);
             await _persistence.SaveAsync(_session);
 
             OnPropertyChanged(nameof(SelectedSection));
@@ -688,32 +689,36 @@ public class DocumentationViewModel : ViewModelBase
         {
             await EnsureProjectContextAsync("Analizando estructura del proyecto...");
 
-            StatusMessage = "Generando metadatos del documento...";
             var forceRegenerate = !string.IsNullOrWhiteSpace(instruction);
-            var keysToGenerate = _session.Metadata
-                .Where(kvp => !IsStructuralTag(kvp.Key))
-                .Where(kvp => IsAIGeneratableKey(kvp.Key))
-                .Where(kvp => forceRegenerate || IsPendingTagValue(kvp.Value))
-                .Select(kvp => kvp.Key)
+            var scopes = BuildTopLevelGenerationScopes(forceRegenerate)
+                .Where(scope => scope.Keys.Count > 0)
                 .ToList();
 
-            if (!keysToGenerate.Any())
+            if (!scopes.Any())
             {
                 StatusMessage = "No hay etiquetas pendientes por generar.";
                 return;
             }
 
-            var metadataPrompt = string.IsNullOrWhiteSpace(instruction)
-                ? "Genera todas las etiquetas faltantes del documento tecnico."
-                : instruction;
+            var updated = 0;
+            var totalKeys = scopes.Sum(scope => scope.Keys.Count);
 
-            var generatedData = await _synthesizer.GenerateMetadataAsync(keysToGenerate, _projectContext, metadataPrompt);
-            var updated = ApplyGeneratedMetadata(generatedData, keysToGenerate);
+            for (var i = 0; i < scopes.Count; i++)
+            {
+                var scope = scopes[i];
+                StatusMessage = $"Generando bloque {i + 1}/{scopes.Count}: {scope.PrimarySection.Title}";
+
+                var metadataPrompt = BuildGenerationPrompt(scope, instruction, isGenerateAll: true);
+                var generatedData = await _synthesizer.GenerateMetadataAsync(scope.Keys, _projectContext, metadataPrompt);
+                updated += ApplyGeneratedMetadata(generatedData, scope.Keys);
+                await _persistence.SaveAsync(_session);
+            }
+
             await _persistence.SaveAsync(_session);
             await RefreshPreviewAsync();
 
             StatusMessage = updated > 0
-                ? $"Etiquetas generadas: {updated}/{keysToGenerate.Count}."
+                ? $"Etiquetas generadas: {updated}/{totalKeys}."
                 : "La IA no devolvio valores aplicables para las etiquetas solicitadas.";
         }
         catch (Exception ex)
@@ -938,17 +943,107 @@ public class DocumentationViewModel : ViewModelBase
 
     private List<string> GetKeysForSection(DocSection section, bool forceRegenerate)
     {
-        var keyMap = GetSectionKeyMap(CurrentTemplate);
-        if (!keyMap.TryGetValue(section.Order, out var keys))
-            return [];
+        return GetKeysForSections([section], forceRegenerate);
+    }
 
-        return keys
+    private List<string> GetKeysForSections(IEnumerable<DocSection> sections, bool forceRegenerate)
+    {
+        var keyMap = GetSectionKeyMap(CurrentTemplate);
+        return sections
+            .SelectMany(section => keyMap.TryGetValue(section.Order, out var keys) ? keys : [])
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Where(k => _session.Metadata.ContainsKey(k))
             .Where(IsAIGeneratableKey)
             .Where(k => forceRegenerate || IsPendingTagValue(_session.Metadata[k]))
             .ToList();
     }
+
+    private List<GenerationScope> BuildTopLevelGenerationScopes(bool forceRegenerate)
+    {
+        var scopes = new List<GenerationScope>();
+        var orderedSections = Sections.OrderBy(s => s.Order).ToList();
+
+        foreach (var section in orderedSections)
+        {
+            if (TryParseSubSection(section.Title, out _, out _, out _))
+                continue;
+
+            scopes.Add(BuildGenerationScope(section, forceRegenerate));
+        }
+
+        return scopes;
+    }
+
+    private GenerationScope BuildGenerationScope(DocSection section, bool forceRegenerate)
+    {
+        var scopedSections = GetSectionsForGeneration(section);
+        var keys = GetKeysForSections(scopedSections, forceRegenerate);
+        return new GenerationScope(section, scopedSections, keys);
+    }
+
+    private List<DocSection> GetSectionsForGeneration(DocSection section)
+    {
+        var orderedSections = Sections.OrderBy(s => s.Order).ToList();
+        var selected = orderedSections.FirstOrDefault(s => ReferenceEquals(s, section)) ?? orderedSections.FirstOrDefault(s => s.Order == section.Order);
+        if (selected == null)
+            return [section];
+
+        if (TryParseSubSection(selected.Title, out _, out _, out _))
+            return [selected];
+
+        var topLevelCounter = 0;
+        int? rootNumber = null;
+        var scopedSections = new List<DocSection>();
+
+        foreach (var current in orderedSections)
+        {
+            if (TryParseSubSection(current.Title, out var mainNumber, out _, out _))
+            {
+                if (rootNumber == mainNumber)
+                    scopedSections.Add(current);
+
+                continue;
+            }
+
+            topLevelCounter++;
+
+            if (ReferenceEquals(current, selected))
+            {
+                rootNumber = topLevelCounter;
+                scopedSections.Add(current);
+                continue;
+            }
+
+            if (rootNumber.HasValue)
+                break;
+        }
+
+        return scopedSections.Count > 0 ? scopedSections : [selected];
+    }
+
+    private static string BuildGenerationPrompt(GenerationScope scope, string instruction, bool isGenerateAll)
+    {
+        var sectionTitles = scope.Sections
+            .Select(s => s.Title)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var scopeDescriptor = scope.Sections.Count > 1
+            ? $"bloque raiz '{scope.PrimarySection.Title}' y sus subitems: {string.Join("; ", sectionTitles.Skip(1))}"
+            : $"seccion '{scope.PrimarySection.Title}'";
+
+        if (!string.IsNullOrWhiteSpace(instruction))
+            return $"{instruction}{Environment.NewLine}{Environment.NewLine}Aplica esta instruccion solo al {scopeDescriptor}.";
+
+        return isGenerateAll
+            ? $"Genera los valores de metadata para el {scopeDescriptor}."
+            : $"Genera los valores de metadata para el {scopeDescriptor}.";
+    }
+
+    private sealed record GenerationScope(
+        DocSection PrimarySection,
+        IReadOnlyList<DocSection> Sections,
+        IReadOnlyList<string> Keys);
 
     private static Dictionary<int, string[]> GetSectionKeyMap(DocTemplate template) =>
         template switch
