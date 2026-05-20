@@ -1,4 +1,4 @@
-using Chapi.Application.UseCases.Git;
+﻿using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities;
 using CommunityToolkit.Mvvm.Input;
 using Chapi.Infrastructure.Services;

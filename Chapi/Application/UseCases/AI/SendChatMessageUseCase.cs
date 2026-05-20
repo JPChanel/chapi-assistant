@@ -5,11 +5,11 @@ namespace Chapi.Application.UseCases.AI;
 
 public class SendChatMessageUseCase
 {
-    private readonly IChatClient _chatClient;
+    private readonly IServiceProvider _serviceProvider;
 
-    public SendChatMessageUseCase(IChatClient chatClient)
+    public SendChatMessageUseCase(IServiceProvider serviceProvider)
     {
-        _chatClient = chatClient;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<Result<string>> ExecuteAsync(string userMessage, string? context = null)
@@ -19,12 +19,13 @@ public class SendChatMessageUseCase
             if (string.IsNullOrWhiteSpace(userMessage))
                 return Result<string>.Fail("El mensaje no puede estar vacío");
 
+            var chatClient = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<IChatClient>(_serviceProvider);
             var prompt = string.IsNullOrWhiteSpace(context)
                 ? userMessage
                 : $"{context}\n\nUsuario: {userMessage}";
 
             var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
-            var response = await _chatClient.GetResponseAsync(messages);
+            var response = await chatClient.GetResponseAsync(messages);
             var responseText = response.Messages.FirstOrDefault()?.Text;
 
             if (string.IsNullOrWhiteSpace(responseText))

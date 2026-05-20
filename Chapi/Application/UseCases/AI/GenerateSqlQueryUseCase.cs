@@ -6,11 +6,11 @@ namespace Chapi.Application.UseCases.AI;
 
 public class GenerateSqlQueryUseCase
 {
-    private readonly IChatClient _chatClient;
+    private readonly IServiceProvider _serviceProvider;
 
-    public GenerateSqlQueryUseCase(IChatClient chatClient)
+    public GenerateSqlQueryUseCase(IServiceProvider serviceProvider)
     {
-        _chatClient = chatClient;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<Result<string>> ExecuteAsync(string description, string? schema = null, string? netParams = null)
@@ -20,10 +20,11 @@ public class GenerateSqlQueryUseCase
             if (string.IsNullOrWhiteSpace(description))
                 return Result<string>.Fail("La descripción de la consulta no puede estar vacía");
 
+            var chatClient = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<IChatClient>(_serviceProvider);
             var prompt = GetPrompt.GenerateSqlCall(description, schema ?? string.Empty, netParams ?? string.Empty);
             
             var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
-            var response = await _chatClient.GetResponseAsync(messages);
+            var response = await chatClient.GetResponseAsync(messages);
             var responseText = response.Messages.FirstOrDefault()?.Text;
 
             if (string.IsNullOrWhiteSpace(responseText))

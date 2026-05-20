@@ -6,11 +6,11 @@ namespace Chapi.Application.UseCases.AI;
 
 public class GenerateCommitMessageUseCase
 {
-    private readonly IChatClient _chatClient;
+    private readonly IServiceProvider _serviceProvider;
 
-    public GenerateCommitMessageUseCase(IChatClient chatClient)
+    public GenerateCommitMessageUseCase(IServiceProvider serviceProvider)
     {
-        _chatClient = chatClient;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<Result<string>> ExecuteAsync(string diffContent)
@@ -20,11 +20,12 @@ public class GenerateCommitMessageUseCase
             if (string.IsNullOrWhiteSpace(diffContent))
                 return Result<string>.Fail("No hay cambios para generar mensaje");
 
+            var chatClient = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<IChatClient>(_serviceProvider);
             var prompt = GetPrompt.GitCommit(diffContent);
             
             // Usar IChatClient de Microsoft.Extensions.AI
             var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
-            var response = await _chatClient.GetResponseAsync(messages);
+            var response = await chatClient.GetResponseAsync(messages);
             
             // ChatResponse tiene Messages o Choices dependiendo de la version. 
             // En nuestra implementacion de GeminiChatClient usamos ChatResponse con Messages.
