@@ -1,4 +1,4 @@
-﻿<Window x:Class="Chapi.MainWindow"
+<Window x:Class="Chapi.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -108,6 +108,11 @@
                     <materialDesign:PackIcon Kind="Console" />
                 </MenuItem.Icon>
             </MenuItem>
+            <MenuItem Header="Abrir Consola (Git)" Click="ProjectMenuItem_OpenGitTerminal_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+                <MenuItem.Icon>
+                    <materialDesign:PackIcon Kind="Git" />
+                </MenuItem.Icon>
+            </MenuItem>
             <Separator />
             <MenuItem Header="Remover de la lista" Click="ProjectMenuItem_Remove_Click" CommandParameter="{Binding SelectedItem.FullPath}" Foreground="Red">
                 <MenuItem.Icon>
@@ -205,6 +210,11 @@
                                             <MenuItem Header="Abrir Consola (CMD)" Click="ProjectMenuItem_OpenCmd_Click" CommandParameter="{Binding FullPath}">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="Console" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Abrir Consola (Git)" Click="ProjectMenuItem_OpenGitTerminal_Click" CommandParameter="{Binding FullPath}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="Git" />
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <Separator />

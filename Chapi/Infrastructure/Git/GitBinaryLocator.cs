@@ -100,6 +100,76 @@ public static class GitBinaryLocator
     }
 
     /// <summary>
+    /// Retorna una tupla (executablePath, arguments) para lanzar la consola interactiva de Git (Git Bash / Bash).
+    /// Prioriza los binarios de Git embebidos en Chapi.
+    /// </summary>
+    public static (string ExePath, string Arguments)? GetGitBashLaunchInfo()
+    {
+        var appDir = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location ?? "");
+        if (string.IsNullOrEmpty(appDir)) appDir = AppDomain.CurrentDomain.BaseDirectory;
+
+        if (!string.IsNullOrEmpty(appDir))
+        {
+            // 1. Prioridad: git-bash.exe o bash.exe embebido en la aplicación (autónomo)
+            var embeddedBashCandidates = new (string Path, string Args)[]
+            {
+                (Path.Combine(appDir, "git", "git-bash.exe"), ""),
+                (Path.Combine(appDir, "git-bash.exe"), ""),
+                (Path.Combine(appDir, "git", "usr", "bin", "bash.exe"), "--login -i"),
+                (Path.Combine(appDir, "git", "bin", "bash.exe"), "--login -i"),
+                (Path.Combine(appDir, "resources", "git", "git-bash.exe"), ""),
+                (Path.Combine(appDir, "resources", "git", "usr", "bin", "bash.exe"), "--login -i"),
+            };
+
+            foreach (var (path, args) in embeddedBashCandidates)
+            {
+                if (File.Exists(path)) return (path, args);
+            }
+        }
+
+        // 2. Fallback: GitHub Desktop local (desarrollo local)
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var ghdBase = Path.Combine(localAppData, "GitHubDesktop");
+        if (Directory.Exists(ghdBase))
+        {
+            var ghdVersions = Directory.GetDirectories(ghdBase, "app-*")
+                .OrderByDescending(d => d)
+                .ToList();
+
+            foreach (var version in ghdVersions)
+            {
+                var ghdBash = Path.Combine(version, "resources", "app", "git", "usr", "bin", "bash.exe");
+                if (File.Exists(ghdBash)) return (ghdBash, "--login -i");
+
+                var ghdGitBash = Path.Combine(version, "resources", "app", "git", "git-bash.exe");
+                if (File.Exists(ghdGitBash)) return (ghdGitBash, "");
+            }
+        }
+
+        // 3. Fallback: Git instalado en el sistema
+        var commonBashPaths = new (string Path, string Args)[]
+        {
+            (@"C:\Program Files\Git\git-bash.exe", ""),
+            (@"C:\Program Files\Git\bin\bash.exe", "--login -i"),
+            (@"C:\Program Files (x86)\Git\git-bash.exe", ""),
+            (@"C:\Program Files (x86)\Git\bin\bash.exe", "--login -i"),
+        };
+
+        foreach (var (path, args) in commonBashPaths)
+        {
+            if (File.Exists(path)) return (path, args);
+        }
+
+        var systemGitBash = FindInPath("git-bash.exe");
+        if (systemGitBash != null) return (systemGitBash, "");
+
+        var systemBash = FindInPath("bash.exe");
+        if (systemBash != null) return (systemBash, "--login -i");
+
+        return null;
+    }
+
+    /// <summary>
     /// Retorna true si se encontró git en alguna ubicación (embebida o sistema).
     /// </summary>
     public static bool IsGitAvailable()

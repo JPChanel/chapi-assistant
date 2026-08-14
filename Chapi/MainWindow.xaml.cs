@@ -484,6 +484,12 @@ namespace Chapi
             if (string.IsNullOrEmpty(path)) return;
             _projectToolLauncher.OpenCmd(path);
         }
+        private void ProjectMenuItem_OpenGitTerminal_Click(object sender, RoutedEventArgs e)
+        {
+            string path = GetPathFromMenuItem(sender);
+            if (string.IsNullOrEmpty(path)) return;
+            _projectToolLauncher.OpenGitTerminal(path);
+        }
 
         private async void ProjectMenuItem_Remove_Click(object sender, RoutedEventArgs e)
         {

@@ -1,3 +1,4 @@
+using Chapi.Infrastructure.Git;
 using Chapi.Infrastructure.Services;
 using System.Diagnostics;
 using System.IO;
@@ -70,37 +71,57 @@ public sealed class ProjectToolLauncher
     {
         try
         {
+            var localAppData = Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData);
+
+            var antigravityCli = Path.Combine(
+                localAppData,
+                "Programs",
+                "Antigravity IDE",
+                "bin",
+                "antigravity-ide.cmd");
+
+            if (!File.Exists(antigravityCli))
+            {
+                Msg.Assistant("Antigravity IDE no detectado.");
+                return;
+            }
+
             if (IsWslPath(path))
             {
                 var parts = path.Split('\\', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length > 2)
-                {
-                    var distro = parts[1];
-                    var linuxPath = "/" + string.Join("/", parts.Skip(2));
-                    var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                    var executablePath = Path.Combine(localAppData, "Programs", "Antigravity", "Antigravity.exe");
-                    var remoteUri = $"vscode-remote://wsl+{distro}{linuxPath}";
 
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = executablePath,
-                        Arguments = $"--folder-uri \"{remoteUri}\"",
-                        UseShellExecute = true
-                    });
+                if (parts.Length <= 2)
+                {
+                    Msg.Assistant("Ruta WSL inválida.");
                     return;
                 }
+
+                var distro = parts[1];
+
+                var linuxPath = "/" + string.Join("/", parts.Skip(2));
+
+                var remoteUri = $"vscode-remote://wsl+{distro}{linuxPath}";
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = antigravityCli,
+                    Arguments = $"--folder-uri \"{remoteUri}\"",
+                    UseShellExecute = true
+                });
+                return;
             }
 
             Process.Start(new ProcessStartInfo
             {
-                FileName = "antigravity",
-                Arguments = $"\"{path}\"",
+                FileName = antigravityCli,
+                Arguments = $"--new-window \"{path}\"",
                 UseShellExecute = true
             });
         }
-        catch
+        catch (Exception ex)
         {
-            Msg.Assistant("Antigravity no detectado o error al abrir.");
+            Msg.Assistant($"Error al abrir Antigravity: {ex.Message}");
         }
     }
 
@@ -111,6 +132,31 @@ public sealed class ProjectToolLauncher
             FileName = "cmd.exe",
             WorkingDirectory = path
         });
+    }
+
+    public void OpenGitTerminal(string path)
+    {
+        try
+        {
+            var launchInfo = GitBinaryLocator.GetGitBashLaunchInfo();
+            if (launchInfo == null)
+            {
+                Msg.Assistant("No se encontró el ejecutable de la consola de Git.");
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = launchInfo.Value.ExePath,
+                Arguments = launchInfo.Value.Arguments,
+                WorkingDirectory = path,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Msg.Assistant($"Error al abrir la consola de Git: {ex.Message}");
+        }
     }
 
     private static bool IsWslPath(string path)
