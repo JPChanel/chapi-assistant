@@ -1,4 +1,5 @@
-﻿using Chapi.Domain.Common;
+
+using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
 using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
@@ -701,58 +702,108 @@ public class GitCliRepository : IGitRepository
 
     public async Task<IEnumerable<GitStash>> ListStashesAsync(string projectPath)
     {
-        var result = await Git(projectPath, "stash", "list", "--format=%gd|%s");
-        if (!result.IsSuccess) return Enumerable.Empty<GitStash>();
+        var result = await Git(projectPath, "stash", "list", "--shortstat", "--format=___STASH___:%gd|%gs");
+        if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Data)) return Enumerable.Empty<GitStash>();
 
         var stashes = new List<GitStash>();
-        var lines = result.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        for (int i = 0; i < lines.Length; i++)
-        {
-            var line = lines[i];
-            var idx = line.IndexOf('|');
-            if (idx < 0) continue;
-            var name = line.Substring(0, idx).Trim();
-            var msgPart = line.Substring(idx + 1).Trim();
+        var lines = result.Data.Split('\n');
 
-            string branch = "unknown";
-            string msg = msgPart;
-            if (msgPart.StartsWith("WIP on ") || msgPart.StartsWith("On "))
+        string? currentName = null;
+        string currentBranch = "unknown";
+        string currentMsg = string.Empty;
+        int currentFileCount = 0;
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrEmpty(line)) continue;
+
+            if (line.StartsWith("___STASH___:"))
             {
-                var colonIdx = msgPart.IndexOf(':');
-                if (colonIdx > 0)
+                if (currentName != null)
                 {
-                    branch = msgPart.Substring(msgPart.IndexOf(' ') + 1, colonIdx - msgPart.IndexOf(' ') - 1).Trim();
-                    msg = msgPart.Substring(colonIdx + 1).Trim();
-                    var spaceIdx = msg.IndexOf(' ');
-                    if (spaceIdx > 0 && msg.Substring(0, spaceIdx).Length == 7)
-                        msg = msg.Substring(spaceIdx + 1);
+                    stashes.Add(new GitStash(currentName, currentBranch, currentMsg, Math.Max(1, currentFileCount)));
+                }
+
+                var content = line.Substring("___STASH___:".Length);
+                var idx = content.IndexOf('|');
+                if (idx >= 0)
+                {
+                    currentName = content.Substring(0, idx).Trim();
+                    var msgPart = content.Substring(idx + 1).Trim();
+                    currentBranch = "unknown";
+                    currentMsg = msgPart;
+
+                    if (msgPart.StartsWith("WIP on ", StringComparison.OrdinalIgnoreCase) || 
+                        msgPart.StartsWith("On ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var colonIdx = msgPart.IndexOf(':');
+                        if (colonIdx > 0)
+                        {
+                            int firstSpace = msgPart.IndexOf(' ');
+                            currentBranch = msgPart.Substring(firstSpace + 1, colonIdx - firstSpace - 1).Trim();
+                            if (currentBranch.StartsWith("on ", StringComparison.OrdinalIgnoreCase))
+                            {
+                                currentBranch = currentBranch.Substring(3).Trim();
+                            }
+                            currentMsg = msgPart.Substring(colonIdx + 1).Trim();
+                        }
+                    }
+                }
+                else
+                {
+                    currentName = content.Trim();
+                    currentBranch = "unknown";
+                    currentMsg = string.Empty;
+                }
+                currentFileCount = 0;
+            }
+            else if (currentName != null)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(line, @"(\d+)\s+file");
+                if (match.Success && int.TryParse(match.Groups[1].Value, out int count))
+                {
+                    currentFileCount = count;
                 }
             }
-
-            int fileCount = 0;
-            var showResult = await Git(projectPath, "stash", "show", name);
-            if (showResult.IsSuccess)
-            {
-                fileCount = showResult.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length - 1;
-                if (fileCount < 0) fileCount = 0;
-            }
-
-            stashes.Add(new GitStash(name, branch, msg, fileCount));
         }
+
+        if (currentName != null)
+        {
+            stashes.Add(new GitStash(currentName, currentBranch, currentMsg, Math.Max(1, currentFileCount)));
+        }
+
         return stashes;
     }
 
     public async Task<Dictionary<string, char>> GetFileStatusesForStashAsync(string projectPath, string stashName)
     {
-        var result = await Git(projectPath, "stash", "show", stashName, "--name-status");
-        var statuses = new Dictionary<string, char>();
-        if (!result.IsSuccess) return statuses;
+        var result = await Git(projectPath, "stash", "show", "-u", stashName, "--name-status");
+        if (!result.IsSuccess)
+        {
+            result = await Git(projectPath, "stash", "show", stashName, "--name-status");
+        }
+
+        var statuses = new Dictionary<string, char>(StringComparer.OrdinalIgnoreCase);
+        if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Data)) return statuses;
+
         foreach (var line in result.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            if (string.IsNullOrWhiteSpace(line) || line.Length < 3) continue;
-            char status = line[0];
-            var filePath = line.Substring(1).Trim().Replace('/', Path.DirectorySeparatorChar);
-            statuses[filePath] = status;
+            var trimmed = line.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed) || trimmed.Length < 2) continue;
+            var parts = trimmed.Split('\t', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2)
+            {
+                char status = parts[0][0];
+                var filePath = parts[1].Trim().Replace('/', Path.DirectorySeparatorChar);
+                statuses[filePath] = status;
+            }
+            else
+            {
+                char status = trimmed[0];
+                var filePath = trimmed.Substring(1).Trim().Replace('/', Path.DirectorySeparatorChar);
+                statuses[filePath] = status;
+            }
         }
         return statuses;
     }

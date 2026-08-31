@@ -42,14 +42,6 @@ public class GetPrompt
         return $@"
             Analiza el siguiente correo tecnico o procedimiento Almacenado y extrae la informacion del Stored Procedure.
 
-            CONTEXTO:
-            - Modulo: {moduleName}
-            - Metodo: {methodName}
-            - Tipo Metodo: {tipoMetodo}
-
-            CORREO TECNICO:
-            {emailContent}
-
             INSTRUCCIONES:
             Retorna SOLO un JSON con esta estructura exacta (sin markdown, sin explicaciones):
 
@@ -127,7 +119,16 @@ public class GetPrompt
                 public string comprehendeds {{ get; set; }}
 
             REGLA FINAL:
-            Adecua los nombres generados a estos estandares si los terminos del correo tecnico son equivalentes o cercanos.";
+            Adecua los nombres generados a estos estandares si los terminos del correo tecnico son equivalentes o cercanos.
+            CONTEXTO:
+            - Modulo: {moduleName}
+            - Metodo: {methodName}
+            - Tipo Metodo: {tipoMetodo}
+
+            CORREO TECNICO:
+            {emailContent}
+
+            ";
 
     }
 

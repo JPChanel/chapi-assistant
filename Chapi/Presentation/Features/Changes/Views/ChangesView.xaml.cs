@@ -171,11 +171,7 @@ public partial class ChangesView : UserControl
 
     private void RestoreLatestStashButton_Click(object sender, RoutedEventArgs e)
     {
-        var latestStash = _viewModel?.Stashes?.FirstOrDefault();
-        if (latestStash != null)
-        {
-            _viewModel.PopStashCommand.Execute(latestStash);
-        }
+        _viewModel?.PopAllStashesCommand.Execute(null);
     }
 
     private async void StashView_DiscardButton_Click(object sender, RoutedEventArgs e)
@@ -197,15 +193,25 @@ public partial class ChangesView : UserControl
 
     private void StashView_BackButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_viewModel != null) _viewModel.IsStashViewVisible = false;
+        if (_viewModel != null)
+        {
+            _viewModel.IsStashViewVisible = false;
+            _viewModel.SelectedStash = null;
+            _viewModel.SelectedStashedFile = null;
+            _ = _viewModel.LoadDiffAsync();
+        }
     }
 
     private void StashFilesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        // El ViewModel ya maneja el cambio via binding SelectedStashedFile en XAML
+        if (StashFilesListView.SelectedItem is ChangeItemViewModel item && _viewModel != null)
+        {
+            _viewModel.SelectedStashedFile = item;
+        }
     }
 
     private void DiffLine_ContextMenuOpening(object sender, ContextMenuEventArgs e) { }
+
     private void DiffLineMenu_OpenFile_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuItem mi && mi.DataContext is DiffPiece line && _viewModel?.SelectedChange != null)
@@ -482,7 +488,3 @@ public partial class ChangesView : UserControl
         return string.Join("/", parts);
     }
 }
-
-
-
-

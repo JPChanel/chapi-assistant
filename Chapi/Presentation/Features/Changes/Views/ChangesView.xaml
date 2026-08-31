@@ -298,7 +298,15 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Message}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{Binding FileCount, StringFormat='{}{0} archivos'}" Foreground="{DynamicResource MaterialDesignBody}" Opacity="0.7" FontSize="11"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBlock Text="{Binding Branch, StringFormat='[{0}]'}" 
+                                                           Foreground="{DynamicResource PrimaryHueMidBrush}" 
+                                                           FontSize="11" FontWeight="Medium" 
+                                                           Margin="0,0,6,0"/>
+                                                <TextBlock Text="{Binding FileCount, StringFormat='{}{0} archivos'}" 
+                                                           Foreground="{DynamicResource MaterialDesignBody}" 
+                                                           Opacity="0.7" FontSize="11"/>
+                                            </StackPanel>
                                         </StackPanel>
                                         <Button x:Name="RestoreStashItemButton"
                                                 Grid.Column="1"
@@ -457,7 +465,7 @@
                             Background="{DynamicResource MaterialDesignPaper}"
                             BorderBrush="{DynamicResource MaterialDesignDivider}"
                             BorderThickness="0,0,0,1"
-                            Padding="10">
+                            Padding="8,4">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -469,6 +477,9 @@
                             <Button x:Name="StashView_RestoreButton"
                                     Grid.Column="0"
                                     Content="Restaurar"
+                                    Height="24"
+                                    FontSize="11"
+                                    Padding="10,0"
                                     Click="StashView_RestoreButton_Click"
                                     Style="{StaticResource MaterialDesignOutlinedButton}"
                                     Foreground="{DynamicResource StatusInfoBrush}"
@@ -477,14 +488,28 @@
                             <Button x:Name="StashView_DiscardButton"
                                     Grid.Column="1"
                                     Content="Descartar"
+                                    Height="24"
+                                    FontSize="11"
+                                    Padding="10,0"
                                     Click="StashView_DiscardButton_Click"
                                     Style="{StaticResource MaterialDesignOutlinedButton}"
                                     Foreground="{DynamicResource StatusDangerBrush}"
                                     BorderBrush="{DynamicResource StatusDangerBrush}"
-                                    Margin="10,0,0,0"/>
+                                    Margin="6,0,0,0"/>
+
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="10,0">
+                                <TextBlock Text="{Binding SelectedStash.Message}" FontWeight="SemiBold" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding StashedFiles.Count, StringFormat='{}{0} archivos en este stash'}" 
+                                           FontSize="10" Opacity="0.7" 
+                                           Foreground="{DynamicResource MaterialDesignBody}"/>
+                            </StackPanel>
+
                             <Button x:Name="StashView_BackButton"
                                     Grid.Column="3"
                                     Content="Volver"
+                                    Height="24"
+                                    FontSize="12"
+                                    Padding="8,0"
                                     Click="StashView_BackButton_Click"
                                     Style="{StaticResource MaterialDesignFlatButton}"
                                     HorizontalAlignment="Right"/>
@@ -505,7 +530,6 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-
                                     <TextBlock Grid.Column="0"
                                                Text="{Binding FilePath}"
                                                ToolTip="{Binding Status}"
@@ -518,18 +542,7 @@
                                                Foreground="{Binding Color}"
                                                VerticalAlignment="Center"
                                                HorizontalAlignment="Right"
-                                               Margin="0,0,30,0"/>
-
-                                    <Button Grid.Column="1"
-                                            Style="{StaticResource MaterialDesignIconButton}"
-                                            Width="24" Height="24"
-                                            VerticalAlignment="Center" 
-                                            HorizontalAlignment="Right"
-                                            ToolTip="Restaurar solo este archivo"
-                                            Command="{Binding DataContext.RestoreFileFromStashCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}">
-                                        <materialDesign:PackIcon Kind="Restore" Width="16" Height="16"/>
-                                    </Button>
+                                               Margin="0,0,5,0"/>
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>

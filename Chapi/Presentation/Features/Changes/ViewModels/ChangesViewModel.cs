@@ -116,6 +116,7 @@ public class ChangesViewModel : ViewModelBase
         DiscardCommand = new AsyncRelayCommand<ChangeItemViewModel?>(DiscardAsync);
         StashSelectedCommand = new AsyncRelayCommand(StashSelectedAsync);
         PopStashCommand = new AsyncRelayCommand<GitStash?>(PopStashAsync);
+        PopAllStashesCommand = new AsyncRelayCommand(PopAllStashesAsync);
         DropStashCommand = new AsyncRelayCommand<GitStash?>(DropStashAsync);
         ClearStashesCommand = new AsyncRelayCommand(ClearStashesAsync);
         RestoreFileFromStashCommand = new AsyncRelayCommand<ChangeItemViewModel?>(RestoreFileFromStashAsync);
@@ -876,6 +877,7 @@ public class ChangesViewModel : ViewModelBase
     public IAsyncRelayCommand<ChangeItemViewModel?> DiscardCommand { get; }
     public IAsyncRelayCommand StashSelectedCommand { get; }
     public IAsyncRelayCommand<GitStash?> PopStashCommand { get; }
+    public IAsyncRelayCommand PopAllStashesCommand { get; }
     public IAsyncRelayCommand<GitStash?> DropStashCommand { get; }
     public IAsyncRelayCommand ClearStashesCommand { get; }
     public IAsyncRelayCommand<ChangeItemViewModel?> RestoreFileFromStashCommand { get; }
@@ -1489,7 +1491,7 @@ public class ChangesViewModel : ViewModelBase
     /// <summary>
     /// Carga la lista de stashes.
     /// </summary>
-    private async Task LoadStashesAsync(CancellationToken token = default)
+    public async Task LoadStashesAsync(CancellationToken token = default)
     {
         if (string.IsNullOrEmpty(ProjectPath)) return;
 
@@ -1498,19 +1500,12 @@ public class ChangesViewModel : ViewModelBase
             var stashes = await _gitRepository.ListStashesAsync(ProjectPath);
             if (token.IsCancellationRequested) return;
 
-            var currentBranch = await _gitRepository.GetCurrentBranchAsync(ProjectPath);
-            if (token.IsCancellationRequested) return;
-
-            var filteredStashes = stashes.Where(stash =>
-                string.IsNullOrEmpty(currentBranch) ||
-                stash.Branch.EndsWith(currentBranch, StringComparison.OrdinalIgnoreCase) ||
-                stash.Branch.Equals("unknown", StringComparison.OrdinalIgnoreCase) ||
-                stash.Message.Contains($"on {currentBranch}", StringComparison.OrdinalIgnoreCase)).ToList();
+            var stashesList = stashes.ToList();
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 Stashes.Clear();
-                foreach (var stash in filteredStashes) Stashes.Add(stash);
+                foreach (var stash in stashesList) Stashes.Add(stash);
                 OnPropertyChanged(nameof(HasStashes));
             });
         }
@@ -1529,12 +1524,19 @@ public class ChangesViewModel : ViewModelBase
     /// </summary>
     public async Task LoadStashedFilesAsync()
     {
-        StashedFiles.Clear();
+        await InvokeOnUiThreadAsync(() =>
+        {
+            StashedFiles.Clear();
+            SelectedStashedFile = null;
+            return Task.CompletedTask;
+        });
+
         if (SelectedStash == null || string.IsNullOrEmpty(ProjectPath)) return;
 
         try
         {
-            var fileStatuses = await _gitRepository.GetFileStatusesForStashAsync(ProjectPath, SelectedStash.Name);
+            var stash = SelectedStash;
+            var fileStatuses = await _gitRepository.GetFileStatusesForStashAsync(ProjectPath, stash.Name);
             var viewModels = new List<ChangeItemViewModel>();
 
             foreach (var kvp in fileStatuses)
@@ -1561,10 +1563,17 @@ public class ChangesViewModel : ViewModelBase
                 viewModels.Add(viewModel);
             }
 
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            if (SelectedStash != stash) return;
+
+            await InvokeOnUiThreadAsync(() =>
             {
                 StashedFiles.Clear();
                 foreach (var vm in viewModels) StashedFiles.Add(vm);
+                if (StashedFiles.Count > 0 && SelectedStashedFile == null)
+                {
+                    SelectedStashedFile = StashedFiles[0];
+                }
+                return Task.CompletedTask;
             });
         }
         catch (Exception) { }
@@ -1579,7 +1588,14 @@ public class ChangesViewModel : ViewModelBase
         {
             _diffLoadCts?.Cancel();
             _lastRenderedDiffFingerprint = string.Empty;
-            DiffLines.Clear();
+            if (!IsStashViewVisible)
+            {
+                await InvokeOnUiThreadAsync(() =>
+                {
+                    DiffLines.Clear();
+                    return Task.CompletedTask;
+                });
+            }
             return;
         }
 
@@ -1648,23 +1664,82 @@ public class ChangesViewModel : ViewModelBase
     /// </summary>
     public async Task LoadStashedFileDiffAsync()
     {
-        DiffLines.Clear();
-        if (SelectedStash == null || SelectedStashedFile == null || string.IsNullOrEmpty(ProjectPath)) return;
+        if (SelectedStash == null || SelectedStashedFile == null || string.IsNullOrEmpty(ProjectPath))
+        {
+            _lastRenderedDiffFingerprint = string.Empty;
+            await InvokeOnUiThreadAsync(() =>
+            {
+                DiffLines.Clear();
+                return Task.CompletedTask;
+            });
+            return;
+        }
+
+        var stash = SelectedStash;
+        var stashedFile = SelectedStashedFile;
+        var diffFingerprint = $"STASH|{stash.Name}|{stashedFile.FilePath}|{stashedFile.ShortStatus}";
+
+        if (string.Equals(diffFingerprint, _lastRenderedDiffFingerprint, StringComparison.Ordinal) &&
+            DiffLines.Count > 0)
+        {
+            return;
+        }
+
         using var silencer = _changeWatcher.Silence();
 
         try
         {
-            string newText = await _gitRepository.GetFileContentAsync(ProjectPath, SelectedStash.Name, SelectedStashedFile.FilePath);
             string oldText = string.Empty;
-            try { oldText = await _gitRepository.GetFileContentAsync(ProjectPath, $"{SelectedStash.Name}^1", SelectedStashedFile.FilePath); } catch { }
-            var filteredLines = BuildDiffLines(oldText, newText);
-            foreach (var line in filteredLines)
+            string newText = string.Empty;
+
+            if (stashedFile.ShortStatus != "D")
             {
-                DiffLines.Add(line);
+                try
+                {
+                    newText = await _gitRepository.GetFileContentAsync(ProjectPath, stash.Name, stashedFile.FilePath);
+                }
+                catch { }
+
+                // Si es un archivo nuevo/no rastreado y vino vacío en stash@{n}, consultar el commit de untracked stash@{n}^3
+                if (string.IsNullOrEmpty(newText) && (stashedFile.ShortStatus == "?" || stashedFile.ShortStatus == "A"))
+                {
+                    try
+                    {
+                        newText = await _gitRepository.GetFileContentAsync(ProjectPath, $"{stash.Name}^3", stashedFile.FilePath);
+                    }
+                    catch { }
+                }
             }
+
+            if (stashedFile.ShortStatus != "A" && stashedFile.ShortStatus != "?")
+            {
+                try
+                {
+                    oldText = await _gitRepository.GetFileContentAsync(ProjectPath, $"{stash.Name}^1", stashedFile.FilePath);
+                }
+                catch { }
+            }
+
+            var filteredLines = BuildDiffLines(oldText, newText);
+
+            if (SelectedStash != stash || SelectedStashedFile != stashedFile)
+                return;
+
+            await InvokeOnUiThreadAsync(() =>
+            {
+                DiffLines.Clear();
+                foreach (var line in filteredLines)
+                {
+                    DiffLines.Add(line);
+                }
+
+                _lastRenderedDiffFingerprint = diffFingerprint;
+                return Task.CompletedTask;
+            });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
+            // No interrumpir la UI por errores puntuales al renderizar diff.
         }
     }
 
@@ -1876,7 +1951,8 @@ public class ChangesViewModel : ViewModelBase
         if (result.IsSuccess)
         {
             _changesCache.Invalidate(ProjectPath);
-            await LoadChangesAsync();
+            await LoadChangesAsync(bypassThrottle: true, invalidateCache: true, refreshMetadata: true, forceMetadataRefresh: false);
+            await LoadStashesAsync();
         }
         else
         {
@@ -1898,7 +1974,10 @@ public class ChangesViewModel : ViewModelBase
         if (result.IsSuccess)
         {
             _changesCache.Invalidate(ProjectPath);
-            await LoadChangesAsync();
+            IsStashViewVisible = false;
+            SelectedStash = null;
+            await LoadChangesAsync(bypassThrottle: true, invalidateCache: true, refreshMetadata: true, forceMetadataRefresh: false);
+            await LoadStashesAsync();
         }
         else
         {
@@ -1908,14 +1987,52 @@ public class ChangesViewModel : ViewModelBase
         }
     }
 
+    public async Task PopAllStashesAsync()
+    {
+        if (string.IsNullOrEmpty(ProjectPath) || !Stashes.Any()) return;
+
+        int totalToRestore = Stashes.Count;
+        var confirmed = await DialogService.ShowConfirmDialog(
+            "Restaurar Todos los Stashes",
+            totalToRestore == 1
+                ? "¿Deseas restaurar el stash guardado a tu espacio de trabajo?"
+                : $"¿Deseas restaurar los {totalToRestore} stashes guardados a tu espacio de trabajo?",
+            DialogVariant.Info);
+
+        if (!confirmed) return;
+
+        using var silencer = _changeWatcher.Silence();
+        int restoredCount = 0;
+
+        while (true)
+        {
+            var stashes = (await _gitRepository.ListStashesAsync(ProjectPath)).ToList();
+            if (!stashes.Any()) break;
+
+            var result = await _stashPopUseCase.ExecuteAsync(ProjectPath, 0);
+            if (!result.IsSuccess)
+            {
+                await DialogService.ShowConfirmDialog("Conflicto al restaurar stash",
+                    $"Se restauraron {restoredCount} stash(es). Ocurrió un conflicto al aplicar el siguiente stash: {result.Error}\n\nResuelve los conflictos en tus archivos antes de continuar.",
+                    DialogVariant.Warning, DialogType.Info);
+                break;
+            }
+            restoredCount++;
+        }
+
+        _changesCache.Invalidate(ProjectPath);
+        IsStashViewVisible = false;
+        SelectedStash = null;
+        await LoadChangesAsync(bypassThrottle: true, invalidateCache: true, refreshMetadata: true, forceMetadataRefresh: false);
+        await LoadStashesAsync();
+    }
+
     private async Task RestoreFileFromStashAsync(ChangeItemViewModel? item)
     {
         if (item == null || SelectedStash == null || string.IsNullOrEmpty(ProjectPath)) return;
 
         try
         {
-            // git checkout stash@{n} -- <filepath>
-            // git checkout stash@{n} -- <filepath>
             using var silencer = _changeWatcher.Silence();
             var result = await _gitRepository.RestoreFileFromStashAsync(ProjectPath, SelectedStash.Name, item.FilePath);
             if (!result.IsSuccess)
@@ -1927,8 +2044,9 @@ public class ChangesViewModel : ViewModelBase
             }
 
             _changesCache.Invalidate(ProjectPath);
-            await LoadChangesAsync();
             IsStashViewVisible = false;
+            await LoadChangesAsync(bypassThrottle: true, invalidateCache: true, refreshMetadata: true, forceMetadataRefresh: false);
+            await LoadStashesAsync();
         }
         catch (Exception ex)
         {
@@ -1959,7 +2077,10 @@ public class ChangesViewModel : ViewModelBase
         if (result.IsSuccess)
         {
             _changesCache.Invalidate(ProjectPath);
-            await LoadChangesAsync();
+            IsStashViewVisible = false;
+            SelectedStash = null;
+            await LoadChangesAsync(bypassThrottle: true, invalidateCache: true, refreshMetadata: true, forceMetadataRefresh: false);
+            await LoadStashesAsync();
         }
     }
 
@@ -1980,7 +2101,10 @@ public class ChangesViewModel : ViewModelBase
         if (result.IsSuccess)
         {
             _changesCache.Invalidate(ProjectPath);
-            await LoadChangesAsync();
+            IsStashViewVisible = false;
+            SelectedStash = null;
+            await LoadChangesAsync(bypassThrottle: true, invalidateCache: true, refreshMetadata: true, forceMetadataRefresh: false);
+            await LoadStashesAsync();
         }
     }
 
