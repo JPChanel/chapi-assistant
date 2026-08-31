@@ -571,6 +571,21 @@ public class GitCliRepository : IGitRepository
 
     public async Task<string> GetCurrentBranchAsync(string projectPath)
     {
+        if (string.IsNullOrWhiteSpace(projectPath)) return string.Empty;
+        try
+        {
+            var headFile = Path.Combine(projectPath, ".git", "HEAD");
+            if (File.Exists(headFile))
+            {
+                var content = (await File.ReadAllTextAsync(headFile)).Trim();
+                if (content.StartsWith("ref: refs/heads/", StringComparison.OrdinalIgnoreCase))
+                {
+                    return content.Substring("ref: refs/heads/".Length).Trim();
+                }
+            }
+        }
+        catch { }
+
         var result = await Git(projectPath, "rev-parse", "--abbrev-ref", "HEAD");
         return result.IsSuccess ? result.Data.Trim() : string.Empty;
     }

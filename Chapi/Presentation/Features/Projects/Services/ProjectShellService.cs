@@ -51,31 +51,29 @@ public sealed class ProjectShellService
             var ahead = 0;
             var needsPublish = false;
 
-            var metadataResult = await _gitRepository.GetMetadataAsync(request.ProjectPath);
+            var getBranchesUseCase = _serviceProvider.GetService<UseCases.GetBranchesUseCase>();
+            var metadataTask = _gitRepository.GetMetadataAsync(request.ProjectPath);
+            var branchesTask = getBranchesUseCase != null
+                ? getBranchesUseCase.ExecuteAsync(request.ProjectPath)
+                : Task.FromResult(Enumerable.Empty<string>());
+
+            await Task.WhenAll(metadataTask, branchesTask);
             cancellationToken.ThrowIfCancellationRequested();
+
+            var metadataResult = await metadataTask;
+            var branchesResult = (await branchesTask).ToList();
 
             if (metadataResult.IsSuccess)
             {
                 currentBranch = metadataResult.Data.CurrentBranch ?? string.Empty;
                 ahead = metadataResult.Data.Ahead;
                 needsPublish = !metadataResult.Data.HasUpstream;
-
-                if (!string.IsNullOrWhiteSpace(currentBranch))
-                {
-                    branches.Add(currentBranch);
-                }
             }
 
-            var getBranchesUseCase = _serviceProvider.GetService<UseCases.GetBranchesUseCase>();
-            if (getBranchesUseCase != null)
+            branches = branchesResult;
+            if (!string.IsNullOrWhiteSpace(currentBranch) && !branches.Contains(currentBranch))
             {
-                branches = (await getBranchesUseCase.ExecuteAsync(request.ProjectPath)).ToList();
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (!string.IsNullOrWhiteSpace(currentBranch) && !branches.Contains(currentBranch))
-                {
-                    branches.Insert(0, currentBranch);
-                }
+                branches.Insert(0, currentBranch);
             }
 
             return new ProjectSelectionSnapshot

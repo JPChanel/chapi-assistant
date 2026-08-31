@@ -48,6 +48,7 @@ namespace Chapi
         private CancellationTokenSource? _projectSwitchCts;
         private bool _isShuttingDown = false;
         private bool _isSwitchingBranch = false;
+        private bool _isUpdatingBranchList = false;
         public string AppVersion { get; private set; }
         public string ServiceStatusText => "Activo";
         public Brush ServiceStatusBrush => Brushes.Lime;
@@ -206,52 +207,55 @@ namespace Chapi
             _projectSwitchCts = new CancellationTokenSource();
             var token = _projectSwitchCts.Token;
 
-            projectDirectory = selectedProject.FullPath;
-            if (_changesViewModel != null)
-            {
-                _changesViewModel.ProjectPath = projectDirectory;
-                _changesViewModel.SetLiveRefreshEnabled(GitTabs.SelectedItem == ChangesTab);
-            }
-
-            if (_historyViewModel != null)
-            {
-                _historyViewModel.ProjectPath = projectDirectory;
-            }
-
-            if (_releasesViewModel != null)
-            {
-                _releasesViewModel.ProjectPath = projectDirectory;
-            }
-
-            if (!_isGitInstalled) return;
-
-            // Verificar si la carpeta del proyecto es un repositorio Git
-            bool isGit = await _gitRepository.IsGitRepositoryAsync(projectDirectory);
-            if (!isGit)
-            {
-                BranchesComboBox.ItemsSource = new List<string>();
-                BranchesComboBox.SelectedItem = null;
-                _currentlySelectedBranch = string.Empty;
-
-                var initConfirm = await DialogService.ShowConfirmDialog(
-                    "Repositorio no inicializado",
-                    $"El proyecto '{selectedProject.Name}' no tiene Git inicializado.\n\n¿Deseas inicializarlo como repositorio Git ahora?",
-                    DialogVariant.Info,
-                    DialogType.Confirm,
-                    confirmButtonText: "INICIALIZAR",
-                    cancelButtonText: "MÁS TARDE");
-
-                if (initConfirm)
-                {
-                    ShowCreateRepositoryDialog(projectDirectory);
-                }
-                return;
-            }
-
-            App.TrayIconManager?.UpdateProjectMenuItem(selectedProject.Name, false);
-
+            ShowLoading();
             try
             {
+                projectDirectory = selectedProject.FullPath;
+                if (_changesViewModel != null)
+                {
+                    _changesViewModel.ProjectPath = projectDirectory;
+                    _changesViewModel.SetLiveRefreshEnabled(GitTabs.SelectedItem == ChangesTab);
+                }
+
+                if (_historyViewModel != null)
+                {
+                    _historyViewModel.ProjectPath = projectDirectory;
+                }
+
+                if (_releasesViewModel != null)
+                {
+                    _releasesViewModel.ProjectPath = projectDirectory;
+                }
+
+                if (!_isGitInstalled) return;
+
+                // Verificar si la carpeta del proyecto es un repositorio Git
+                bool isGit = await _gitRepository.IsGitRepositoryAsync(projectDirectory);
+                if (!isGit)
+                {
+                    BranchesComboBox.ItemsSource = new List<string>();
+                    BranchesComboBox.SelectedItem = null;
+                    _currentlySelectedBranch = string.Empty;
+
+                    HideLoading();
+
+                    var initConfirm = await DialogService.ShowConfirmDialog(
+                        "Repositorio no inicializado",
+                        $"El proyecto '{selectedProject.Name}' no tiene Git inicializado.\n\n¿Deseas inicializarlo como repositorio Git ahora?",
+                        DialogVariant.Info,
+                        DialogType.Confirm,
+                        confirmButtonText: "INICIALIZAR",
+                        cancelButtonText: "MÁS TARDE");
+
+                    if (initConfirm)
+                    {
+                        ShowCreateRepositoryDialog(projectDirectory);
+                    }
+                    return;
+                }
+
+                App.TrayIconManager?.UpdateProjectMenuItem(selectedProject.Name, false);
+
                 var request = new ProjectSelectionRequest
                 {
                     ProjectPath = projectDirectory,
@@ -268,11 +272,19 @@ namespace Chapi
 
                 if (token.IsCancellationRequested) return;
 
-                _currentlySelectedBranch = snapshot.CurrentBranch;
-                BranchesComboBox.ItemsSource = snapshot.Branches;
-                BranchesComboBox.SelectedItem = snapshot.CurrentBranch;
-                NeedsPublish = snapshot.NeedsPublish;
+                try
+                {
+                    _isUpdatingBranchList = true;
+                    _currentlySelectedBranch = snapshot.CurrentBranch;
+                    BranchesComboBox.ItemsSource = snapshot.Branches;
+                    BranchesComboBox.SelectedItem = snapshot.CurrentBranch;
+                }
+                finally
+                {
+                    _isUpdatingBranchList = false;
+                }
 
+                NeedsPublish = snapshot.NeedsPublish;
                 UpdateGitActionButton();
 
                 if (snapshot.Ahead > 0)
@@ -290,11 +302,15 @@ namespace Chapi
             {
                 Msg.Assistant("Error cambiando de proyecto: " + ex.Message);
             }
+            finally
+            {
+                HideLoading();
+            }
         }
 
         private async void BranchesComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_isSwitchingBranch) return;
+            if (_isUpdatingBranchList || _isSwitchingBranch) return;
             if (BranchesComboBox.SelectedItem is not string newBranch || newBranch == _currentlySelectedBranch) return;
             if (string.IsNullOrWhiteSpace(projectDirectory)) return;
 
@@ -306,6 +322,14 @@ namespace Chapi
             finally
             {
                 _isSwitchingBranch = false;
+            }
+        }
+
+        private void BranchesComboBox_DropDownOpened(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(projectDirectory))
+            {
+                RefreshBranchesAsync().Forget("actualizando lista de ramas al abrir selector");
             }
         }
 
@@ -349,12 +373,20 @@ namespace Chapi
             try
             {
                 var snapshot = await _projectShellService.RefreshBranchesAsync(projectDirectory);
-                BranchesComboBox.ItemsSource = snapshot.Branches;
-
-                if (!string.IsNullOrWhiteSpace(snapshot.CurrentBranch))
+                try
                 {
-                    _currentlySelectedBranch = snapshot.CurrentBranch;
-                    BranchesComboBox.SelectedItem = snapshot.CurrentBranch;
+                    _isUpdatingBranchList = true;
+                    BranchesComboBox.ItemsSource = snapshot.Branches;
+
+                    if (!string.IsNullOrWhiteSpace(snapshot.CurrentBranch))
+                    {
+                        _currentlySelectedBranch = snapshot.CurrentBranch;
+                        BranchesComboBox.SelectedItem = snapshot.CurrentBranch;
+                    }
+                }
+                finally
+                {
+                    _isUpdatingBranchList = false;
                 }
             }
             catch (Exception)
