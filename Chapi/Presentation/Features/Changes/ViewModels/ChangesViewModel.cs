@@ -1356,7 +1356,19 @@ public class ChangesViewModel : ViewModelBase
         // Si ya esta logueado, abrir configuracion
         if (IsUserLoggedIn)
         {
-            // Leer configuracion actual de default branch
+            // Leer configuracion actual de Git (nombre, email y default branch)
+            var currentName = GitUserName;
+            if (string.IsNullOrWhiteSpace(currentName))
+            {
+                currentName = await _gitRepository.GetConfigAsync(ProjectPath, "user.name");
+            }
+
+            var currentEmail = GitUserEmail;
+            if (string.IsNullOrWhiteSpace(currentEmail))
+            {
+                currentEmail = await _gitRepository.GetConfigAsync(ProjectPath, "user.email");
+            }
+
             var defaultBranch = await _gitRepository.GetConfigAsync(ProjectPath, "init.defaultBranch", isGlobal: true);
             if (string.IsNullOrWhiteSpace(defaultBranch))
             {
@@ -1383,12 +1395,12 @@ public class ChangesViewModel : ViewModelBase
             var dialog = new Chapi.Presentation.Shared.Dialogs.Views.GitConfigDialog
             {
                 // Git configuration
-                UserName = GitUserName,
-                UserEmail = GitUserEmail,
+                UserName = currentName,
+                UserEmail = currentEmail,
                 DefaultBranch = defaultBranch,
 
                 // Account information
-                AccountDisplayName = GitUserName,
+                AccountDisplayName = !string.IsNullOrWhiteSpace(currentName) ? currentName : AuthenticatedUserName,
                 AccountUserName = AuthenticatedUserName,
                 Provider = AuthenticatedProvider.ToString(),
                 AvatarImage = avatarImage
@@ -1422,12 +1434,14 @@ public class ChangesViewModel : ViewModelBase
                     if (!string.IsNullOrWhiteSpace(dialog.UserName))
                     {
                         await _gitRepository.SetConfigAsync(ProjectPath, "user.name", dialog.UserName, isGlobal: true);
+                        GitUserName = dialog.UserName;
                     }
 
                     // Guardar email
                     if (!string.IsNullOrWhiteSpace(dialog.UserEmail))
                     {
                         await _gitRepository.SetConfigAsync(ProjectPath, "user.email", dialog.UserEmail, isGlobal: true);
+                        GitUserEmail = dialog.UserEmail;
                     }
 
                     // Guardar default branch
@@ -1437,7 +1451,7 @@ public class ChangesViewModel : ViewModelBase
                     }
 
                     // Recargar configuracion
-                    _ = LoadMetadataAsync();
+                    await LoadMetadataAsync();
                 }
                 catch (Exception ex)
                 {

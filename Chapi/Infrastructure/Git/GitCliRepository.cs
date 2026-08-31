@@ -1069,9 +1069,27 @@ public class GitCliRepository : IGitRepository
     {
         var args = isGlobal
             ? new[] { "config", "--global", "--get", key }
-            : new[] { "config", "--local", "--get", key };
+            : (string.IsNullOrWhiteSpace(projectPath)
+                ? new[] { "config", "--global", "--get", key }
+                : new[] { "config", "--get", key });
+
         var result = await GitProcessExecutor.RunAsync(projectPath, args);
-        return result.IsSuccess ? result.Data.Trim() : string.Empty;
+        if (result.IsSuccess && !string.IsNullOrWhiteSpace(result.Data))
+        {
+            return result.Data.Trim();
+        }
+
+        // Si no se encontró a nivel local/efectivo, intentar a nivel global
+        if (!isGlobal)
+        {
+            var globalResult = await GitProcessExecutor.RunAsync(string.Empty, "config", "--global", "--get", key);
+            if (globalResult.IsSuccess && !string.IsNullOrWhiteSpace(globalResult.Data))
+            {
+                return globalResult.Data.Trim();
+            }
+        }
+
+        return string.Empty;
     }
 
     public async Task<Result> SetConfigAsync(string projectPath, string key, string value, bool isGlobal = false)
