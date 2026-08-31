@@ -47,15 +47,25 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
                     return;
                 }
 
+                // Truncar si el diff entre ramas excede el límite recomendado (~35 KB)
+                if (diff.Length > 35000)
+                {
+                    var lines = diff.Split('\n');
+                    if (lines.Length > 600)
+                    {
+                        diff = string.Join('\n', lines.Take(600)) +
+                               $"\n\n... [Diff entre ramas truncado: {lines.Length - 600} líneas adicionales omitidas para optimizar contexto] ...";
+                    }
+                    else
+                    {
+                        diff = diff.Substring(0, 35000) + "\n\n... [Diff truncado] ...";
+                    }
+                }
+
                 StatusText.Text = "Generando resumen con IA...";
 
                 // 2. Llamar a la IA usando el UseCase correspondiente
                 var useCase = App.ServiceProvider.GetRequiredService<GenerateCommitMessageUseCase>();
-                
-                // Nota: GenerateCommitMessageUseCase espera 'diff' como único argumento string
-                // y retorna un Result<CommitMessageResponse> o similar.
-                // Verificamos su firma en uso (normalmente ExecuteAsync(diff)).
-                // Adaptamos la llamada:
                 var result = await useCase.ExecuteAsync(diff);
 
                 if (result.IsSuccess && !string.IsNullOrWhiteSpace(result.Data))

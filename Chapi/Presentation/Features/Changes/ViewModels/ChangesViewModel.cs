@@ -1,4 +1,4 @@
-﻿using Chapi.Application.UseCases.Git;
+using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities;
 using CommunityToolkit.Mvvm.Input;
 using Chapi.Infrastructure.Services;
@@ -173,25 +173,27 @@ public class ChangesViewModel : ViewModelBase
     /// </summary>
     public IDisposable SuspendWatcher() => _changeWatcher.Silence();
 
+    private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".ico", ".bmp", ".webp", ".svgz",
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".zip", ".rar", ".7z", ".tar", ".gz",
+        ".dll", ".exe", ".pdb", ".bin", ".iso", ".apk",
+        ".mp3", ".wav", ".ogg", ".mp4", ".mov", ".avi", ".mkv",
+        ".ttf", ".otf", ".woff", ".woff2", ".eot"
+    };
+
     private async Task GenerateCommitMessageAsync()
     {
         if (string.IsNullOrEmpty(ProjectPath)) return;
-        var selectedFiles = Changes.Where(c => c.IsSelected).Select(c => c.FilePath).ToList();
-        if (!selectedFiles.Any()) return;
+        var selectedChanges = Changes.Where(c => c.IsSelected).ToList();
+        if (!selectedChanges.Any()) return;
 
         IsGenerating = true;
         try
         {
-            // Obtener diff consolidado
-            var diffBuilder = new System.Text.StringBuilder();
-            foreach (var file in selectedFiles)
-            {
-                // TODO: Obtener solo staged changes si es posible, o diff local
-                var diff = await _gitRepository.GetDiffAsync(ProjectPath, file);
-                diffBuilder.AppendLine(diff);
-            }
-
-            var fullDiff = diffBuilder.ToString();
+            // Obtener diff optimizado para IA (maneja archivos nuevos, modificados, truncamiento y binarios)
+            var fullDiff = await BuildOptimizedDiffForAIAsync(selectedChanges);
             if (string.IsNullOrWhiteSpace(fullDiff)) return;
 
             // Llamar a IA usando Use Case
@@ -200,14 +202,37 @@ public class ChangesViewModel : ViewModelBase
             if (result.IsSuccess)
             {
                 var jsonResponse = result.Data;
+                // Limpiar posibles bloques markdown ```json ... ```
+                if (jsonResponse.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
+                {
+                    jsonResponse = jsonResponse.Substring(7).Trim();
+                    if (jsonResponse.EndsWith("```"))
+                    {
+                        jsonResponse = jsonResponse.Substring(0, jsonResponse.Length - 3).Trim();
+                    }
+                }
+                else if (jsonResponse.StartsWith("```"))
+                {
+                    jsonResponse = jsonResponse.Substring(3).Trim();
+                    if (jsonResponse.EndsWith("```"))
+                    {
+                        jsonResponse = jsonResponse.Substring(0, jsonResponse.Length - 3).Trim();
+                    }
+                }
+
                 try
                 {
                     var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                     var commitMsg = System.Text.Json.JsonSerializer.Deserialize<Chapi.Domain.Entities.CommitMessageResponse>(jsonResponse, options);
-                    if (commitMsg != null)
+                    if (commitMsg != null && !string.IsNullOrWhiteSpace(commitMsg.Summary))
                     {
                         CommitSummary = commitMsg.Summary;
-                        CommitDescription = commitMsg.Description;
+                        CommitDescription = commitMsg.Description ?? string.Empty;
+                    }
+                    else
+                    {
+                        CommitSummary = jsonResponse;
+                        CommitDescription = string.Empty;
                     }
                 }
                 catch
@@ -217,16 +242,201 @@ public class ChangesViewModel : ViewModelBase
                     CommitDescription = string.Empty;
                 }
             }
-            else
-            {
-                // Manejar error (opcional: mostrar en UI)
-                // CommitSummary = "Error generando mensaje";
-            }
         }
         finally
         {
             IsGenerating = false;
         }
+    }
+
+    private async Task<string> BuildOptimizedDiffForAIAsync(IReadOnlyList<ChangeItemViewModel> selectedChanges)
+    {
+        var sb = new System.Text.StringBuilder();
+
+        // 1. Resumen general de archivos seleccionados (Bird's Eye View)
+        sb.AppendLine($"Archivos involucrados en este commit ({selectedChanges.Count}):");
+        foreach (var change in selectedChanges)
+        {
+            var statusLabel = change.ShortStatus switch
+            {
+                "A" => "[Nuevo/Añadido]",
+                "?" => "[Nuevo/Sin seguimiento]",
+                "M" => "[Modificado]",
+                "D" => "[Eliminado]",
+                "R" => "[Renombrado]",
+                "U" => "[Conflicto]",
+                _ => $"[{change.ShortStatus}]"
+            };
+            sb.AppendLine($"- {statusLabel} {change.FilePath} (+{change.Additions}, -{change.Deletions})");
+        }
+        sb.AppendLine();
+        sb.AppendLine("=== Detalle de Cambios ===");
+
+        const int maxTotalChars = 35000; // Presupuesto global (~7,000-8,000 tokens)
+        const int maxFileChars = 5000;   // Presupuesto por archivo (~1,000 tokens)
+
+        for (int i = 0; i < selectedChanges.Count; i++)
+        {
+            var change = selectedChanges[i];
+
+            // Comprobar límite global de payload
+            if (sb.Length >= maxTotalChars)
+            {
+                int remaining = selectedChanges.Count - i;
+                sb.AppendLine($"... [Límite de contexto alcanzado: {remaining} archivo(s) restante(s) listado(s) en el resumen superior] ...");
+                break;
+            }
+
+            var ext = Path.GetExtension(change.FilePath);
+
+            // Filtro 1: Archivos Binarios por extensión
+            if (BinaryExtensions.Contains(ext))
+            {
+                sb.AppendLine($"=== Archivo Binario: {change.FilePath} ({change.ShortStatus}) ===");
+                sb.AppendLine($"[Archivo binario {ext}]");
+                sb.AppendLine();
+                continue;
+            }
+
+            // Filtro 2: Archivos Autogenerados o Lockfiles
+            if (IsAutoGeneratedOrLockFile(change.FilePath))
+            {
+                sb.AppendLine($"=== Archivo Autogenerado / Lock: {change.FilePath} ({change.ShortStatus}) ===");
+                sb.AppendLine($"[Archivo de dependencias/autogenerado: +{change.Additions}, -{change.Deletions} cambios omitidos para brevedad]");
+                sb.AppendLine();
+                continue;
+            }
+
+            // Filtro 3: Archivos Eliminados
+            if (change.ShortStatus == "D")
+            {
+                sb.AppendLine($"=== Archivo Eliminado: {change.FilePath} ===");
+                sb.AppendLine("[Archivo eliminado]");
+                sb.AppendLine();
+                continue;
+            }
+
+            // Intentar obtener diff de Git para archivos rastreados
+            string diff = string.Empty;
+            if (change.ShortStatus != "?")
+            {
+                try
+                {
+                    diff = await _gitRepository.GetDiffAsync(ProjectPath, change.FilePath);
+                }
+                catch { }
+            }
+
+            // Si hay diff válido de Git
+            if (!string.IsNullOrWhiteSpace(diff))
+            {
+                sb.AppendLine($"=== Diff: {change.FilePath} ({change.ShortStatus}) ===");
+                if (diff.Length > maxFileChars)
+                {
+                    var lines = diff.Split('\n');
+                    if (lines.Length > 100)
+                    {
+                        sb.AppendLine(string.Join('\n', lines.Take(100)));
+                        sb.AppendLine($"... [Diff truncado: {lines.Length - 100} líneas adicionales omitidas] ...");
+                    }
+                    else
+                    {
+                        sb.AppendLine(diff.Substring(0, maxFileChars));
+                        sb.AppendLine("... [Diff truncado] ...");
+                    }
+                }
+                else
+                {
+                    sb.AppendLine(diff.TrimEnd());
+                }
+                sb.AppendLine();
+            }
+            else
+            {
+                // Si es un archivo nuevo ('?' o 'A' donde git diff devuelve vacío), leemos el contenido local
+                string fullPath = GetAbsoluteProjectFilePath(ProjectPath, change.FilePath);
+                if (File.Exists(fullPath))
+                {
+                    try
+                    {
+                        // Detección rápida de binario por bytes nulos en los primeros 4KB
+                        var fileInfo = new FileInfo(fullPath);
+                        var bufferLength = Math.Min(4096, (int)fileInfo.Length);
+                        if (bufferLength > 0)
+                        {
+                            var buffer = new byte[bufferLength];
+                            using (var fs = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                            {
+                                int bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length);
+                                if (buffer.Take(bytesRead).Any(b => b == 0))
+                                {
+                                    sb.AppendLine($"=== Archivo Binario: {change.FilePath} ===");
+                                    sb.AppendLine("[Contenido binario detectado]");
+                                    sb.AppendLine();
+                                    continue;
+                                }
+                            }
+                        }
+
+                        var allLines = await File.ReadAllLinesAsync(fullPath);
+                        sb.AppendLine($"=== Archivo Nuevo: {change.FilePath} ({allLines.Length} líneas) ===");
+
+                        if (allLines.Length <= 120)
+                        {
+                            foreach (var line in allLines)
+                            {
+                                sb.AppendLine($"+ {line}");
+                            }
+                        }
+                        else
+                        {
+                            // Muestreo Inteligente: Primeras 100 líneas + últimas 20 líneas
+                            for (int idx = 0; idx < 100; idx++)
+                            {
+                                sb.AppendLine($"+ {allLines[idx]}");
+                            }
+                            sb.AppendLine($"... [Contenido intermedio omitido: {allLines.Length - 120} líneas intermedias (Tamaño total: {fileInfo.Length / 1024} KB)] ...");
+                            for (int idx = allLines.Length - 20; idx < allLines.Length; idx++)
+                            {
+                                sb.AppendLine($"+ {allLines[idx]}");
+                            }
+                        }
+                        sb.AppendLine();
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"=== Archivo Nuevo: {change.FilePath} ===");
+                        sb.AppendLine($"[No se pudo leer el contenido: {ex.Message}]");
+                        sb.AppendLine();
+                    }
+                }
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static bool IsAutoGeneratedOrLockFile(string filePath)
+    {
+        var fileName = Path.GetFileName(filePath);
+        if (string.Equals(fileName, "package-lock.json", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fileName, "yarn.lock", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fileName, "pnpm-lock.yaml", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fileName, "packages.lock.json", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (fileName.EndsWith(".designer.cs", StringComparison.OrdinalIgnoreCase) ||
+            fileName.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase) ||
+            fileName.EndsWith(".g.i.cs", StringComparison.OrdinalIgnoreCase) ||
+            fileName.EndsWith(".min.js", StringComparison.OrdinalIgnoreCase) ||
+            fileName.EndsWith(".min.css", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     #region Properties
