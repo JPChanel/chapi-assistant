@@ -19,10 +19,13 @@ using Chapi.Presentation.Shared.Tasks;
 using Chapi.Presentation.Startup.Models;
 using Chapi.Presentation.Startup.Services;
 using Microsoft.Extensions.DependencyInjection;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Input;
 using FolderBrowserDialog = System.Windows.Forms.FolderBrowserDialog;
 using DialogResult = System.Windows.Forms.DialogResult;
 using System.Windows.Media;
@@ -188,20 +191,74 @@ namespace Chapi
 
         private void LoadProjects()
         {
+            var currentSelectedPath = (ProjectsComboBox.SelectedItem as ProjectViewModel)?.FullPath ?? projectDirectory;
             var projectVMs = _projectShellService.LoadProjects().ToList();
+            var realProjects = projectVMs.ToList();
 
-            ProjectsComboBox.ItemsSource = projectVMs;
-            App.TrayIconManager?.UpdateProjectList(projectVMs);
+            var config = ProjectSettings.LoadData();
+            var existingGroupIds = projectVMs.Where(p => !string.IsNullOrEmpty(p.GroupId)).Select(p => p.GroupId).ToHashSet();
+
+            // Asegurar que todos los grupos registrados aparezcan en la lista aunque esten vacios
+            foreach (var group in config.Groups)
+            {
+                if (!existingGroupIds.Contains(group.Id))
+                {
+                    projectVMs.Add(new ProjectViewModel
+                    {
+                        Name = "(Arrastra proyectos aquí)",
+                        FullPath = $"__empty_group_placeholder_{group.Id}",
+                        GroupId = group.Id,
+                        GroupName = group.Name,
+                        GroupOrder = group.Order,
+                        IsPlaceholder = true,
+                        Icon = MaterialDesignThemes.Wpf.PackIconKind.FolderOpenOutline
+                    });
+                }
+            }
+
+            for (int i = 0; i < projectVMs.Count; i++)
+            {
+                projectVMs[i].ProjectOrder = i;
+            }
+
+            var view = CollectionViewSource.GetDefaultView(projectVMs);
+            view.GroupDescriptions.Clear();
+            view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ProjectViewModel.GroupHeader)));
+            view.SortDescriptions.Clear();
+            view.SortDescriptions.Add(new SortDescription(nameof(ProjectViewModel.GroupOrder), ListSortDirection.Ascending));
+            view.SortDescriptions.Add(new SortDescription(nameof(ProjectViewModel.GroupHeader), ListSortDirection.Ascending));
+            view.SortDescriptions.Add(new SortDescription(nameof(ProjectViewModel.IsPlaceholder), ListSortDirection.Ascending));
+            view.SortDescriptions.Add(new SortDescription(nameof(ProjectViewModel.ProjectOrder), ListSortDirection.Ascending));
+
+            ProjectsComboBox.ItemsSource = view;
+            App.TrayIconManager?.UpdateProjectList(realProjects);
+
+            if (!string.IsNullOrEmpty(currentSelectedPath))
+            {
+                var match = realProjects.FirstOrDefault(p => string.Equals(p.FullPath, currentSelectedPath, StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                {
+                    ProjectsComboBox.SelectedItem = match;
+                }
+                else if (realProjects.Count > 0)
+                {
+                    ProjectsComboBox.SelectedItem = realProjects[0];
+                }
+            }
+            else if (realProjects.Count > 0)
+            {
+                ProjectsComboBox.SelectedItem = realProjects[0];
+            }
 
             // Ejecutar la actualizacion de estados con retardo para no competir por CPU/Disco al inicio
-            DelayedUpdateProjectStatusesAsync(projectVMs).Forget("actualizando estados de proyectos");
+            DelayedUpdateProjectStatusesAsync(realProjects).Forget("actualizando estados de proyectos");
         }
 
         // El monitoreo del sistema de archivos ahora lo gestiona ChangesViewModel._changeWatcher
 
         private async void ProjectsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (ProjectsComboBox.SelectedItem is not ProjectViewModel selectedProject) return;
+            if (ProjectsComboBox.SelectedItem is not ProjectViewModel selectedProject || selectedProject.IsPlaceholder) return;
 
             _projectSwitchCts?.Cancel();
             _projectSwitchCts = new CancellationTokenSource();
@@ -569,6 +626,272 @@ namespace Chapi
             if (string.IsNullOrEmpty(path)) return;
             var confirm = await DialogService.ShowConfirmDialog("Remover Proyecto", $"Seguro que quieres remover '{new DirectoryInfo(path).Name}'?", DialogVariant.Warning, DialogType.Confirm);
             if (confirm) { ProjectSettings.RemoveProject(path); LoadProjects(); }
+        }
+
+        private async void BtnHeaderCreateGroup_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            var (confirmed, name) = await DialogService.ShowInputDialog("Crear Grupo", "Ingresa el nombre del nuevo grupo:");
+            if (confirmed && !string.IsNullOrWhiteSpace(name))
+            {
+                ProjectSettings.AddGroup(name.Trim());
+                LoadProjects();
+                ProjectsComboBox.IsDropDownOpen = true;
+            }
+        }
+
+        private async void BtnHeaderRenameGroup_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is FrameworkElement elem && elem.Tag is CollectionViewGroup cvg)
+            {
+                var groupHeaderName = cvg.Name?.ToString();
+                if (string.IsNullOrEmpty(groupHeaderName) || string.Equals(groupHeaderName, "Sin Agrupar", StringComparison.OrdinalIgnoreCase)) return;
+
+                var config = ProjectSettings.LoadData();
+                var group = config.Groups.FirstOrDefault(g => string.Equals(g.Name, groupHeaderName, StringComparison.OrdinalIgnoreCase));
+                if (group == null) return;
+
+                var (confirmed, newName) = await DialogService.ShowInputDialog("Renombrar Grupo", "Ingresa el nuevo nombre:", group.Name);
+                if (confirmed && !string.IsNullOrWhiteSpace(newName))
+                {
+                    ProjectSettings.UpdateGroup(group.Id, newName.Trim());
+                    LoadProjects();
+                    ProjectsComboBox.IsDropDownOpen = true;
+                }
+            }
+        }
+
+        private async void BtnHeaderDeleteGroup_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is FrameworkElement elem && elem.Tag is CollectionViewGroup cvg)
+            {
+                var groupHeaderName = cvg.Name?.ToString();
+                if (string.IsNullOrEmpty(groupHeaderName) || string.Equals(groupHeaderName, "Sin Agrupar", StringComparison.OrdinalIgnoreCase)) return;
+
+                var config = ProjectSettings.LoadData();
+                var group = config.Groups.FirstOrDefault(g => string.Equals(g.Name, groupHeaderName, StringComparison.OrdinalIgnoreCase));
+                if (group == null) return;
+
+                var confirm = await DialogService.ShowConfirmDialog(
+                    "Eliminar Grupo",
+                    $"¿Seguro que deseas eliminar el grupo '{group.Name}'?\n\nLos proyectos volverán a 'Sin Agrupar'.",
+                    DialogVariant.Warning);
+
+                if (confirm)
+                {
+                    ProjectSettings.DeleteGroup(group.Id);
+                    LoadProjects();
+                    ProjectsComboBox.IsDropDownOpen = true;
+                }
+            }
+        }
+
+        private Point _projectDragStart;
+        private ProjectViewModel? _draggedProject;
+        private bool _isProjectDragging;
+        private Border? _lastHighlightedHeader;
+
+        private void ProjectItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _projectDragStart = e.GetPosition(this);
+            _isProjectDragging = false;
+            _draggedProject = null;
+
+            if (sender is FrameworkElement elem && elem.Tag is ProjectViewModel pvm && !pvm.IsPlaceholder)
+            {
+                _draggedProject = pvm;
+            }
+        }
+
+        private Border? _lastHighlightedItem;
+
+        private void ProjectItem_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed && _draggedProject != null)
+            {
+                var currentPos = e.GetPosition(this);
+                var diff = _projectDragStart - currentPos;
+
+                if (!_isProjectDragging && (Math.Abs(diff.X) > 3 || Math.Abs(diff.Y) > 3))
+                {
+                    _isProjectDragging = true;
+                    if (sender is UIElement uie)
+                    {
+                        uie.CaptureMouse();
+                    }
+                    Mouse.OverrideCursor = Cursors.Hand;
+
+                    GhostText.Text = _draggedProject.Name;
+                    GhostIcon.Kind = _draggedProject.Icon != MaterialDesignThemes.Wpf.PackIconKind.None ? _draggedProject.Icon : MaterialDesignThemes.Wpf.PackIconKind.Folder;
+                    GhostBehindPanel.Visibility = _draggedProject.HasBehind ? Visibility.Visible : Visibility.Collapsed;
+                    GhostBehindText.Text = _draggedProject.Behind.ToString();
+                    GhostAheadPanel.Visibility = _draggedProject.HasAhead ? Visibility.Visible : Visibility.Collapsed;
+                    GhostAheadText.Text = _draggedProject.Ahead.ToString();
+                    ProjectDragGhostPopup.IsOpen = true;
+                }
+
+                if (_isProjectDragging)
+                {
+                    try
+                    {
+                        var screenPt = PointToScreen(e.GetPosition(this));
+                        ProjectDragGhostPopup.HorizontalOffset = screenPt.X - 24;
+                        ProjectDragGhostPopup.VerticalOffset = screenPt.Y - 16;
+                    }
+                    catch
+                    {
+                        // En caso de fallo de coordenadas de pantalla
+                    }
+
+                    HighlightTargetUnderMouse();
+                }
+            }
+        }
+
+        private void ProjectItem_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            ProjectDragGhostPopup.IsOpen = false;
+
+            if (_isProjectDragging && _draggedProject != null)
+            {
+                if (sender is UIElement uie)
+                {
+                    uie.ReleaseMouseCapture();
+                }
+                Mouse.OverrideCursor = null;
+                _isProjectDragging = false;
+
+                ExecuteProjectDrop();
+                _draggedProject = null;
+                e.Handled = true;
+            }
+            else
+            {
+                _draggedProject = null;
+                _isProjectDragging = false;
+                Mouse.OverrideCursor = null;
+                ClearHighlights();
+            }
+        }
+
+        private void HighlightTargetUnderMouse()
+        {
+            var elementUnderMouse = Mouse.DirectlyOver as DependencyObject;
+            var currentHeader = FindParent<Border>(elementUnderMouse, b => b.Tag is CollectionViewGroup);
+            var currentItem = FindParent<Border>(elementUnderMouse, b => b.Tag is ProjectViewModel p && p != _draggedProject);
+
+            if (_lastHighlightedHeader != currentHeader)
+            {
+                if (_lastHighlightedHeader != null)
+                {
+                    _lastHighlightedHeader.Background = (Brush)System.Windows.Application.Current.FindResource("MaterialDesignSelection");
+                    _lastHighlightedHeader = null;
+                }
+
+                if (currentHeader != null)
+                {
+                    _lastHighlightedHeader = currentHeader;
+                    _lastHighlightedHeader.Background = (Brush)System.Windows.Application.Current.FindResource("PrimaryHueLightBrush");
+                }
+            }
+
+            if (_lastHighlightedItem != currentItem)
+            {
+                if (_lastHighlightedItem != null)
+                {
+                    _lastHighlightedItem.Background = Brushes.Transparent;
+                    _lastHighlightedItem = null;
+                }
+
+                if (currentItem != null)
+                {
+                    _lastHighlightedItem = currentItem;
+                    _lastHighlightedItem.Background = new SolidColorBrush(Color.FromArgb(40, 33, 150, 243));
+                }
+            }
+        }
+
+        private void ClearHighlights()
+        {
+            if (_lastHighlightedHeader != null)
+            {
+                _lastHighlightedHeader.Background = (Brush)System.Windows.Application.Current.FindResource("MaterialDesignSelection");
+                _lastHighlightedHeader = null;
+            }
+
+            if (_lastHighlightedItem != null)
+            {
+                _lastHighlightedItem.Background = Brushes.Transparent;
+                _lastHighlightedItem = null;
+            }
+        }
+
+        private void ExecuteProjectDrop()
+        {
+            ClearHighlights();
+
+            if (_draggedProject == null) return;
+
+            var elementUnderMouse = Mouse.DirectlyOver as DependencyObject;
+
+            // 1. Verificar si se solto sobre el encabezado de un grupo
+            var headerBorder = FindParent<Border>(elementUnderMouse, b => b.Tag is CollectionViewGroup);
+            if (headerBorder != null && headerBorder.Tag is CollectionViewGroup cvg)
+            {
+                var groupHeaderName = cvg.Name?.ToString();
+                string? targetGroupId = null;
+
+                if (!string.IsNullOrEmpty(groupHeaderName) && !string.Equals(groupHeaderName, "Sin Agrupar", StringComparison.OrdinalIgnoreCase))
+                {
+                    var config = ProjectSettings.LoadData();
+                    var group = config.Groups.FirstOrDefault(g => string.Equals(g.Name, groupHeaderName, StringComparison.OrdinalIgnoreCase));
+                    targetGroupId = group?.Id;
+                }
+
+                if (_draggedProject.GroupId != targetGroupId)
+                {
+                    ProjectSettings.SetProjectGroup(_draggedProject.FullPath, targetGroupId);
+                    LoadProjects();
+                    ProjectsComboBox.IsDropDownOpen = true;
+                }
+                return;
+            }
+
+            // 2. Verificar si se solto sobre otro proyecto (reordenar o mover de grupo)
+            var projectElem = FindParent<FrameworkElement>(elementUnderMouse, fe => fe.Tag is ProjectViewModel);
+            if (projectElem != null && projectElem.Tag is ProjectViewModel targetProject)
+            {
+                if (_draggedProject.FullPath != targetProject.FullPath)
+                {
+                    ProjectSettings.MoveProject(_draggedProject.FullPath, targetProject.FullPath, targetProject.GroupId);
+                    LoadProjects();
+                    ProjectsComboBox.IsDropDownOpen = true;
+                }
+                return;
+            }
+        }
+
+        private static T? FindParent<T>(DependencyObject? child, Func<T, bool>? predicate = null) where T : DependencyObject
+        {
+            var current = child;
+            while (current != null)
+            {
+                if (current is T match && (predicate == null || predicate(match)))
+                {
+                    return match;
+                }
+                if (current is Visual || current is System.Windows.Media.Media3D.Visual3D)
+                {
+                    current = VisualTreeHelper.GetParent(current);
+                }
+                else
+                {
+                    current = LogicalTreeHelper.GetParent(current);
+                }
+            }
+            return null;
         }
         #endregion
 

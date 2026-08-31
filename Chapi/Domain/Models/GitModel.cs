@@ -64,9 +64,51 @@ public class ProjectViewModel : System.ComponentModel.INotifyPropertyChanged
     public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
     protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
 
-    public string FullPath { get; set; }
-    public string Name { get; set; }
+    public string FullPath { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
     public PackIconKind Icon { get; set; }
+
+    private string? _groupId;
+    public string? GroupId
+    {
+        get => _groupId;
+        set { _groupId = value; OnPropertyChanged(nameof(GroupId)); }
+    }
+
+    private string _groupName = "Sin Agrupar";
+    public string GroupName
+    {
+        get => _groupName;
+        set
+        {
+            _groupName = value;
+            OnPropertyChanged(nameof(GroupName));
+            OnPropertyChanged(nameof(GroupHeader));
+        }
+    }
+
+    public string GroupHeader => string.IsNullOrWhiteSpace(GroupName) ? "Sin Agrupar" : GroupName;
+
+    private int _groupOrder = int.MaxValue;
+    public int GroupOrder
+    {
+        get => _groupOrder;
+        set { _groupOrder = value; OnPropertyChanged(nameof(GroupOrder)); }
+    }
+
+    private int _projectOrder;
+    public int ProjectOrder
+    {
+        get => _projectOrder;
+        set { _projectOrder = value; OnPropertyChanged(nameof(ProjectOrder)); }
+    }
+
+    private bool _isVisible = true;
+    public bool IsVisible
+    {
+        get => _isVisible;
+        set { _isVisible = value; OnPropertyChanged(nameof(IsVisible)); }
+    }
 
     private int _ahead;
     public int Ahead
@@ -97,4 +139,5 @@ public class ProjectViewModel : System.ComponentModel.INotifyPropertyChanged
     public bool HasAhead => Ahead > 0;
     public bool HasBehind => Behind > 0;
     public bool HasNoRemote => !HasRemote;
+    public bool IsPlaceholder { get; set; } = false;
 }

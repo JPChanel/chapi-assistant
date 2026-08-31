@@ -148,6 +148,7 @@
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
+
             <materialDesign:ColorZone x:Name="HeaderZone" Grid.Row="0" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,0,1" Padding="20,10" Background="{DynamicResource HeaderBackground}" Foreground="{DynamicResource HeaderForeground}" MinHeight="95">
                 <Grid VerticalAlignment="Center" HorizontalAlignment="Stretch">
                     <Grid.ColumnDefinitions>
@@ -156,7 +157,7 @@
                         <ColumnDefinition Width="Auto"/>
                         <!-- Proyecto Combo -->
                         <ColumnDefinition Width="Auto"/>
-                        <!-- Boton Add -->
+                        <!-- Boton Add y Organizar -->
                         <ColumnDefinition Width="Auto"/>
                         <!-- Rama Combo -->
                         <ColumnDefinition Width="Auto"/>
@@ -181,108 +182,260 @@
                               VerticalContentAlignment="Center"
                               Padding="12,0"
                               materialDesign:TextFieldAssist.DecorationVisibility="Collapsed"
-                              materialDesign:HintAssist.Hint="Seleccionar Proyecto"
+                              materialDesign:HintAssist.Hint="Proyecto"
                               materialDesign:TextFieldAssist.HasClearButton="False"
                               SelectionChanged="ProjectsComboBox_SelectionChanged"
                               IsEditable="True"
-                               IsTextSearchEnabled="True"
-                               TextSearch.TextPath="Name"
-                                ContextMenu="{DynamicResource ProjectQuickMenu}">
-                        <ComboBox.Style>
-                            <Style TargetType="ComboBox" BasedOn="{StaticResource MaterialDesignOutlinedComboBox}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedItem, RelativeSource={RelativeSource Self}}" Value="{x:Null}">
-                                        <Setter Property="ContextMenu" Value="{x:Null}"/>
-                                    </DataTrigger>
-                                    <Trigger Property="IsDropDownOpen" Value="True">
-                                        <Setter Property="ContextMenu" Value="{x:Null}"/>
-                                    </Trigger>
-                                </Style.Triggers>
+                              IsTextSearchEnabled="True"
+                              TextSearch.TextPath="Name"
+                              HorizontalContentAlignment="Stretch"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              ContextMenu="{DynamicResource ProjectQuickMenu}">
+                        <ComboBox.ItemContainerStyle>
+                            <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Padding" Value="0"/>
                             </Style>
-                        </ComboBox.Style>
+                        </ComboBox.ItemContainerStyle>
+                        <ComboBox.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="8,4,8,4" 
+                                                Margin="0,3,0,1" 
+                                                BorderBrush="{DynamicResource MaterialDesignDivider}" 
+                                                BorderThickness="0,0,0,1" 
+                                                Background="{DynamicResource MaterialDesignSelection}"
+                                                Tag="{Binding}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <materialDesign:PackIcon Kind="FolderOutline" 
+                                                                         Width="14" Height="14" 
+                                                                         Margin="0,0,6,0" 
+                                                                         VerticalAlignment="Center" 
+                                                                         Opacity="0.7"/>
+
+                                                <TextBlock Grid.Column="1" 
+                                                           Text="{Binding Name}" 
+                                                           FontSize="10" 
+                                                           FontWeight="Bold" 
+                                                           Foreground="{DynamicResource MaterialDesignBodyLight}" 
+                                                           Opacity="0.85"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"/>
+
+                                                <!-- Contador -->
+                                                <Border Grid.Column="2" 
+                                                        Background="{DynamicResource MaterialDesignDivider}" 
+                                                        CornerRadius="6" 
+                                                        Padding="4,1" 
+                                                        Margin="6,0,6,0" 
+                                                        VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding ItemCount, StringFormat={}{0}}" 
+                                                               FontSize="9" 
+                                                               FontWeight="SemiBold" 
+                                                               Opacity="0.75"/>
+                                                </Border>
+
+                                                <!-- Acciones de Encabezado -->
+                                                <Grid Grid.Column="3" VerticalAlignment="Center">
+                                                    <!-- Botón Crear Grupo (Solo para SIN AGRUPAR) -->
+                                                    <Button Width="20" Height="20" 
+                                                            Padding="0"
+                                                            ToolTip="Crear nuevo grupo"
+                                                            Click="BtnHeaderCreateGroup_Click">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignIconButton}">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Name}" Value="Sin Agrupar">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                        <materialDesign:PackIcon Kind="Plus" Width="14" Height="14" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                                                    </Button>
+
+                                                    <!-- Botones Editar / Eliminar Grupo (Solo para grupos personalizados) -->
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <StackPanel.Style>
+                                                            <Style TargetType="StackPanel">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Name}" Value="Sin Agrupar">
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </StackPanel.Style>
+                                                        
+                                                        <Button Style="{StaticResource MaterialDesignIconButton}" 
+                                                                Width="20" Height="20" 
+                                                                Padding="0"
+                                                                ToolTip="Renombrar grupo"
+                                                                Click="BtnHeaderRenameGroup_Click"
+                                                                Tag="{Binding}">
+                                                            <materialDesign:PackIcon Kind="PencilOutline" Width="11" Height="11" Opacity="0.75"/>
+                                                        </Button>
+                                                        <Button Style="{StaticResource MaterialDesignIconButton}" 
+                                                                Width="20" Height="20" 
+                                                                Padding="0"
+                                                                ToolTip="Eliminar grupo (proyectos pasarán a Sin Agrupar)"
+                                                                Click="BtnHeaderDeleteGroup_Click"
+                                                                Tag="{Binding}">
+                                                            <materialDesign:PackIcon Kind="TrashCanOutline" Width="11" Height="11" Foreground="#E57373"/>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ComboBox.GroupStyle>
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
-                                <Grid Background="Transparent">
-                                    <Grid.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Header="Abrir en Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding FullPath}">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="RocketLaunch" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="Abrir en VS Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding FullPath}">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="Abrir en Cursor" Click="ProjectMenuItem_OpenCursor_Click" CommandParameter="{Binding FullPath}">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="CursorDefaultOutline" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="Abrir en Windsurf" Click="ProjectMenuItem_OpenWindsurf_Click" CommandParameter="{Binding FullPath}">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="WeatherWindy" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding FullPath}">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="VisualStudio" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <Separator />
-                                            <MenuItem Header="Abrir Carpeta" Click="ProjectMenuItem_OpenExplorer_Click" CommandParameter="{Binding FullPath}">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="FolderOpen" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="Abrir Consola (CMD)" Click="ProjectMenuItem_OpenCmd_Click" CommandParameter="{Binding FullPath}">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="Console" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="Abrir Consola (Git)" Click="ProjectMenuItem_OpenGitTerminal_Click" CommandParameter="{Binding FullPath}">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="Git" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <Separator Visibility="{Binding HasNoRemote, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                            <MenuItem Header="Asociar Repositorio Remoto..." 
-                                                      Click="ProjectMenuItem_AssociateRemote_Click" 
-                                                      CommandParameter="{Binding FullPath}"
-                                                      Visibility="{Binding HasNoRemote, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="LinkVariant" Foreground="DodgerBlue" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <Separator />
-                                            <MenuItem Header="Remover de la lista" Click="ProjectMenuItem_Remove_Click" CommandParameter="{Binding FullPath}" Foreground="Red">
-                                                <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="DeleteOutline" Foreground="Red" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                        </ContextMenu>
-                                    </Grid.ContextMenu>
-                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Stretch">
-                                         <materialDesign:PackIcon Kind="{Binding Icon}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                         <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Width="150" TextTrimming="CharacterEllipsis"/>
-                                         
-                                         <!-- Indicadores de Git -->
-                                         <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
-                                             <StackPanel Orientation="Horizontal" Visibility="{Binding HasBehind, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,8,0">
-                                                 <materialDesign:PackIcon Kind="ArrowDown" Foreground="Orange" Width="14" Height="14" VerticalAlignment="Center"/>
-                                                 <TextBlock Text="{Binding Behind}" Foreground="Orange" FontSize="11" VerticalAlignment="Center" Margin="2,0,0,0"/>
-                                             </StackPanel>
-                                             <StackPanel Orientation="Horizontal" Visibility="{Binding HasAhead, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                 <materialDesign:PackIcon Kind="ArrowUp" Foreground="LimeGreen" Width="14" Height="14" VerticalAlignment="Center"/>
-                                                 <TextBlock Text="{Binding Ahead}" Foreground="LimeGreen" FontSize="11" VerticalAlignment="Center" Margin="2,0,0,0"/>
-                                             </StackPanel>
-                                         </StackPanel>
-                                     </StackPanel>
-                                 </Grid>
-                             </DataTemplate>
+                                <Border Padding="8,4,4,4" 
+                                        Background="Transparent"
+                                        HorizontalAlignment="Stretch"
+                                        PreviewMouseLeftButtonDown="ProjectItem_PreviewMouseLeftButtonDown"
+                                        PreviewMouseMove="ProjectItem_PreviewMouseMove"
+                                        PreviewMouseLeftButtonUp="ProjectItem_PreviewMouseLeftButtonUp"
+                                        Tag="{Binding}">
+                                    <Grid Background="Transparent" HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <materialDesign:PackIcon Grid.Column="0" 
+                                                                 Kind="{Binding Icon}" 
+                                                                 Margin="0,0,8,0" 
+                                                                 VerticalAlignment="Center"
+                                                                 Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                                        
+                                        <TextBlock Grid.Column="1" 
+                                                   Text="{Binding Name}" 
+                                                   VerticalAlignment="Center" 
+                                                   Margin="0,0,6,0"
+                                                   TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+                                                            <Setter Property="FontStyle" Value="Italic"/>
+                                                            <Setter Property="Opacity" Value="0.55"/>
+                                                            <Setter Property="FontSize" Value="11"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        
+                                        <!-- Indicadores de Git -->
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,6,0" VerticalAlignment="Center">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <StackPanel Orientation="Horizontal" Visibility="{Binding HasBehind, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,4,0">
+                                                <materialDesign:PackIcon Kind="ArrowDown" Foreground="Orange" Width="12" Height="12" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Behind}" Foreground="Orange" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="1,0,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Visibility="{Binding HasAhead, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <materialDesign:PackIcon Kind="ArrowUp" Foreground="LimeGreen" Width="12" Height="12" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Ahead}" Foreground="LimeGreen" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="1,0,0,0"/>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- Drag Handle Container alineado al extremo derecho -->
+                                        <Border Grid.Column="3" 
+                                                Background="Transparent" 
+                                                Width="26" 
+                                                Height="24"
+                                                HorizontalAlignment="Right" 
+                                                VerticalAlignment="Center"
+                                                Cursor="SizeAll"
+                                                ToolTip="Arrastrar para mover de grupo">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <materialDesign:PackIcon Kind="DragVertical" 
+                                                                     Width="16" Height="16" 
+                                                                     Opacity="0.45" 
+                                                                     HorizontalAlignment="Center"
+                                                                     VerticalAlignment="Center"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
+
+                    <!-- Drag Ghost Preview Popup (mismo tamano, nivel y estilo que los elementos de la lista) -->
+                    <Popup x:Name="ProjectDragGhostPopup"
+                           AllowsTransparency="True"
+                           IsHitTestVisible="False"
+                           Placement="Absolute"
+                           IsOpen="False">
+                        <Border Background="{DynamicResource MaterialDesignPaper}"
+                                BorderBrush="{DynamicResource PrimaryHueMidBrush}"
+                                BorderThickness="1.5"
+                                CornerRadius="4"
+                                Width="254"
+                                Height="34"
+                                Padding="8,4,4,4"
+                                Opacity="0.9"
+                                SnapsToDevicePixels="True">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="14" Direction="270" ShadowDepth="4" Opacity="0.38" Color="#000000"/>
+                            </Border.Effect>
+                            <Grid HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <materialDesign:PackIcon x:Name="GhostIcon" Kind="Folder" Foreground="{DynamicResource PrimaryHueMidBrush}" Width="15" Height="15" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="GhostText" Grid.Column="1" Text="Proyecto" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,6,0"/>
+
+                                <StackPanel Grid.Column="2" x:Name="GhostGitPanel" Orientation="Horizontal" Margin="0,0,6,0" VerticalAlignment="Center">
+                                    <StackPanel x:Name="GhostBehindPanel" Orientation="Horizontal" Margin="0,0,4,0">
+                                        <materialDesign:PackIcon Kind="ArrowDown" Foreground="Orange" Width="12" Height="12" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="GhostBehindText" Text="0" Foreground="Orange" FontSize="10" FontWeight="Bold" Margin="1,0,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel x:Name="GhostAheadPanel" Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="ArrowUp" Foreground="LimeGreen" Width="12" Height="12" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="GhostAheadText" Text="0" Foreground="LimeGreen" FontSize="10" FontWeight="Bold" Margin="1,0,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <materialDesign:PackIcon Grid.Column="3" Kind="DragVertical" Width="16" Height="16" Opacity="0.6" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                    </Popup>
 
                     <Button x:Name="btnAddProject"
                             Grid.Column="2"

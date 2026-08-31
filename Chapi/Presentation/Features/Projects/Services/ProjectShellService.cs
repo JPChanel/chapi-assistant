@@ -28,14 +28,39 @@ public sealed class ProjectShellService
 
     public IReadOnlyList<ProjectViewModel> LoadProjects()
     {
-        return ProjectSettings.LoadProjects()
-            .Select(path => new ProjectViewModel
+        var data = ProjectSettings.LoadData();
+        var groupsById = data.Groups.ToDictionary(g => g.Id, g => g);
+        var result = new List<ProjectViewModel>();
+
+        foreach (var path in data.Projects)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            var dirName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrEmpty(dirName)) dirName = path;
+
+            string? groupId = null;
+            string groupName = "Sin Agrupar";
+            int groupOrder = int.MaxValue;
+
+            if (data.Mappings.TryGetValue(path, out var gid) && !string.IsNullOrEmpty(gid) && groupsById.TryGetValue(gid, out var group))
+            {
+                groupId = group.Id;
+                groupName = group.Name;
+                groupOrder = group.Order;
+            }
+
+            result.Add(new ProjectViewModel
             {
                 FullPath = path,
-                Name = new DirectoryInfo(path).Name,
-                Icon = PackIconKind.FolderOutline
-            })
-            .ToList();
+                Name = dirName,
+                Icon = PackIconKind.FolderOutline,
+                GroupId = groupId,
+                GroupName = groupName,
+                GroupOrder = groupOrder
+            });
+        }
+
+        return result;
     }
 
     public Task<ProjectSelectionSnapshot> LoadProjectContextAsync(

@@ -1,4 +1,4 @@
-﻿using Chapi.Presentation.Shared.Dialogs.Views;
+using Chapi.Presentation.Shared.Dialogs.Views;
 
 namespace Chapi.Infrastructure.Services;
 
@@ -24,6 +24,9 @@ public static class DialogService
 
     public static Task<object> ShowDialog(object dialogContent)
         => Chapi.Presentation.Shared.Dialogs.DialogService.ShowDialog(dialogContent);
+
+    public static Task ShowManageProjectGroupsDialog()
+        => Chapi.Presentation.Shared.Dialogs.DialogService.ShowManageProjectGroupsDialog();
 
     public static void ShowTrayNotification(string title, string message)
         => Chapi.Presentation.Shared.Dialogs.DialogService.ShowTrayNotification(title, message);

@@ -54,6 +54,12 @@ namespace Chapi.Presentation.Shared.Dialogs
             return await DialogHost.Show(dialogContent, App.GlobalDialogIdentifier);
         }
 
+        public static async Task ShowManageProjectGroupsDialog()
+        {
+            var dialog = new ManageProjectGroupsDialog();
+            await DialogHost.Show(dialog, App.GlobalDialogIdentifier);
+        }
+
         public static void ShowTrayNotification(string title, string message)
         {
             App.TrayIconManager.ShowNotification(title, message);
