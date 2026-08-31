@@ -103,5 +103,22 @@ namespace Chapi.Presentation.Shared.Dialogs
 
             return (false, string.Empty, string.Empty, false, false, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
         }
+
+        public static async Task<(bool Confirmed, string ProjectPath, string DefaultBranch, string? RemoteUrl, bool CreateReadme, bool CreateGitIgnore)> ShowCreateRepositoryDialog(
+            string? initialPath = null,
+            string? defaultBranch = null)
+        {
+            var dialog = new CreateRepositoryDialog();
+            dialog.SetDefaults(initialPath, defaultBranch);
+
+            var result = await DialogHost.Show(dialog, App.GlobalDialogIdentifier);
+
+            if (bool.TryParse(result?.ToString(), out var boolResult) && boolResult && dialog.IsConfirmed)
+            {
+                return (true, dialog.ProjectPath, dialog.DefaultBranch, dialog.RemoteUrl, dialog.CreateReadme, dialog.CreateGitIgnore);
+            }
+
+            return (false, string.Empty, "main", null, false, false);
+        }
     }
 }

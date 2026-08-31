@@ -54,8 +54,11 @@ public interface IGitRepository
 
     // Lifecycle
     Task<Result> CloneAsync(string url, string destinationPath);
-    Task<Result> InitAsync(string projectPath);
+    Task<Result> InitAsync(string projectPath, string? defaultBranch = null);
     Task<Result> AddRemoteAsync(string projectPath, string name, string url);
+    Task<bool> IsGitRepositoryAsync(string projectPath);
+    Task<string> GetDefaultBranchAsync();
+
     // Stash
     Task<Result> StashChangesAsync(string projectPath, string message, IEnumerable<string>? files = null);
     Task<IEnumerable<GitStash>> ListStashesAsync(string projectPath);

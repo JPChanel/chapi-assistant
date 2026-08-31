@@ -1,4 +1,4 @@
-﻿using Chapi.Domain.Models;
+using Chapi.Domain.Models;
 using Chapi.Infrastructure.Services;
 using Hardcodet.Wpf.TaskbarNotification;
 using MaterialDesignThemes.Wpf;
@@ -45,7 +45,7 @@ namespace Chapi
 
             var contextMenu = new ContextMenu();
 
-            contextMenu.Items.Add(CreateMenuItem("Crear Nuevo Proyecto", PackIconKind.FolderPlusOutline, (s, e) => { Msg.User("Crear Nuevo Proyecto"); mainWindow.CreateNewTemplate(); }));
+            contextMenu.Items.Add(CreateMenuItem("Crear Nuevo Proyecto", PackIconKind.FolderPlusOutline, (s, e) => { Msg.User("Crear Nuevo Proyecto"); mainWindow.ShowCreateRepositoryDialog(); }));
 
             _projectsSubMenu = CreateMenuItem("Cambiar a Proyecto", PackIconKind.SwapHorizontal, null);
             _projectsSubMenu.Items.Add(CreateMenuItem(

@@ -1,4 +1,4 @@
-﻿using Chapi.Domain.Models;
+using Chapi.Domain.Models;
 using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Features.ActivityOverview.ViewModels;
@@ -23,7 +23,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Forms;
+using FolderBrowserDialog = System.Windows.Forms.FolderBrowserDialog;
+using DialogResult = System.Windows.Forms.DialogResult;
 using System.Windows.Media;
 using UseCases = Chapi.Application.UseCases.Git;
 
@@ -70,6 +71,7 @@ namespace Chapi
         private readonly ProjectSyncCoordinator _projectSyncCoordinator;
         private readonly ProjectToolLauncher _projectToolLauncher;
         private readonly StartupTaskCoordinator _startupTaskCoordinator;
+        private readonly Chapi.Domain.Interfaces.IGitRepository _gitRepository;
 
         public MainWindow()
         {
@@ -82,6 +84,7 @@ namespace Chapi
             _projectSyncCoordinator = App.ServiceProvider.GetRequiredService<ProjectSyncCoordinator>();
             _projectToolLauncher = App.ServiceProvider.GetRequiredService<ProjectToolLauncher>();
             _startupTaskCoordinator = App.ServiceProvider.GetRequiredService<StartupTaskCoordinator>();
+            _gitRepository = App.ServiceProvider.GetRequiredService<Chapi.Domain.Interfaces.IGitRepository>();
             _changesViewModel = App.ServiceProvider.GetService(typeof(ChangesViewModel)) as ChangesViewModel;
             _historyViewModel = App.ServiceProvider.GetService(typeof(HistoryViewModel)) as HistoryViewModel;
             _releasesViewModel = App.ServiceProvider.GetService(typeof(ReleasesViewModel)) as ReleasesViewModel;
@@ -221,6 +224,29 @@ namespace Chapi
             }
 
             if (!_isGitInstalled) return;
+
+            // Verificar si la carpeta del proyecto es un repositorio Git
+            bool isGit = await _gitRepository.IsGitRepositoryAsync(projectDirectory);
+            if (!isGit)
+            {
+                BranchesComboBox.ItemsSource = new List<string>();
+                BranchesComboBox.SelectedItem = null;
+                _currentlySelectedBranch = string.Empty;
+
+                var initConfirm = await DialogService.ShowConfirmDialog(
+                    "Repositorio no inicializado",
+                    $"El proyecto '{selectedProject.Name}' no tiene Git inicializado.\n\n¿Deseas inicializarlo como repositorio Git ahora?",
+                    DialogVariant.Info,
+                    DialogType.Confirm,
+                    confirmButtonText: "INICIALIZAR",
+                    cancelButtonText: "MÁS TARDE");
+
+                if (initConfirm)
+                {
+                    ShowCreateRepositoryDialog(projectDirectory);
+                }
+                return;
+            }
 
             App.TrayIconManager?.UpdateProjectMenuItem(selectedProject.Name, false);
 
@@ -502,6 +528,47 @@ namespace Chapi
 
         #region Project Management
 
+        public async void ShowCreateRepositoryDialog(string? initialPath = null)
+        {
+            try
+            {
+                var defaultBranch = await _gitRepository.GetDefaultBranchAsync();
+                var (confirmed, projectPath, branch, remoteUrl, createReadme, createGitIgnore) =
+                    await DialogService.ShowCreateRepositoryDialog(initialPath, defaultBranch);
+
+                if (!confirmed || string.IsNullOrWhiteSpace(projectPath)) return;
+
+                await RunWithLoading(async () =>
+                {
+                    var initUseCase = App.ServiceProvider.GetRequiredService<Chapi.Application.UseCases.Projects.InitRepositoryUseCase>();
+                    var request = new Chapi.Application.UseCases.Projects.InitRepositoryRequest(
+                        projectPath,
+                        branch,
+                        remoteUrl,
+                        createReadme,
+                        createGitIgnore
+                    );
+
+                    var result = await initUseCase.ExecuteAsync(request, progress => Msg.Assistant(progress));
+                    if (result.IsSuccess)
+                    {
+                        Msg.Assistant($"Repositorio '{new DirectoryInfo(projectPath).Name}' inicializado exitosamente en rama '{branch}'.");
+                        LoadProjects();
+                        SwitchToProject(result.Data);
+                        Chapi.Infrastructure.Persistence.Rollbacks.RollbackManager.ClearAllRollbacks();
+                    }
+                    else
+                    {
+                        await DialogService.ShowConfirmDialog("Error", $"No se pudo inicializar el repositorio: {result.Error}", DialogVariant.Error, DialogType.Info);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Msg.Assistant($"Error: {ex.Message}");
+            }
+        }
+
         private async void ShowCloneDialog()
         {
             try
@@ -542,9 +609,32 @@ namespace Chapi
             using var folderDialog = new FolderBrowserDialog();
             if (folderDialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
 
+            var selectedPath = folderDialog.SelectedPath;
+            if (string.IsNullOrWhiteSpace(selectedPath)) return;
+
+            // Verificar si el directorio seleccionado ya es un repositorio Git
+            bool isGit = await _gitRepository.IsGitRepositoryAsync(selectedPath);
+            if (!isGit)
+            {
+                var folderName = new DirectoryInfo(selectedPath).Name;
+                var initConfirm = await DialogService.ShowConfirmDialog(
+                    "Repositorio no inicializado",
+                    $"La carpeta '{folderName}' no es un repositorio Git.\n\n¿Deseas inicializar un nuevo repositorio Git en esta ubicación?",
+                    DialogVariant.Info,
+                    DialogType.Confirm,
+                    confirmButtonText: "INICIALIZAR",
+                    cancelButtonText: "CANCELAR");
+
+                if (initConfirm)
+                {
+                    ShowCreateRepositoryDialog(selectedPath);
+                }
+                return;
+            }
+
             await RunWithLoading(async () =>
             {
-                projectDirectory = folderDialog.SelectedPath;
+                projectDirectory = selectedPath;
                 ProjectSettings.AddProject(projectDirectory);
                 LoadProjects();
                 ProjectsComboBox.SelectedItem = ProjectsComboBox.Items.OfType<ProjectViewModel>().FirstOrDefault(p => p.FullPath == projectDirectory);
@@ -664,10 +754,17 @@ namespace Chapi
 
             var contextMenu = new ContextMenu();
 
+            var createItem = new MenuItem
+            {
+                Header = "Crear Nuevo Repositorio...",
+                Icon = new MaterialDesignThemes.Wpf.PackIcon { Kind = MaterialDesignThemes.Wpf.PackIconKind.FolderPlusOutline }
+            };
+            createItem.Click += (s, ev) => ShowCreateRepositoryDialog();
+
             var cloneItem = new MenuItem
             {
                 Header = "Clonar Nuevo Repositorio...",
-                Icon = new MaterialDesignThemes.Wpf.PackIcon { Kind = MaterialDesignThemes.Wpf.PackIconKind.Add }
+                Icon = new MaterialDesignThemes.Wpf.PackIcon { Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudDownloadOutline }
             };
             cloneItem.Click += (s, ev) => ShowCloneDialog();
 
@@ -678,6 +775,7 @@ namespace Chapi
             };
             addItem.Click += (s, ev) => SelectProject();
 
+            contextMenu.Items.Add(createItem);
             contextMenu.Items.Add(cloneItem);
             contextMenu.Items.Add(addItem);
 

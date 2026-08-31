@@ -1,4 +1,4 @@
-﻿using Chapi.Domain.Interfaces;
+using Chapi.Domain.Interfaces;
 using Chapi.Infrastructure.Configuration;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Shared.Notifications.Services;
@@ -141,6 +141,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Chapi.Application.UseCases.Projects.RemoveProjectUseCase>();
         services.AddTransient<Chapi.Application.UseCases.Projects.SwitchProjectUseCase>();
         services.AddTransient<Chapi.Application.UseCases.Projects.CreateProjectUseCase>();
+        services.AddTransient<Chapi.Application.UseCases.Projects.InitRepositoryUseCase>();
         services.AddTransient<Chapi.Application.UseCases.Projects.UpdateProjectIndicatorsUseCase>();
         services.AddTransient<Chapi.Application.UseCases.Projects.CloneProjectUseCase>();
         services.AddTransient<Chapi.Application.UseCases.Projects.DeployProjectReleaseUseCase>();

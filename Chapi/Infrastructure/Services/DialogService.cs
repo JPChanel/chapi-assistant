@@ -1,8 +1,7 @@
-using Chapi.Presentation.Shared.Dialogs.Views;
+﻿using Chapi.Presentation.Shared.Dialogs.Views;
 
 namespace Chapi.Infrastructure.Services;
 
-// Compatibility facade while callers are migrated to Presentation.Shared.Dialogs.
 public static class DialogService
 {
     public static Task<(bool, string)> ShowInputDialog(string title, string message, string? defaultText = null)
@@ -49,4 +48,9 @@ public static class DialogService
             defaultPlatform,
             defaultIconPath,
             defaultSplashPath);
+
+    public static Task<(bool Confirmed, string ProjectPath, string DefaultBranch, string? RemoteUrl, bool CreateReadme, bool CreateGitIgnore)> ShowCreateRepositoryDialog(
+        string? initialPath = null,
+        string? defaultBranch = null)
+        => Chapi.Presentation.Shared.Dialogs.DialogService.ShowCreateRepositoryDialog(initialPath, defaultBranch);
 }

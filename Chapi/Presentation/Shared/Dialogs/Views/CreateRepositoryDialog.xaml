@@ -1,0 +1,107 @@
+<UserControl x:Class="Chapi.Presentation.Shared.Dialogs.Views.CreateRepositoryDialog"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d"
+             d:DesignHeight="550" d:DesignWidth="500"
+             Width="500"
+             Background="{DynamicResource MaterialDesignPaper}">
+
+    <Border BorderThickness="1"
+            Padding="24"
+            CornerRadius="12"
+            BorderBrush="{DynamicResource MaterialDesignDivider}">
+        <StackPanel>
+            <!-- Header -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                <materialDesign:PackIcon Kind="FolderPlusOutline" Width="28" Height="28" 
+                                        VerticalAlignment="Center" 
+                                        Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                <TextBlock Text="Crear Nuevo Repositorio" 
+                           FontSize="20" FontWeight="SemiBold" 
+                           VerticalAlignment="Center" 
+                           Margin="12,0,0,0"/>
+            </StackPanel>
+
+            <!-- Ruta Local -->
+            <TextBlock Text="Ubicación local del proyecto:" 
+                       FontSize="12" 
+                       Opacity="0.7" 
+                       Margin="0,0,0,4"/>
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="LocalPathTextBox"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         materialDesign:HintAssist.Hint="Seleccionar carpeta..."
+                         TextChanged="LocalPathTextBox_TextChanged"
+                         VerticalAlignment="Center"/>
+                <Button Grid.Column="1"
+                        Margin="8,0,0,0"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Click="BrowseButton_Click"
+                        ToolTip="Seleccionar carpeta">
+                    <materialDesign:PackIcon Kind="FolderOpenOutline"/>
+                </Button>
+            </Grid>
+
+            <!-- Nombre del Proyecto -->
+            <TextBox x:Name="ProjectNameTextBox"
+                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                     materialDesign:HintAssist.Hint="Nombre del proyecto"
+                     Margin="0,0,0,16"/>
+
+            <!-- Rama por defecto -->
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="DefaultBranchTextBox"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         materialDesign:HintAssist.Hint="Rama por defecto (desde configuración)"
+                         materialDesign:TextFieldAssist.LeadingIcon="SourceBranch"
+                         Text="main"/>
+            </Grid>
+
+            <!-- Repositorio Remoto (Opcional) -->
+            <TextBox x:Name="RemoteUrlTextBox"
+                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                     materialDesign:HintAssist.Hint="URL Remota origin (opcional)"
+                     materialDesign:TextFieldAssist.LeadingIcon="LinkVariant"
+                     Margin="0,0,0,16"/>
+
+            <!-- Opciones adicionales -->
+            <Border Background="{DynamicResource MaterialDesignDivider}" 
+                    CornerRadius="8" 
+                    Padding="12" 
+                    Margin="0,0,0,20" 
+                    Opacity="0.9">
+                <StackPanel>
+                    <CheckBox x:Name="CreateReadmeCheckBox"
+                              Content="Inicializar con archivo README.md"
+                              IsChecked="True"
+                              Margin="0,0,0,8"/>
+                    <CheckBox x:Name="CreateGitIgnoreCheckBox"
+                              Content="Crear archivo .gitignore (.NET / General)"
+                              IsChecked="True"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Botones de Acción -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="CANCELAR"
+                        Click="CancelButton_Click"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Margin="0,0,8,0"/>
+                <Button x:Name="CreateButton"
+                        Content="CREAR REPOSITORIO"
+                        Click="CreateButton_Click"
+                        Style="{StaticResource MaterialDesignRaisedButton}"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

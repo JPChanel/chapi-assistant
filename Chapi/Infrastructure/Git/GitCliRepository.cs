@@ -1,4 +1,4 @@
-using Chapi.Domain.Common;
+﻿using Chapi.Domain.Common;
 using Chapi.Domain.Entities;
 using Chapi.Domain.Enums;
 using Chapi.Domain.Interfaces;
@@ -254,7 +254,7 @@ public class GitCliRepository : IGitRepository
         return result;
     }
 
-    // ─── Cambios ─────────────────────────────────────────────────────────────
+    // Cambios
 
     public async Task<IEnumerable<FileChange>> GetChangesAsync(string projectPath)
     {
@@ -421,7 +421,7 @@ public class GitCliRepository : IGitRepository
         return Result.Success();
     }
 
-    // ─── Commit ──────────────────────────────────────────────────────────────
+    // Commit
 
     public async Task<Result<GitCommit>> CommitAsync(string projectPath, string message, IEnumerable<string> files)
     {
@@ -518,7 +518,7 @@ public class GitCliRepository : IGitRepository
         return result.Data.Split('\n', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
     }
 
-    // ─── Branches ────────────────────────────────────────────────────────────
+    // Branches
 
     public async Task<IEnumerable<string>> GetBranchesAsync(string projectPath)
     {
@@ -782,7 +782,7 @@ public class GitCliRepository : IGitRepository
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 
-    // ─── Remote / Sync ───────────────────────────────────────────────────────
+    // Remote / Sync 
 
     public async Task<Result> PushAsync(string projectPath, string branch, bool force = false)
     {
@@ -864,8 +864,7 @@ public class GitCliRepository : IGitRepository
         return result.IsSuccess;
     }
 
-    // ─── Commits / Historial ─────────────────────────────────────────────────
-
+    // Commits / Historial
     public async Task<IEnumerable<string>> GetFilesChangedInCommitAsync(string projectPath, string hash)
     {
         var result = await Git(projectPath, "diff-tree", "--no-commit-id", "--name-only", "-r", hash);
@@ -902,7 +901,7 @@ public class GitCliRepository : IGitRepository
         return dict;
     }
 
-    // ─── Archivos ────────────────────────────────────────────────────────────
+    // Archivos 
 
     public async Task<string> GetFileContentAsync(string projectPath, string revision, string filePath)
     {
@@ -994,11 +993,12 @@ public class GitCliRepository : IGitRepository
     public async Task<string> GetBranchDiffAsync(string projectPath, string sourceBranch, string targetBranch)
     {
         var result = await Git(projectPath, "diff", $"{targetBranch}...{sourceBranch}");
+
+
         return result.IsSuccess ? result.Data : string.Empty;
     }
 
-    // ─── Config ──────────────────────────────────────────────────────────────
-
+    // Config 
     public async Task<string> GetConfigAsync(string projectPath, string key, bool isGlobal = false)
     {
         var args = isGlobal
@@ -1026,7 +1026,8 @@ public class GitCliRepository : IGitRepository
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 
-    // ─── Metadata ─────────────────────────────────────────────────────────────
+    // Metadata
+
 
     public async Task<Result<GitRepositoryMetadata>> GetMetadataAsync(string projectPath)
     {
@@ -1065,7 +1066,57 @@ public class GitCliRepository : IGitRepository
         }
     }
 
-    // ─── Ciclo de vida ───────────────────────────────────────────────────────
+    // Ciclo de vida
+
+    public async Task<string> GetDefaultBranchAsync()
+    {
+        try
+        {
+            var branch = await GetConfigAsync(string.Empty, "init.defaultBranch", isGlobal: true);
+            if (!string.IsNullOrWhiteSpace(branch))
+                return branch.Trim();
+        }
+        catch { }
+        return "main";
+    }
+
+    public async Task<bool> IsGitRepositoryAsync(string projectPath)
+    {
+        if (string.IsNullOrWhiteSpace(projectPath) || !Directory.Exists(projectPath))
+            return false;
+
+        // Comprobación rápida por presencia de carpeta .git (o archivo .git para worktrees/submódulos)
+        if (Directory.Exists(Path.Combine(projectPath, ".git")) || File.Exists(Path.Combine(projectPath, ".git")))
+            return true;
+
+        var result = await GitProcessExecutor.RunAsync(projectPath, "rev-parse", "--is-inside-work-tree");
+        return result.IsSuccess && string.Equals(result.Data.Trim(), "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public async Task<Result> InitAsync(string projectPath, string? defaultBranch = null)
+    {
+        if (string.IsNullOrWhiteSpace(defaultBranch))
+        {
+            defaultBranch = await GetDefaultBranchAsync();
+        }
+
+        // 1. Intentar con `git init -b <branch>`
+        var result = await GitProcessExecutor.RunAsync(projectPath, "init", "-b", defaultBranch);
+        if (!result.IsSuccess)
+        {
+            // Fallback para versiones antiguas de Git: `git init` + `symbolic-ref`
+            var initResult = await GitProcessExecutor.RunAsync(projectPath, "init");
+            if (!initResult.IsSuccess) return Result.Fail(initResult.Error);
+
+            await GitProcessExecutor.RunAsync(projectPath, "symbolic-ref", "HEAD", $"refs/heads/{defaultBranch}");
+        }
+
+        // Invalidar caché de repositorio
+        var normalizedInput = NormalizePathForComparison(projectPath);
+        _repoRootCache.TryRemove(normalizedInput, out _);
+
+        return Result.Success();
+    }
 
     public async Task<Result> CloneAsync(string url, string destinationPath)
     {
@@ -1077,19 +1128,13 @@ public class GitCliRepository : IGitRepository
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 
-    public async Task<Result> InitAsync(string projectPath)
-    {
-        var result = await Git(projectPath, "init");
-        return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
-    }
-
     public async Task<Result> AddRemoteAsync(string projectPath, string name, string url)
     {
         var result = await Git(projectPath, "remote", "add", name, url);
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 
-    // ─── Tags ────────────────────────────────────────────────────────────────
+    // Tags
 
     public async Task<Result> CreateTagAsync(string projectPath, string tagName, string message, string commitHash = null)
     {
@@ -1264,7 +1309,7 @@ public class GitCliRepository : IGitRepository
         }
     }
 
-    // ─── Conflictos ──────────────────────────────────────────────────────────
+    // Conflictos 
 
     public async Task<IEnumerable<GitConflict>> GetMergeConflictsAsync(string projectPath)
     {
@@ -1488,7 +1533,7 @@ public class GitCliRepository : IGitRepository
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
     }
 
-    // ─── Misc ────────────────────────────────────────────────────────────────
+    // Misc
 
     public bool IsGitInstalled() => GitBinaryLocator.IsGitAvailable();
 }
