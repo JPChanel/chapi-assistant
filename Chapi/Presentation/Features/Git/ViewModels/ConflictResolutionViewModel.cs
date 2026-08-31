@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows.Input;
 using Chapi.Presentation.Shared.Mvvm;
+using Microsoft.Extensions.DependencyInjection;
+using Chapi.Presentation.Features.Projects.Services;
 
 namespace Chapi.Presentation.Features.Git.ViewModels;
 
@@ -444,36 +446,11 @@ public class ConflictResolutionViewModel : ViewModelBase
             ? SelectedConflict.FullPath
             : Path.Combine(_projectPath, SelectedConflict.FilePath);
 
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        string[] agyCandidates = {
-            Path.Combine(localAppData, "Programs", "Antigravity IDE", "bin", "antigravity-ide.cmd"),
-            Path.Combine(localAppData, "Programs", "Antigravity", "bin", "antigravity.cmd"),
-            Path.Combine(localAppData, "Programs", "Antigravity", "antigravity.cmd"),
-            Path.Combine(localAppData, "Programs", "Antigravity IDE", "antigravity-ide.cmd")
-        };
-        string? agyCli = agyCandidates.FirstOrDefault(File.Exists);
-
-        string[] editorCommands = {
-            agyCli ?? "antigravity-ide",
-            "code",
-            "cursor",
-            "windsurf"
-        };
-
-        foreach (var cmd in editorCommands)
+        var launcher = App.ServiceProvider.GetService<ProjectToolLauncher>();
+        if (launcher != null)
         {
-            try
-            {
-                var p = Process.Start(new ProcessStartInfo
-                {
-                    FileName = cmd,
-                    Arguments = $"--reuse-window \"{fullPath}\"",
-                    UseShellExecute = true,
-                    CreateNoWindow = true
-                });
-                if (p != null) return;
-            }
-            catch { }
+            launcher.SmartOpen(_projectPath, fullPath);
+            return;
         }
 
         try

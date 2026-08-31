@@ -1,4 +1,4 @@
-﻿using Chapi.Domain.Models;
+using Chapi.Domain.Models;
 using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Features.ActivityOverview.ViewModels;
@@ -513,6 +513,20 @@ namespace Chapi
             string path = GetPathFromMenuItem(sender);
             if (string.IsNullOrEmpty(path)) return;
             _projectToolLauncher.OpenVSCode(path);
+        }
+
+        private void ProjectMenuItem_OpenCursor_Click(object sender, RoutedEventArgs e)
+        {
+            string path = GetPathFromMenuItem(sender);
+            if (string.IsNullOrEmpty(path)) return;
+            _projectToolLauncher.OpenCursor(path);
+        }
+
+        private void ProjectMenuItem_OpenWindsurf_Click(object sender, RoutedEventArgs e)
+        {
+            string path = GetPathFromMenuItem(sender);
+            if (string.IsNullOrEmpty(path)) return;
+            _projectToolLauncher.OpenWindsurf(path);
         }
 
         private void ProjectMenuItem_OpenVisualStudio_Click(object sender, RoutedEventArgs e)

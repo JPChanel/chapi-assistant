@@ -3,12 +3,14 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using Chapi.Presentation.Features.History.ViewModels;
+using Chapi.Presentation.Features.Projects.Services;
 
 namespace Chapi.Presentation.Features.History.Views;
 
 public partial class HistoryView : UserControl
 {
     private HistoryViewModel _viewModel => DataContext as HistoryViewModel;
+    private readonly ProjectToolLauncher _projectToolLauncher = App.ServiceProvider.GetRequiredService<ProjectToolLauncher>();
 
     public HistoryView()
     {
@@ -65,105 +67,37 @@ public partial class HistoryView : UserControl
     private void ProjectMenuItem_OpenExplorer_Click(object sender, RoutedEventArgs e)
     {
         string path = GetPathFromMenuItem(sender);
-        if (string.IsNullOrEmpty(path)) return;
-
-        try
-        {
-            path = path.Replace('/', '\\');
-
-            if (File.Exists(path))
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    Arguments = $"/select,\"{path}\"",
-                    UseShellExecute = true
-                });
-            }
-            else
-            {
-                string dir = Path.GetDirectoryName(path);
-                if (Directory.Exists(dir))
-                {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = dir,
-                        UseShellExecute = true
-                    });
-                }
-            }
-        }
-        catch { }
+        if (!string.IsNullOrEmpty(path)) _projectToolLauncher.OpenExplorer(path);
     }
 
     private void ProjectMenuItem_OpenAntigravity_Click(object sender, RoutedEventArgs e)
     {
         string path = GetPathFromMenuItem(sender);
-        if (string.IsNullOrEmpty(path)) return;
-
-        try
-        {
-            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string[] agyCandidates = {
-                Path.Combine(localAppData, "Programs", "Antigravity IDE", "bin", "antigravity-ide.cmd"),
-                Path.Combine(localAppData, "Programs", "Antigravity", "bin", "antigravity.cmd"),
-                Path.Combine(localAppData, "Programs", "Antigravity", "antigravity.cmd"),
-                Path.Combine(localAppData, "Programs", "Antigravity IDE", "antigravity-ide.cmd")
-            };
-            string? agyCli = agyCandidates.FirstOrDefault(File.Exists);
-
-            if (agyCli != null)
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = agyCli,
-                    Arguments = $"--reuse-window \"{path}\"",
-                    UseShellExecute = true,
-                    CreateNoWindow = true
-                });
-            }
-            else
-            {
-                MessageBox.Show("No se encontró la instalación de Antigravity IDE.");
-            }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Error al abrir en Antigravity: {ex.Message}");
-        }
+        if (!string.IsNullOrEmpty(path)) _projectToolLauncher.OpenAntigravity(path);
     }
 
     private void ProjectMenuItem_OpenVSCode_Click(object sender, RoutedEventArgs e)
     {
         string path = GetPathFromMenuItem(sender);
-        if (string.IsNullOrEmpty(path)) return;
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "code",
-                Arguments = $"--reuse-window \"{path}\"",
-                UseShellExecute = true,
-                CreateNoWindow = true
-            });
-        }
-        catch { }
+        if (!string.IsNullOrEmpty(path)) _projectToolLauncher.OpenVSCode(path);
+    }
+
+    private void ProjectMenuItem_OpenCursor_Click(object sender, RoutedEventArgs e)
+    {
+        string path = GetPathFromMenuItem(sender);
+        if (!string.IsNullOrEmpty(path)) _projectToolLauncher.OpenCursor(path);
+    }
+
+    private void ProjectMenuItem_OpenWindsurf_Click(object sender, RoutedEventArgs e)
+    {
+        string path = GetPathFromMenuItem(sender);
+        if (!string.IsNullOrEmpty(path)) _projectToolLauncher.OpenWindsurf(path);
     }
 
     private void ProjectMenuItem_OpenVisualStudio_Click(object sender, RoutedEventArgs e)
     {
         string path = GetPathFromMenuItem(sender);
-        if (string.IsNullOrEmpty(path)) return;
-
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = path,
-                UseShellExecute = true
-            });
-        }
-        catch { }
+        if (!string.IsNullOrEmpty(path)) _projectToolLauncher.OpenVisualStudio(path);
     }
 
     private void HistoryFiles_CopyPath_Click(object sender, RoutedEventArgs e)

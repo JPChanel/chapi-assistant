@@ -82,9 +82,9 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
         <ContextMenu x:Key="ProjectQuickMenu" DataContext="{Binding PlacementTarget, RelativeSource={RelativeSource Self}}">
-            <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+            <MenuItem Header="Abrir en Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding SelectedItem.FullPath}">
                 <MenuItem.Icon>
-                    <materialDesign:PackIcon Kind="VisualStudio" />
+                    <materialDesign:PackIcon Kind="RocketLaunch" />
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Abrir en VS Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding SelectedItem.FullPath}">
@@ -92,9 +92,19 @@
                     <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Abrir en Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+            <MenuItem Header="Abrir en Cursor" Click="ProjectMenuItem_OpenCursor_Click" CommandParameter="{Binding SelectedItem.FullPath}">
                 <MenuItem.Icon>
-                    <materialDesign:PackIcon Kind="RocketLaunch" />
+                    <materialDesign:PackIcon Kind="CursorDefaultOutline" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Abrir en Windsurf" Click="ProjectMenuItem_OpenWindsurf_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+                <MenuItem.Icon>
+                    <materialDesign:PackIcon Kind="WeatherWindy" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+                <MenuItem.Icon>
+                    <materialDesign:PackIcon Kind="VisualStudio" />
                 </MenuItem.Icon>
             </MenuItem>
             <Separator />
@@ -195,9 +205,9 @@
                                 <Grid Background="Transparent">
                                     <Grid.ContextMenu>
                                         <ContextMenu>
-                                            <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding FullPath}">
+                                            <MenuItem Header="Abrir en Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding FullPath}">
                                                 <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="VisualStudio" />
+                                                    <materialDesign:PackIcon Kind="RocketLaunch" />
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <MenuItem Header="Abrir en VS Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding FullPath}">
@@ -205,9 +215,19 @@
                                                     <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
                                                 </MenuItem.Icon>
                                             </MenuItem>
-                                            <MenuItem Header="Abrir en Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding FullPath}">
+                                            <MenuItem Header="Abrir en Cursor" Click="ProjectMenuItem_OpenCursor_Click" CommandParameter="{Binding FullPath}">
                                                 <MenuItem.Icon>
-                                                    <materialDesign:PackIcon Kind="RocketLaunch" />
+                                                    <materialDesign:PackIcon Kind="CursorDefaultOutline" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Abrir en Windsurf" Click="ProjectMenuItem_OpenWindsurf_Click" CommandParameter="{Binding FullPath}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="WeatherWindy" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding FullPath}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="VisualStudio" />
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <Separator />

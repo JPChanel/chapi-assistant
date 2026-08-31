@@ -375,6 +375,16 @@
                                                             <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
                                                         </MenuItem.Icon>
                                                     </MenuItem>
+                                                    <MenuItem Header="Open in Cursor" Click="ProjectMenuItem_OpenCursor_Click" CommandParameter="{Binding}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="CursorDefaultOutline" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <MenuItem Header="Open in Windsurf" Click="ProjectMenuItem_OpenWindsurf_Click" CommandParameter="{Binding}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="WeatherWindy" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
                                                     <MenuItem Header="Open with default program" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding}">
                                                         <MenuItem.Icon>
                                                             <materialDesign:PackIcon Kind="OpenInNew" />
