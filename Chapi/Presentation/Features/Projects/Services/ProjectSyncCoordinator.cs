@@ -97,12 +97,13 @@ public sealed class ProjectSyncCoordinator
         }
 
         var tasks = projects.Select(project =>
-            _updateProjectIndicatorsUseCase.ExecuteAsync(project.FullPath, (ahead, behind) =>
+            _updateProjectIndicatorsUseCase.ExecuteAsync(project.FullPath, (ahead, behind, hasRemote) =>
             {
                 if (dispatcher == null || dispatcher.CheckAccess())
                 {
                     project.Ahead = ahead;
                     project.Behind = behind;
+                    project.HasRemote = hasRemote;
                     return;
                 }
 
@@ -110,6 +111,7 @@ public sealed class ProjectSyncCoordinator
                 {
                     project.Ahead = ahead;
                     project.Behind = behind;
+                    project.HasRemote = hasRemote;
                 });
             }));
 

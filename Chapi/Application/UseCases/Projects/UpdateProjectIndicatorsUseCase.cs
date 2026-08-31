@@ -11,14 +11,19 @@ public class UpdateProjectIndicatorsUseCase
         _gitRepository = gitRepository;
     }
 
-    public async Task ExecuteAsync(string projectPath, Action<int, int> onUpdated)
+    public async Task ExecuteAsync(string projectPath, Action<int, int, bool> onUpdated)
     {
         try
         {
-            // Solo obtener indicadores locales (Rápido)
-            // No hacemos Fetch aquí para evitar bucles con el FileSystemWatcher
-            var counts = await _gitRepository.GetAheadBehindCountAsync(projectPath);
-            onUpdated?.Invoke(counts.Ahead, counts.Behind);
+            var countsTask = _gitRepository.GetAheadBehindCountAsync(projectPath);
+            var remoteUrlTask = _gitRepository.GetRemoteUrlAsync(projectPath);
+            await Task.WhenAll(countsTask, remoteUrlTask);
+
+            var counts = await countsTask;
+            var remoteUrl = await remoteUrlTask;
+            bool hasRemote = !string.IsNullOrWhiteSpace(remoteUrl);
+
+            onUpdated?.Invoke(counts.Ahead, counts.Behind, hasRemote);
         }
         catch (Exception ex)
         {

@@ -62,6 +62,33 @@ public sealed class GitSyncWorkflow
                     break;
 
                 case GitActionState.Push:
+                    var gitRepository = _serviceProvider.GetRequiredService<Chapi.Domain.Interfaces.IGitRepository>();
+                    var remoteUrl = await gitRepository.GetRemoteUrlAsync(context.ProjectPath);
+                    if (string.IsNullOrWhiteSpace(remoteUrl))
+                    {
+                        var (ok, newUrl) = await Chapi.Presentation.Shared.Dialogs.DialogService.ShowInputDialog(
+                            "Asociar Repositorio Remoto",
+                            "Este repositorio no tiene un origen remoto configurado.\n\nIngresa la URL remota (HTTPS o SSH) para subir tus cambios:",
+                            "");
+
+                        if (!ok || string.IsNullOrWhiteSpace(newUrl))
+                        {
+                            return;
+                        }
+
+                        var associateUseCase = _serviceProvider.GetRequiredService<UseCases.AssociateGitUseCase>();
+                        var associateResult = await associateUseCase.ExecuteAsync(context.ProjectPath, newUrl.Trim());
+                        if (!associateResult.IsSuccess)
+                        {
+                            await Chapi.Presentation.Shared.Dialogs.DialogService.ShowConfirmDialog(
+                                "Error al asociar remoto",
+                                $"No se pudo asociar la URL remota: {associateResult.Error}",
+                                DialogVariant.Error,
+                                DialogType.Info);
+                            return;
+                        }
+                    }
+
                     var pushUseCase = _serviceProvider.GetRequiredService<UseCases.PushChangesUseCase>();
                     result = await pushUseCase.ExecuteAsync(context.ProjectPath, currentBranch);
                     break;

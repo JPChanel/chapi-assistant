@@ -1,5 +1,3 @@
-﻿
-
 using MaterialDesignThemes.Wpf;
 using System.Windows.Media;
 
@@ -8,6 +6,7 @@ namespace Chapi.Domain.Models;
 public class GitModel
 {
 }
+
 public class GitStatusItem
 {
     public string Status { get; set; }
@@ -37,6 +36,7 @@ public class GitLogItem
     public List<string> Tags { get; set; } = new List<string>();
     public bool HasTags => Tags.Any();
 }
+
 public class GitTagItem
 {
     public string TagName { get; set; }
@@ -49,12 +49,13 @@ public class GitTagItem
     public string CommitDescription { get; set; }
     public bool IsLatest { get; set; }
 
-    // Estad?sticas
+    // Estadísticas
     public int FilesChanged { get; set; }
     public int Additions { get; set; }
     public int Deletions { get; set; }
     public List<string> ModifiedFiles { get; set; } = new List<string>();
 }
+
 /// <summary>
 /// Representa un proyecto en la UI, incluyendo su icono de host y estado de Git.
 /// </summary>
@@ -81,6 +82,19 @@ public class ProjectViewModel : System.ComponentModel.INotifyPropertyChanged
         set { _behind = value; OnPropertyChanged(nameof(Behind)); OnPropertyChanged(nameof(HasBehind)); }
     }
 
+    private bool _hasRemote = true;
+    public bool HasRemote
+    {
+        get => _hasRemote;
+        set
+        {
+            _hasRemote = value;
+            OnPropertyChanged(nameof(HasRemote));
+            OnPropertyChanged(nameof(HasNoRemote));
+        }
+    }
+
     public bool HasAhead => Ahead > 0;
     public bool HasBehind => Behind > 0;
+    public bool HasNoRemote => !HasRemote;
 }

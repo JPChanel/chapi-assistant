@@ -1511,15 +1511,24 @@ public class ChangesViewModel : ViewModelBase
 
         try
         {
-            var stashes = await _gitRepository.ListStashesAsync(ProjectPath);
+            var stashesTask = _gitRepository.ListStashesAsync(ProjectPath);
+            var currentBranchTask = _gitRepository.GetCurrentBranchAsync(ProjectPath);
+            await Task.WhenAll(stashesTask, currentBranchTask);
+
             if (token.IsCancellationRequested) return;
 
-            var stashesList = stashes.ToList();
+            var currentBranch = await currentBranchTask;
+            var allStashes = (await stashesTask).ToList();
+
+            // Filtrar stashes para mostrar únicamente los creados en la rama activa (estándar GitHub Desktop)
+            var branchStashes = !string.IsNullOrWhiteSpace(currentBranch)
+                ? allStashes.Where(s => string.Equals(s.Branch, currentBranch, StringComparison.OrdinalIgnoreCase)).ToList()
+                : allStashes;
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 Stashes.Clear();
-                foreach (var stash in stashesList) Stashes.Add(stash);
+                foreach (var stash in branchStashes) Stashes.Add(stash);
                 OnPropertyChanged(nameof(HasStashes));
             });
         }
@@ -2017,13 +2026,19 @@ public class ChangesViewModel : ViewModelBase
 
         using var silencer = _changeWatcher.Silence();
         int restoredCount = 0;
+        var currentBranch = await _gitRepository.GetCurrentBranchAsync(ProjectPath);
 
         while (true)
         {
-            var stashes = (await _gitRepository.ListStashesAsync(ProjectPath)).ToList();
-            if (!stashes.Any()) break;
+            var allStashes = (await _gitRepository.ListStashesAsync(ProjectPath)).ToList();
+            var targetStash = allStashes.FirstOrDefault(s => string.IsNullOrEmpty(currentBranch) || string.Equals(s.Branch, currentBranch, StringComparison.OrdinalIgnoreCase));
+            if (targetStash == null) break;
 
-            var result = await _stashPopUseCase.ExecuteAsync(ProjectPath, 0);
+            int index = 0;
+            var match = System.Text.RegularExpressions.Regex.Match(targetStash.Name, @"\{(\d+)\}");
+            if (match.Success) index = int.Parse(match.Groups[1].Value);
+
+            var result = await _stashPopUseCase.ExecuteAsync(ProjectPath, index);
             if (!result.IsSuccess)
             {
                 await DialogService.ShowConfirmDialog("Conflicto al restaurar stash",

@@ -1,4 +1,4 @@
-using Chapi.Domain.Interfaces;
+﻿using Chapi.Domain.Interfaces;
 using Chapi.Presentation.Features.Git.Models;
 using Chapi.Presentation.Shared.Dialogs.Views;
 using Msg = Chapi.Infrastructure.Services.Msg;
@@ -8,14 +8,43 @@ namespace Chapi.Presentation.Features.Git.Workflows;
 public sealed class BranchManagementWorkflow
 {
     private readonly IGitRepository _gitRepository;
+    private readonly Chapi.Application.UseCases.Git.AssociateGitUseCase _associateGitUseCase;
 
-    public BranchManagementWorkflow(IGitRepository gitRepository)
+    public BranchManagementWorkflow(
+        IGitRepository gitRepository,
+        Chapi.Application.UseCases.Git.AssociateGitUseCase associateGitUseCase)
     {
         _gitRepository = gitRepository;
+        _associateGitUseCase = associateGitUseCase;
     }
 
     public async Task PublishAsync(GitWorkflowContext context)
     {
+        var remoteUrl = await _gitRepository.GetRemoteUrlAsync(context.ProjectPath);
+        if (string.IsNullOrWhiteSpace(remoteUrl))
+        {
+            var (ok, newUrl) = await Chapi.Presentation.Shared.Dialogs.DialogService.ShowInputDialog(
+                "Asociar Repositorio Remoto",
+                "Este repositorio no tiene un origen remoto configurado.\n\nIngresa la URL remota (HTTPS o SSH) para publicar tu rama:",
+                string.Empty);
+
+            if (!ok || string.IsNullOrWhiteSpace(newUrl))
+            {
+                return;
+            }
+
+            var associateResult = await _associateGitUseCase.ExecuteAsync(context.ProjectPath, newUrl.Trim());
+            if (!associateResult.IsSuccess)
+            {
+                await Chapi.Presentation.Shared.Dialogs.DialogService.ShowConfirmDialog(
+                    "Error al asociar remoto",
+                    $"No se pudo asociar la URL remota: {associateResult.Error}",
+                    DialogVariant.Error,
+                    DialogType.Info);
+                return;
+            }
+        }
+
         await context.RunWithLoadingAsync(async () =>
         {
             var currentBranch = context.GetCurrentBranch();
@@ -24,10 +53,11 @@ public sealed class BranchManagementWorkflow
             {
                 Msg.Assistant($"Rama '{currentBranch}' publicada en origin.");
                 await context.CheckBranchStatusAsync();
+                await context.UpdateProjectStatusesAsync();
             }
             else
             {
-                    await Chapi.Presentation.Shared.Dialogs.DialogService.ShowConfirmDialog(
+                await Chapi.Presentation.Shared.Dialogs.DialogService.ShowConfirmDialog(
                     "Error al publicar",
                     $"No se pudo publicar la rama: {result.Error}",
                     DialogVariant.Error,

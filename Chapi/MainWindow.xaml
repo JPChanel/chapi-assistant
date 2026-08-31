@@ -113,6 +113,15 @@
                     <materialDesign:PackIcon Kind="Git" />
                 </MenuItem.Icon>
             </MenuItem>
+            <Separator Visibility="{Binding SelectedItem.HasNoRemote, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            <MenuItem Header="Asociar Repositorio Remoto..." 
+                      Click="ProjectMenuItem_AssociateRemote_Click" 
+                      CommandParameter="{Binding SelectedItem.FullPath}"
+                      Visibility="{Binding SelectedItem.HasNoRemote, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <MenuItem.Icon>
+                    <materialDesign:PackIcon Kind="LinkVariant" Foreground="DodgerBlue" />
+                </MenuItem.Icon>
+            </MenuItem>
             <Separator />
             <MenuItem Header="Remover de la lista" Click="ProjectMenuItem_Remove_Click" CommandParameter="{Binding SelectedItem.FullPath}" Foreground="Red">
                 <MenuItem.Icon>
@@ -215,6 +224,15 @@
                                             <MenuItem Header="Abrir Consola (Git)" Click="ProjectMenuItem_OpenGitTerminal_Click" CommandParameter="{Binding FullPath}">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="Git" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator Visibility="{Binding HasNoRemote, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            <MenuItem Header="Asociar Repositorio Remoto..." 
+                                                      Click="ProjectMenuItem_AssociateRemote_Click" 
+                                                      CommandParameter="{Binding FullPath}"
+                                                      Visibility="{Binding HasNoRemote, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="LinkVariant" Foreground="DodgerBlue" />
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <Separator />

@@ -1,4 +1,4 @@
-using Chapi.Domain.Models;
+﻿using Chapi.Domain.Models;
 using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Features.ActivityOverview.ViewModels;
@@ -703,9 +703,26 @@ namespace Chapi
                 var icon = sp.Children[0] as MaterialDesignThemes.Wpf.PackIcon;
                 var textBlock = sp.Children[1] as TextBlock;
 
-                if (currentProject.Behind > 0)
+                if (!currentProject.HasRemote)
+                {
+                    _currentGitAction = GitActionState.Fetch;
+                    GitActionsComboBox.ClearValue(System.Windows.Controls.Control.BorderBrushProperty);
+                    if (icon != null)
+                    {
+                        icon.Kind = MaterialDesignThemes.Wpf.PackIconKind.CloudOffOutline;
+                        icon.ClearValue(System.Windows.Controls.Control.ForegroundProperty);
+                    }
+                    if (textBlock != null)
+                    {
+                        textBlock.Text = "Sin remoto";
+                        textBlock.ClearValue(TextBlock.ForegroundProperty);
+                    }
+                    GitActionsComboBox.ToolTip = "Este proyecto no tiene un repositorio remoto (origin) asociado.";
+                }
+                else if (currentProject.Behind > 0)
                 {
                     _currentGitAction = GitActionState.Pull;
+                    GitActionsComboBox.ToolTip = null;
                     GitActionsComboBox.BorderBrush = Brushes.DeepSkyBlue;
                     if (icon != null)
                     {
@@ -721,6 +738,7 @@ namespace Chapi
                 else if (currentProject.Ahead > 0)
                 {
                     _currentGitAction = GitActionState.Push;
+                    GitActionsComboBox.ToolTip = null;
                     GitActionsComboBox.BorderBrush = Brushes.Orange;
                     if (icon != null)
                     {
@@ -736,6 +754,7 @@ namespace Chapi
                 else
                 {
                     _currentGitAction = GitActionState.Fetch;
+                    GitActionsComboBox.ToolTip = null;
                     GitActionsComboBox.ClearValue(System.Windows.Controls.Control.BorderBrushProperty);
                     if (icon != null)
                     {
@@ -909,6 +928,44 @@ namespace Chapi
                 {
                     Msg.Assistant("Repositorio remoto asociado correctamente.");
                     await DoFetchAndRefreshAsync(isSilent: true);
+                }
+                else
+                {
+                    await DialogService.ShowConfirmDialog("Error", $"No se pudo asociar el repositorio: {result.Error}", DialogVariant.Error, DialogType.Info);
+                }
+            });
+        }
+
+        private async void ProjectMenuItem_AssociateRemote_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not MenuItem element || element.CommandParameter is not string path)
+                return;
+
+            var currentRemote = await _gitRepository.GetRemoteUrlAsync(path);
+            var prompt = string.IsNullOrWhiteSpace(currentRemote)
+                ? "Ingresa la URL remota (HTTPS o SSH) del repositorio:"
+                : $"URL remota actual: {currentRemote}\n\nIngresa la nueva URL remota:";
+
+            var (success, remoteUrl) = await DialogService.ShowInputDialog(
+                "Asociar Repositorio Remoto",
+                prompt,
+                !string.IsNullOrWhiteSpace(currentRemote) ? currentRemote : string.Empty);
+
+            if (!success || string.IsNullOrWhiteSpace(remoteUrl)) return;
+
+            await RunWithLoading(async () =>
+            {
+                var associateGitUseCase = App.ServiceProvider.GetRequiredService<UseCases.AssociateGitUseCase>();
+                var result = await associateGitUseCase.ExecuteAsync(path, remoteUrl.Trim());
+
+                if (result.IsSuccess)
+                {
+                    Msg.Assistant("Repositorio remoto asociado correctamente.");
+                    if (string.Equals(path, projectDirectory, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await DoFetchAndRefreshAsync(isSilent: true);
+                    }
+                    await UpdateProjectStatusesAsync();
                 }
                 else
                 {
