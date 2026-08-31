@@ -114,6 +114,35 @@ public partial class ChangesView : UserControl
         }
     }
 
+    private void ProjectMenuItem_OpenAntigravity_Click(object sender, RoutedEventArgs e)
+    {
+        string path = GetPathFromMenuItem(sender);
+        if (string.IsNullOrEmpty(path)) return;
+
+        try
+        {
+            var agyCli = FindAntigravityCli();
+            if (agyCli != null)
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = agyCli,
+                    Arguments = $"--reuse-window \"{path}\"",
+                    UseShellExecute = true,
+                    CreateNoWindow = true
+                });
+            }
+            else
+            {
+                MessageBox.Show("No se encontró la instalación de Antigravity IDE.");
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error al abrir en Antigravity: {ex.Message}");
+        }
+    }
+
     private void ProjectMenuItem_OpenVSCode_Click(object sender, RoutedEventArgs e)
     {
         string path = GetPathFromMenuItem(sender);
@@ -124,7 +153,7 @@ public partial class ChangesView : UserControl
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "code",
-                Arguments = $"\"{path}\"",
+                Arguments = $"--reuse-window \"{path}\"",
                 UseShellExecute = true,
                 CreateNoWindow = true
             });
@@ -142,22 +171,58 @@ public partial class ChangesView : UserControl
 
         try
         {
-            string searchDir = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
-            var slnFile = Directory.GetFiles(searchDir, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
-
-            if (slnFile != null)
+            string devenvPath = GetVisualStudioPath(null);
+            if (File.Exists(devenvPath) && File.Exists(path))
             {
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = slnFile,
+                    FileName = devenvPath,
+                    Arguments = $"/Edit \"{path}\"",
                     UseShellExecute = true
                 });
+                return;
             }
+
+            // Si es archivo o solución, abrir con el sistema
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Error al abrir Visual Studio: {ex.Message}");
         }
+    }
+
+    private void ProjectMenuItem_OpenExplorer_Click(object sender, RoutedEventArgs e)
+    {
+        string path = GetPathFromMenuItem(sender);
+        if (string.IsNullOrEmpty(path)) return;
+
+        try
+        {
+            if (File.Exists(path))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{path}\"",
+                    UseShellExecute = true
+                });
+            }
+            else if (Directory.Exists(path))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"\"{path}\"",
+                    UseShellExecute = true
+                });
+            }
+        }
+        catch { }
     }
 
     private void StashView_RestoreButton_Click(object sender, RoutedEventArgs e)
@@ -239,125 +304,190 @@ public partial class ChangesView : UserControl
         string fullPath = GetAbsoluteChangePath(projectPath, filePath);
         string normalizedGitPath = ToGitStylePath(filePath);
 
-        bool isDotNet = IsDotNetProject(projectPath, normalizedGitPath);
-
-        if (isDotNet)
+        string? slnName = null;
+        try
         {
-            try
+            var slnFile = Directory.EnumerateFiles(projectPath, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+            if (slnFile != null)
             {
-                var slnFile = Directory.EnumerateFiles(projectPath, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
-                if (slnFile != null)
-                {
-                    projectName = Path.GetFileNameWithoutExtension(slnFile);
-                }
+                slnName = Path.GetFileNameWithoutExtension(slnFile);
             }
-            catch { /* Fallback al nombre del directorio */ }
         }
-
-        var processes = System.Diagnostics.Process.GetProcesses();
-
-        var activeEditor = processes
-            .Where(p =>
-            {
-                try
-                {
-                    bool isMajorEditor = p.ProcessName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) ||
-                                         p.ProcessName.Equals("Code", StringComparison.OrdinalIgnoreCase) ||
-                                         p.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase);
-
-                    if (!isMajorEditor || string.IsNullOrEmpty(p.MainWindowTitle)) return false;
-
-                    if (p.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return p.MainWindowTitle.Contains(projectName, StringComparison.OrdinalIgnoreCase);
-                    }
-
-                    return p.MainWindowTitle.Contains(projectName, StringComparison.OrdinalIgnoreCase);
-                }
-                catch { return false; }
-            })
-            .OrderBy(p =>
-            {
-                if (isDotNet)
-                {
-                    if (p.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase)) return 0;
-                    if (p.ProcessName.Contains("Antigravity")) return 1;
-                    return 2; // Code
-                }
-                else
-                {
-                    if (p.ProcessName.Contains("Antigravity")) return 0;
-                    if (p.ProcessName.Equals("Code", StringComparison.OrdinalIgnoreCase)) return 1;
-                    return 2;
-                }
-            })
-            .FirstOrDefault();
+        catch { }
 
         bool isWsl = projectPath.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) ||
                      projectPath.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase);
 
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var agyExePath = Path.Combine(localAppData, "Programs", "Antigravity", "Antigravity.exe");
+        // Detectar procesos de editores en ejecución
+        var processes = System.Diagnostics.Process.GetProcesses();
+        var matchingEditors = new List<(System.Diagnostics.Process Process, string EditorType, int Priority)>();
 
-        if (isDotNet && (activeEditor == null || activeEditor.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase)))
+        foreach (var p in processes)
         {
             try
             {
-                string? slnFile = null;
-                string? currentDir = Path.GetDirectoryName(fullPath);
+                string procName = p.ProcessName;
+                string title = p.MainWindowTitle ?? string.Empty;
 
-                while (!string.IsNullOrEmpty(currentDir) && currentDir.StartsWith(projectPath, StringComparison.OrdinalIgnoreCase))
+                bool isAntigravity = procName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase);
+                bool isVsCode = procName.Equals("Code", StringComparison.OrdinalIgnoreCase) || procName.Equals("Code - Insiders", StringComparison.OrdinalIgnoreCase);
+                bool isCursor = procName.Equals("Cursor", StringComparison.OrdinalIgnoreCase);
+                bool isWindsurf = procName.Equals("Windsurf", StringComparison.OrdinalIgnoreCase);
+                bool isVs = procName.Equals("devenv", StringComparison.OrdinalIgnoreCase);
+                bool isRider = procName.StartsWith("rider", StringComparison.OrdinalIgnoreCase);
+
+                if (!isAntigravity && !isVsCode && !isCursor && !isWindsurf && !isVs && !isRider)
+                    continue;
+
+                int matchScore = 10;
+                if (!string.IsNullOrEmpty(title))
                 {
-                    slnFile = Directory.EnumerateFiles(currentDir, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
-                    if (slnFile != null) break;
-                    currentDir = Path.GetDirectoryName(currentDir);
+                    if (title.Contains(projectName, StringComparison.OrdinalIgnoreCase) ||
+                        (slnName != null && title.Contains(slnName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        matchScore = 100;
+                    }
+                    else if (title.Contains(Path.GetFileName(filePath), StringComparison.OrdinalIgnoreCase))
+                    {
+                        matchScore = 80;
+                    }
                 }
 
-                if (slnFile == null)
-                    slnFile = Directory.EnumerateFiles(projectPath, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                string editorType = isAntigravity ? "antigravity" :
+                                   isCursor ? "cursor" :
+                                   isWindsurf ? "windsurf" :
+                                   isVs ? "devenv" :
+                                   isRider ? "rider" : "vscode";
 
-                if (slnFile == null)
-                    slnFile = Directory.EnumerateFiles(projectPath, "*.sln", SearchOption.AllDirectories).FirstOrDefault();
+                matchingEditors.Add((p, editorType, matchScore));
+            }
+            catch { }
+        }
 
-                if (slnFile != null)
+        var bestEditor = matchingEditors
+            .OrderByDescending(e => e.Priority)
+            .FirstOrDefault();
+
+        // Si encontramos una instancia coincidente, aseguramos traer su ventana al frente
+        if (bestEditor.Process != null)
+        {
+            try
+            {
+                var hwnd = bestEditor.Process.MainWindowHandle;
+                if (hwnd != IntPtr.Zero)
                 {
-                    string devenvPath = GetVisualStudioPath(activeEditor);
-
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = devenvPath,
-                        Arguments = $"/Edit \"{fullPath}\" /Command \"Edit.GoTo {lineNum}\"",
-                        UseShellExecute = true
-                    });
-                    return;
+                    ShowWindow(hwnd, 9); // SW_RESTORE
+                    SetForegroundWindow(hwnd);
                 }
             }
             catch { }
         }
 
-        if (activeEditor != null && activeEditor.ProcessName.Equals("devenv", StringComparison.OrdinalIgnoreCase))
+        // 1. Si Visual Studio está abierto con el proyecto/solución
+        if (bestEditor.EditorType == "devenv" && bestEditor.Priority >= 80)
         {
-            string devenvPath = GetVisualStudioPath(activeEditor);
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            string devenvPath = GetVisualStudioPath(bestEditor.Process);
+            try
             {
-                FileName = devenvPath,
-                Arguments = $"/Edit \"{fullPath}\" /Command \"Edit.GoTo {lineNum}\"",
-                UseShellExecute = true
-            });
-        }
-        else
-        {
-            string editorExe = "code";
-            if (activeEditor?.ProcessName.Contains("Antigravity", StringComparison.OrdinalIgnoreCase) == true ||
-                (activeEditor == null && File.Exists(agyExePath)))
-            {
-                editorExe = agyExePath;
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = devenvPath,
+                    Arguments = $"/Edit \"{fullPath}\" /Command \"Edit.GoTo {lineNum}\"",
+                    UseShellExecute = true
+                });
+                return;
             }
+            catch { }
+        }
 
-            string arguments = "";
-            bool isCodeEditor = editorExe.Equals("code", StringComparison.OrdinalIgnoreCase);
+        // 2. Si Antigravity está en ejecución
+        if (bestEditor.EditorType == "antigravity")
+        {
+            var agyCli = FindAntigravityCli();
+            if (agyCli != null && LaunchVsCodeStyleCli(agyCli, projectPath, normalizedGitPath, fullPath, lineNum, isWsl))
+            {
+                return;
+            }
+        }
 
-            if (isWsl && isCodeEditor)
+        // 3. Si Cursor está en ejecución
+        if (bestEditor.EditorType == "cursor")
+        {
+            if (LaunchVsCodeStyleCli("cursor", projectPath, normalizedGitPath, fullPath, lineNum, isWsl))
+            {
+                return;
+            }
+        }
+
+        // 4. Si Windsurf está en ejecución
+        if (bestEditor.EditorType == "windsurf")
+        {
+            if (LaunchVsCodeStyleCli("windsurf", projectPath, normalizedGitPath, fullPath, lineNum, isWsl))
+            {
+                return;
+            }
+        }
+
+        // 5. Si Rider está en ejecución
+        if (bestEditor.EditorType == "rider")
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "rider64",
+                    Arguments = $"--line {lineNum} \"{fullPath}\"",
+                    UseShellExecute = true,
+                    CreateNoWindow = true
+                });
+                return;
+            }
+            catch { }
+        }
+
+        // 6. Si VS Code está en ejecución o como fallback general (--reuse-window para no abrir nueva instancia)
+        if (bestEditor.EditorType == "vscode" || bestEditor.Process != null)
+        {
+            if (LaunchVsCodeStyleCli("code", projectPath, normalizedGitPath, fullPath, lineNum, isWsl))
+            {
+                return;
+            }
+        }
+
+        // 7. Fallback: intentar Antigravity CLI o VS Code CLI
+        var fallbackAgy = FindAntigravityCli();
+        if (fallbackAgy != null && LaunchVsCodeStyleCli(fallbackAgy, projectPath, normalizedGitPath, fullPath, lineNum, isWsl))
+        {
+            return;
+        }
+
+        LaunchVsCodeStyleCli("code", projectPath, normalizedGitPath, fullPath, lineNum, isWsl);
+    }
+
+    private static string? FindAntigravityCli()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string[] candidates = {
+            Path.Combine(localAppData, "Programs", "Antigravity IDE", "bin", "antigravity-ide.cmd"),
+            Path.Combine(localAppData, "Programs", "Antigravity", "bin", "antigravity.cmd"),
+            Path.Combine(localAppData, "Programs", "Antigravity", "antigravity.cmd"),
+            Path.Combine(localAppData, "Programs", "Antigravity IDE", "antigravity-ide.cmd")
+        };
+
+        foreach (var path in candidates)
+        {
+            if (File.Exists(path)) return path;
+        }
+
+        return null;
+    }
+
+    private static bool LaunchVsCodeStyleCli(string cliExe, string projectPath, string normalizedGitPath, string fullPath, int lineNum, bool isWsl)
+    {
+        try
+        {
+            string arguments;
+            if (isWsl)
             {
                 var parts = projectPath.Split('\\', StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length >= 2)
@@ -368,19 +498,30 @@ public partial class ChangesView : UserControl
                     string remoteUri = $"vscode-remote://wsl+{distro}{EscapeVsCodeRemotePath(fileLinuxPath)}";
                     arguments = $"--reuse-window --goto \"{remoteUri}:{lineNum}\"";
                 }
+                else
+                {
+                    arguments = $"--reuse-window --goto \"{fullPath}:{lineNum}\"";
+                }
             }
             else
             {
                 arguments = $"--reuse-window --goto \"{fullPath}:{lineNum}\"";
             }
 
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            var startInfo = new System.Diagnostics.ProcessStartInfo
             {
-                FileName = editorExe,
+                FileName = cliExe,
                 Arguments = arguments,
                 UseShellExecute = true,
                 CreateNoWindow = true
-            });
+            };
+
+            System.Diagnostics.Process.Start(startInfo);
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -487,4 +628,10 @@ public partial class ChangesView : UserControl
 
         return string.Join("/", parts);
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 }

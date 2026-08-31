@@ -443,20 +443,46 @@ public class ConflictResolutionViewModel : ViewModelBase
         var fullPath = !string.IsNullOrWhiteSpace(SelectedConflict.FullPath)
             ? SelectedConflict.FullPath
             : Path.Combine(_projectPath, SelectedConflict.FilePath);
-        try
-        {
-            Process.Start(new ProcessStartInfo { FileName = "code", Arguments = $"\"{fullPath}\"", UseShellExecute = true });
-        }
-        catch
+
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string[] agyCandidates = {
+            Path.Combine(localAppData, "Programs", "Antigravity IDE", "bin", "antigravity-ide.cmd"),
+            Path.Combine(localAppData, "Programs", "Antigravity", "bin", "antigravity.cmd"),
+            Path.Combine(localAppData, "Programs", "Antigravity", "antigravity.cmd"),
+            Path.Combine(localAppData, "Programs", "Antigravity IDE", "antigravity-ide.cmd")
+        };
+        string? agyCli = agyCandidates.FirstOrDefault(File.Exists);
+
+        string[] editorCommands = {
+            agyCli ?? "antigravity-ide",
+            "code",
+            "cursor",
+            "windsurf"
+        };
+
+        foreach (var cmd in editorCommands)
         {
             try
             {
-                Process.Start(new ProcessStartInfo { FileName = "notepad", Arguments = $"\"{fullPath}\"", UseShellExecute = true });
+                var p = Process.Start(new ProcessStartInfo
+                {
+                    FileName = cmd,
+                    Arguments = $"--reuse-window \"{fullPath}\"",
+                    UseShellExecute = true,
+                    CreateNoWindow = true
+                });
+                if (p != null) return;
             }
-            catch (Exception ex)
-            {
-                Msg.Assistant($"No se pudo abrir editor externo: {ex.Message}");
-            }
+            catch { }
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = "notepad", Arguments = $"\"{fullPath}\"", UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Msg.Assistant($"No se pudo abrir editor externo: {ex.Message}");
         }
     }
 

@@ -365,6 +365,11 @@
                                                             <materialDesign:PackIcon Kind="FolderOpenOutline" />
                                                         </MenuItem.Icon>
                                                     </MenuItem>
+                                                    <MenuItem Header="Open in Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="Atom" Foreground="{DynamicResource PrimaryHueMidBrush}" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
                                                     <MenuItem Header="Open in Visual Studio Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding}">
                                                         <MenuItem.Icon>
                                                             <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />

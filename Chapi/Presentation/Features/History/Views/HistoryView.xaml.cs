@@ -21,11 +21,9 @@ public partial class HistoryView : UserControl
         {
             if (fe.ContextMenu != null)
             {
-                var undoItem = fe.ContextMenu.Items[0] as MenuItem; // Asumimos que es el primero por diseño
+                var undoItem = fe.ContextMenu.Items[0] as MenuItem;
                 if (undoItem != null && undoItem.Name == "ResetSoftMenuItem")
                 {
-                    // Solo permitir Undo si el commit NO está sincronizado (es local)
-                    // Y es el último commit (index 0) - simplificación para evitar conflictos
                     undoItem.IsEnabled = !commit.IsSynced;
                     undoItem.ToolTip = undoItem.IsEnabled ? "Deshacer este commit manteniendo cambios" : "No se puede deshacer un commit ya subido al servidor";
                 }
@@ -44,8 +42,6 @@ public partial class HistoryView : UserControl
             }
 
             _viewModel?.ResetSoftCommand.Execute(commit);
-
-            // Actualizar estado global (flechitas y botón push)
             MainWindow.Instance?.Dispatcher.InvokeAsync(async () => await MainWindow.Instance.UpdateProjectStatusesAsync());
         }
     }
@@ -65,6 +61,7 @@ public partial class HistoryView : UserControl
             _viewModel?.CreateTagCommand.Execute(hash);
         }
     }
+
     private void ProjectMenuItem_OpenExplorer_Click(object sender, RoutedEventArgs e)
     {
         string path = GetPathFromMenuItem(sender);
@@ -72,7 +69,6 @@ public partial class HistoryView : UserControl
 
         try
         {
-            // Normalizar ruta para Windows
             path = path.Replace('/', '\\');
 
             if (File.Exists(path))
@@ -86,8 +82,6 @@ public partial class HistoryView : UserControl
             }
             else
             {
-                // Si el archivo no existe (ej. fue borrado en commits posteriores), 
-                // intentar abrir la carpeta contenedora
                 string dir = Path.GetDirectoryName(path);
                 if (Directory.Exists(dir))
                 {
@@ -102,16 +96,58 @@ public partial class HistoryView : UserControl
         catch { }
     }
 
+    private void ProjectMenuItem_OpenAntigravity_Click(object sender, RoutedEventArgs e)
+    {
+        string path = GetPathFromMenuItem(sender);
+        if (string.IsNullOrEmpty(path)) return;
+
+        try
+        {
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string[] agyCandidates = {
+                Path.Combine(localAppData, "Programs", "Antigravity IDE", "bin", "antigravity-ide.cmd"),
+                Path.Combine(localAppData, "Programs", "Antigravity", "bin", "antigravity.cmd"),
+                Path.Combine(localAppData, "Programs", "Antigravity", "antigravity.cmd"),
+                Path.Combine(localAppData, "Programs", "Antigravity IDE", "antigravity-ide.cmd")
+            };
+            string? agyCli = agyCandidates.FirstOrDefault(File.Exists);
+
+            if (agyCli != null)
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = agyCli,
+                    Arguments = $"--reuse-window \"{path}\"",
+                    UseShellExecute = true,
+                    CreateNoWindow = true
+                });
+            }
+            else
+            {
+                MessageBox.Show("No se encontró la instalación de Antigravity IDE.");
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error al abrir en Antigravity: {ex.Message}");
+        }
+    }
+
     private void ProjectMenuItem_OpenVSCode_Click(object sender, RoutedEventArgs e)
     {
         string path = GetPathFromMenuItem(sender);
         if (string.IsNullOrEmpty(path)) return;
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        try
         {
-            FileName = "code",
-            Arguments = $"\"{path}\"",
-            UseShellExecute = true
-        });
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "code",
+                Arguments = $"--reuse-window \"{path}\"",
+                UseShellExecute = true,
+                CreateNoWindow = true
+            });
+        }
+        catch { }
     }
 
     private void ProjectMenuItem_OpenVisualStudio_Click(object sender, RoutedEventArgs e)
@@ -121,27 +157,11 @@ public partial class HistoryView : UserControl
 
         try
         {
-            // Buscar .sln en la carpeta del archivo o hacia arriba
-            string searchDir = Directory.Exists(path) ? path : System.IO.Path.GetDirectoryName(path);
-            var slnFile = Directory.GetFiles(searchDir, "*.sln", System.IO.SearchOption.TopDirectoryOnly).FirstOrDefault();
-
-            if (slnFile != null)
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = slnFile,
-                    UseShellExecute = true
-                });
-            }
-            else if (searchDir != null && !string.IsNullOrEmpty(_viewModel?.ProjectPath))
-            {
-                // Reintentar en la raiz del proyecto si no se encontro en la subcarpeta
-                slnFile = Directory.GetFiles(_viewModel.ProjectPath, "*.sln", System.IO.SearchOption.TopDirectoryOnly).FirstOrDefault();
-                if (slnFile != null)
-                {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = slnFile, UseShellExecute = true });
-                }
-            }
+                FileName = path,
+                UseShellExecute = true
+            });
         }
         catch { }
     }
@@ -189,7 +209,6 @@ public partial class HistoryView : UserControl
                 }
                 else
                 {
-                    // Fallback genérico para otros servidores git
                     url = $"{remoteUrl}/commit/{hash}";
                 }
 
@@ -217,5 +236,3 @@ public partial class HistoryView : UserControl
         return null;
     }
 }
-
-

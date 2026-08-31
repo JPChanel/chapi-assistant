@@ -399,6 +399,11 @@
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <Separator />
+                                            <MenuItem Header="Abrir en Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="Atom" Foreground="{DynamicResource PrimaryHueMidBrush}" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
                                             <MenuItem Header="Abrir en VS Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding}">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
@@ -407,6 +412,12 @@
                                             <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding}">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="VisualStudio" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator />
+                                            <MenuItem Header="Mostrar en el Explorador" Click="ProjectMenuItem_OpenExplorer_Click" CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="FolderOpenOutline" />
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                         </ContextMenu>
