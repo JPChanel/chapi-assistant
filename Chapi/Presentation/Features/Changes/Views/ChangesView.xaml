@@ -111,6 +111,32 @@
                         </Grid>
                     </Border>
 
+                    <!-- Banner de Conflictos -->
+                    <Border DockPanel.Dock="Top"
+                            Visibility="{Binding HasConflicts, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Background="{DynamicResource StatusWarningMutedBackgroundBrush}"
+                            BorderBrush="{DynamicResource StatusWarningBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="8,6"
+                            Margin="8,2,8,6">
+                        <DockPanel LastChildFill="True">
+                            <Button DockPanel.Dock="Right"
+                                    Content="Resolver"
+                                    Command="{Binding ResolveConflictsCommand}"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"
+                                    Background="{DynamicResource StatusWarningBrush}"
+                                    Foreground="{DynamicResource ActionTextOnAccentBrush}"
+                                    Height="24"
+                                    Padding="8,0"
+                                    FontSize="11"/>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <materialDesign:PackIcon Kind="AlertOctagon" Foreground="{DynamicResource StatusWarningBrush}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock Text="{Binding ConflictsCount, StringFormat='{}{0} conflicto(s) pendiente(s)'}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
                     <!-- SECCION DE COMMIT -->
                     <Border x:Name="ChangesFooterPanel" DockPanel.Dock="Bottom" Padding="12,10" Margin="0"  BorderBrush="{x:Null}" BorderThickness="0">
                         <StackPanel>

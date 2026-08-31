@@ -93,6 +93,11 @@ public class ConflictResolutionViewModel : ViewModelBase
 
             if (CurrentBlock.ReplaceWholeFile)
             {
+                if (SelectedConflict?.IsExternallyResolved == true)
+                {
+                    return "El archivo ya fue guardado en disco sin marcadores de conflicto de Git.";
+                }
+
                 var structuralRange = GetStructuralRange();
                 if (structuralRange == null)
                 {
@@ -193,9 +198,23 @@ public class ConflictResolutionViewModel : ViewModelBase
         }
     }
 
-    public string ConflictKindText => SelectedConflict?.HasInlineMarkers == false
-        ? "Conflicto estructural detectado. Puedes elegir uno de los lados o editar el resultado final."
-        : "Conflicto inline detectado. Revisa ambos lados y define el bloque final.";
+    public string ConflictKindText
+    {
+        get
+        {
+            if (SelectedConflict?.IsExternallyResolved == true)
+            {
+                return "Conflicto resuelto en editor externo (sin marcadores en disco). Revisa el contenido final y pulsa 'Guardar archivo resuelto'.";
+            }
+
+            if (SelectedConflict?.HasInlineMarkers == false)
+            {
+                return "Conflicto estructural detectado. Puedes elegir uno de los lados o editar el resultado final.";
+            }
+
+            return "Conflicto inline detectado. Revisa ambos lados y define el bloque final.";
+        }
+    }
 
     public bool CanSaveCurrentConflict => SelectedConflict?.IsResolved == true && SelectedConflict?.IsSaved != true;
 
@@ -351,6 +370,10 @@ public class ConflictResolutionViewModel : ViewModelBase
             if (!SelectedConflict.HasInlineMarkers)
             {
                 finalContent = SelectedConflict.Blocks.FirstOrDefault()?.ResolvedContent ?? string.Empty;
+                if (string.IsNullOrEmpty(finalContent) && File.Exists(fullPath))
+                {
+                    finalContent = await File.ReadAllTextAsync(fullPath);
+                }
             }
             else
             {

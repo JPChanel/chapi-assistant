@@ -31,6 +31,11 @@ public class GitConflict : INotifyPropertyChanged
     public bool HasInlineMarkers { get; set; } = true;
 
     /// <summary>
+    /// Indica si el archivo fue editado externamente sin marcadores de conflicto restantes en disco.
+    /// </summary>
+    public bool IsExternallyResolved { get; set; }
+
+    /// <summary>
     /// Indica si todos los bloques de conflicto han sido resueltos.
     /// </summary>
     public bool IsResolved => Blocks.All(b => b.IsResolved);
@@ -54,7 +59,16 @@ public class GitConflict : INotifyPropertyChanged
         }
     }
 
-    public string StatusText => IsSaved ? "Resuelto" : "Pendiente";
+    public string StatusText
+    {
+        get
+        {
+            if (IsSaved) return "Guardado en Git";
+            if (IsExternallyResolved) return "Resuelto en disco (Sin marcadores)";
+            if (IsResolved) return "Resuelto";
+            return "Pendiente";
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

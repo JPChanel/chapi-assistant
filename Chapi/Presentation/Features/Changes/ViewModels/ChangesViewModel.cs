@@ -1,5 +1,6 @@
 using Chapi.Application.UseCases.Git;
 using Chapi.Domain.Entities;
+using Chapi.Presentation.Features.Git.Models;
 using CommunityToolkit.Mvvm.Input;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Shared.Tasks;
@@ -34,6 +35,7 @@ public class ChangesViewModel : ViewModelBase
     private readonly PushChangesUseCase _pushChangesUseCase;
     private readonly Domain.Interfaces.IGitAuthProviderFactory _authFactory;
     private readonly Domain.Interfaces.ICredentialStorageService _credentialStorage;
+    private readonly Presentation.Features.Git.Workflows.ConflictResolutionWorkflow _conflictResolutionWorkflow;
     private readonly Chapi.Infrastructure.Git.GitChangeWatcher _changeWatcher;
     private readonly Chapi.Infrastructure.Git.GitChangesCache _changesCache;
     private readonly IAsyncRelayCommand _connectAccountCommand;
@@ -80,7 +82,8 @@ public class ChangesViewModel : ViewModelBase
         Domain.Interfaces.IGitAuthProviderFactory authFactory,
         Domain.Interfaces.ICredentialStorageService credentialStorage,
         PushChangesUseCase pushChangesUseCase,
-        Chapi.Application.UseCases.AI.GenerateCommitMessageUseCase generateCommitMessageUseCase)
+        Chapi.Application.UseCases.AI.GenerateCommitMessageUseCase generateCommitMessageUseCase,
+        Presentation.Features.Git.Workflows.ConflictResolutionWorkflow conflictResolutionWorkflow)
     {
         _loadChangesUseCase = loadChangesUseCase;
         _commitChangesUseCase = commitChangesUseCase;
@@ -95,6 +98,7 @@ public class ChangesViewModel : ViewModelBase
         _credentialStorage = credentialStorage;
         _pushChangesUseCase = pushChangesUseCase;
         _generateCommitMessageUseCase = generateCommitMessageUseCase;
+        _conflictResolutionWorkflow = conflictResolutionWorkflow;
 
         // Inicializar watcher y cache (como GitHub Desktop)
         _changeWatcher = new Chapi.Infrastructure.Git.GitChangeWatcher();
@@ -122,6 +126,7 @@ public class ChangesViewModel : ViewModelBase
         RestoreFileFromStashCommand = new AsyncRelayCommand<ChangeItemViewModel?>(RestoreFileFromStashAsync);
         GenerateCommitMessageCommand = new AsyncRelayCommand(GenerateCommitMessageAsync);
         DiscardAllCommand = new AsyncRelayCommand(DiscardAllAsync);
+        ResolveConflictsCommand = new AsyncRelayCommand(ResolveConflictsAsync, () => HasConflicts);
         _connectAccountCommand = new AsyncRelayCommand(ConnectAccountAsync, () => !IsLoading);
 
         // Suscribirse al evento de actualizacion de avatares
@@ -602,6 +607,23 @@ public class ChangesViewModel : ViewModelBase
 
     public bool HasPendingChanges => Changes.Count > 0;
 
+    public bool HasConflicts => Changes.Any(c => c.ShortStatus == "U");
+
+    public int ConflictsCount => Changes.Count(c => c.ShortStatus == "U");
+
+    public IAsyncRelayCommand ResolveConflictsCommand { get; }
+
+    public async Task ResolveConflictsAsync()
+    {
+        if (string.IsNullOrEmpty(ProjectPath)) return;
+
+        await _conflictResolutionWorkflow.HandleAsync(ProjectPath, async () =>
+        {
+            await LoadChangesAsync(bypassThrottle: true, invalidateCache: true, refreshMetadata: true, forceMetadataRefresh: false);
+            await ForceRefreshAsync();
+        });
+    }
+
     public int Ahead
     {
         get => _ahead;
@@ -1021,6 +1043,9 @@ public class ChangesViewModel : ViewModelBase
                     OnPropertyChanged(nameof(AreAllSelected));
                     OnPropertyChanged(nameof(SelectedCount));
                     OnPropertyChanged(nameof(TotalChangesCount));
+                    OnPropertyChanged(nameof(HasConflicts));
+                    OnPropertyChanged(nameof(ConflictsCount));
+                    ResolveConflictsCommand.NotifyCanExecuteChanged();
 
                     TriggerMetadataRefreshIfNeeded(refreshMetadata, forceMetadataRefresh, sameProjectAsLastLoad, token);
                     await LoadDiffAsync();
@@ -1097,6 +1122,9 @@ public class ChangesViewModel : ViewModelBase
                 OnPropertyChanged(nameof(AreAllSelected));
                 OnPropertyChanged(nameof(SelectedCount));
                 OnPropertyChanged(nameof(TotalChangesCount));
+                OnPropertyChanged(nameof(HasConflicts));
+                OnPropertyChanged(nameof(ConflictsCount));
+                ResolveConflictsCommand.NotifyCanExecuteChanged();
                 IsLoading = false;
             });
 
@@ -2004,9 +2032,23 @@ public class ChangesViewModel : ViewModelBase
         }
         else
         {
-            await DialogService.ShowConfirmDialog("Error en Stash",
-                $"No se pudo aplicar el stash: {result.Error}\n\nEs posible que existan conflictos con tus cambios actuales.",
-                Chapi.Presentation.Shared.Dialogs.Views.DialogVariant.Error, DialogType.Info);
+            _changesCache.Invalidate(ProjectPath);
+            IsStashViewVisible = false;
+            SelectedStash = null;
+            await LoadChangesAsync(bypassThrottle: true, invalidateCache: true, refreshMetadata: true, forceMetadataRefresh: false);
+            await LoadStashesAsync();
+
+            if (PullChangesUseCase.IsConflictError(result.Error) ||
+                result.Error?.Contains("conflict", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                await ResolveConflictsAsync();
+            }
+            else
+            {
+                await DialogService.ShowConfirmDialog("Error en Stash",
+                    $"No se pudo aplicar el stash: {result.Error}\n\nEs posible que existan conflictos con tus cambios actuales.",
+                    Chapi.Presentation.Shared.Dialogs.Views.DialogVariant.Error, DialogType.Info);
+            }
         }
     }
 
@@ -2027,6 +2069,7 @@ public class ChangesViewModel : ViewModelBase
         using var silencer = _changeWatcher.Silence();
         int restoredCount = 0;
         var currentBranch = await _gitRepository.GetCurrentBranchAsync(ProjectPath);
+        bool hadConflict = false;
 
         while (true)
         {
@@ -2041,9 +2084,15 @@ public class ChangesViewModel : ViewModelBase
             var result = await _stashPopUseCase.ExecuteAsync(ProjectPath, index);
             if (!result.IsSuccess)
             {
-                await DialogService.ShowConfirmDialog("Conflicto al restaurar stash",
-                    $"Se restauraron {restoredCount} stash(es). Ocurrió un conflicto al aplicar el siguiente stash: {result.Error}\n\nResuelve los conflictos en tus archivos antes de continuar.",
-                    DialogVariant.Warning, DialogType.Info);
+                hadConflict = PullChangesUseCase.IsConflictError(result.Error) ||
+                              result.Error?.Contains("conflict", StringComparison.OrdinalIgnoreCase) == true;
+
+                if (!hadConflict)
+                {
+                    await DialogService.ShowConfirmDialog("Error al restaurar stash",
+                        $"Se restauraron {restoredCount} stash(es). Ocurrió un error al aplicar el siguiente stash: {result.Error}",
+                        DialogVariant.Warning, DialogType.Info);
+                }
                 break;
             }
             restoredCount++;
@@ -2054,6 +2103,11 @@ public class ChangesViewModel : ViewModelBase
         SelectedStash = null;
         await LoadChangesAsync(bypassThrottle: true, invalidateCache: true, refreshMetadata: true, forceMetadataRefresh: false);
         await LoadStashesAsync();
+
+        if (hadConflict)
+        {
+            await ResolveConflictsAsync();
+        }
     }
 
     private async Task RestoreFileFromStashAsync(ChangeItemViewModel? item)

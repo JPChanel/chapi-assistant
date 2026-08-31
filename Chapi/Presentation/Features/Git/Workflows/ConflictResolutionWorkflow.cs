@@ -16,7 +16,7 @@ public sealed class ConflictResolutionWorkflow
         _serviceProvider = serviceProvider;
     }
 
-    public async Task HandleAsync(GitWorkflowContext context)
+    public async Task HandleAsync(string projectPath, Func<Task>? onResolved = null)
     {
         try
         {
@@ -24,7 +24,7 @@ public sealed class ConflictResolutionWorkflow
             var resolveConflictUseCase = _serviceProvider.GetRequiredService<UseCases.ResolveConflictUseCase>();
 
             var viewModel = new ConflictResolutionViewModel(
-                context.ProjectPath,
+                projectPath,
                 getConflictsUseCase,
                 resolveConflictUseCase);
 
@@ -34,9 +34,10 @@ public sealed class ConflictResolutionWorkflow
             {
                 var dialog = new ConflictResolutionDialog(viewModel);
                 await Chapi.Presentation.Shared.Dialogs.DialogService.ShowDialog(dialog);
-                await context.LoadChangesAsync();
-                await context.LoadHistoryAsync();
-                await context.UpdateProjectStatusesAsync();
+                if (onResolved != null)
+                {
+                    await onResolved();
+                }
             }
             else
             {
@@ -47,5 +48,15 @@ public sealed class ConflictResolutionWorkflow
         {
             Msg.Assistant($"Error abriendo ventana de conflictos: {ex.Message}");
         }
+    }
+
+    public Task HandleAsync(GitWorkflowContext context)
+    {
+        return HandleAsync(context.ProjectPath, async () =>
+        {
+            await context.LoadChangesAsync();
+            await context.LoadHistoryAsync();
+            await context.UpdateProjectStatusesAsync();
+        });
     }
 }

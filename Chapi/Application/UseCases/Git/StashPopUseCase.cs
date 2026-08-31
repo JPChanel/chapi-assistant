@@ -1,4 +1,4 @@
-﻿using Chapi.Domain.Common;
+using Chapi.Domain.Common;
 using Chapi.Domain.Interfaces;
 
 namespace Chapi.Application.UseCases.Git;
@@ -35,10 +35,11 @@ public class StashPopUseCase
 
             if (!result.IsSuccess)
             {
-                if (result.Error.Contains("conflict", StringComparison.OrdinalIgnoreCase))
+                if (result.Error.Contains("conflict", StringComparison.OrdinalIgnoreCase) ||
+                    result.Error.Equals("CONFLICTO_DETECTADO", StringComparison.OrdinalIgnoreCase))
                 {
                     _notificationService.ShowWarning("⚠️ Conflictos detectados al aplicar stash");
-                    return Result.Fail("Conflictos detectados. Resuelve los conflictos manualmente.");
+                    return Result.Fail("CONFLICTO_DETECTADO");
                 }
                 return result;
             }

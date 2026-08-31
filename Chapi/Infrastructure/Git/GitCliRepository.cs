@@ -1443,8 +1443,46 @@ public class GitCliRepository : IGitRepository
 
             if (!gc.Blocks.Any())
             {
-                gc.Blocks = await BuildWholeFileConflictBlockAsync(projectPath, filePath, absolutePath);
-                gc.HasInlineMarkers = false;
+                if (File.Exists(absolutePath))
+                {
+                    string diskContent;
+                    try
+                    {
+                        diskContent = await File.ReadAllTextAsync(absolutePath);
+                    }
+                    catch
+                    {
+                        diskContent = string.Empty;
+                    }
+
+                    var localContentTask = GetConflictStageContentAsync(projectPath, 2, filePath);
+                    var incomingContentTask = GetConflictStageContentAsync(projectPath, 3, filePath);
+                    await Task.WhenAll(localContentTask, incomingContentTask);
+
+                    var localContent = await localContentTask;
+                    var incomingContent = await incomingContentTask;
+
+                    gc.HasInlineMarkers = false;
+                    gc.IsExternallyResolved = true;
+                    gc.Blocks = new List<ConflictBlock>
+                    {
+                        new()
+                        {
+                            StartLine = 1,
+                            SeparatorLine = 1,
+                            EndLine = 1,
+                            LocalContent = !string.IsNullOrWhiteSpace(localContent) ? localContent : diskContent,
+                            IncomingContent = !string.IsNullOrWhiteSpace(incomingContent) ? incomingContent : diskContent,
+                            ResolvedContent = diskContent,
+                            ReplaceWholeFile = true
+                        }
+                    };
+                }
+                else
+                {
+                    gc.Blocks = await BuildWholeFileConflictBlockAsync(projectPath, filePath, absolutePath);
+                    gc.HasInlineMarkers = false;
+                }
             }
 
             conflicts.Add(gc);
