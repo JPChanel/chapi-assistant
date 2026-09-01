@@ -230,6 +230,7 @@ namespace Chapi
             view.SortDescriptions.Add(new SortDescription(nameof(ProjectViewModel.IsPlaceholder), ListSortDirection.Ascending));
             view.SortDescriptions.Add(new SortDescription(nameof(ProjectViewModel.ProjectOrder), ListSortDirection.Ascending));
 
+            view.MoveCurrentToPosition(-1);
             ProjectsComboBox.ItemsSource = view;
             App.TrayIconManager?.UpdateProjectList(realProjects);
 
@@ -240,14 +241,14 @@ namespace Chapi
                 {
                     ProjectsComboBox.SelectedItem = match;
                 }
-                else if (realProjects.Count > 0)
+                else
                 {
-                    ProjectsComboBox.SelectedItem = realProjects[0];
+                    ProjectsComboBox.SelectedItem = null;
                 }
             }
-            else if (realProjects.Count > 0)
+            else
             {
-                ProjectsComboBox.SelectedItem = realProjects[0];
+                ProjectsComboBox.SelectedItem = null;
             }
 
             // Ejecutar la actualizacion de estados con retardo para no competir por CPU/Disco al inicio
@@ -556,8 +557,70 @@ namespace Chapi
         #endregion
 
         #region Project Context Menu Handlers
-        private string GetPathFromMenuItem(object sender)
+        private void ProjectsComboBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
+            ProjectViewModel? targetProject = null;
+
+            var sourceElement = (e.OriginalSource as DependencyObject) ?? (Mouse.DirectlyOver as DependencyObject);
+            if (sourceElement != null)
+            {
+                var projectElem = FindParent<FrameworkElement>(sourceElement, fe =>
+                    (fe.Tag is ProjectViewModel p && !p.IsPlaceholder) ||
+                    (fe.DataContext is ProjectViewModel p2 && !p2.IsPlaceholder) ||
+                    fe is ComboBoxItem);
+
+                if (projectElem is ComboBoxItem cbi && cbi.DataContext is ProjectViewModel pvm && !pvm.IsPlaceholder)
+                {
+                    targetProject = pvm;
+                }
+                else if (projectElem?.Tag is ProjectViewModel tagPvm && !tagPvm.IsPlaceholder)
+                {
+                    targetProject = tagPvm;
+                }
+                else if (projectElem?.DataContext is ProjectViewModel dataPvm && !dataPvm.IsPlaceholder)
+                {
+                    targetProject = dataPvm;
+                }
+                else if (ProjectsComboBox.IsDropDownOpen)
+                {
+                    var groupHeader = FindParent<FrameworkElement>(sourceElement, fe => fe.Tag is CollectionViewGroup || fe.DataContext is CollectionViewGroup);
+                    if (groupHeader != null)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+
+                    var placeholderElem = FindParent<FrameworkElement>(sourceElement, fe => (fe.Tag as ProjectViewModel)?.IsPlaceholder == true || (fe.DataContext as ProjectViewModel)?.IsPlaceholder == true);
+                    if (placeholderElem != null)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+                }
+            }
+
+            if (targetProject == null)
+            {
+                if (ProjectsComboBox.SelectedItem is ProjectViewModel sel && !sel.IsPlaceholder)
+                {
+                    targetProject = sel;
+                }
+                else
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            if (ProjectsComboBox.ContextMenu is ContextMenu menu)
+            {
+                menu.DataContext = targetProject;
+            }
+        }
+
+        private string? GetPathFromMenuItem(object sender)
+        {
+            ProjectsComboBox.IsDropDownOpen = false;
             if (sender is MenuItem menuItem && menuItem.CommandParameter is string path)
             {
                 return Path.IsPathRooted(path) ? path : Path.Combine(projectDirectory ?? "", path);
@@ -801,7 +864,7 @@ namespace Chapi
             {
                 if (_lastHighlightedItem != null)
                 {
-                    _lastHighlightedItem.Background = Brushes.Transparent;
+                    _lastHighlightedItem.ClearValue(Border.BackgroundProperty);
                     _lastHighlightedItem = null;
                 }
 
@@ -823,7 +886,7 @@ namespace Chapi
 
             if (_lastHighlightedItem != null)
             {
-                _lastHighlightedItem.Background = Brushes.Transparent;
+                _lastHighlightedItem.ClearValue(Border.BackgroundProperty);
                 _lastHighlightedItem = null;
             }
         }
@@ -1275,6 +1338,7 @@ namespace Chapi
 
         private async void ProjectMenuItem_AssociateRemote_Click(object sender, RoutedEventArgs e)
         {
+            ProjectsComboBox.IsDropDownOpen = false;
             if (sender is not MenuItem element || element.CommandParameter is not string path)
                 return;
 

@@ -14,7 +14,8 @@ namespace Chapi.Presentation.Features.Changes.Views;
 public partial class ChangesView : UserControl
 {
     private ChangesViewModel _viewModel => DataContext as ChangesViewModel;
-    private readonly ProjectToolLauncher _projectToolLauncher = App.ServiceProvider.GetRequiredService<ProjectToolLauncher>();
+    private ProjectToolLauncher? _lazyProjectToolLauncher;
+    private ProjectToolLauncher _projectToolLauncher => _lazyProjectToolLauncher ??= (App.ServiceProvider?.GetService<ProjectToolLauncher>() ?? null!);
 
     public ChangesView()
     {

@@ -81,59 +81,59 @@
 
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
-        <ContextMenu x:Key="ProjectQuickMenu" DataContext="{Binding PlacementTarget, RelativeSource={RelativeSource Self}}">
-            <MenuItem Header="Abrir en Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+        <ContextMenu x:Key="ProjectQuickMenu">
+            <MenuItem Header="Abrir en Antigravity" Click="ProjectMenuItem_OpenAntigravity_Click" CommandParameter="{Binding FullPath}">
                 <MenuItem.Icon>
                     <materialDesign:PackIcon Kind="RocketLaunch" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Abrir en VS Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+            <MenuItem Header="Abrir en VS Code" Click="ProjectMenuItem_OpenVSCode_Click" CommandParameter="{Binding FullPath}">
                 <MenuItem.Icon>
                     <materialDesign:PackIcon Kind="MicrosoftVisualStudioCode" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Abrir en Cursor" Click="ProjectMenuItem_OpenCursor_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+            <MenuItem Header="Abrir en Cursor" Click="ProjectMenuItem_OpenCursor_Click" CommandParameter="{Binding FullPath}">
                 <MenuItem.Icon>
                     <materialDesign:PackIcon Kind="CursorDefaultOutline" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Abrir en Windsurf" Click="ProjectMenuItem_OpenWindsurf_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+            <MenuItem Header="Abrir en Windsurf" Click="ProjectMenuItem_OpenWindsurf_Click" CommandParameter="{Binding FullPath}">
                 <MenuItem.Icon>
                     <materialDesign:PackIcon Kind="WeatherWindy" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+            <MenuItem Header="Abrir en Visual Studio" Click="ProjectMenuItem_OpenVisualStudio_Click" CommandParameter="{Binding FullPath}">
                 <MenuItem.Icon>
                     <materialDesign:PackIcon Kind="VisualStudio" />
                 </MenuItem.Icon>
             </MenuItem>
             <Separator />
-            <MenuItem Header="Abrir Carpeta" Click="ProjectMenuItem_OpenExplorer_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+            <MenuItem Header="Abrir Carpeta" Click="ProjectMenuItem_OpenExplorer_Click" CommandParameter="{Binding FullPath}">
                 <MenuItem.Icon>
                     <materialDesign:PackIcon Kind="FolderOpen" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Abrir Consola (CMD)" Click="ProjectMenuItem_OpenCmd_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+            <MenuItem Header="Abrir Consola (CMD)" Click="ProjectMenuItem_OpenCmd_Click" CommandParameter="{Binding FullPath}">
                 <MenuItem.Icon>
                     <materialDesign:PackIcon Kind="Console" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Abrir Consola (Git)" Click="ProjectMenuItem_OpenGitTerminal_Click" CommandParameter="{Binding SelectedItem.FullPath}">
+            <MenuItem Header="Abrir Consola (Git)" Click="ProjectMenuItem_OpenGitTerminal_Click" CommandParameter="{Binding FullPath}">
                 <MenuItem.Icon>
                     <materialDesign:PackIcon Kind="Git" />
                 </MenuItem.Icon>
             </MenuItem>
-            <Separator Visibility="{Binding SelectedItem.HasNoRemote, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            <Separator Visibility="{Binding HasNoRemote, Converter={StaticResource BooleanToVisibilityConverter}}"/>
             <MenuItem Header="Asociar Repositorio Remoto..." 
                       Click="ProjectMenuItem_AssociateRemote_Click" 
-                      CommandParameter="{Binding SelectedItem.FullPath}"
-                      Visibility="{Binding SelectedItem.HasNoRemote, Converter={StaticResource BooleanToVisibilityConverter}}">
+                      CommandParameter="{Binding FullPath}"
+                      Visibility="{Binding HasNoRemote, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <MenuItem.Icon>
                     <materialDesign:PackIcon Kind="LinkVariant" Foreground="DodgerBlue" />
                 </MenuItem.Icon>
             </MenuItem>
             <Separator />
-            <MenuItem Header="Remover de la lista" Click="ProjectMenuItem_Remove_Click" CommandParameter="{Binding SelectedItem.FullPath}" Foreground="Red">
+            <MenuItem Header="Remover de la lista" Click="ProjectMenuItem_Remove_Click" CommandParameter="{Binding FullPath}" Foreground="Red">
                 <MenuItem.Icon>
                     <materialDesign:PackIcon Kind="DeleteOutline" Foreground="Red" />
                 </MenuItem.Icon>
@@ -188,13 +188,22 @@
                               IsEditable="True"
                               IsTextSearchEnabled="True"
                               TextSearch.TextPath="Name"
+                              IsSynchronizedWithCurrentItem="False"
                               HorizontalContentAlignment="Stretch"
                               Style="{StaticResource MaterialDesignOutlinedComboBox}"
-                              ContextMenu="{DynamicResource ProjectQuickMenu}">
+                              ContextMenu="{DynamicResource ProjectQuickMenu}"
+                              ContextMenuOpening="ProjectsComboBox_ContextMenuOpening">
                         <ComboBox.ItemContainerStyle>
                             <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                                 <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Margin" Value="2,1"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+                                        <Setter Property="Cursor" Value="Arrow"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
                             </Style>
                         </ComboBox.ItemContainerStyle>
                         <ComboBox.GroupStyle>
@@ -303,12 +312,34 @@
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
                                 <Border Padding="8,4,4,4" 
-                                        Background="Transparent"
+                                        Margin="2,1"
+                                        CornerRadius="4"
                                         HorizontalAlignment="Stretch"
                                         PreviewMouseLeftButtonDown="ProjectItem_PreviewMouseLeftButtonDown"
                                         PreviewMouseMove="ProjectItem_PreviewMouseMove"
                                         PreviewMouseLeftButtonUp="ProjectItem_PreviewMouseLeftButtonUp"
                                         Tag="{Binding}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Style.Triggers>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBoxItem}, Path=IsMouseOver}" Value="True"/>
+                                                        <Condition Binding="{Binding IsPlaceholder}" Value="False"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Background" Value="#22FFFFFF"/>
+                                                </MultiDataTrigger>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBoxItem}, Path=IsHighlighted}" Value="True"/>
+                                                        <Condition Binding="{Binding IsPlaceholder}" Value="False"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Background" Value="#22FFFFFF"/>
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <Grid Background="Transparent" HorizontalAlignment="Stretch">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>

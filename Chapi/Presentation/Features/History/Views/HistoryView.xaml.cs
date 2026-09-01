@@ -10,7 +10,8 @@ namespace Chapi.Presentation.Features.History.Views;
 public partial class HistoryView : UserControl
 {
     private HistoryViewModel _viewModel => DataContext as HistoryViewModel;
-    private readonly ProjectToolLauncher _projectToolLauncher = App.ServiceProvider.GetRequiredService<ProjectToolLauncher>();
+    private ProjectToolLauncher? _lazyProjectToolLauncher;
+    private ProjectToolLauncher _projectToolLauncher => _lazyProjectToolLauncher ??= (App.ServiceProvider?.GetService<ProjectToolLauncher>() ?? null!);
 
     public HistoryView()
     {

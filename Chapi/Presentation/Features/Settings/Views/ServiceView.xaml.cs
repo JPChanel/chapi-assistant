@@ -2,6 +2,7 @@ using Chapi.Domain.Interfaces;
 using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Shared.Dialogs.Views;
+using MaterialDesignThemes.Wpf;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using System.ComponentModel;
@@ -12,6 +13,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Velopack;
 using Velopack.Sources;
 
@@ -95,8 +97,8 @@ namespace Chapi.Presentation.Features.Settings.Views
             _mgr = new UpdateManager(new GithubSource(updateUrl, null, false));
             _selectedProjectPath = selectedProjectPath;
             LoadCurrentInfo();
-            LoadCurrentInfo();
             LoadGitAccountsInfo();
+            _ = LoadLocalGitConfigAsync();
             LoadApiKey();
             LoadSystemSettings();
             IsServiceActive = true;
@@ -146,7 +148,11 @@ namespace Chapi.Presentation.Features.Settings.Views
             else if (sender == NavButtonRed)
                 ViewConfiguracionRed.Visibility = Visibility.Visible;
             else if (sender == NavButtonGitHub)
+            {
+                LoadGitAccountsInfo();
+                _ = LoadLocalGitConfigAsync();
                 ViewConfiguracionGitHub.Visibility = Visibility.Visible;
+            }
             else if (sender == NavButtonImageConverter)
                 ViewOptimizadorWebP.Visibility = Visibility.Visible;
             else if (sender == NavButtonSystemConfig)
@@ -1024,6 +1030,154 @@ namespace Chapi.Presentation.Features.Settings.Views
             catch (Exception ex)
             {
                 await DialogService.ShowConfirmDialog("Error", ex.Message, DialogVariant.Error, DialogType.Info);
+            }
+        }
+
+        private async Task LoadLocalGitConfigAsync()
+        {
+            try
+            {
+                var repo = App.ServiceProvider.GetRequiredService<IGitRepository>();
+
+                var currentName = await repo.GetConfigAsync(_selectedProjectPath, "user.name");
+                if (string.IsNullOrWhiteSpace(currentName))
+                {
+                    currentName = await repo.GetConfigAsync(_selectedProjectPath, "user.name", isGlobal: true);
+                }
+
+                var currentEmail = await repo.GetConfigAsync(_selectedProjectPath, "user.email");
+                if (string.IsNullOrWhiteSpace(currentEmail))
+                {
+                    currentEmail = await repo.GetConfigAsync(_selectedProjectPath, "user.email", isGlobal: true);
+                }
+
+                var defaultBranch = await repo.GetConfigAsync(_selectedProjectPath, "init.defaultBranch", isGlobal: true);
+                if (string.IsNullOrWhiteSpace(defaultBranch))
+                {
+                    defaultBranch = "main";
+                }
+
+                txtLocalGitUser.Text = !string.IsNullOrWhiteSpace(currentName) 
+                    ? currentName 
+                    : (!string.IsNullOrWhiteSpace(currentEmail) ? currentEmail : "No configurado");
+
+                txtLocalGitStatus.Text = !string.IsNullOrWhiteSpace(currentEmail) && !string.IsNullOrWhiteSpace(currentName)
+                    ? $"Git Local • {currentEmail}"
+                    : "Git Local";
+            }
+            catch (Exception)
+            {
+                txtLocalGitUser.Text = "No disponible";
+                txtLocalGitStatus.Text = "Git Local";
+            }
+        }
+
+        private async void btnEditLocalGitConfig_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var repo = App.ServiceProvider.GetRequiredService<IGitRepository>();
+
+                var currentName = await repo.GetConfigAsync(_selectedProjectPath, "user.name");
+                if (string.IsNullOrWhiteSpace(currentName))
+                {
+                    currentName = await repo.GetConfigAsync(_selectedProjectPath, "user.name", isGlobal: true);
+                }
+
+                var currentEmail = await repo.GetConfigAsync(_selectedProjectPath, "user.email");
+                if (string.IsNullOrWhiteSpace(currentEmail))
+                {
+                    currentEmail = await repo.GetConfigAsync(_selectedProjectPath, "user.email", isGlobal: true);
+                }
+
+                var defaultBranch = await repo.GetConfigAsync(_selectedProjectPath, "init.defaultBranch", isGlobal: true);
+                if (string.IsNullOrWhiteSpace(defaultBranch))
+                {
+                    defaultBranch = "main";
+                }
+
+                var storage = App.ServiceProvider.GetRequiredService<ICredentialStorageService>();
+                var githubCred = await storage.GetCredentialAsync(Chapi.Domain.Enums.GitProvider.GitHub.ToString());
+                var gitlabCred = await storage.GetCredentialAsync(Chapi.Domain.Enums.GitProvider.GitLab.ToString());
+
+                string authUser = string.Empty;
+                string provider = string.Empty;
+                BitmapImage? avatarImage = null;
+
+                if (githubCred.HasValue)
+                {
+                    authUser = githubCred.Value.username;
+                    provider = "GitHub";
+                    var avatarUrl = Chapi.Domain.Services.AvatarCacheService.Instance.GetGitHubAvatarUrl(authUser);
+                    try
+                    {
+                        avatarImage = new BitmapImage();
+                        avatarImage.BeginInit();
+                        avatarImage.UriSource = new Uri(avatarUrl);
+                        avatarImage.CacheOption = BitmapCacheOption.OnLoad;
+                        avatarImage.EndInit();
+                    }
+                    catch { }
+                }
+                else if (gitlabCred.HasValue)
+                {
+                    authUser = gitlabCred.Value.username;
+                    provider = "GitLab";
+                    var avatarUrl = Chapi.Domain.Services.AvatarCacheService.Instance.GetGitLabAvatarUrl(authUser);
+                    try
+                    {
+                        avatarImage = new BitmapImage();
+                        avatarImage.BeginInit();
+                        avatarImage.UriSource = new Uri(avatarUrl);
+                        avatarImage.CacheOption = BitmapCacheOption.OnLoad;
+                        avatarImage.EndInit();
+                    }
+                    catch { }
+                }
+
+                var dialog = new GitConfigDialog
+                {
+                    ShowAccountsTab = false,
+                    UserName = currentName ?? string.Empty,
+                    UserEmail = currentEmail ?? string.Empty,
+                    DefaultBranch = defaultBranch,
+                    AccountDisplayName = !string.IsNullOrWhiteSpace(currentName) ? currentName : authUser,
+                    AccountUserName = authUser,
+                    Provider = provider,
+                    AvatarImage = avatarImage,
+                    DialogIdentifier = "ServiceDialog"
+                };
+
+                await DialogHost.Show(dialog, "ServiceDialog");
+
+                if (dialog.SignedOut && !string.IsNullOrEmpty(provider))
+                {
+                    await storage.DeleteCredentialAsync(provider);
+                    Chapi.Domain.Services.AvatarCacheService.Instance.ClearUserCache(provider, authUser);
+                    LoadGitAccountsInfo();
+                }
+
+                if (dialog.WasSaved)
+                {
+                    if (!string.IsNullOrWhiteSpace(dialog.UserName))
+                    {
+                        await repo.SetConfigAsync(_selectedProjectPath, "user.name", dialog.UserName, isGlobal: true);
+                    }
+                    if (!string.IsNullOrWhiteSpace(dialog.UserEmail))
+                    {
+                        await repo.SetConfigAsync(_selectedProjectPath, "user.email", dialog.UserEmail, isGlobal: true);
+                    }
+                    if (!string.IsNullOrWhiteSpace(dialog.DefaultBranch))
+                    {
+                        await repo.SetConfigAsync(_selectedProjectPath, "init.defaultBranch", dialog.DefaultBranch, isGlobal: true);
+                    }
+
+                    await LoadLocalGitConfigAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                await DialogService.ShowConfirmDialog("Error", $"Error al configurar cuenta local: {ex.Message}", DialogVariant.Error, DialogType.Info);
             }
         }
 

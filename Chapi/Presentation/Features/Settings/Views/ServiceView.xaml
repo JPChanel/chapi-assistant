@@ -78,11 +78,12 @@
         </Style>
     </Window.Resources>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+    <materialDesign:DialogHost x:Name="ServiceDialogHost" Identifier="ServiceDialog">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
         <TextBlock Text="Servicios y Administracion"
                    FontSize="22" FontWeight="Bold" Foreground="{DynamicResource MaterialDesignBody}"
@@ -484,7 +485,7 @@
                         </Border>
 
                         <!-- GitLab -->
-                        <Border Style="{StaticResource ServiceNestedCardStyle}">
+                        <Border Style="{StaticResource ServiceNestedCardStyle}" Margin="0,0,0,16">
                             <DockPanel>
                                 <Border DockPanel.Dock="Left"
                                         Style="{StaticResource ServiceIconBadgeStyle}"
@@ -498,6 +499,24 @@
                                 <Button x:Name="btnGitLabLogin" Content="Conectar" HorizontalAlignment="Right" VerticalAlignment="Center" 
                                         Style="{StaticResource ServiceSecondaryButtonStyle}" Click="btnGitLabLogin_Click"
                                         BorderBrush="#FC6D26"/>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Git Local -->
+                        <Border Style="{StaticResource ServiceNestedCardStyle}">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Left"
+                                        Style="{StaticResource ServiceIconBadgeStyle}"
+                                        Margin="0,0,16,0">
+                                    <materialDesign:PackIcon Kind="Git" Width="24" Height="24" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#F05032"/>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock x:Name="txtLocalGitUser" Text="No configurado" FontWeight="Bold" FontSize="15"/>
+                                    <TextBlock x:Name="txtLocalGitStatus" Text="Git Local" Foreground="{DynamicResource MaterialDesignBodyLight}" FontSize="12"/>
+                                </StackPanel>
+                                <Button x:Name="btnEditLocalGitConfig" Content="Configurar" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                                        Style="{StaticResource ServiceSecondaryButtonStyle}" Click="btnEditLocalGitConfig_Click"
+                                        BorderBrush="#F05032"/>
                             </DockPanel>
                         </Border>
                     </StackPanel>
@@ -945,5 +964,6 @@
             </Grid>
         </Grid>
     </Grid>
+</materialDesign:DialogHost>
 </Window>
 
