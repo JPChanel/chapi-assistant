@@ -45,7 +45,12 @@ namespace Chapi
 
             var contextMenu = new ContextMenu();
 
-            contextMenu.Items.Add(CreateMenuItem("Crear Nuevo Proyecto", PackIconKind.FolderPlusOutline, (s, e) => { Msg.User("Crear Nuevo Proyecto"); mainWindow.ShowCreateRepositoryDialog(); }));
+            contextMenu.Items.Add(CreateMenuItem("Crear Nuevo Proyecto", PackIconKind.FolderPlusOutline, (s, e) =>
+            {
+                RestoreWindow();
+                Msg.User("Crear Nuevo Proyecto");
+                mainWindow.CreateNewTemplate();
+            }));
 
             _projectsSubMenu = CreateMenuItem("Cambiar a Proyecto", PackIconKind.SwapHorizontal, null);
             _projectsSubMenu.Items.Add(CreateMenuItem(
@@ -53,6 +58,7 @@ namespace Chapi
                 PackIconKind.FolderAdd,
                 (s, e) =>
                 {
+                    RestoreWindow();
                     Msg.User("Asociar Proyecto Existente");
                     mainWindow.SelectProjectMenu_Click(s, e);
                 }
@@ -67,15 +73,18 @@ namespace Chapi
 
             contextMenu.Items.Add(new Separator());
 
-            contextMenu.Items.Add(CreateMenuItem("Generar Estructura Base", PackIconKind.CodeBraces, (s, e) => mainWindow.GenerateModuleMenu_Click()));
-            contextMenu.Items.Add(CreateMenuItem("Asociar Git", PackIconKind.Git, (s, e) => mainWindow.AsociateGitMenu_Click()));
-            contextMenu.Items.Add(CreateMenuItem("Agregar Metodo", PackIconKind.SourceFork, (s, e) => mainWindow.AddMethod_Click()));
+            contextMenu.Items.Add(CreateMenuItem("Asociar Git", PackIconKind.Git, (s, e) =>
+            {
+                RestoreWindow();
+                mainWindow.AsociateGitMenu_Click();
+            }));
             contextMenu.Items.Add(CreateMenuItem("Gestionar Rollbacks", PackIconKind.ReceiptRoll, (s, e) => mainWindow.RollbackSelectModule()));
             contextMenu.Items.Add(CreateMenuItem("Ver Log de Procesos", PackIconKind.History, (s, e) => mainWindow.AddClassLog_Click()));
 
             contextMenu.Items.Add(new Separator());
             contextMenu.Items.Add(CreateMenuItem("Servicios", PackIconKind.InformationOutline, (s, e) =>
             {
+                RestoreWindow();
                 mainWindow.ShowUpdateView();
             }));
             contextMenu.Items.Add(CreateMenuItem("Salir", PackIconKind.Logout, (s, e) => System.Windows.Application.Current.Shutdown()));
@@ -157,8 +166,3 @@ namespace Chapi
         }
     }
 }
-
-
-
-
-

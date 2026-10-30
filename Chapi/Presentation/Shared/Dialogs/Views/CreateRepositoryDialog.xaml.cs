@@ -16,6 +16,8 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
         public bool CreateReadme { get; private set; }
         public bool CreateGitIgnore { get; private set; }
 
+        private bool _isSettingDefaults;
+
         public CreateRepositoryDialog()
         {
             InitializeComponent();
@@ -23,54 +25,55 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
 
         public void SetDefaults(string? initialPath = null, string? defaultBranch = null)
         {
-            if (!string.IsNullOrWhiteSpace(defaultBranch))
+            _isSettingDefaults = true;
+            try
             {
-                DefaultBranchTextBox.Text = defaultBranch.Trim();
-            }
+                if (!string.IsNullOrWhiteSpace(defaultBranch))
+                {
+                    DefaultBranchTextBox.Text = defaultBranch.Trim();
+                }
 
-            if (!string.IsNullOrWhiteSpace(initialPath))
-            {
-                LocalPathTextBox.Text = initialPath.Trim();
-                ProjectNameTextBox.Text = new DirectoryInfo(initialPath).Name;
+                if (!string.IsNullOrWhiteSpace(initialPath))
+                {
+                    LocalPathTextBox.Text = initialPath.Trim();
+                    ProjectNameTextBox.Text = new DirectoryInfo(initialPath).Name;
+                }
+                else
+                {
+                    var defaultReposDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "source", "repos");
+                    LocalPathTextBox.Text = defaultReposDir;
+                }
             }
-            else
+            finally
             {
-                var defaultReposDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "source", "repos");
-                LocalPathTextBox.Text = defaultReposDir;
+                _isSettingDefaults = false;
             }
         }
 
         private void BrowseButton_Click(object sender, RoutedEventArgs e)
         {
-            var thread = new System.Threading.Thread(() =>
+            var currentPath = LocalPathTextBox.Text?.Trim();
+            using var dialog = new FolderBrowserDialog
             {
-                using var dialog = new FolderBrowserDialog
-                {
-                    SelectedPath = Directory.Exists(LocalPathTextBox.Text) 
-                        ? LocalPathTextBox.Text 
-                        : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-                };
+                SelectedPath = !string.IsNullOrWhiteSpace(currentPath) && Directory.Exists(currentPath)
+                    ? currentPath
+                    : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+            };
 
-                if (dialog.ShowDialog() == DialogResult.OK)
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                LocalPathTextBox.Text = dialog.SelectedPath;
+                if (string.IsNullOrWhiteSpace(ProjectNameTextBox.Text))
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        LocalPathTextBox.Text = dialog.SelectedPath;
-                        if (string.IsNullOrWhiteSpace(ProjectNameTextBox.Text))
-                        {
-                            ProjectNameTextBox.Text = new DirectoryInfo(dialog.SelectedPath).Name;
-                        }
-                    });
+                    ProjectNameTextBox.Text = new DirectoryInfo(dialog.SelectedPath).Name;
                 }
-            });
-
-            thread.SetApartmentState(System.Threading.ApartmentState.STA);
-            thread.Start();
-            thread.Join();
+            }
         }
 
         private void LocalPathTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
+            if (_isSettingDefaults) return;
+
             if (string.IsNullOrWhiteSpace(ProjectNameTextBox.Text) && !string.IsNullOrWhiteSpace(LocalPathTextBox.Text))
             {
                 try

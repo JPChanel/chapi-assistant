@@ -1,4 +1,4 @@
-using Chapi.Domain.Models;
+﻿using Chapi.Domain.Models;
 using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Features.ActivityOverview.ViewModels;
@@ -205,7 +205,7 @@ namespace Chapi
                 {
                     projectVMs.Add(new ProjectViewModel
                     {
-                        Name = "(Arrastra proyectos aquí)",
+                        Name = "(Arrastra proyectos aquÃ­)",
                         FullPath = $"__empty_group_placeholder_{group.Id}",
                         GroupId = group.Id,
                         GroupName = group.Name,
@@ -299,11 +299,11 @@ namespace Chapi
 
                     var initConfirm = await DialogService.ShowConfirmDialog(
                         "Repositorio no inicializado",
-                        $"El proyecto '{selectedProject.Name}' no tiene Git inicializado.\n\n¿Deseas inicializarlo como repositorio Git ahora?",
+                        $"El proyecto '{selectedProject.Name}' no tiene Git inicializado.\n\nÂ¿Deseas inicializarlo como repositorio Git ahora?",
                         DialogVariant.Info,
                         DialogType.Confirm,
                         confirmButtonText: "INICIALIZAR",
-                        cancelButtonText: "MÁS TARDE");
+                        cancelButtonText: "MÃS TARDE");
 
                     if (initConfirm)
                     {
@@ -739,7 +739,7 @@ namespace Chapi
 
                 var confirm = await DialogService.ShowConfirmDialog(
                     "Eliminar Grupo",
-                    $"¿Seguro que deseas eliminar el grupo '{group.Name}'?\n\nLos proyectos volverán a 'Sin Agrupar'.",
+                    $"Â¿Seguro que deseas eliminar el grupo '{group.Name}'?\n\nLos proyectos volverÃ¡n a 'Sin Agrupar'.",
                     DialogVariant.Warning);
 
                 if (confirm)
@@ -964,6 +964,10 @@ namespace Chapi
         {
             try
             {
+                if (!IsVisible) Show();
+                if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+                Activate();
+
                 var defaultBranch = await _gitRepository.GetDefaultBranchAsync();
                 var (confirmed, projectPath, branch, remoteUrl, createReadme, createGitIgnore) =
                     await DialogService.ShowCreateRepositoryDialog(initialPath, defaultBranch);
@@ -1051,7 +1055,7 @@ namespace Chapi
                 var folderName = new DirectoryInfo(selectedPath).Name;
                 var initConfirm = await DialogService.ShowConfirmDialog(
                     "Repositorio no inicializado",
-                    $"La carpeta '{folderName}' no es un repositorio Git.\n\n¿Deseas inicializar un nuevo repositorio Git en esta ubicación?",
+                    $"La carpeta '{folderName}' no es un repositorio Git.\n\nÂ¿Deseas inicializar un nuevo repositorio Git en esta ubicaciÃ³n?",
                     DialogVariant.Info,
                     DialogType.Confirm,
                     confirmButtonText: "INICIALIZAR",
@@ -1239,6 +1243,10 @@ namespace Chapi
         {
             try
             {
+                if (!IsVisible) Show();
+                if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+                Activate();
+
                 var (success, projectName) = await DialogService.ShowInputDialog("Nuevo Proyecto", "Ingrese nombre del proyecto:");
                 if (!success || string.IsNullOrWhiteSpace(projectName)) return;
 
@@ -1247,7 +1255,7 @@ namespace Chapi
 
                 var parentDir = folderDialog.SelectedPath;
 
-                var associateGit = await DialogService.ShowConfirmDialog("Deseas asociar un repositorio remoto ahora?", "Asociar Git");
+                var associateGit = await DialogService.ShowConfirmDialog("Asociar Git", "¿Deseas asociar un repositorio remoto ahora?");
                 string remoteUrl = null;
                 if (associateGit)
                 {

@@ -68,6 +68,12 @@ public sealed class ExceptionHandling : IDisposable
 
         System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
         {
+            if (MaterialDesignThemes.Wpf.DialogHost.IsDialogOpen(App.GlobalDialogIdentifier))
+            {
+                Msg.Assistant($"Error: {root.Message}");
+                return;
+            }
+
             await DialogService.ShowConfirmDialog(
                 "Error",
                 root.Message,
