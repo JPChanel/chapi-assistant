@@ -12,7 +12,6 @@ public class LoginGitHubViewModel : ViewModelBase
     private string _userCode = string.Empty;
     private string _statusMessage = "Haz clic para conectar con GitHub";
     private bool _isWaiting = false;
-    private bool _isLoggedIn = false;
     private CancellationTokenSource? _pollCts;
 
     public LoginGitHubViewModel(LoginGitHubUseCase loginUseCase)

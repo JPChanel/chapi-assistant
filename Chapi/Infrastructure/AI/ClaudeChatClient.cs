@@ -8,6 +8,11 @@ namespace Chapi.Infrastructure.AI;
 
 public class ClaudeChatClient : IChatClient
 {
+    private static readonly SocketsHttpHandler SharedHandler = new()
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(10)
+    };
+
     private readonly string _apiKey;
     private readonly HttpClient _httpClient;
     private readonly string _modelId;
@@ -16,7 +21,10 @@ public class ClaudeChatClient : IChatClient
     {
         _apiKey = apiKey;
         _modelId = modelId;
-        _httpClient = new HttpClient();
+        _httpClient = new HttpClient(SharedHandler, disposeHandler: false)
+        {
+            Timeout = TimeSpan.FromSeconds(60)
+        };
         _httpClient.DefaultRequestHeaders.Add("x-api-key", _apiKey);
         _httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
     }
@@ -34,7 +42,7 @@ public class ClaudeChatClient : IChatClient
             max_tokens = 1024
         };
 
-        var response = await _httpClient.PostAsJsonAsync("https://api.anthropic.com/v1/messages", requestBody, cancellationToken);
+        using var response = await _httpClient.PostAsJsonAsync("https://api.anthropic.com/v1/messages", requestBody, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var jsonResponse = await response.Content.ReadFromJsonAsync<ClaudeResponse>(cancellationToken: cancellationToken);

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
@@ -8,6 +8,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<ApplicationIcon>Presentation\Assets\icon.ico</ApplicationIcon>
 		<StartupObject>Chapi.App</StartupObject>
+		<NoWarn>$(NoWarn);NU1902;NU1903</NoWarn>
 	</PropertyGroup>
 	<ItemGroup>
 		<ApplicationDefinition Remove="App.xaml" />

@@ -11,6 +11,36 @@ namespace Chapi.Infrastructure.Git;
 /// </summary>
 public static class GitProcessExecutor
 {
+    static GitProcessExecutor()
+    {
+        CleanupOrphanedAskPassScripts();
+    }
+
+    private static void CleanupOrphanedAskPassScripts()
+    {
+        try
+        {
+            var tempDir = Path.GetTempPath();
+            var cutoff = DateTime.UtcNow.AddMinutes(-10);
+            foreach (var file in Directory.EnumerateFiles(tempDir, "chapi_askpass_*.bat"))
+            {
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(file) < cutoff)
+                    {
+                        File.Delete(file);
+                    }
+                }
+                catch
+                {
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
     /// <summary>
     /// Ejecuta git con argumentos seguros (sin interpolacion de shell).
     /// Equivalente a dugite.exec() en GitHub Desktop.
@@ -27,6 +57,7 @@ public static class GitProcessExecutor
 
     public static async Task<Result<string>> RunAsync(string workingDirectory, int timeoutMs, Dictionary<string, string>? environment, params string[] args)
     {
+        string? tempAskPass = null;
         try
         {
             var gitPath = GitBinaryLocator.GetGitPath();
@@ -77,7 +108,7 @@ public static class GitProcessExecutor
             if (startInfo.Environment.ContainsKey("CHAPI_GIT_TOKEN"))
             {
                 // Para la mayoria de proveedores OAuth2 (GitHub/GitLab), cualquier usuario funciona si la clave es el token.
-                string tempAskPass = Path.Combine(Path.GetTempPath(), $"chapi_askpass_{Guid.NewGuid():N}.bat");
+                tempAskPass = Path.Combine(Path.GetTempPath(), $"chapi_askpass_{Guid.NewGuid():N}.bat");
 
                 var scriptContent = new StringBuilder();
                 scriptContent.AppendLine("@echo off");
@@ -152,6 +183,22 @@ public static class GitProcessExecutor
         catch (Exception ex)
         {
             return Result<string>.Fail($"Excepcion al ejecutar git: {ex.Message}");
+        }
+        finally
+        {
+            if (!string.IsNullOrEmpty(tempAskPass))
+            {
+                try
+                {
+                    if (File.Exists(tempAskPass))
+                    {
+                        File.Delete(tempAskPass);
+                    }
+                }
+                catch
+                {
+                }
+            }
         }
     }
 }

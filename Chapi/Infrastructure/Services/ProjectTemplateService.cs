@@ -6,7 +6,17 @@ namespace Chapi.Infrastructure.Services;
 
 public class ProjectTemplateService : ITemplateService
 {
-    public async Task<Result> RenameTemplateAsync(string path, string oldName, string newName, Action<string> onProgress = null)
+    private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".ico", ".bmp", ".webp", ".svgz",
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".zip", ".rar", ".7z", ".tar", ".gz",
+        ".dll", ".exe", ".pdb", ".bin", ".iso", ".apk", ".snk", ".pfx",
+        ".mp3", ".wav", ".ogg", ".mp4", ".mov", ".avi", ".mkv",
+        ".ttf", ".otf", ".woff", ".woff2", ".eot"
+    };
+
+    public async Task<Result> RenameTemplateAsync(string path, string oldName, string newName, Action<string>? onProgress = null)
     {
         try
         {
@@ -20,10 +30,12 @@ public class ProjectTemplateService : ITemplateService
 
                 foreach (var dir in directories)
                 {
-                    if (Path.GetFileName(dir).Contains(oldName))
+                    if (Path.GetFileName(dir).Contains(oldName, StringComparison.Ordinal))
                     {
                         var parent = Path.GetDirectoryName(dir);
-                        var newDirName = Path.GetFileName(dir).Replace(oldName, newName);
+                        if (string.IsNullOrEmpty(parent)) continue;
+
+                        var newDirName = Path.GetFileName(dir).Replace(oldName, newName, StringComparison.Ordinal);
                         var newDirPath = Path.Combine(parent, newDirName);
 
                         if (!Directory.Exists(newDirPath))
@@ -39,23 +51,30 @@ public class ProjectTemplateService : ITemplateService
 
                 foreach (var archivo in files)
                 {
-                    // 1. Actualizar contenido
-                    try
+                    var ext = Path.GetExtension(archivo);
+
+                    // 1. Actualizar contenido solo en archivos no binarios
+                    if (!BinaryExtensions.Contains(ext))
                     {
-                        string contenido = File.ReadAllText(archivo);
-                        if (contenido.Contains(oldName))
+                        try
                         {
-                            File.WriteAllText(archivo, contenido.Replace(oldName, newName));
-                            onProgress?.Invoke($"Contenido actualizado: {Path.GetFileName(archivo)}");
+                            string contenido = File.ReadAllText(archivo);
+                            if (contenido.Contains(oldName, StringComparison.Ordinal))
+                            {
+                                File.WriteAllText(archivo, contenido.Replace(oldName, newName, StringComparison.Ordinal));
+                                onProgress?.Invoke($"Contenido actualizado: {Path.GetFileName(archivo)}");
+                            }
                         }
+                        catch (IOException) { /* Ignorar archivos binarios o bloqueados */ }
                     }
-                    catch (IOException) { /* Ignorar archivos binarios o bloqueados */ }
 
                     // 2. Renombrar archivo
-                    if (Path.GetFileName(archivo).Contains(oldName))
+                    if (Path.GetFileName(archivo).Contains(oldName, StringComparison.Ordinal))
                     {
                         var parent = Path.GetDirectoryName(archivo);
-                        var nuevoNombre = Path.GetFileName(archivo).Replace(oldName, newName);
+                        if (string.IsNullOrEmpty(parent)) continue;
+
+                        var nuevoNombre = Path.GetFileName(archivo).Replace(oldName, newName, StringComparison.Ordinal);
                         var nuevoRuta = Path.Combine(parent, nuevoNombre);
 
                         if (!File.Exists(nuevoRuta))

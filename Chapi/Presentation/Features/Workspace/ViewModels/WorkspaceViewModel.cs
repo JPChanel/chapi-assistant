@@ -1,4 +1,4 @@
-using Chapi.Application.Interfaces.Workspace;
+﻿using Chapi.Application.Interfaces.Workspace;
 using CommunityToolkit.Mvvm.Input;
 using Chapi.Domain.Entities.Workspace;
 using Chapi.Domain.Enums;
@@ -23,8 +23,6 @@ public class WorkspaceViewModel : ViewModelBase
     private readonly IWorkspaceService _workspaceService;
     private string _currentProjectPath;
     private string _newNoteContent;
-    private string _newTaskTitle;
-    private TaskPriority _newTaskPriority = TaskPriority.Media;
     private string _randomQuote;
     private bool _hasPendingCriticalAssets;
     private DispatcherTimer _autosaveTimer;

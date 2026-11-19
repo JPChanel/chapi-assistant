@@ -9,14 +9,17 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
 {
     public partial class CreateRepositoryDialog : UserControl
     {
+        private bool _isSettingDefaults;
+        private bool _isTemplateMode;
+
         public bool IsConfirmed { get; private set; }
         public string ProjectPath { get; private set; } = string.Empty;
+        public string ParentDirectory { get; private set; } = string.Empty;
+        public string ProjectName { get; private set; } = string.Empty;
         public string DefaultBranch { get; private set; } = "main";
         public string? RemoteUrl { get; private set; }
         public bool CreateReadme { get; private set; }
         public bool CreateGitIgnore { get; private set; }
-
-        private bool _isSettingDefaults;
 
         public CreateRepositoryDialog()
         {
@@ -50,6 +53,16 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
             }
         }
 
+        public void ConfigureForTemplateProject()
+        {
+            _isTemplateMode = true;
+            DialogTitleTextBlock.Text = "Crear Nuevo Proyecto";
+            CreateButton.Content = "CREAR PROYECTO";
+            DefaultBranchContainer.Visibility = Visibility.Collapsed;
+            InitOptionsBorder.Visibility = Visibility.Collapsed;
+            SetDefaults(null, null);
+        }
+
         private void BrowseButton_Click(object sender, RoutedEventArgs e)
         {
             var currentPath = LocalPathTextBox.Text?.Trim();
@@ -63,7 +76,7 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
             if (dialog.ShowDialog() == DialogResult.OK)
             {
                 LocalPathTextBox.Text = dialog.SelectedPath;
-                if (string.IsNullOrWhiteSpace(ProjectNameTextBox.Text))
+                if (!_isTemplateMode && string.IsNullOrWhiteSpace(ProjectNameTextBox.Text))
                 {
                     ProjectNameTextBox.Text = new DirectoryInfo(dialog.SelectedPath).Name;
                 }
@@ -72,7 +85,7 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
 
         private void LocalPathTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (_isSettingDefaults) return;
+            if (_isSettingDefaults || _isTemplateMode) return;
 
             if (string.IsNullOrWhiteSpace(ProjectNameTextBox.Text) && !string.IsNullOrWhiteSpace(LocalPathTextBox.Text))
             {
@@ -102,6 +115,12 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
                 return;
             }
 
+            if (_isTemplateMode && string.IsNullOrWhiteSpace(name))
+            {
+                System.Windows.MessageBox.Show("Por favor especifica un nombre para el proyecto.", "Nombre requerido", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             string targetPath = path;
             try
             {
@@ -113,6 +132,8 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
             }
             catch { }
 
+            ParentDirectory = path;
+            ProjectName = name;
             ProjectPath = targetPath;
             DefaultBranch = string.IsNullOrWhiteSpace(branch) ? "main" : branch;
             RemoteUrl = string.IsNullOrWhiteSpace(RemoteUrlTextBox.Text) ? null : RemoteUrlTextBox.Text.Trim();

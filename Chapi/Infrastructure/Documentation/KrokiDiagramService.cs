@@ -14,13 +14,13 @@ namespace Chapi.Infrastructure.Documentation;
 /// </summary>
 public class KrokiDiagramService : IKrokiDiagramService
 {
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
     private readonly HttpClient _httpClient;
     private const string BaseUrl = "https://kroki.io";
 
     public KrokiDiagramService(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        _httpClient.Timeout = TimeSpan.FromSeconds(30);
     }
 
     public async Task<string> RenderToSvgAsync(string code, string format, CancellationToken cancellationToken = default)
@@ -270,12 +270,16 @@ public class KrokiDiagramService : IKrokiDiagramService
     private async Task<(bool Ok, int StatusCode, string? Body, byte[]? Bytes)> PostDiagramAsync(
         string source, string format, string outputFormat, CancellationToken cancellationToken)
     {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(RequestTimeout);
+        var token = timeoutCts.Token;
+
         var url = $"{BaseUrl}/{format}/{outputFormat}";
         using var plain = new StringContent(source ?? string.Empty, Encoding.UTF8, "text/plain");
         using var plainRequest = new HttpRequestMessage(HttpMethod.Post, url) { Content = plain };
         plainRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(
             string.Equals(outputFormat, "svg", StringComparison.OrdinalIgnoreCase) ? "image/svg+xml" : "image/png"));
-        var response = await _httpClient.SendAsync(plainRequest, cancellationToken);
+        var response = await _httpClient.SendAsync(plainRequest, token);
         if (!response.IsSuccessStatusCode)
         {
             // Fallback JSON (compatibilidad)
@@ -284,7 +288,7 @@ public class KrokiDiagramService : IKrokiDiagramService
             using var jsonRequest = new HttpRequestMessage(HttpMethod.Post, url) { Content = json };
             jsonRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(
                 string.Equals(outputFormat, "svg", StringComparison.OrdinalIgnoreCase) ? "image/svg+xml" : "image/png"));
-            response = await _httpClient.SendAsync(jsonRequest, cancellationToken);
+            response = await _httpClient.SendAsync(jsonRequest, token);
         }
         var statusCode = (int)response.StatusCode;
 
@@ -292,19 +296,19 @@ public class KrokiDiagramService : IKrokiDiagramService
         {
             if (!response.IsSuccessStatusCode)
             {
-                var err = await response.Content.ReadAsStringAsync(cancellationToken);
+                var err = await response.Content.ReadAsStringAsync(token);
                 return (false, statusCode, err, null);
             }
-            var svg = await response.Content.ReadAsStringAsync(cancellationToken);
+            var svg = await response.Content.ReadAsStringAsync(token);
             return (true, statusCode, svg, null);
         }
 
         if (!response.IsSuccessStatusCode)
         {
-            var err = await response.Content.ReadAsStringAsync(cancellationToken);
+            var err = await response.Content.ReadAsStringAsync(token);
             return (false, statusCode, err, null);
         }
-        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var bytes = await response.Content.ReadAsByteArrayAsync(token);
         return (true, statusCode, null, bytes);
     }
 

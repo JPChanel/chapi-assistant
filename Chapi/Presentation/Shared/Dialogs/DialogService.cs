@@ -5,24 +5,32 @@ namespace Chapi.Presentation.Shared.Dialogs
 {
     public static class DialogService
     {
+        private static async Task<object?> ShowSafeAsync(object dialogContent)
+        {
+            for (int i = 0; i < 20 && DialogHost.IsDialogOpen(App.GlobalDialogIdentifier); i++)
+            {
+                await Task.Delay(40);
+            }
+
+            return await DialogHost.Show(dialogContent, App.GlobalDialogIdentifier);
+        }
+
         public static async Task<(bool, string)> ShowInputDialog(string title, string message, string? defaultText = null)
         {
             var dialog = new InputDialog
             {
                 Message = message,
                 Title = title,
-
             };
             if (!string.IsNullOrEmpty(defaultText))
             {
                 dialog.ResponseTextBox.Text = defaultText;
             }
 
-            var result = await DialogHost.Show(dialog, App.GlobalDialogIdentifier);
+            var result = await ShowSafeAsync(dialog);
             var res = bool.TryParse(result?.ToString(), out var boolResult) && boolResult;
 
             return (res, dialog.ResponseText ?? string.Empty);
-
         }
 
         public static async Task<bool> ShowConfirmDialog(
@@ -43,21 +51,20 @@ namespace Chapi.Presentation.Shared.Dialogs
                 CancelButtonText = cancelButtonText
             };
 
-            var result = await DialogHost.Show(dialog, App.GlobalDialogIdentifier);
-
+            var result = await ShowSafeAsync(dialog);
 
             return bool.TryParse(result?.ToString(), out var boolResult) && boolResult;
         }
 
-        public static async Task<object> ShowDialog(object dialogContent)
+        public static async Task<object?> ShowDialog(object dialogContent)
         {
-            return await DialogHost.Show(dialogContent, App.GlobalDialogIdentifier);
+            return await ShowSafeAsync(dialogContent);
         }
 
         public static async Task ShowManageProjectGroupsDialog()
         {
             var dialog = new ManageProjectGroupsDialog();
-            await DialogHost.Show(dialog, App.GlobalDialogIdentifier);
+            await ShowSafeAsync(dialog);
         }
 
         public static void ShowTrayNotification(string title, string message)
@@ -81,7 +88,7 @@ namespace Chapi.Presentation.Shared.Dialogs
             // Set defaults for Build Config & Destination
             dialog.SetDefaults(defaultAppName, defaultPackageId, defaultAuthor, defaultLocalPath, defaultFtpUrl, defaultFtpUser, defaultPlatform, defaultIconPath, defaultSplashPath);
 
-            var result = await DialogHost.Show(dialog, App.GlobalDialogIdentifier);
+            var result = await ShowSafeAsync(dialog);
 
             if (bool.TryParse(result?.ToString(), out var boolResult) && boolResult)
             {
@@ -117,7 +124,7 @@ namespace Chapi.Presentation.Shared.Dialogs
             var dialog = new CreateRepositoryDialog();
             dialog.SetDefaults(initialPath, defaultBranch);
 
-            var result = await DialogHost.Show(dialog, App.GlobalDialogIdentifier);
+            var result = await ShowSafeAsync(dialog);
 
             if (bool.TryParse(result?.ToString(), out var boolResult) && boolResult && dialog.IsConfirmed)
             {
@@ -125,6 +132,21 @@ namespace Chapi.Presentation.Shared.Dialogs
             }
 
             return (false, string.Empty, "main", null, false, false);
+        }
+
+        public static async Task<(bool Confirmed, string ProjectName, string ParentDirectory, string? RemoteUrl)> ShowCreateProjectDialog()
+        {
+            var dialog = new CreateRepositoryDialog();
+            dialog.ConfigureForTemplateProject();
+
+            var result = await ShowSafeAsync(dialog);
+
+            if (bool.TryParse(result?.ToString(), out var boolResult) && boolResult && dialog.IsConfirmed)
+            {
+                return (true, dialog.ProjectName, dialog.ParentDirectory, dialog.RemoteUrl);
+            }
+
+            return (false, string.Empty, string.Empty, null);
         }
     }
 }

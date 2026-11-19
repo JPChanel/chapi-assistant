@@ -8,7 +8,7 @@ public record CreateProjectRequest(
     string ProjectName,
     string ParentDirectory,
     string TemplateUrl,
-    string RemoteUrl = null
+    string? RemoteUrl = null
 );
 
 public class CreateProjectUseCase
@@ -27,7 +27,7 @@ public class CreateProjectUseCase
         _projectRepository = projectRepository;
     }
 
-    public async Task<Result<string>> ExecuteAsync(CreateProjectRequest request, Action<string> onProgress = null)
+    public async Task<Result<string>> ExecuteAsync(CreateProjectRequest request, Action<string>? onProgress = null)
     {
         try
         {

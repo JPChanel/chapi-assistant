@@ -9,13 +9,13 @@ public class GitModel
 
 public class GitStatusItem
 {
-    public string Status { get; set; }
-    public string ShortStatus { get; set; }
-    public string FilePath { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string ShortStatus { get; set; } = string.Empty;
+    public string FilePath { get; set; } = string.Empty;
     public string FileName => System.IO.Path.GetFileName(FilePath);
-    public string DirectoryPath => System.IO.Path.GetDirectoryName(FilePath);
+    public string DirectoryPath => System.IO.Path.GetDirectoryName(FilePath) ?? string.Empty;
     public PackIconKind Icon { get; set; }
-    public Brush Color { get; set; }
+    public Brush Color { get; set; } = Brushes.Transparent;
     public bool IsSelected { get; set; } = true;
     public int Additions { get; set; } = 0;
     public int Deletions { get; set; } = 0;
@@ -23,14 +23,14 @@ public class GitStatusItem
 
 public class GitLogItem
 {
-    public string Hash { get; set; }
-    public string ShortHash => Hash?.Length > 7 ? Hash.Substring(0, 7) : Hash;
-    public string Author { get; set; }
-    public string Date { get; set; }
-    public string RelativeDate { get; set; }
-    public string Message { get; set; }
+    public string Hash { get; set; } = string.Empty;
+    public string ShortHash => Hash?.Length > 7 ? Hash.Substring(0, 7) : (Hash ?? string.Empty);
+    public string Author { get; set; } = string.Empty;
+    public string Date { get; set; } = string.Empty;
+    public string RelativeDate { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
 
-    public string Description { get; set; }
+    public string Description { get; set; } = string.Empty;
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
     public bool IsUnpushed { get; set; } = false;
     public List<string> Tags { get; set; } = new List<string>();
@@ -39,14 +39,14 @@ public class GitLogItem
 
 public class GitTagItem
 {
-    public string TagName { get; set; }
-    public string CommitHash { get; set; }
-    public string ShortHash => CommitHash?.Length > 7 ? CommitHash.Substring(0, 7) : CommitHash;
-    public string CommitMessage { get; set; }
-    public string RelativeDate { get; set; }
-    public string TagMessage { get; set; }
-    public string AuthorName { get; set; }
-    public string CommitDescription { get; set; }
+    public string TagName { get; set; } = string.Empty;
+    public string CommitHash { get; set; } = string.Empty;
+    public string ShortHash => CommitHash?.Length > 7 ? CommitHash.Substring(0, 7) : (CommitHash ?? string.Empty);
+    public string CommitMessage { get; set; } = string.Empty;
+    public string RelativeDate { get; set; } = string.Empty;
+    public string TagMessage { get; set; } = string.Empty;
+    public string AuthorName { get; set; } = string.Empty;
+    public string CommitDescription { get; set; } = string.Empty;
     public bool IsLatest { get; set; }
 
     // Estadísticas
@@ -61,7 +61,7 @@ public class GitTagItem
 /// </summary>
 public class ProjectViewModel : System.ComponentModel.INotifyPropertyChanged
 {
-    public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
 
     public string FullPath { get; set; } = string.Empty;

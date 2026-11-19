@@ -1,4 +1,4 @@
-﻿using Chapi.Infrastructure.Persistence.Settings;
+using Chapi.Infrastructure.Persistence.Settings;
 using System.Net.NetworkInformation;
 
 namespace Chapi.Infrastructure.Services;
@@ -6,9 +6,7 @@ namespace Chapi.Infrastructure.Services;
 public class NetworkWatcherService : IDisposable
 {
     private bool _isApplying = false;
-    public static event Action OnProxyConfigChanged;
-    // El dominio de tu oficina
-    private string _corporateDomain = "pjudicial.pj.gob.pe";
+    public static event Action? OnProxyConfigChanged;
     private readonly Chapi.Domain.Interfaces.IGitRepository _gitRepository;
 
     public NetworkWatcherService(Chapi.Domain.Interfaces.IGitRepository gitRepository)
@@ -108,7 +106,7 @@ public class NetworkWatcherService : IDisposable
         var user = settings.ProxyUser;
         var pass = settings.ProxyPass;
 
-        if (string.IsNullOrWhiteSpace(url)) return null;
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
 
         string scheme = "http"; // Asumir http
         if (url.StartsWith("http://"))
@@ -126,6 +124,3 @@ public class NetworkWatcherService : IDisposable
         return $"{scheme}://{url}";
     }
 }
-
-
-

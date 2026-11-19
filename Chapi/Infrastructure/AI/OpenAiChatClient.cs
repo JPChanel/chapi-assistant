@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.AI;
+using Microsoft.Extensions.AI;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -9,6 +9,11 @@ namespace Chapi.Infrastructure.AI;
 
 public class OpenAiChatClient : IChatClient
 {
+    private static readonly SocketsHttpHandler SharedHandler = new()
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(10)
+    };
+
     private readonly string _apiKey;
     private readonly HttpClient _httpClient;
     private readonly string _modelId;
@@ -17,7 +22,10 @@ public class OpenAiChatClient : IChatClient
     {
         _apiKey = apiKey;
         _modelId = modelId;
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+        _httpClient = new HttpClient(SharedHandler, disposeHandler: false)
+        {
+            Timeout = TimeSpan.FromSeconds(60)
+        };
         _httpClient.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
     }

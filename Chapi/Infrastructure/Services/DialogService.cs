@@ -22,7 +22,7 @@ public static class DialogService
             confirmButtonText,
             cancelButtonText);
 
-    public static Task<object> ShowDialog(object dialogContent)
+    public static Task<object?> ShowDialog(object dialogContent)
         => Chapi.Presentation.Shared.Dialogs.DialogService.ShowDialog(dialogContent);
 
     public static Task ShowManageProjectGroupsDialog()
@@ -56,4 +56,7 @@ public static class DialogService
         string? initialPath = null,
         string? defaultBranch = null)
         => Chapi.Presentation.Shared.Dialogs.DialogService.ShowCreateRepositoryDialog(initialPath, defaultBranch);
+
+    public static Task<(bool Confirmed, string ProjectName, string ParentDirectory, string? RemoteUrl)> ShowCreateProjectDialog()
+        => Chapi.Presentation.Shared.Dialogs.DialogService.ShowCreateProjectDialog();
 }

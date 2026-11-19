@@ -18,10 +18,28 @@ public class WorkspaceService : IWorkspaceService
     private readonly IServiceProvider _serviceProvider;
     private readonly IGitRepository _gitRepository;
 
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromHours(2);
+    private DailyTipsCache? _cachedTips;
+    private readonly SemaphoreSlim _tipsLock = new(1, 1);
+    private static int _fallbackIndex = -1;
+    private static readonly List<string> FallbackTips = new()
+    {
+        "La vida tiene su propio backend: son esas conexiones ocultas que hacen que todo funcione.",
+        "El código limpio es como un buen chiste: si tienes que explicarlo, es malo.",
+        "Hay dos formas de escribir programas sin errores; solo la tercera funciona.",
+        "Primero resuelve el problema. Luego, escribe el código.",
+        "La simplicidad es el alma de la eficiencia.",
+        "No documentes el problema, soluciónalo.",
+        "Refactorizar es como limpiar tu habitación: nadie quiere hacerlo, pero se siente genial.",
+        "Un buen programador mira a ambos lados antes de cruzar una calle de sentido único."
+    };
+
     private class DailyTipsCache
     {
-        public DateTime Date { get; set; }
+        public DateTime? Date { get; set; }
+        public DateTime LastFetchedUtc { get; set; } = DateTime.MinValue;
         public List<string> Tips { get; set; } = new();
+        public int CurrentIndex { get; set; } = -1;
     }
 
     public WorkspaceService(IServiceProvider serviceProvider)
@@ -248,70 +266,83 @@ public class WorkspaceService : IWorkspaceService
 
     public async Task<Result<string>> GetRandomQuoteAsync()
     {
-        // 1. Try to load from cache
+        await _tipsLock.WaitAsync();
         try
         {
-            if (File.Exists(_tipsCachePath))
+            if (_cachedTips == null)
             {
-                var json = await File.ReadAllTextAsync(_tipsCachePath);
-                var cache = JsonSerializer.Deserialize<DailyTipsCache>(json);
+                _cachedTips = await LoadTipsCacheAsync();
+            }
 
-                if (cache != null && cache.Date.Date == DateTime.Today && cache.Tips.Any())
+            var now = DateTime.UtcNow;
+            bool shouldRefreshWithAi = _cachedTips == null
+                || !_cachedTips.Tips.Any()
+                || (now - _cachedTips.LastFetchedUtc) >= RefreshInterval;
+
+            // 1. Si pasaron 2 horas (o no hay tips en caché), refrescar con la IA
+            if (shouldRefreshWithAi)
+            {
+                var newTips = await FetchTipsFromAiAsync();
+                if (newTips != null && newTips.Any())
                 {
-                    var random = new Random();
-                    return Result<string>.Success(cache.Tips[random.Next(cache.Tips.Count)]);
+                    _cachedTips = new DailyTipsCache
+                    {
+                        LastFetchedUtc = now,
+                        Tips = newTips,
+                        CurrentIndex = 0
+                    };
+                    await SaveTipsCacheAsync(_cachedTips);
+                    return Result<string>.Success(_cachedTips.Tips[0]);
                 }
             }
+
+            // 2. En el lapso de 2 horas (o fallback si la IA falló): alternar entre los 10 tips traídos anteriormente
+            if (_cachedTips != null && _cachedTips.Tips.Any())
+            {
+                _cachedTips.CurrentIndex = (_cachedTips.CurrentIndex + 1) % _cachedTips.Tips.Count;
+                var selectedTip = _cachedTips.Tips[_cachedTips.CurrentIndex];
+                await SaveTipsCacheAsync(_cachedTips);
+                return Result<string>.Success(selectedTip);
+            }
+
+            // 3. Fallback en caso de no tener caché ni conexión
+            return Result<string>.Success(GetNextFallbackTip());
         }
-        catch { /* Ignore */ }
-
-        // 2. Fallback
-        var fallbackTips = new List<string>
+        catch
         {
-            "La vida tiene su propio backend: son esas conexiones ocultas que hacen que todo funcione.",
-            "El código limpio es como un buen chiste: si tienes que explicarlo, es malo.",
-            "Hay dos formas de escribir programas sin errores; solo la tercera funciona.",
-            "Primero resuelve el problema. Luego, escribe el código.",
-            "La simplicidad es el alma de la eficiencia.",
-            "No documentes el problema, soluciónalo.",
-            "Refactorizar es como limpiar tu habitación: nadie quiere hacerlo, pero se siente genial.",
-            "Un buen programador mira a ambos lados antes de cruzar una calle de sentido único."
-        };
-
-        // 3. Trigger background refresh
-        _ = Task.Run(() => RefreshDailyTipsAsync());
-
-        var rnd = new Random();
-        return Result<string>.Success(fallbackTips[rnd.Next(fallbackTips.Count)]);
+            return Result<string>.Success(GetNextFallbackTip());
+        }
+        finally
+        {
+            _tipsLock.Release();
+        }
     }
 
-    private async Task RefreshDailyTipsAsync()
+    private static string GetNextFallbackTip()
+    {
+        _fallbackIndex = (_fallbackIndex + 1) % FallbackTips.Count;
+        return FallbackTips[_fallbackIndex];
+    }
+
+    private async Task<List<string>?> FetchTipsFromAiAsync()
     {
         try
         {
-            // Simple check to avoid spamming if cache is fresh enough
-            if (File.Exists(_tipsCachePath))
-            {
-                var lastWrite = File.GetLastWriteTime(_tipsCachePath);
-                if (lastWrite.Date == DateTime.Today) return;
-            }
-
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
             var prompt = "Genera un JSON array de strings con 10 consejos cortos (máx 15 palabras), ingeniosos, modernos y útiles sobre desarrollo de software, clean code, arquitectura o vida dev. En español. Solo el JSON array puro.";
 
-            // Use dynamic ChatClient resolution
             using var scope = _serviceProvider.CreateScope();
-            var chatClient = scope.ServiceProvider.GetRequiredService<IChatClient>();
-            
+            var chatClient = scope.ServiceProvider.GetService<IChatClient>();
+            if (chatClient == null) return null;
+
             var messages = new[] { new ChatMessage(ChatRole.User, prompt) };
-            var response = await chatClient.GetResponseAsync(messages);
+            var response = await chatClient.GetResponseAsync(messages, cancellationToken: cts.Token);
             var responseText = response.Messages.FirstOrDefault()?.Text;
 
-            if (string.IsNullOrWhiteSpace(responseText)) return;
+            if (string.IsNullOrWhiteSpace(responseText)) return null;
 
-            // Clean up potentially wrapped JSON
             responseText = responseText.Replace("```json", "").Replace("```", "").Trim();
-            
-            // Try to extract JSON array if wrapped in text
+
             var startIndex = responseText.IndexOf('[');
             var endIndex = responseText.LastIndexOf(']');
             if (startIndex >= 0 && endIndex > startIndex)
@@ -320,18 +351,54 @@ public class WorkspaceService : IWorkspaceService
             }
 
             var tips = JsonSerializer.Deserialize<List<string>>(responseText);
-
             if (tips != null && tips.Any())
             {
-                var cache = new DailyTipsCache
-                {
-                    Date = DateTime.Today,
-                    Tips = tips
-                };
-
-                var json = JsonSerializer.Serialize(cache);
-                await File.WriteAllTextAsync(_tipsCachePath, json);
+                return tips.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
             }
+        }
+        catch
+        {
+            // Falla silenciosa si no hay internet o timeout
+        }
+
+        return null;
+    }
+
+    private async Task<DailyTipsCache?> LoadTipsCacheAsync()
+    {
+        try
+        {
+            if (File.Exists(_tipsCachePath))
+            {
+                var json = await File.ReadAllTextAsync(_tipsCachePath);
+                var cache = JsonSerializer.Deserialize<DailyTipsCache>(json);
+                if (cache != null)
+                {
+                    if (cache.LastFetchedUtc == DateTime.MinValue && cache.Date.HasValue)
+                    {
+                        cache.LastFetchedUtc = cache.Date.Value.ToUniversalTime();
+                    }
+                    return cache;
+                }
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    private async Task SaveTipsCacheAsync(DailyTipsCache cache)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(_tipsCachePath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            var json = JsonSerializer.Serialize(cache, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(_tipsCachePath, json);
         }
         catch { }
     }

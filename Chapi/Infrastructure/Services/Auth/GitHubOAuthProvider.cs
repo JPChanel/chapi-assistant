@@ -20,6 +20,7 @@ namespace Chapi.Infrastructure.Services.Auth;
 public class GitHubOAuthProvider : IGitAuthProvider
 {
     private static readonly SemaphoreSlim AuthenticationSemaphore = new(1, 1);
+    private static readonly TimeSpan OAuthCallbackTimeout = TimeSpan.FromMinutes(3);
     private readonly ICredentialStorageService _credentialStorage;
     private readonly HttpClient _httpClient;
     private readonly GitHubConfig _config;
@@ -32,13 +33,19 @@ public class GitHubOAuthProvider : IGitAuthProvider
         IOptions<GitAuthConfig> config)
     {
         _credentialStorage = credentialStorage;
-
-        // Configuramos el HttpClient para ignorar el proxy del sistema si da problemas
-        var handler = new HttpClientHandler { UseProxy = false };
         _httpClient = httpClient;
-
         _config = config.Value.GitHub;
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "ChapiAssistant");
+    }
+
+    private static HttpRequestMessage CreateRequest(HttpMethod method, string url, string? bearerToken = null)
+    {
+        var request = new HttpRequestMessage(method, url);
+        request.Headers.UserAgent.ParseAdd("ChapiAssistant");
+        if (!string.IsNullOrEmpty(bearerToken))
+        {
+            request.Headers.Add("Authorization", $"Bearer {bearerToken}");
+        }
+        return request;
     }
 
     public async Task<Result<GitCredential>> AuthenticateAsync()
@@ -67,18 +74,18 @@ public class GitHubOAuthProvider : IGitAuthProvider
             // 4. Escuchar callback
             var code = await ListenForCallbackAsync(state);
             if (string.IsNullOrEmpty(code))
-                return Result<GitCredential>.Fail("Autenticación cancelada");
+                return Result<GitCredential>.Fail("Autenticación cancelada o tiempo de espera agotado");
 
             // 5. Intercambiar código por token
             var tokenResult = await ExchangeCodeForTokenResultAsync(code);
-            if (!tokenResult.IsSuccess)
+            if (!tokenResult.IsSuccess || tokenResult.Data == null)
                 return Result<GitCredential>.Fail(tokenResult.Error);
 
             var tokenResponse = tokenResult.Data;
 
             // 6. Obtener información del usuario
             var userResult = await GetUserInfoAsync(tokenResponse.AccessToken);
-            if (!userResult.IsSuccess)
+            if (!userResult.IsSuccess || userResult.Data == null)
                 return userResult;
 
             // 7. Guardar credenciales
@@ -100,7 +107,7 @@ public class GitHubOAuthProvider : IGitAuthProvider
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://github.com/login/oauth/access_token");
+            using var request = CreateRequest(HttpMethod.Post, "https://github.com/login/oauth/access_token");
             request.Headers.Add("Accept", "application/json");
 
             var content = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -146,9 +153,7 @@ public class GitHubOAuthProvider : IGitAuthProvider
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
-            request.Headers.Add("Authorization", $"Bearer {token}");
-
+            using var request = CreateRequest(HttpMethod.Get, "https://api.github.com/user", token);
             var response = await _httpClient.SendAsync(request);
             return response.IsSuccessStatusCode;
         }
@@ -173,8 +178,7 @@ public class GitHubOAuthProvider : IGitAuthProvider
             while (true)
             {
                 var url = $"https://api.github.com/user/repos?visibility=all&affiliation=owner,collaborator,organization_member&sort=updated&per_page=100&page={page}";
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
-                request.Headers.Add("Authorization", $"Bearer {token}");
+                using var request = CreateRequest(HttpMethod.Get, url, token);
 
                 var response = await _httpClient.SendAsync(request);
                 if (!response.IsSuccessStatusCode)
@@ -195,7 +199,7 @@ public class GitHubOAuthProvider : IGitAuthProvider
                     FullName = r.FullName,
                     CloneUrl = r.CloneUrl,
                     IsPrivate = r.Private,
-                    Description = r.Description,
+                    Description = r.Description ?? string.Empty,
                     UpdatedAt = r.UpdatedAt
                 }));
 
@@ -242,8 +246,7 @@ public class GitHubOAuthProvider : IGitAuthProvider
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
-            request.Headers.Add("Authorization", $"Bearer {token}");
+            using var request = CreateRequest(HttpMethod.Get, "https://api.github.com/user", token);
 
             var response = await _httpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
@@ -276,36 +279,53 @@ public class GitHubOAuthProvider : IGitAuthProvider
         listener.Prefixes.Add(_config.RedirectUri + "/");
         listener.Start();
 
-        while (true)
+        var deadline = DateTime.UtcNow.Add(OAuthCallbackTimeout);
+
+        try
         {
-            var context = await listener.GetContextAsync();
-            var query = context.Request.QueryString;
-
-            // Ignorar peticiones de favicon o similares
-            if (context.Request.Url?.AbsolutePath.EndsWith("favicon.ico") == true)
+            while (true)
             {
-                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                context.Response.Close();
-                continue;
-            }
+                var remaining = deadline - DateTime.UtcNow;
+                if (remaining <= TimeSpan.Zero)
+                {
+                    return null;
+                }
 
-            var code = query["code"];
-            var state = query["state"];
+                var contextTask = listener.GetContextAsync();
+                var completed = await Task.WhenAny(contextTask, Task.Delay(remaining));
+                if (completed != contextTask)
+                {
+                    return null;
+                }
 
-            // Responder al navegador con UI Premium
-            var response = context.Response;
-            response.ContentType = "text/html; charset=utf-8";
+                var context = await contextTask;
+                var query = context.Request.QueryString;
 
-            bool isSuccess = !string.IsNullOrEmpty(code) && state == expectedState;
-            string statusTitle = isSuccess ? "¡Conexión Exitosa!" : "Error de Conexión";
-            string statusIcon = isSuccess ? "✅" : "❌";
-            string statusColor = isSuccess ? "#28a745" : "#dc3545";
-            string statusMessage = isSuccess
-                ? "GitHub se ha vinculado correctamente con Chapi."
-                : (state != expectedState ? "Error de seguridad: el estado de la sesión no coincide." : "No se pudo verificar la identidad o el usuario canceló el acceso.");
-            string brandColor = isSuccess ? "linear-gradient(135deg, #2abb47 0%, #28a745 100%)" : "linear-gradient(135deg, #ff4b2b 0%, #ff416c 100%)";
+                // Ignorar peticiones de favicon o similares
+                if (context.Request.Url?.AbsolutePath.EndsWith("favicon.ico") == true)
+                {
+                    context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                    context.Response.Close();
+                    continue;
+                }
 
-            string responseString = $@"
+                var code = query["code"];
+                var state = query["state"];
+
+                // Responder al navegador con UI Premium
+                var response = context.Response;
+                response.ContentType = "text/html; charset=utf-8";
+
+                bool isSuccess = !string.IsNullOrEmpty(code) && state == expectedState;
+                string statusTitle = isSuccess ? "¡Conexión Exitosa!" : "Error de Conexión";
+                string statusIcon = isSuccess ? "✅" : "❌";
+                string statusColor = isSuccess ? "#28a745" : "#dc3545";
+                string statusMessage = isSuccess
+                    ? "GitHub se ha vinculado correctamente con Chapi."
+                    : (state != expectedState ? "Error de seguridad: el estado de la sesión no coincide." : "No se pudo verificar la identidad o el usuario canceló el acceso.");
+                string brandColor = isSuccess ? "linear-gradient(135deg, #2abb47 0%, #28a745 100%)" : "linear-gradient(135deg, #ff4b2b 0%, #ff416c 100%)";
+
+                string responseString = $@"
 <!DOCTYPE html>
 <html lang='es'>
 <head>
@@ -385,21 +405,26 @@ public class GitHubOAuthProvider : IGitAuthProvider
 </body>
 </html>";
 
-            var buffer = Encoding.UTF8.GetBytes(responseString);
-            response.ContentLength64 = buffer.Length;
-            await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
-            response.OutputStream.Close();
+                var buffer = Encoding.UTF8.GetBytes(responseString);
+                response.ContentLength64 = buffer.Length;
+                await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
+                response.OutputStream.Close();
 
-            // Salir solo si tenemos el código o si el estado es inválido (error real)
-            if (isSuccess || !string.IsNullOrEmpty(state))
+                // Salir solo si tenemos el código o si el estado es inválido (error real)
+                if (isSuccess || !string.IsNullOrEmpty(state))
+                {
+                    return isSuccess ? code : null;
+                }
+            }
+        }
+        finally
+        {
+            if (listener.IsListening)
             {
                 listener.Stop();
-                return isSuccess ? code : null;
             }
         }
     }
-
-
 
     private class TokenResponse
     {

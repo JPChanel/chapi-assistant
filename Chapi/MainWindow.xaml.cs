@@ -35,7 +35,7 @@ namespace Chapi
 {
     public partial class MainWindow : Window, System.ComponentModel.INotifyPropertyChanged
     {
-        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
 
         private bool _isWindowInitialized = false;
@@ -1247,21 +1247,9 @@ namespace Chapi
                 if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
                 Activate();
 
-                var (success, projectName) = await DialogService.ShowInputDialog("Nuevo Proyecto", "Ingrese nombre del proyecto:");
-                if (!success || string.IsNullOrWhiteSpace(projectName)) return;
-
-                using var folderDialog = new FolderBrowserDialog();
-                if (folderDialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
-
-                var parentDir = folderDialog.SelectedPath;
-
-                var associateGit = await DialogService.ShowConfirmDialog("Asociar Git", "¿Deseas asociar un repositorio remoto ahora?");
-                string remoteUrl = null;
-                if (associateGit)
-                {
-                    var (remoteSuccess, remoteUrlText) = await DialogService.ShowInputDialog("Repositorio Git", "Ingrese la URL del repositorio remoto:");
-                    if (remoteSuccess) remoteUrl = remoteUrlText;
-                }
+                var (confirmed, projectName, parentDir, remoteUrl) = await DialogService.ShowCreateProjectDialog();
+                if (!confirmed || string.IsNullOrWhiteSpace(projectName) || string.IsNullOrWhiteSpace(parentDir))
+                    return;
 
                 await RunWithLoading(async () =>
                 {
@@ -1273,7 +1261,9 @@ namespace Chapi
                         remoteUrl
                     );
 
-                    var result = await createProjectUseCase.ExecuteAsync(request, progress => Msg.Assistant(progress));
+                    var result = await createProjectUseCase.ExecuteAsync(
+                        request,
+                        progress => Msg.Assistant(progress, showAlert: false));
 
                     if (result.IsSuccess)
                     {
