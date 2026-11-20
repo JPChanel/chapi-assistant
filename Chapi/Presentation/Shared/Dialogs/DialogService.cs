@@ -134,19 +134,20 @@ namespace Chapi.Presentation.Shared.Dialogs
             return (false, string.Empty, "main", null, false, false);
         }
 
-        public static async Task<(bool Confirmed, string ProjectName, string ParentDirectory, string? RemoteUrl)> ShowCreateProjectDialog()
+        public static async Task<(bool Confirmed, string ProjectName, string ParentDirectory, string? RemoteUrl, string? TemplateBranch)> ShowCreateProjectDialog(
+            Func<Task<IReadOnlyList<string>>>? loadBranchesAsync = null)
         {
             var dialog = new CreateRepositoryDialog();
-            dialog.ConfigureForTemplateProject();
+            dialog.ConfigureForTemplateProject(loadBranchesAsync);
 
             var result = await ShowSafeAsync(dialog);
 
             if (bool.TryParse(result?.ToString(), out var boolResult) && boolResult && dialog.IsConfirmed)
             {
-                return (true, dialog.ProjectName, dialog.ParentDirectory, dialog.RemoteUrl);
+                return (true, dialog.ProjectName, dialog.ParentDirectory, dialog.RemoteUrl, dialog.SelectedTemplateBranch);
             }
 
-            return (false, string.Empty, string.Empty, null);
+            return (false, string.Empty, string.Empty, null, null);
         }
     }
 }

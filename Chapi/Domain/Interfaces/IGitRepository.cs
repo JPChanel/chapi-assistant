@@ -53,7 +53,8 @@ public interface IGitRepository
     Task<Dictionary<string, (int Additions, int Deletions)>> GetCommitNumStatAsync(string projectPath, string hash);
 
     // Lifecycle
-    Task<Result> CloneAsync(string url, string destinationPath);
+    Task<Result> CloneAsync(string url, string destinationPath, string? branch = null, bool singleBranch = false, int? depth = null);
+    Task<Result<IReadOnlyList<string>>> GetRemoteBranchesAsync(string url);
     Task<Result> InitAsync(string projectPath, string? defaultBranch = null);
     Task<Result> AddRemoteAsync(string projectPath, string name, string url);
     Task<bool> IsGitRepositoryAsync(string projectPath);

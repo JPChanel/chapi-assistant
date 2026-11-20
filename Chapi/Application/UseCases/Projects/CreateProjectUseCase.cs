@@ -8,7 +8,8 @@ public record CreateProjectRequest(
     string ProjectName,
     string ParentDirectory,
     string TemplateUrl,
-    string? RemoteUrl = null
+    string? RemoteUrl = null,
+    string? TemplateBranch = null
 );
 
 public class CreateProjectUseCase
@@ -36,9 +37,17 @@ public class CreateProjectUseCase
             if (Directory.Exists(targetPath))
                 return Result<string>.Fail($"El directorio ya existe: {targetPath}");
 
-            // 1. Clonar repositorio base
-            onProgress?.Invoke("Clonando repositorio base...");
-            var cloneResult = await _gitRepository.CloneAsync(request.TemplateUrl, targetPath);
+            // 1. Clonar repositorio base (solo la rama seleccionada y sin historial innecesario)
+            var hasBranch = !string.IsNullOrWhiteSpace(request.TemplateBranch);
+            onProgress?.Invoke(hasBranch
+                ? $"Clonando rama '{request.TemplateBranch}' del repositorio base..."
+                : "Clonando repositorio base...");
+            var cloneResult = await _gitRepository.CloneAsync(
+                request.TemplateUrl,
+                targetPath,
+                branch: hasBranch ? request.TemplateBranch : null,
+                singleBranch: hasBranch,
+                depth: 1);
             if (!cloneResult.IsSuccess) return Result<string>.Fail(cloneResult.Error);
 
             // 2. Eliminar carpeta .git original

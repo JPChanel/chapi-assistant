@@ -57,6 +57,7 @@ public static class DialogService
         string? defaultBranch = null)
         => Chapi.Presentation.Shared.Dialogs.DialogService.ShowCreateRepositoryDialog(initialPath, defaultBranch);
 
-    public static Task<(bool Confirmed, string ProjectName, string ParentDirectory, string? RemoteUrl)> ShowCreateProjectDialog()
-        => Chapi.Presentation.Shared.Dialogs.DialogService.ShowCreateProjectDialog();
+    public static Task<(bool Confirmed, string ProjectName, string ParentDirectory, string? RemoteUrl, string? TemplateBranch)> ShowCreateProjectDialog(
+        Func<Task<IReadOnlyList<string>>>? loadBranchesAsync = null)
+        => Chapi.Presentation.Shared.Dialogs.DialogService.ShowCreateProjectDialog(loadBranchesAsync);
 }

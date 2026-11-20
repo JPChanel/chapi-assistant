@@ -11,12 +11,14 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
     {
         private bool _isSettingDefaults;
         private bool _isTemplateMode;
+        private Func<Task<IReadOnlyList<string>>>? _loadBranchesAsync;
 
         public bool IsConfirmed { get; private set; }
         public string ProjectPath { get; private set; } = string.Empty;
         public string ParentDirectory { get; private set; } = string.Empty;
         public string ProjectName { get; private set; } = string.Empty;
         public string DefaultBranch { get; private set; } = "main";
+        public string? SelectedTemplateBranch { get; private set; }
         public string? RemoteUrl { get; private set; }
         public bool CreateReadme { get; private set; }
         public bool CreateGitIgnore { get; private set; }
@@ -53,14 +55,74 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
             }
         }
 
-        public void ConfigureForTemplateProject()
+        public void ConfigureForTemplateProject(Func<Task<IReadOnlyList<string>>>? loadBranchesAsync = null)
         {
             _isTemplateMode = true;
+            _loadBranchesAsync = loadBranchesAsync;
             DialogTitleTextBlock.Text = "Crear Nuevo Proyecto";
             CreateButton.Content = "CREAR PROYECTO";
             DefaultBranchContainer.Visibility = Visibility.Collapsed;
             InitOptionsBorder.Visibility = Visibility.Collapsed;
+            TemplateBranchContainer.Visibility = Visibility.Collapsed;
             SetDefaults(null, null);
+
+            if (_loadBranchesAsync != null)
+            {
+                _ = LoadTemplateBranchesAsync();
+            }
+        }
+
+        private async Task LoadTemplateBranchesAsync()
+        {
+            if (_loadBranchesAsync == null) return;
+
+            try
+            {
+                TemplateBranchComboBox.IsEnabled = false;
+                RefreshBranchesButton.IsEnabled = false;
+                TemplateBranchStatusText.Text = "Detectando ramas del repositorio base...";
+                TemplateBranchStatusText.Visibility = Visibility.Visible;
+
+                var branches = await _loadBranchesAsync();
+                TemplateBranchComboBox.ItemsSource = branches;
+
+                if (branches.Count > 1)
+                {
+                    var defaultBranch = branches.FirstOrDefault(b => b.Equals("main", StringComparison.OrdinalIgnoreCase))
+                        ?? branches.FirstOrDefault(b => b.Equals("master", StringComparison.OrdinalIgnoreCase))
+                        ?? branches[0];
+                    TemplateBranchComboBox.SelectedItem = defaultBranch;
+                    TemplateBranchStatusText.Text = $"{branches.Count} ramas detectadas. Se clonará solo la rama elegida desde cero.";
+                    TemplateBranchContainer.Visibility = Visibility.Visible;
+                }
+                else if (branches.Count == 1)
+                {
+                    // Solo hay 1 rama: se selecciona internamente y se oculta el selector para clonar directo
+                    TemplateBranchComboBox.SelectedItem = branches[0];
+                    TemplateBranchContainer.Visibility = Visibility.Collapsed;
+                }
+                else
+                {
+                    TemplateBranchComboBox.SelectedItem = null;
+                    TemplateBranchContainer.Visibility = Visibility.Collapsed;
+                }
+            }
+            catch
+            {
+                // Si falla la consulta remota, se oculta el selector y clona la rama por defecto directo
+                TemplateBranchComboBox.SelectedItem = null;
+                TemplateBranchContainer.Visibility = Visibility.Collapsed;
+            }
+            finally
+            {
+                TemplateBranchComboBox.IsEnabled = true;
+                RefreshBranchesButton.IsEnabled = true;
+            }
+        }
+
+        private async void RefreshBranchesButton_Click(object sender, RoutedEventArgs e)
+        {
+            await LoadTemplateBranchesAsync();
         }
 
         private void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -136,6 +198,9 @@ namespace Chapi.Presentation.Shared.Dialogs.Views
             ProjectName = name;
             ProjectPath = targetPath;
             DefaultBranch = string.IsNullOrWhiteSpace(branch) ? "main" : branch;
+            SelectedTemplateBranch = _isTemplateMode
+                ? (TemplateBranchComboBox.SelectedItem as string)?.Trim()
+                : null;
             RemoteUrl = string.IsNullOrWhiteSpace(RemoteUrlTextBox.Text) ? null : RemoteUrlTextBox.Text.Trim();
             CreateReadme = CreateReadmeCheckBox.IsChecked == true;
             CreateGitIgnore = CreateGitIgnoreCheckBox.IsChecked == true;

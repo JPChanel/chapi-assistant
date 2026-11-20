@@ -1202,14 +1202,82 @@ public class GitCliRepository : IGitRepository
         return Result.Success();
     }
 
-    public async Task<Result> CloneAsync(string url, string destinationPath)
+    public async Task<Result> CloneAsync(string url, string destinationPath, string? branch = null, bool singleBranch = false, int? depth = null)
     {
+        var args = new List<string> { "clone" };
+        if (!string.IsNullOrWhiteSpace(branch))
+        {
+            args.Add("-b");
+            args.Add(branch.Trim());
+        }
+        if (singleBranch)
+        {
+            args.Add("--single-branch");
+        }
+        if (depth is > 0)
+        {
+            args.Add("--depth");
+            args.Add(depth.Value.ToString());
+        }
+        args.Add(url);
+        args.Add(destinationPath);
+
         var result = await ExecuteAuthenticatedAsync(
             Directory.GetCurrentDirectory(),
             url,
-            (_, env) => GitProcessExecutor.RunAsync(Directory.GetCurrentDirectory(), 300_000, env, "clone", url, destinationPath),
+            (_, env) => GitProcessExecutor.RunAsync(Directory.GetCurrentDirectory(), 300_000, env, args.ToArray()),
             allowInteractivePrompt: false);
         return result.IsSuccess ? Result.Success() : Result.Fail(result.Error);
+    }
+
+    public async Task<Result<IReadOnlyList<string>>> GetRemoteBranchesAsync(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return Result<IReadOnlyList<string>>.Fail("La URL del repositorio plantilla es requerida.");
+
+        var result = await ExecuteAuthenticatedAsync<string>(
+            Directory.GetCurrentDirectory(),
+            url,
+            async (_, env) =>
+            {
+                var r = await GitProcessExecutor.RunAsync(
+                    Directory.GetCurrentDirectory(),
+                    30_000,
+                    env,
+                    "ls-remote",
+                    "--heads",
+                    url);
+                return r.IsSuccess ? Result<string?>.Success(r.Data) : Result<string?>.Fail(r.Error);
+            },
+            allowInteractivePrompt: false);
+
+        if (!result.IsSuccess)
+            return Result<IReadOnlyList<string>>.Fail(result.Error ?? "No se pudieron obtener las ramas remotas.");
+
+        const string prefix = "refs/heads/";
+        var branches = new List<string>();
+        var output = result.Data ?? string.Empty;
+
+        foreach (var rawLine in output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var idx = rawLine.IndexOf(prefix, StringComparison.Ordinal);
+            if (idx >= 0)
+            {
+                var name = rawLine[(idx + prefix.Length)..].Trim();
+                if (!string.IsNullOrWhiteSpace(name))
+                    branches.Add(name);
+            }
+        }
+
+        var ordered = branches
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(b => b.Equals("main", StringComparison.OrdinalIgnoreCase) ? 0
+                        : b.Equals("master", StringComparison.OrdinalIgnoreCase) ? 1
+                        : 2)
+            .ThenBy(b => b, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return Result<IReadOnlyList<string>>.Success(ordered);
     }
 
     public async Task<Result> AddRemoteAsync(string projectPath, string name, string url)

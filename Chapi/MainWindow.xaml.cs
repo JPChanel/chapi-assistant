@@ -1,4 +1,4 @@
-﻿using Chapi.Domain.Models;
+using Chapi.Domain.Models;
 using Chapi.Infrastructure.Persistence.Settings;
 using Chapi.Infrastructure.Services;
 using Chapi.Presentation.Features.ActivityOverview.ViewModels;
@@ -1247,7 +1247,14 @@ namespace Chapi
                 if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
                 Activate();
 
-                var (confirmed, projectName, parentDir, remoteUrl) = await DialogService.ShowCreateProjectDialog();
+                var gitRepository = App.ServiceProvider.GetRequiredService<Chapi.Domain.Interfaces.IGitRepository>();
+                var (confirmed, projectName, parentDir, remoteUrl, templateBranch) = await DialogService.ShowCreateProjectDialog(async () =>
+                {
+                    var branchesResult = await gitRepository.GetRemoteBranchesAsync(repoUrl);
+                    return branchesResult.IsSuccess && branchesResult.Data != null
+                        ? branchesResult.Data
+                        : Array.Empty<string>();
+                });
                 if (!confirmed || string.IsNullOrWhiteSpace(projectName) || string.IsNullOrWhiteSpace(parentDir))
                     return;
 
@@ -1258,7 +1265,8 @@ namespace Chapi
                         projectName,
                         parentDir,
                         repoUrl,
-                        remoteUrl
+                        remoteUrl,
+                        templateBranch
                     );
 
                     var result = await createProjectUseCase.ExecuteAsync(

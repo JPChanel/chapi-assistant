@@ -56,6 +56,33 @@
                      materialDesign:HintAssist.Hint="Nombre del proyecto"
                      Margin="0,0,0,16"/>
 
+            <!-- Rama plantilla (solo en modo Crear Nuevo Proyecto) -->
+            <StackPanel x:Name="TemplateBranchContainer" Visibility="Collapsed" Margin="0,0,0,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="TemplateBranchComboBox"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              materialDesign:HintAssist.Hint="Rama de la plantilla"
+                              VerticalAlignment="Center"/>
+                    <Button x:Name="RefreshBranchesButton"
+                            Grid.Column="1"
+                            Margin="8,0,0,0"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Click="RefreshBranchesButton_Click"
+                            ToolTip="Recargar ramas del repositorio base">
+                        <materialDesign:PackIcon Kind="Refresh"/>
+                    </Button>
+                </Grid>
+                <TextBlock x:Name="TemplateBranchStatusText"
+                           FontSize="11"
+                           Opacity="0.7"
+                           Margin="4,4,0,0"
+                           Visibility="Collapsed"/>
+            </StackPanel>
+
             <!-- Rama por defecto -->
             <Grid x:Name="DefaultBranchContainer" Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
